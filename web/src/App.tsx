@@ -10,6 +10,7 @@ import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
 import UsersPage from './pages/admin/UsersPage.tsx';
+import ProfilePage from './pages/profile/ProfilePage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -82,6 +83,7 @@ function AppRoutes() {
       <Route path="/" element={<DashboardLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="churches" element={<ChurchesPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />

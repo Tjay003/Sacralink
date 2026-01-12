@@ -101,3 +101,42 @@ export async function directUpdateUserRole(
         return { success: false, error: 'Network error' };
     }
 }
+
+/**
+ * Update a user's profile (name, church, etc.)
+ */
+export async function directUpdateProfile(
+    userId: string,
+    updates: { full_name?: string; church_id?: string | null },
+    accessToken: string
+) {
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
+            {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation',
+                },
+                body: JSON.stringify({
+                    ...updates,
+                    updated_at: new Date().toISOString(),
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            console.error('Direct API error:', response.status, response.statusText);
+            return { success: false, error: 'Failed to update profile' };
+        }
+
+        const data = await response.json();
+        return { success: true, data: data[0] };
+    } catch (error) {
+        console.error('Direct API update error:', error);
+        return { success: false, error: 'Network error' };
+    }
+}
