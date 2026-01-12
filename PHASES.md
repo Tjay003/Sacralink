@@ -1,0 +1,318 @@
+# 🚀 SACRALINK Development Phases
+
+> **Current Phase:** Phase 1 - Foundation  
+> **Last Updated:** 2026-01-09  
+> **Status:** In Progress 🟡
+
+---
+
+## Overview
+
+This document tracks our progress building SacraLink step-by-step. Each phase builds on the previous one.
+
+| Phase | Name | Status | Progress |
+|-------|------|--------|----------|
+| 1 | Foundation & Setup | 🟡 In Progress | 60% |
+| 2 | Authentication | ⬜ Not Started | 0% |
+| 3 | Churches Feature | ⬜ Not Started | 0% |
+| 4 | Appointments Feature | ⬜ Not Started | 0% |
+| 5 | Donations Feature | ⬜ Not Started | 0% |
+| 6 | Announcements Feature | ⬜ Not Started | 0% |
+| 7 | Mobile App | ⬜ Not Started | 0% |
+| 8 | AI Scheduler | ⬜ Not Started | 0% |
+| 9 | Testing & Polish | ⬜ Not Started | 0% |
+
+---
+
+## Phase 1: Foundation & Setup 🟡
+
+> **Goal:** Set up the project structure and database so we have a solid base to build on.
+
+### 1.1 Project Planning
+- [x] Create project context file (`Sacralink_Context.md`)
+- [x] Define database schema (`Sacralink_database.sql`)
+- [x] Define user roles and permissions
+- [x] Plan tech stack (React, Supabase, Expo)
+
+### 1.2 Monorepo Structure
+- [x] Create `/web` folder (React Admin Dashboard)
+- [x] Create `/mobile` folder (React Native User App)
+- [x] Create `/shared` folder (Shared TypeScript types)
+- [x] Create `/supabase` folder (Database migrations)
+
+### 1.3 Web Project Setup
+- [x] Initialize Vite + React + TypeScript
+- [x] Install dependencies (Tailwind, React Router, Supabase, etc.)
+- [x] Configure Tailwind CSS with SacraLink colors
+- [x] Create base CSS with component classes
+- [x] Set up folder structure (components, pages, hooks, etc.)
+
+### 1.4 Shared Types
+- [x] Create TypeScript interfaces for all database tables
+- [x] Create constants (colors, labels, sacrament types)
+- [x] Export everything from index.ts
+
+### 1.5 Supabase Setup ✅
+- [x] Create a Supabase project at [supabase.com](https://supabase.com)
+- [x] Copy the SQL from `Sacralink_database.sql`
+- [x] Run the SQL in Supabase SQL Editor
+- [x] Verify tables were created (check Table Editor)
+- [ ] Create storage buckets:
+  - [ ] `avatars` (public)
+  - [ ] `panoramas` (public)
+  - [ ] `donation-qr` (public)
+  - [ ] `donation-proofs` (private)
+  - [ ] `announcements` (public)
+  - [ ] `documents` (private)
+- [x] Copy your Project URL and Anon Key
+- [x] Create `.env` file in `/web` folder with your keys
+
+### 1.6 Test the Setup ✅
+- [x] Run `npm run dev` in `/web` folder
+- [x] Fix TypeScript errors in web files
+- [x] Fix Tailwind CSS configuration issues
+- [x] Verify app loads at localhost:5173
+- [x] See login page without errors
+
+---
+
+## Phase 2: Authentication ⬜
+
+> **Goal:** Learn React Context and Supabase Auth by building working login/register.
+
+### 2.1 Understand the Code
+- [ ] Read through `AuthContext.tsx` - understand what it does
+- [ ] Read through `supabase.ts` - understand the client setup
+- [ ] Understand React Context pattern (global state)
+
+### 2.2 Configure Environment
+- [ ] Add Supabase URL to `.env`
+- [ ] Add Supabase Anon Key to `.env`
+- [ ] Restart dev server
+
+### 2.3 Test Authentication
+- [ ] Open app in browser
+- [ ] Try to register a new account
+- [ ] Check email for verification link (or disable email confirmation)
+- [ ] Try to login with your account
+- [ ] Verify you can access the dashboard
+
+### 2.4 Create Admin Account
+- [ ] In Supabase, update your profile's `role` to `super_admin`
+- [ ] Refresh the app and verify admin access
+
+### 2.5 Understand What We Built
+- [ ] Discuss: What is a "protected route"?
+- [ ] Discuss: How does the session work?
+- [ ] Discuss: What are RLS policies doing?
+
+---
+
+## Phase 3: Churches Feature ⬜
+
+> **Goal:** Build a full CRUD (Create, Read, Update, Delete) feature.
+
+### 3.1 Read Churches
+- [ ] Create a custom hook `useChurches()`
+- [ ] Fetch churches from Supabase
+- [ ] Display in a table/grid
+- [ ] Handle loading and error states
+
+### 3.2 Create Church
+- [ ] Build "Add Church" form
+- [ ] Form validation with Zod
+- [ ] Insert into Supabase
+- [ ] Show success/error feedback
+
+### 3.3 View Church Details
+- [ ] Create church detail page
+- [ ] Route with dynamic ID (`/churches/:id`)
+- [ ] Fetch single church data
+
+### 3.4 Update Church
+- [ ] Pre-fill form with existing data
+- [ ] Update in Supabase
+- [ ] Navigate back after save
+
+### 3.5 Delete Church
+- [ ] Confirmation dialog
+- [ ] Delete from Supabase
+- [ ] Handle cascade effects
+
+### 3.6 Mass Schedules (Sub-feature)
+- [ ] List mass schedules for a church
+- [ ] Add new schedule
+- [ ] Edit/delete schedules
+
+---
+
+## Phase 4: Appointments Feature ⬜
+
+> **Goal:** Manage sacrament bookings with status workflows.
+
+### 4.1 List Appointments
+- [ ] Fetch appointments with user and church data (joins)
+- [ ] Filter by status (pending, approved, etc.)
+- [ ] Search functionality
+
+### 4.2 Appointment Details
+- [ ] View full appointment info
+- [ ] See user's submitted documents
+- [ ] View/add admin feedback
+
+### 4.3 Status Management
+- [ ] Approve appointment (update status)
+- [ ] Reject appointment (with reason)
+- [ ] Mark as completed
+
+### 4.4 Calendar View (Bonus)
+- [ ] Visual calendar showing appointments
+- [ ] Click to view details
+
+---
+
+## Phase 5: Donations Feature ⬜
+
+> **Goal:** Verify cashless donations from parishioners.
+
+### 5.1 List Pending Donations
+- [ ] Fetch donations with status = 'pending'
+- [ ] Show proof image (from storage)
+- [ ] Show reference number
+
+### 5.2 Verify Donations
+- [ ] View proof image (fullscreen)
+- [ ] Approve button (update status to 'verified')
+- [ ] Reject button (update status to 'rejected')
+
+### 5.3 Donation History
+- [ ] All donations list (any status)
+- [ ] Filter by church, date, status
+- [ ] Export to CSV (bonus)
+
+---
+
+## Phase 6: Announcements Feature ⬜
+
+> **Goal:** Create and manage parish announcements.
+
+### 6.1 List Announcements
+- [ ] Fetch announcements for admin's church
+- [ ] Show pinned items first
+- [ ] Show active vs expired
+
+### 6.2 Create Announcement
+- [ ] Title, body, image upload
+- [ ] Pin option
+- [ ] Expiration date (optional)
+
+### 6.3 Edit/Delete
+- [ ] Update announcement
+- [ ] Delete with confirmation
+
+---
+
+## Phase 7: Mobile App ⬜
+
+> **Goal:** Build the parishioner-facing mobile app with Expo.
+
+### 7.1 Setup
+- [ ] Initialize Expo project in `/mobile`
+- [ ] Install NativeWind, React Navigation
+- [ ] Configure Supabase client
+
+### 7.2 Authentication
+- [ ] Login/Register screens
+- [ ] Auth persistence
+
+### 7.3 Church Browsing
+- [ ] List churches with search
+- [ ] Church detail page
+- [ ] 360° virtual tour (WebView)
+- [ ] Livestream viewer
+
+### 7.4 Booking
+- [ ] Select church and service type
+- [ ] Pick date/time
+- [ ] Submit appointment
+
+### 7.5 Donations
+- [ ] View church QR code
+- [ ] Upload proof screenshot
+- [ ] View donation history
+
+---
+
+## Phase 8: AI Scheduler ⬜
+
+> **Goal:** Implement the smart scheduling logic.
+
+### 8.1 Edge Function Setup
+- [ ] Create `check-availability` Edge Function
+- [ ] Test function locally
+
+### 8.2 Availability Logic
+- [ ] Check church operating hours
+- [ ] Check priest availability
+- [ ] Check existing appointments
+- [ ] Calculate service duration
+
+### 8.3 Suggestion System
+- [ ] Return available slots
+- [ ] Suggest alternatives if conflict
+
+### 8.4 Integration
+- [ ] Connect mobile app to Edge Function
+- [ ] Show suggestions in UI
+
+---
+
+## Phase 9: Testing & Polish ⬜
+
+> **Goal:** Ensure everything works and looks good.
+
+### 9.1 Testing
+- [ ] Test all features manually
+- [ ] Fix bugs
+- [ ] Test on different devices
+
+### 9.2 Performance
+- [ ] Optimize queries
+- [ ] Lazy load images
+- [ ] Add loading skeletons
+
+### 9.3 Documentation
+- [ ] Update README
+- [ ] Document how to deploy
+- [ ] Create user guide
+
+---
+
+## 📝 Notes & Learnings
+
+Use this section to write down things you learned along the way:
+
+### What I Learned
+- 
+
+### Questions I Had
+- 
+
+### Problems I Solved
+- 
+
+---
+
+## 🎯 Next Action
+
+**Current task:** Complete Phase 1.5 - Set up your Supabase project!
+
+1. Go to [supabase.com](https://supabase.com)
+2. Create a new project
+3. Wait for it to initialize (~2 minutes)
+4. Go to SQL Editor
+5. Paste the contents of `Sacralink_database.sql`
+6. Click "Run"
+7. Check Table Editor to see your tables!
+
+When done, tell me and we'll move to Phase 2! 🚀
