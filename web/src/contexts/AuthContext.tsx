@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * fetchProfile - Retrieves user profile data from the database
      * 
      * Why Direct API instead of Supabase Client?
+     * - For now use direct API calls but supabase client is the ideal
      * - The Supabase JS client has an "AbortError" issue in our environment
      * - Direct REST API calls bypass this problem
      * - We use the user's access token for authentication

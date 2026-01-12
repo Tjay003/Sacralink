@@ -13,11 +13,13 @@ import {
     X,
     ChevronDown,
     User,
+    Users,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Users', href: '/users', icon: Users, adminOnly: true },
     { name: 'Churches', href: '/churches', icon: Building2 },
     { name: 'Appointments', href: '/appointments', icon: Calendar },
     { name: 'Donations', href: '/donations', icon: Heart },
@@ -84,9 +86,11 @@ export default function DashboardLayout() {
 
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
-                    {navigation.map((item) => (
-                        <NavItem key={item.name} item={item} />
-                    ))}
+                    {navigation
+                        .filter(item => !item.adminOnly || (item.adminOnly && ['admin', 'super_admin'].includes(profile?.role || '')))
+                        .map((item) => (
+                            <NavItem key={item.name} item={item} />
+                        ))}
                 </nav>
 
                 {/* Bottom Section */}
@@ -114,9 +118,11 @@ export default function DashboardLayout() {
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        {/* Page Title - Can be dynamic */}
+                        {/* Page Title - Dynamic based on role */}
                         <div className="hidden lg:block">
-                            <h1 className="text-lg font-semibold text-foreground">Admin Dashboard</h1>
+                            <h1 className="text-lg font-semibold text-foreground">
+                                {profile?.role === 'user' ? 'Dashboard' : 'Admin Dashboard'}
+                            </h1>
                         </div>
 
                         {/* Right Section */}

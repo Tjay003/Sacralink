@@ -9,6 +9,7 @@ import ChurchesPage from './pages/churches/ChurchesPage.tsx';
 import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
+import UsersPage from './pages/admin/UsersPage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -19,10 +20,17 @@ function AppRoutes() {
 
   // Show loading spinner while checking auth
   if (loading) {
-    return <LoadingSpinner fullScreen />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Not logged in - show public routes
+  // Not logged in - show login page
   if (!user) {
     return (
       <Routes>
@@ -33,24 +41,24 @@ function AppRoutes() {
     );
   }
 
-  // Logged in but not admin - redirect to login (or show error)
+  // Logged in - check role-based access
   console.log('🔐 Access Check:', {
     hasUser: !!user,
     hasProfile: !!profile,
     profileRole: profile?.role,
-    isAdmin: profile?.role === 'admin',
-    isSuperAdmin: profile?.role === 'super_admin',
-    willAllow: profile && ['admin', 'super_admin'].includes(profile.role)
+    allowedRoles: ['user', 'admin', 'super_admin'],
+    isAllowed: profile && ['user', 'admin', 'super_admin'].includes(profile.role)
   });
 
-  if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-    console.warn('❌ Access denied - showing error page');
+  // User doesn't have required role - show access denied
+  if (!profile || !['user', 'admin', 'super_admin'].includes(profile.role)) {
+    console.warn('❌ Access denied - invalid role');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="card p-8 max-w-md">
           <h2 className="text-xl font-semibold mb-4">Access Denied</h2>
           <p className="text-muted mb-4">
-            You don't have permission to access the admin dashboard.
+            Your account doesn't have permission to access this application.
           </p>
           <p className="text-sm text-muted mb-4">
             Debug: {profile ? `Role: ${profile.role}` : 'No profile loaded'}
@@ -66,12 +74,15 @@ function AppRoutes() {
     );
   }
 
-  // Logged in as admin - show dashboard
+  // User has valid role - show dashboard
+  console.log('✅ Access granted - role:', profile.role);
+
   return (
     <Routes>
       <Route path="/" element={<DashboardLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="churches" element={<ChurchesPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="donations" element={<DonationsPage />} />
