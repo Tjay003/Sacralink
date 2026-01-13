@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { directUpdateProfile } from '../../lib/directApi';
-import type { Profile } from '../../types/database';
 
 /**
  * ProfilePage - User profile management
