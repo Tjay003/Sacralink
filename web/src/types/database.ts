@@ -236,34 +236,25 @@ export interface Database {
                 Row: {
                     id: string;
                     church_id: string;
-                    day_of_week: number;
-                    start_time: string;
-                    end_time: string;
-                    mass_type: string;
-                    language: string;
-                    is_active: boolean;
+                    day_of_week: string;
+                    time: string;
+                    language: string | null;
                     created_at: string;
                 };
                 Insert: {
                     id?: string;
                     church_id: string;
-                    day_of_week: number;
-                    start_time: string;
-                    end_time: string;
-                    mass_type?: string;
-                    language?: string;
-                    is_active?: boolean;
+                    day_of_week: string;
+                    time: string;
+                    language?: string | null;
                     created_at?: string;
                 };
                 Update: {
                     id?: string;
                     church_id?: string;
-                    day_of_week?: number;
-                    start_time?: string;
-                    end_time?: string;
-                    mass_type?: string;
-                    language?: string;
-                    is_active?: boolean;
+                    day_of_week?: string;
+                    time?: string;
+                    language?: string | null;
                     created_at?: string;
                 };
             };

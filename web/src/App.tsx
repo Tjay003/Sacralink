@@ -6,6 +6,9 @@ import LoginPage from './pages/auth/LoginPage.tsx';
 import RegisterPage from './pages/auth/RegisterPage.tsx';
 import DashboardPage from './pages/dashboard/DashboardPage.tsx';
 import ChurchesPage from './pages/churches/ChurchesPage.tsx';
+import AddChurchPage from './pages/churches/AddChurchPage.tsx';
+import ChurchDetailPage from './pages/churches/ChurchDetailPage.tsx';
+import EditChurchPage from './pages/churches/EditChurchPage.tsx';
 import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
@@ -85,7 +88,12 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="users" element={<UsersPage />} />
-        <Route path="churches" element={<ChurchesPage />} />
+        <Route path="churches">
+          <Route index element={<ChurchesPage />} />
+          <Route path="add" element={<AddChurchPage />} />
+          <Route path=":id" element={<ChurchDetailPage />} />
+          <Route path=":id/edit" element={<EditChurchPage />} />
+        </Route>
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="donations" element={<DonationsPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />

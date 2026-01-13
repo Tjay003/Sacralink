@@ -108,41 +108,53 @@ This document tracks our progress building SacraLink step-by-step. Each phase bu
 
 ---
 
-## Phase 3: Churches Feature ⬜
+## Phase 3: Churches Feature ✅ (In Progress - 3.6 & 3.7 remaining)
 
 > **Goal:** Build a full CRUD (Create, Read, Update, Delete) feature.
 
-### 3.1 Read Churches
-- [ ] Create a custom hook `useChurches()`
-- [ ] Fetch churches from Supabase
-- [ ] Display in a table/grid
-- [ ] Handle loading and error states
+### 3.1 Read Churches ✅
+- [x] Create a custom hook `useChurches()`
+- [x] Fetch churches from Supabase
+- [x] Display in a table/grid
+- [x] Handle loading and error states
 
-### 3.2 Create Church
-- [ ] Build "Add Church" form
-- [ ] Form validation with Zod
-- [ ] Insert into Supabase
-- [ ] Show success/error feedback
+### 3.2 Create Church ✅
+- [x] Build an "Add Church" form
+- [x] Validate inputs (name, address required)
+- [x] Insert into database
+- [x] Navigate to detail page after creation
 
-### 3.3 View Church Details
-- [ ] Create church detail page
-- [ ] Route with dynamic ID (`/churches/:id`)
-- [ ] Fetch single church data
+### 3.3 View Church Details ✅
+- [x] Create detail page with route `/churches/:id`
+- [x] Fetch single church data
+- [x] Display all information
+- [x] Add Edit and Delete buttons
 
-### 3.4 Update Church
-- [ ] Pre-fill form with existing data
-- [ ] Update in Supabase
-- [ ] Navigate back after save
+### 3.4 Update Church ✅
+- [x] Create edit form
+- [x] Pre-fill with existing data
+- [x] Update in database
+- [x] Navigate back to detail page
 
-### 3.5 Delete Church
-- [ ] Confirmation dialog
-- [ ] Delete from Supabase
-- [ ] Handle cascade effects
+### 3.5 Delete Church ✅
+- [x] Add delete button with confirmation
+- [x] Delete from database
+- [x] Handle cascade deletes (mass schedules)
+- [x] Navigate back to list
 
-### 3.6 Mass Schedules (Sub-feature)
+### 3.6 Mass Schedules (Sub-feature) ⬜ **← CURRENT**
 - [ ] List mass schedules for a church
 - [ ] Add new schedule
-- [ ] Edit/delete schedules
+- [ ] Edit schedule
+- [ ] Delete schedule
+- [ ] Display in church detail page
+
+### 3.7 Polish & Testing ⬜
+- [ ] Add search functionality (already done)
+- [ ] Add filters (by location, etc.)
+- [ ] Add pagination (if many churches)
+- [ ] Test all CRUD operations
+- [ ] Fix any bugs
 
 ---
 
