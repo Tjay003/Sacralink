@@ -9,6 +9,7 @@ import ChurchesPage from './pages/churches/ChurchesPage.tsx';
 import AddChurchPage from './pages/churches/AddChurchPage.tsx';
 import ChurchDetailPage from './pages/churches/ChurchDetailPage.tsx';
 import EditChurchPage from './pages/churches/EditChurchPage.tsx';
+import BookAppointmentPage from './pages/appointments/BookAppointmentPage.tsx';
 import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route path="add" element={<AddChurchPage />} />
           <Route path=":id" element={<ChurchDetailPage />} />
           <Route path=":id/edit" element={<EditChurchPage />} />
+          <Route path=":id/book" element={<BookAppointmentPage />} />
         </Route>
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="donations" element={<DonationsPage />} />

@@ -118,9 +118,11 @@ export default function ChurchesPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                         Contact
                                     </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-muted uppercase tracking-wider">
-                                        Actions
-                                    </th>
+                                    {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-muted uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-border">
@@ -179,17 +181,19 @@ export default function ChurchesPage() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/churches/${church.id}/edit`);
-                                                    }}
-                                                    className="btn-secondary text-sm"
-                                                >
-                                                    Edit
-                                                </button>
-                                            </td>
+                                            {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                                                <td className="px-6 py-4 text-right">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(`/churches/${church.id}/edit`);
+                                                        }}
+                                                        className="btn-secondary text-sm"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))
                                 )}

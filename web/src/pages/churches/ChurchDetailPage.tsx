@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar } from 'lucide-react';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -113,50 +113,62 @@ export default function ChurchDetailPage() {
                             <p className="text-muted">Church Details</p>
                         </div>
                     </div>
-                    {/* Only admins can edit/delete */}
-                    {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => navigate(`/churches/${id}/edit`)}
-                                className="btn-secondary"
-                            >
-                                <Edit className="w-4 h-4" />
-                                Edit
-                            </button>
-                            <button
-                                onClick={async () => {
-                                    if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
-                                        console.log('🗑️ Deleting church:', id);
 
-                                        if (!id) return;
+                    <div className="flex gap-2">
+                        {/* Book Appointment (Visible to all logged in users) */}
+                        <button
+                            onClick={() => navigate(`/churches/${id}/book`)}
+                            className="btn-primary"
+                        >
+                            <Calendar className="w-4 h-4" />
+                            Book Appointment
+                        </button>
 
-                                        try {
-                                            const { error } = await supabase
-                                                .from('churches')
-                                                .delete()
-                                                .eq('id', id);
+                        {/* Admin Action Buttons */}
+                        {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                            <>
+                                <button
+                                    onClick={() => navigate(`/churches/${id}/edit`)}
+                                    className="btn-secondary"
+                                >
+                                    <Edit className="w-4 h-4" />
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
+                                            console.log('🗑️ Deleting church:', id);
 
-                                            if (error) {
-                                                console.error('❌ Error deleting church:', error);
-                                                alert('Failed to delete church: ' + error.message);
-                                                return;
+                                            if (!id) return;
+
+                                            try {
+                                                const { error } = await supabase
+                                                    .from('churches')
+                                                    .delete()
+                                                    .eq('id', id);
+
+                                                if (error) {
+                                                    console.error('❌ Error deleting church:', error);
+                                                    alert('Failed to delete church: ' + error.message);
+                                                    return;
+                                                }
+
+                                                console.log('✅ Church deleted successfully');
+                                                navigate('/churches');
+                                            } catch (err) {
+                                                console.error('❌ Unexpected error:', err);
+                                                alert('Failed to delete church');
                                             }
-
-                                            console.log('✅ Church deleted successfully');
-                                            navigate('/churches');
-                                        } catch (err) {
-                                            console.error('❌ Unexpected error:', err);
-                                            alert('Failed to delete church');
                                         }
-                                    }
-                                }}
-                                className="btn-secondary text-red-600 hover:bg-red-50"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                            </button>
-                        </div>
-                    )}
+                                    }}
+                                    className="btn-secondary text-red-600 hover:bg-red-50"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 

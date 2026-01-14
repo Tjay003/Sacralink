@@ -1,47 +1,200 @@
-import { Calendar, Plus, Search, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle, XCircle, Clock, Calendar, User, Building2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+
+import type { Appointment as BaseAppointment } from '../../types/database';
+
+interface Appointment extends BaseAppointment {
+    church: {
+        name: string;
+    } | null;
+    profile: {
+        full_name: string | null;
+    } | null;
+}
 
 export default function AppointmentsPage() {
+    const { profile } = useAuth();
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
+
+    const fetchAppointments = async () => {
+        try {
+            setLoading(true);
+
+            // Note: RLS policies handle the filtering.
+            // Admins see all. Users see their own.
+
+            const { data, error } = await (supabase
+                .from('appointments')
+                .select(`
+                    *,
+                    church:churches(name),
+                    profile:profiles(full_name)
+                `)
+                // Explicitly cast the query builder to any to avoid TypeScript inference issues with join
+                .order('created_at', { ascending: false }) as any);
+
+            if (error) throw error;
+
+            console.log('Appointments data:', data);
+            setAppointments(data || []);
+        } catch (err: any) {
+            console.error('Error fetching appointments:', err);
+            setError('Failed to load appointments.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAppointments();
+    }, []);
+
+    const handleStatusUpdate = async (id: string, newStatus: string) => {
+        try {
+            const { error } = await (supabase
+                .from('appointments') as any)
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // Optimistic update
+            setAppointments(prev => prev.map(app =>
+                app.id === id ? { ...app, status: newStatus as any } : app
+            ));
+        } catch (err: any) {
+            console.error('Error updating status:', err);
+            alert('Failed to update status');
+        }
+    };
+
+    const filteredAppointments = filterStatus === 'all'
+        ? appointments
+        : appointments.filter(app => app.status === filterStatus);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-6 animate-in">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
-                    <p className="text-muted">Manage sacrament bookings and schedules</p>
+                    <h1 className="text-2xl font-bold">{isAdmin ? 'Manage Appointments' : 'My Appointments'}</h1>
+                    <p className="text-gray-500">{isAdmin ? 'Manage sacramental requests' : 'View status of your requests'}</p>
                 </div>
-                <button className="btn-primary">
-                    <Plus className="w-4 h-4" />
-                    New Appointment
-                </button>
+                <div className="flex gap-2">
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="input-field w-auto"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                    <input
-                        type="text"
-                        placeholder="Search by name or service..."
-                        className="input pl-10"
-                    />
+            {error && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+                    {error}
                 </div>
-                <button className="btn-outline">
-                    <Filter className="w-4 h-4" />
-                    Filters
-                </button>
-            </div>
+            )}
 
-            {/* Empty State */}
-            <div className="card">
-                <div className="flex flex-col items-center justify-center py-16">
-                    <div className="w-16 h-16 rounded-full bg-accent-100 flex items-center justify-center mb-4">
-                        <Calendar className="w-8 h-8 text-accent-600" />
+            <div className="grid gap-4">
+                {filteredAppointments.length === 0 ? (
+                    <div className="text-center p-8 bg-gray-50 rounded-lg text-gray-500">
+                        {isAdmin ? 'No appointments found.' : 'You have no appointment requests.'}
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">No appointments</h3>
-                    <p className="text-muted text-center max-w-sm mb-6">
-                        When parishioners book appointments, they will appear here for you to review and manage.
-                    </p>
-                </div>
+                ) : (
+                    filteredAppointments.map((appointment) => (
+                        <div key={appointment.id} className="card p-4 flex flex-col md:flex-row justify-between gap-4">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize
+                                        ${appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                            appointment.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                appointment.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                    'bg-gray-100 text-gray-800'}`}>
+                                        {appointment.status}
+                                    </span>
+                                    <span className="text-sm text-gray-500">
+                                        Requested on {new Date(appointment.created_at).toLocaleDateString()}
+                                    </span>
+                                </div>
+                                <h3 className="font-semibold text-lg">{appointment.service_type}</h3>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-600">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="w-4 h-4" />
+                                        {appointment.church?.name || 'Unknown Church'}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <User className="w-4 h-4" />
+                                        {appointment.profile?.full_name || 'Unknown User'}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-4 h-4" />
+                                        {appointment.appointment_date}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-4 h-4" />
+                                        {appointment.appointment_time}
+                                    </div>
+                                </div>
+
+                                {appointment.notes && (
+                                    <div className="mt-2 text-sm bg-gray-50 p-2 rounded">
+                                        <strong>Notes:</strong> {appointment.notes}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Actions - Visible only to Admins for Pending items */}
+                            {isAdmin && appointment.status === 'pending' && (
+                                <div className="flex items-center gap-2 md:flex-col md:justify-center">
+                                    <button
+                                        onClick={() => handleStatusUpdate(appointment.id, 'approved')}
+                                        className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 justify-center"
+                                    >
+                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
+                                        className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 justify-center"
+                                    >
+                                        <XCircle className="w-4 h-4 mr-2" />
+                                        Reject
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Read-Only Status for Users OR Non-Pending items */}
+                            {(!isAdmin || appointment.status !== 'pending') && (
+                                <div className="flex items-center md:flex-col md:justify-center min-w-[128px]">
+                                    <p className="text-sm text-gray-400 italic font-medium">
+                                        {appointment.status === 'pending' ? 'Awaiting Review' :
+                                            appointment.status === 'approved' ? 'Approved' : 'Rejected'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );

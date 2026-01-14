@@ -106,50 +106,7 @@ export interface Database {
                     updated_at?: string;
                 };
             };
-            appointments: {
-                Row: {
-                    id: string;
-                    user_id: string;
-                    church_id: string;
-                    priest_id: string | null;
-                    service_type: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
-                    requested_date: string;
-                    end_time: string | null;
-                    status: 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
-                    notes: string | null;
-                    admin_feedback: string | null;
-                    created_at: string;
-                    updated_at: string;
-                };
-                Insert: {
-                    id?: string;
-                    user_id: string;
-                    church_id: string;
-                    priest_id?: string | null;
-                    service_type: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
-                    requested_date: string;
-                    end_time?: string | null;
-                    status?: 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
-                    notes?: string | null;
-                    admin_feedback?: string | null;
-                    created_at?: string;
-                    updated_at?: string;
-                };
-                Update: {
-                    id?: string;
-                    user_id?: string;
-                    church_id?: string;
-                    priest_id?: string | null;
-                    service_type?: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
-                    requested_date?: string;
-                    end_time?: string | null;
-                    status?: 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
-                    notes?: string | null;
-                    admin_feedback?: string | null;
-                    created_at?: string;
-                    updated_at?: string;
-                };
-            };
+
             donations: {
                 Row: {
                     id: string;
@@ -256,6 +213,44 @@ export interface Database {
                     time?: string;
                     language?: string | null;
                     created_at?: string;
+                };
+            };
+            appointments: {
+                Row: {
+                    id: string;
+                    user_id: string;
+                    church_id: string;
+                    service_type: string;
+                    appointment_date: string;
+                    appointment_time: string;
+                    status: string;
+                    notes: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    user_id: string;
+                    church_id: string;
+                    service_type: string;
+                    appointment_date: string;
+                    appointment_time: string;
+                    status?: string;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    user_id?: string;
+                    church_id?: string;
+                    service_type?: string;
+                    appointment_date?: string;
+                    appointment_time?: string;
+                    status?: string;
+                    notes?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
                 };
             };
             priest_availability: {
