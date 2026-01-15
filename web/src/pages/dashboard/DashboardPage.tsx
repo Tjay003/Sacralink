@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import UserDashboard from './UserDashboard';
+import DashboardCalendar from '../../components/dashboard/DashboardCalendar';
+import DailyVerse from '../../components/dashboard/DailyVerse';
 
 /**
  * DashboardPage - Main dashboard that shows different content based on user role
@@ -16,13 +18,17 @@ export default function DashboardPage() {
     const navigate = useNavigate();
     const { churches } = useChurches();
     const [userCount, setUserCount] = useState(0);
+    const [stats, setStats] = useState({
+        pendingAppointments: 0,
+        activeEvents: 0
+    });
 
     // Fetch user count for admin dashboard
     useEffect(() => {
         if (profile?.role === 'admin' || profile?.role === 'super_admin') {
             fetchUserCount();
         }
-        // Volunteers and Church Admins don't need user counts
+        fetchDashboardStats();
     }, [profile]);
 
     const fetchUserCount = async () => {
@@ -33,6 +39,37 @@ export default function DashboardPage() {
         setUserCount(count || 0);
     };
 
+    const fetchDashboardStats = async () => {
+        try {
+            // 1. Pending Appointments (RLS filtered)
+            const { count: pendingCount } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'pending');
+
+            // 2. Active Events (Mass Schedules count for now, or events if we had them)
+            // For now, let's just count total mass schedules across accessible churches
+            // Since mass_schedules doesn't have RLS that filters by church assignment deeply in a simple count query without join
+            // We'll trust the RLS policies on a joined query or simplistic approach
+            // Actually, we can just query mass_schedules directly if policies allow, but let's be safe
+            // and act as if "Active Events" = "Upcoming Approved Appointments" + "Regular Masses"
+            // For simplicity in this iteration: Count of "Approved" appointments in future
+            const { count: activeCount } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'approved')
+                .gte('appointment_date', new Date().toISOString());
+
+            setStats({
+                pendingAppointments: pendingCount || 0,
+                activeEvents: activeCount || 0
+            });
+
+        } catch (err) {
+            console.error('Error fetching dashboard stats:', err);
+        }
+    };
+
     // Show user dashboard for normal users
     if (profile?.role === 'user') {
         return <UserDashboard />;
@@ -41,114 +78,139 @@ export default function DashboardPage() {
     // Show admin dashboard for admin, super_admin, church_admin, and volunteer
     return (
         <div className="space-y-6">
-            {/* Admin Dashboard */}
-            <div className="card p-6">
-                <h1 className="text-2xl font-bold mb-2">Admin Dashboard</h1>
-                <p className="text-muted">
-                    Welcome, {profile?.full_name}! You have {profile?.role} access.
+            {/* Admin Dashboard Header */}
+            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-900 to-blue-800 text-white border-none">
+                <h1 className="text-2xl font-bold mb-2">Welcome Back, {profile?.full_name?.split(' ')[0] || 'User'}!</h1>
+                <p className="text-blue-100 opacity-90">
+                    You are logged in as <span className="font-semibold capitalize">{profile?.role.replace('_', ' ')}</span>.
+                    Here is what's happening today.
                 </p>
             </div>
 
-            {/* Admin Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Total Users - Hidden for Church Admin & Volunteer */}
                 {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <div className="card p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted">Total Users</p>
-                                <p className="text-2xl font-bold">{userCount}</p>
-                            </div>
-                            <div className="text-4xl">👥</div>
+                    <div className="card p-6 flex flex-col justify-between">
+                        <div>
+                            <p className="text-sm text-muted mb-1">Total Users</p>
+                            <p className="text-3xl font-bold text-gray-800">{userCount}</p>
+                        </div>
+                        <div className="self-end p-2 bg-blue-50 rounded-lg">
+                            <span className="text-2xl">👥</span>
                         </div>
                     </div>
                 )}
 
                 {/* Total Churches - Hidden for Church Admin & Volunteer */}
                 {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <div className="card p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted">Total Churches</p>
-                                <p className="text-2xl font-bold">{churches.length}</p>
-                            </div>
-                            <div className="text-4xl">⛪</div>
+                    <div className="card p-6 flex flex-col justify-between">
+                        <div>
+                            <p className="text-sm text-muted mb-1">Total Churches</p>
+                            <p className="text-3xl font-bold text-gray-800">{churches.length}</p>
+                        </div>
+                        <div className="self-end p-2 bg-purple-50 rounded-lg">
+                            <span className="text-2xl">⛪</span>
                         </div>
                     </div>
                 )}
 
-                <div className="card p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted">Pending Appointments</p>
-                            <p className="text-2xl font-bold">0</p>
-                        </div>
-                        <div className="text-4xl">📅</div>
+                <div className="card p-6 flex flex-col justify-between">
+                    <div>
+                        <p className="text-sm text-muted mb-1">Pending Requests</p>
+                        <p className="text-3xl font-bold text-yellow-600">{stats.pendingAppointments}</p>
+                    </div>
+                    <div className="self-end p-2 bg-yellow-50 rounded-lg">
+                        <span className="text-2xl">📅</span>
                     </div>
                 </div>
 
-                <div className="card p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted">Active Events</p>
-                            <p className="text-2xl font-bold">0</p>
-                        </div>
-                        <div className="text-4xl">🎉</div>
+                <div className="card p-6 flex flex-col justify-between">
+                    <div>
+                        <p className="text-sm text-muted mb-1">Ref Upcoming</p>
+                        <p className="text-3xl font-bold text-green-600">{stats.activeEvents}</p>
+                    </div>
+                    <div className="self-end p-2 bg-green-50 rounded-lg">
+                        <span className="text-2xl">🎉</span>
                     </div>
                 </div>
             </div>
 
-            {/* Admin Quick Actions */}
-            <div className="card p-6">
-                <h2 className="text-xl font-semibold mb-4">Admin Actions</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {profile?.role !== 'volunteer' && (
-                        <button
-                            onClick={() => navigate('/users')}
-                            className="btn-primary p-4 text-left"
-                        >
-                            <div className="text-2xl mb-2">👥</div>
-                            <div className="font-semibold">Manage Users</div>
-                            <div className="text-sm opacity-80">View and edit users</div>
-                        </button>
-                    )}
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {profile?.role === 'volunteer' && profile.assigned_church_id && (
-                        <button
-                            onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
-                            className="btn-primary p-4 text-left"
-                        >
-                            <div className="text-2xl mb-2">⛪</div>
-                            <div className="font-semibold">My Church</div>
-                            <div className="text-sm opacity-80">Edit details & services</div>
-                        </button>
-                    )}
+                {/* Left Column (2/3): Calendar */}
+                <div className="lg:col-span-2 space-y-6">
+                    <DashboardCalendar />
+                </div>
 
-                    {profile?.role !== 'volunteer' && (
-                        <button
-                            onClick={() => navigate('/churches')}
-                            className="btn-primary p-4 text-left"
-                        >
-                            <div className="text-2xl mb-2">⛪</div>
-                            <div className="font-semibold">Manage Churches</div>
-                            <div className="text-sm opacity-80">Add or edit churches</div>
-                        </button>
-                    )}
+                {/* Right Column (1/3): Quick Actions & Verse */}
+                <div className="space-y-6">
+                    <DailyVerse />
 
-                    <button
-                        onClick={() => navigate('/appointments')}
-                        className="btn-primary p-4 text-left"
-                    >
-                        <div className="text-2xl mb-2">📅</div>
-                        <div className="font-semibold">View Appointments</div>
-                        <div className="text-sm opacity-80">Approve requests</div>
-                    </button>
+                    {/* Quick Actions */}
+                    <div className="card p-6">
+                        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+                        <div className="space-y-3">
+                            {profile?.role !== 'volunteer' && (
+                                <button
+                                    onClick={() => navigate('/users')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">👥</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Manage Users</div>
+                                        <div className="text-xs text-muted">View and edit user roles</div>
+                                    </div>
+                                </button>
+                            )}
 
-                    <button className="btn-primary p-4 text-left">
-                        <div className="text-2xl mb-2">📊</div>
-                        <div className="font-semibold">View Reports</div>
-                        <div className="text-sm opacity-80">Analytics & insights</div>
-                    </button>
+                            {profile?.role === 'volunteer' && profile.assigned_church_id && (
+                                <button
+                                    onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">⛪</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">My Church</div>
+                                        <div className="text-xs text-muted">Update church details</div>
+                                    </div>
+                                </button>
+                            )}
+
+                            {profile?.role !== 'volunteer' && (
+                                <button
+                                    onClick={() => navigate('/churches')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">⛪</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Manage Churches</div>
+                                        <div className="text-xs text-muted">AAdd or edit parishes</div>
+                                    </div>
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => navigate('/appointments')}
+                                className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                            >
+                                <div className="bg-yellow-100 p-2 rounded-full mr-3">
+                                    <span className="text-lg">📅</span>
+                                </div>
+                                <div>
+                                    <div className="font-semibold text-sm">Appointments</div>
+                                    <div className="text-xs text-muted">Review pending requests</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
