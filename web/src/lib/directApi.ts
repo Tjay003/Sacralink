@@ -107,7 +107,7 @@ export async function directUpdateUserRole(
  */
 export async function directUpdateProfile(
     userId: string,
-    updates: { full_name?: string; church_id?: string | null },
+    updates: { full_name?: string; church_id?: string | null; assigned_church_id?: string | null; role?: string },
     accessToken: string
 ) {
     try {

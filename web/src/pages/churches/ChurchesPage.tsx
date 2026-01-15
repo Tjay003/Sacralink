@@ -19,6 +19,18 @@ export default function ChurchesPage() {
     const { churches, loading, error } = useChurches();
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Helper to check management permissions
+    const canManage = (churchId: string) => {
+        if (!profile) return false;
+        if (profile.role === 'super_admin') return true;
+        if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === churchId) return true;
+        if (profile.role === 'admin' && profile.church_id === churchId) return true;
+        return false;
+    };
+
+    const canAddChurch = profile?.role === 'super_admin';
+    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin' || profile?.role === 'volunteer';
+
     // Filter churches by search query
     const filteredChurches = churches.filter(church =>
         church.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -57,7 +69,7 @@ export default function ChurchesPage() {
                     <h1 className="text-2xl font-bold">Churches</h1>
                     <p className="text-muted">Manage parishes in your diocese</p>
                 </div>
-                {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                {canAddChurch && (
                     <button
                         onClick={() => navigate('/churches/add')}
                         className="btn-primary"
@@ -93,13 +105,15 @@ export default function ChurchesPage() {
                         <p className="text-muted text-center max-w-sm mb-6">
                             Get started by adding your first parish. You can manage their schedules, donations, and more.
                         </p>
-                        <button
-                            onClick={() => navigate('/churches/add')}
-                            className="btn-primary"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Your First Church
-                        </button>
+                        {canAddChurch && (
+                            <button
+                                onClick={() => navigate('/churches/add')}
+                                className="btn-primary"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Your First Church
+                            </button>
+                        )}
                     </div>
                 </div>
             ) : (
@@ -118,7 +132,7 @@ export default function ChurchesPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                         Contact
                                     </th>
-                                    {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                                    {hasAdminAccess && (
                                         <th className="px-6 py-3 text-right text-xs font-medium text-muted uppercase tracking-wider">
                                             Actions
                                         </th>
@@ -181,17 +195,19 @@ export default function ChurchesPage() {
                                                     )}
                                                 </div>
                                             </td>
-                                            {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                                            {hasAdminAccess && (
                                                 <td className="px-6 py-4 text-right">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            navigate(`/churches/${church.id}/edit`);
-                                                        }}
-                                                        className="btn-secondary text-sm"
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    {canManage(church.id) && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/churches/${church.id}/edit`);
+                                                            }}
+                                                            className="btn-secondary text-sm"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>

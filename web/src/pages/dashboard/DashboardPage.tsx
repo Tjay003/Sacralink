@@ -22,6 +22,7 @@ export default function DashboardPage() {
         if (profile?.role === 'admin' || profile?.role === 'super_admin') {
             fetchUserCount();
         }
+        // Volunteers and Church Admins don't need user counts
     }, [profile]);
 
     const fetchUserCount = async () => {
@@ -37,7 +38,7 @@ export default function DashboardPage() {
         return <UserDashboard />;
     }
 
-    // Show admin dashboard for admin and super_admin
+    // Show admin dashboard for admin, super_admin, church_admin, and volunteer
     return (
         <div className="space-y-6">
             {/* Admin Dashboard */}
@@ -50,25 +51,31 @@ export default function DashboardPage() {
 
             {/* Admin Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="card p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted">Total Users</p>
-                            <p className="text-2xl font-bold">{userCount}</p>
+                {/* Total Users - Hidden for Church Admin & Volunteer */}
+                {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
+                    <div className="card p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted">Total Users</p>
+                                <p className="text-2xl font-bold">{userCount}</p>
+                            </div>
+                            <div className="text-4xl">👥</div>
                         </div>
-                        <div className="text-4xl">👥</div>
                     </div>
-                </div>
+                )}
 
-                <div className="card p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-muted">Total Churches</p>
-                            <p className="text-2xl font-bold">{churches.length}</p>
+                {/* Total Churches - Hidden for Church Admin & Volunteer */}
+                {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
+                    <div className="card p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted">Total Churches</p>
+                                <p className="text-2xl font-bold">{churches.length}</p>
+                            </div>
+                            <div className="text-4xl">⛪</div>
                         </div>
-                        <div className="text-4xl">⛪</div>
                     </div>
-                </div>
+                )}
 
                 <div className="card p-6">
                     <div className="flex items-center justify-between">
@@ -95,23 +102,38 @@ export default function DashboardPage() {
             <div className="card p-6">
                 <h2 className="text-xl font-semibold mb-4">Admin Actions</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <button
-                        onClick={() => navigate('/users')}
-                        className="btn-primary p-4 text-left"
-                    >
-                        <div className="text-2xl mb-2">👥</div>
-                        <div className="font-semibold">Manage Users</div>
-                        <div className="text-sm opacity-80">View and edit users</div>
-                    </button>
+                    {profile?.role !== 'volunteer' && (
+                        <button
+                            onClick={() => navigate('/users')}
+                            className="btn-primary p-4 text-left"
+                        >
+                            <div className="text-2xl mb-2">👥</div>
+                            <div className="font-semibold">Manage Users</div>
+                            <div className="text-sm opacity-80">View and edit users</div>
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => navigate('/churches')}
-                        className="btn-primary p-4 text-left"
-                    >
-                        <div className="text-2xl mb-2">⛪</div>
-                        <div className="font-semibold">Manage Churches</div>
-                        <div className="text-sm opacity-80">Add or edit churches</div>
-                    </button>
+                    {profile?.role === 'volunteer' && profile.assigned_church_id && (
+                        <button
+                            onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
+                            className="btn-primary p-4 text-left"
+                        >
+                            <div className="text-2xl mb-2">⛪</div>
+                            <div className="font-semibold">My Church</div>
+                            <div className="text-sm opacity-80">Edit details & services</div>
+                        </button>
+                    )}
+
+                    {profile?.role !== 'volunteer' && (
+                        <button
+                            onClick={() => navigate('/churches')}
+                            className="btn-primary p-4 text-left"
+                        >
+                            <div className="text-2xl mb-2">⛪</div>
+                            <div className="font-semibold">Manage Churches</div>
+                            <div className="text-sm opacity-80">Add or edit churches</div>
+                        </button>
+                    )}
 
                     <button
                         onClick={() => navigate('/appointments')}

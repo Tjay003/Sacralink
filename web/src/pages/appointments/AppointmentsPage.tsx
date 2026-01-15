@@ -21,7 +21,10 @@ export default function AppointmentsPage() {
     const [error, setError] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
+    const canManageAppointments = profile?.role === 'admin'
+        || profile?.role === 'super_admin'
+        || profile?.role === 'church_admin'
+        || profile?.role === 'volunteer';
 
     const fetchAppointments = async () => {
         try {
@@ -91,8 +94,8 @@ export default function AppointmentsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold">{isAdmin ? 'Manage Appointments' : 'My Appointments'}</h1>
-                    <p className="text-gray-500">{isAdmin ? 'Manage sacramental requests' : 'View status of your requests'}</p>
+                    <h1 className="text-2xl font-bold">{canManageAppointments ? 'Manage Appointments' : 'My Appointments'}</h1>
+                    <p className="text-gray-500">{canManageAppointments ? 'Manage sacramental requests' : 'View status of your requests'}</p>
                 </div>
                 <div className="flex gap-2">
                     <select
@@ -117,7 +120,7 @@ export default function AppointmentsPage() {
             <div className="grid gap-4">
                 {filteredAppointments.length === 0 ? (
                     <div className="text-center p-8 bg-gray-50 rounded-lg text-gray-500">
-                        {isAdmin ? 'No appointments found.' : 'You have no appointment requests.'}
+                        {canManageAppointments ? 'No appointments found.' : 'You have no appointment requests.'}
                     </div>
                 ) : (
                     filteredAppointments.map((appointment) => (
@@ -163,8 +166,8 @@ export default function AppointmentsPage() {
                                 )}
                             </div>
 
-                            {/* Actions - Visible only to Admins for Pending items */}
-                            {isAdmin && appointment.status === 'pending' && (
+                            {/* Actions - Visible only to Managers for Pending items */}
+                            {canManageAppointments && appointment.status === 'pending' && (
                                 <div className="flex items-center gap-2 md:flex-col md:justify-center">
                                     <button
                                         onClick={() => handleStatusUpdate(appointment.id, 'approved')}
@@ -184,7 +187,7 @@ export default function AppointmentsPage() {
                             )}
 
                             {/* Read-Only Status for Users OR Non-Pending items */}
-                            {(!isAdmin || appointment.status !== 'pending') && (
+                            {(!canManageAppointments || appointment.status !== 'pending') && (
                                 <div className="flex items-center md:flex-col md:justify-center min-w-[128px]">
                                     <p className="text-sm text-gray-400 italic font-medium">
                                         {appointment.status === 'pending' ? 'Awaiting Review' :

@@ -56,6 +56,22 @@ export default function UsersPage() {
     const filterUsers = () => {
         let filtered = [...users];
 
+        // Filter by role visibility restrictions
+        if (currentUser?.role === 'church_admin') {
+            filtered = filtered.filter(user => {
+                // Hide Super Admins and Admins
+                if (user.role === 'super_admin' || user.role === 'admin') return false;
+
+                // Show users if they are assigned to the same church
+                // OR if they are basic users/volunteers assigned to same church
+                // OR if they are unassigned users (no role OR user role, AND no assigned church)
+                const isAssignedToMyChurch = user.assigned_church_id === currentUser.assigned_church_id;
+                const isUnassigned = (!user.role || user.role === 'user') && !user.assigned_church_id;
+
+                return isAssignedToMyChurch || isUnassigned;
+            });
+        }
+
         // Filter by search query
         if (searchQuery) {
             filtered = filtered.filter(user =>
@@ -91,6 +107,8 @@ export default function UsersPage() {
                 return 'bg-blue-100 text-blue-700';
             case 'user':
                 return 'bg-gray-100 text-gray-700';
+            case 'volunteer':
+                return 'bg-green-100 text-green-700';
             default:
                 return 'bg-gray-100 text-gray-700';
         }
@@ -149,6 +167,7 @@ export default function UsersPage() {
                         >
                             <option value="all">All Roles</option>
                             <option value="user">User</option>
+                            <option value="volunteer">Volunteer</option>
                             <option value="admin">Admin</option>
                             <option value="super_admin">Super Admin</option>
                         </select>
@@ -171,6 +190,11 @@ export default function UsersPage() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                     Role
                                 </th>
+                                {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                                        Assigned Church
+                                    </th>
+                                )}
                                 <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
                                     Registered
                                 </th>
@@ -211,6 +235,19 @@ export default function UsersPage() {
                                                 {formatRole(user.role)}
                                             </span>
                                         </td>
+                                        {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">
+                                                {/* Requires fetching church name, for now showing ID or "None" */}
+                                                {/* Optimization: In a real app we'd join churches, but for now let's just show if they have one */}
+                                                {user.assigned_church_id ? (
+                                                    <span className="text-primary truncate block max-w-[150px]" title={user.assigned_church_id}>
+                                                        Assigned
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">
                                             {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                         </td>
@@ -235,7 +272,6 @@ export default function UsersPage() {
             {showEditModal && selectedUser && (
                 <EditRoleModal
                     user={selectedUser}
-                    currentUserRole={currentUser?.role || 'user'}
                     onClose={() => {
                         setShowEditModal(false);
                         setSelectedUser(null);

@@ -1,32 +1,47 @@
 import { useState } from 'react';
-import { directUpdateUserRole } from '../../lib/directApi';
-import { useAuth } from '../../contexts/AuthContext';
+import { directUpdateProfile } from '../../lib/directApi';
+import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
+import { useChurches } from '../../hooks/useChurches';
 import type { Profile } from '../../types/database';
 
 interface EditRoleModalProps {
     user: Profile;
-    currentUserRole: string;
     onClose: () => void;
     onSuccess: () => void;
 }
 
 /**
- * EditRoleModal - Modal to change a user's role
+ * EditRoleModal - Modal to change a user's role and assigned church
  * 
  * Permissions:
- * - admin can promote users to 'admin' (but not 'super_admin')
- * - super_admin can set any role
+ * - Super Admin: Can set any role and any church.
+ * - Church Admin: Can set limited roles (user, volunteer, church_admin) but ONLY for their church.
  */
-export default function EditRoleModal({ user, currentUserRole, onClose, onSuccess }: EditRoleModalProps) {
-    const { session } = useAuth();
+export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModalProps) {
+    const { session, profile: currentProfile } = useAuth();
+    const isSuperAdmin = useIsSuperAdmin();
+    const isChurchAdmin = useIsChurchAdmin();
+    const { churches } = useChurches();
+
     const [selectedRole, setSelectedRole] = useState(user.role);
+    const [selectedChurchId, setSelectedChurchId] = useState(user.assigned_church_id || '');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     // Determine available roles based on current user's role
-    const availableRoles = currentUserRole === 'super_admin'
-        ? ['user', 'admin', 'super_admin']
-        : ['user', 'admin']; // Regular admins can't create super_admins
+    const availableRoles = isSuperAdmin
+        ? ['user', 'volunteer', 'church_admin', 'admin', 'super_admin']
+        : ['user', 'volunteer', 'church_admin']; // Church Admins can only creating regular users or co-admins
+
+    // Determine if church selection is allowed
+    // Super Admin can select any church.
+    // Church Admin is locked to their own church.
+    const canSelectChurch = isSuperAdmin;
+
+    // Function to get display name for church
+    const getChurchName = (id: string) => {
+        return churches.find(c => c.id === id)?.name || 'Unknown Church';
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,20 +51,33 @@ export default function EditRoleModal({ user, currentUserRole, onClose, onSucces
             return;
         }
 
-        if (selectedRole === user.role) {
-            onClose();
-            return;
+        // Validate: Church Admin must have a church
+        let finalChurchId = selectedChurchId;
+        if (isChurchAdmin) {
+            finalChurchId = currentProfile?.assigned_church_id || '';
+        }
+
+        // If explicitly clearing church (e.g. for super_admin role)
+        if (selectedRole === 'super_admin') {
+            finalChurchId = ''; // Super Admins don't belong to a specific church usually
         }
 
         setLoading(true);
         setError('');
 
-        const result = await directUpdateUserRole(user.id, selectedRole, session.access_token);
+        const result = await directUpdateProfile(
+            user.id,
+            {
+                role: selectedRole,
+                assigned_church_id: finalChurchId || null
+            },
+            session.access_token
+        );
 
         if (result.success) {
             onSuccess();
         } else {
-            setError(result.error || 'Failed to update role');
+            setError(result.error || 'Failed to update user');
             setLoading(false);
         }
     };
@@ -65,7 +93,7 @@ export default function EditRoleModal({ user, currentUserRole, onClose, onSucces
             {/* Modal */}
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="card p-6 max-w-md w-full">
-                    <h2 className="text-xl font-bold mb-4">Edit User Role</h2>
+                    <h2 className="text-xl font-bold mb-4">Edit User Access</h2>
 
                     <div className="mb-4 p-4 bg-secondary-50 rounded-lg">
                         <p className="text-sm text-muted mb-1">User</p>
@@ -74,13 +102,14 @@ export default function EditRoleModal({ user, currentUserRole, onClose, onSucces
                     </div>
 
                     <form onSubmit={handleSubmit}>
+                        {/* Role Selection */}
                         <div className="mb-4">
                             <label className="block text-sm font-medium mb-2">
-                                Select New Role
+                                Role
                             </label>
                             <select
                                 value={selectedRole}
-                                onChange={(e) => setSelectedRole(e.target.value as typeof selectedRole)}
+                                onChange={(e) => setSelectedRole(e.target.value as any)}
                                 className="input w-full"
                                 disabled={loading}
                             >
@@ -90,6 +119,43 @@ export default function EditRoleModal({ user, currentUserRole, onClose, onSucces
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Church Selection */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-2">
+                                Assigned Church
+                            </label>
+
+                            {canSelectChurch ? (
+                                <select
+                                    value={selectedChurchId}
+                                    onChange={(e) => setSelectedChurchId(e.target.value)}
+                                    className="input w-full"
+                                    disabled={loading || selectedRole === 'super_admin'}
+                                >
+                                    <option value="">-- No Church Assigned --</option>
+                                    {churches.map((church) => (
+                                        <option key={church.id} value={church.id}>
+                                            {church.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div className="p-3 bg-gray-100 rounded border border-gray-200 text-sm">
+                                    {isChurchAdmin ? (
+                                        <span>Locked to: <strong>{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
+                                    ) : (
+                                        <span className="text-muted">No church assignment available</span>
+                                    )}
+                                </div>
+                            )}
+
+                            {selectedRole === 'church_admin' && !selectedChurchId && canSelectChurch && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    ⚠️ Warning: Church Admins should have an assigned church.
+                                </p>
+                            )}
                         </div>
 
                         {error && (
@@ -110,9 +176,9 @@ export default function EditRoleModal({ user, currentUserRole, onClose, onSucces
                             <button
                                 type="submit"
                                 className="btn-primary flex-1"
-                                disabled={loading || selectedRole === user.role}
+                                disabled={loading}
                             >
-                                {loading ? 'Updating...' : 'Update Role'}
+                                {loading ? 'Saving...' : 'Save Changes'}
                             </button>
                         </div>
                     </form>

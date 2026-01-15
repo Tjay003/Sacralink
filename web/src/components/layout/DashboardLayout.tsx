@@ -87,7 +87,8 @@ export default function DashboardLayout() {
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
                     {navigation
-                        .filter(item => !item.adminOnly || (item.adminOnly && ['admin', 'super_admin'].includes(profile?.role || '')))
+                        .filter(item => !item.adminOnly || (item.adminOnly && ['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')))
+                        // Volunteers see the same as regular users for now
                         .map((item) => (
                             <NavItem key={item.name} item={item} />
                         ))}

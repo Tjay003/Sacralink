@@ -24,8 +24,24 @@ export default function EditChurchPage() {
 
     const [loading, setLoading] = useState(false);
 
-    // Redirect if not admin
-    if (profile && profile.role !== 'admin' && profile.role !== 'super_admin') {
+    // Redirect if not authorized
+    // Super Admin: All access
+    // Admin: Access if church_id matches
+    // Church Admin / Volunteer: Access if assigned_church_id matches
+    const canAccess = () => {
+        if (!profile) return false;
+        if (profile.role === 'super_admin') return true;
+
+        // For admin, church_admin, volunteer -> check if they are editing THEIR church
+        if (id) {
+            if (profile.role === 'admin' && profile.church_id === id) return true;
+            if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === id) return true;
+        }
+
+        return false;
+    };
+
+    if (profile && !canAccess()) {
         navigate('/churches');
         return null;
     }

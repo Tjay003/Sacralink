@@ -56,7 +56,7 @@ function AppRoutes() {
   });
 
   // User doesn't have required role - show access denied
-  if (!profile || !['user', 'admin', 'super_admin'].includes(profile.role)) {
+  if (!profile || !['user', 'admin', 'super_admin', 'church_admin', 'volunteer'].includes(profile.role)) {
     console.warn('❌ Access denied - invalid role');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

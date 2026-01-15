@@ -449,10 +449,16 @@ export function useIsPriest() {
     return profile?.role === 'priest';
 }
 
+export function useIsChurchAdmin() {
+    const { profile } = useAuth();
+    return profile?.role === 'church_admin';
+}
+
 export function useCanManageChurch(churchId: string) {
     const { profile } = useAuth();
     if (!profile) return false;
     if (profile.role === 'super_admin') return true;
+    if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === churchId) return true;
     if (profile.role === 'admin' && profile.church_id === churchId) return true;
     return false;
 }

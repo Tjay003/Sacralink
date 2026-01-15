@@ -48,6 +48,16 @@ export default function ChurchDetailPage() {
         }
     };
 
+    const canManage = () => {
+        if (!profile || !church) return false;
+        if (profile.role === 'super_admin') return true;
+        if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === church.id) return true;
+        if (profile.role === 'admin' && profile.church_id === church.id) return true;
+        return false;
+    };
+
+    const isSuperAdmin = profile?.role === 'super_admin';
+
     // Format time from 24hr to 12hr
     const formatTime = (time: string) => {
         const [hours, minutes] = time.split(':');
@@ -125,48 +135,49 @@ export default function ChurchDetailPage() {
                         </button>
 
                         {/* Admin Action Buttons */}
-                        {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
-                            <>
-                                <button
-                                    onClick={() => navigate(`/churches/${id}/edit`)}
-                                    className="btn-secondary"
-                                >
-                                    <Edit className="w-4 h-4" />
-                                    Edit
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
-                                            console.log('🗑️ Deleting church:', id);
+                        {canManage() && (
+                            <button
+                                onClick={() => navigate(`/churches/${id}/edit`)}
+                                className="btn-secondary"
+                            >
+                                <Edit className="w-4 h-4" />
+                                Edit
+                            </button>
+                        )}
 
-                                            if (!id) return;
+                        {isSuperAdmin && (
+                            <button
+                                onClick={async () => {
+                                    if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
+                                        console.log('🗑️ Deleting church:', id);
 
-                                            try {
-                                                const { error } = await supabase
-                                                    .from('churches')
-                                                    .delete()
-                                                    .eq('id', id);
+                                        if (!id) return;
 
-                                                if (error) {
-                                                    console.error('❌ Error deleting church:', error);
-                                                    alert('Failed to delete church: ' + error.message);
-                                                    return;
-                                                }
+                                        try {
+                                            const { error } = await supabase
+                                                .from('churches')
+                                                .delete()
+                                                .eq('id', id);
 
-                                                console.log('✅ Church deleted successfully');
-                                                navigate('/churches');
-                                            } catch (err) {
-                                                console.error('❌ Unexpected error:', err);
-                                                alert('Failed to delete church');
+                                            if (error) {
+                                                console.error('❌ Error deleting church:', error);
+                                                alert('Failed to delete church: ' + error.message);
+                                                return;
                                             }
+
+                                            console.log('✅ Church deleted successfully');
+                                            navigate('/churches');
+                                        } catch (err) {
+                                            console.error('❌ Unexpected error:', err);
+                                            alert('Failed to delete church');
                                         }
-                                    }}
-                                    className="btn-secondary text-red-600 hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete
-                                </button>
-                            </>
+                                    }
+                                }}
+                                className="btn-secondary text-red-600 hover:bg-red-50"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                            </button>
                         )}
                     </div>
                 </div>
@@ -263,7 +274,7 @@ export default function ChurchDetailPage() {
             <div className="card p-6">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold">Mass Schedules</h2>
-                    {(profile?.role === 'admin' || profile?.role === 'super_admin') && ( // Conditional rendering for Add Schedule button
+                    {canManage() && ( // Conditional rendering for Add Schedule button
                         <button
                             onClick={() => setShowAddModal(true)}
                             className="btn-primary text-sm"
@@ -298,7 +309,7 @@ export default function ChurchDetailPage() {
                                         <td className="px-4 py-3 text-sm">{formatTime(schedule.time)}</td>
                                         <td className="px-4 py-3 text-sm">{schedule.language || '-'}</td>
                                         <td className="px-4 py-3 text-sm text-right">
-                                            {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                                            {canManage() && (
                                                 <>
                                                     <button
                                                         onClick={() => setEditingSchedule(schedule)}

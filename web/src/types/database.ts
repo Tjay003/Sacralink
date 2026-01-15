@@ -11,8 +11,9 @@ export interface Database {
                     id: string;
                     email: string | null;
                     full_name: string | null;
-                    role: 'super_admin' | 'admin' | 'priest' | 'volunteer' | 'user';
+                    role: 'super_admin' | 'admin' | 'church_admin' | 'priest' | 'volunteer' | 'user';
                     church_id: string | null;
+                    assigned_church_id: string | null;
                     avatar_url: string | null;
                     phone_number: string | null;
                     is_verified: boolean;
@@ -24,8 +25,9 @@ export interface Database {
                     id: string;
                     email?: string | null;
                     full_name?: string | null;
-                    role?: 'super_admin' | 'admin' | 'priest' | 'volunteer' | 'user';
+                    role?: 'super_admin' | 'admin' | 'church_admin' | 'priest' | 'volunteer' | 'user';
                     church_id?: string | null;
+                    assigned_church_id?: string | null;
                     avatar_url?: string | null;
                     phone_number?: string | null;
                     is_verified?: boolean;
@@ -37,8 +39,9 @@ export interface Database {
                     id?: string;
                     email?: string | null;
                     full_name?: string | null;
-                    role?: 'super_admin' | 'admin' | 'priest' | 'volunteer' | 'user';
+                    role?: 'super_admin' | 'admin' | 'church_admin' | 'priest' | 'volunteer' | 'user';
                     church_id?: string | null;
+                    assigned_church_id?: string | null;
                     avatar_url?: string | null;
                     phone_number?: string | null;
                     is_verified?: boolean;
@@ -409,7 +412,7 @@ export interface Database {
             };
         };
         Enums: {
-            user_role: 'super_admin' | 'admin' | 'priest' | 'volunteer' | 'user';
+            user_role: 'super_admin' | 'admin' | 'church_admin' | 'priest' | 'volunteer' | 'user';
             appt_status: 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
             sacrament_type: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
             donation_status: 'pending' | 'verified' | 'rejected';
