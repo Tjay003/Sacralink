@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar } from 'lucide-react';
+import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Facebook } from 'lucide-react';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
+import FacebookFeed from '../../components/social/FacebookFeed';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -24,6 +26,18 @@ export default function ChurchDetailPage() {
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<any>(null);
+    const [activeTab, setActiveTab] = useState<'sunday' | 'weekday'>('sunday');
+
+    const getFilteredSchedules = () => {
+        if (!church?.mass_schedules) return [];
+        return church.mass_schedules.filter((s: any) => {
+            const isSunday = s.day_of_week === 'Sunday';
+            return activeTab === 'sunday' ? isSunday : !isSunday;
+        }).sort((a: any, b: any) => {
+            // Sort by time
+            return a.time.localeCompare(b.time);
+        });
+    };
 
     const handleDeleteSchedule = async (scheduleId: string, day: string, time: string) => {
         if (confirm(`Delete ${day} ${time} mass?`)) {
@@ -227,113 +241,157 @@ export default function ChurchDetailPage() {
             </div>
 
             {/* Virtual Tour & Livestream */}
-            {(church.panorama_url || church.livestream_url) && (
-                <div className="card p-6">
-                    <h2 className="text-lg font-semibold mb-4">Virtual Experience</h2>
-                    <div className="space-y-3">
-                        {church.panorama_url && (
-                            <a
-                                href={church.panorama_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
-                            >
-                                <div className="flex items-center">
-                                    <Building2 className="w-5 h-5 text-primary mr-3" />
-                                    <div>
-                                        <p className="font-medium">360° Virtual Tour</p>
-                                        <p className="text-sm text-muted">Explore the church virtually</p>
-                                    </div>
-                                </div>
-                                <ExternalLink className="w-4 h-4 text-muted" />
-                            </a>
-                        )}
-
-                        {church.livestream_url && (
-                            <a
-                                href={church.livestream_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition-colors"
-                            >
-                                <div className="flex items-center">
-                                    <ExternalLink className="w-5 h-5 text-primary mr-3" />
-                                    <div>
-                                        <p className="font-medium">Live Mass Stream</p>
-                                        <p className="text-sm text-muted">Watch live masses online</p>
-                                    </div>
-                                </div>
-                                <ExternalLink className="w-4 h-4 text-muted" />
-                            </a>
-                        )}
+            {/* Virtual Tour & Livestream */}
+            {/* Virtual Tour & Livestream */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 360 Viewer */}
+                {church.panorama_url && (
+                    <div className="card p-0 overflow-hidden md:col-span-2">
+                        <div className="p-4 border-b border-border flex items-center justify-between bg-secondary-50">
+                            <h2 className="text-lg font-semibold flex items-center">
+                                <Building2 className="w-5 h-5 text-primary mr-2" />
+                                360° Virtual Tour
+                            </h2>
+                        </div>
+                        <div style={{ height: '400px', width: '100%' }}>
+                            <ReactPhotoSphereViewer
+                                src={church.panorama_url}
+                                height={'400px'}
+                                width={"100%"}
+                                container={""}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Mass Schedules */}
-            <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">Mass Schedules</h2>
-                    {canManage() && ( // Conditional rendering for Add Schedule button
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="btn-primary text-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Schedule
-                        </button>
-                    )}
-                </div>
-
-                {massSchedules.length === 0 ? (
-                    <div className="text-center py-8 text-muted">
-                        <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No mass schedules yet</p>
-                        <p className="text-sm mt-1">Click "Add Schedule" to create one</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-secondary-50 border-b border-border">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Day</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Time</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Language</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-muted uppercase">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {massSchedules.map((schedule: any) => (
-                                    <tr key={schedule.id} className="hover:bg-secondary-50">
-                                        <td className="px-4 py-3 text-sm font-medium">{schedule.day_of_week}</td>
-                                        <td className="px-4 py-3 text-sm">{formatTime(schedule.time)}</td>
-                                        <td className="px-4 py-3 text-sm">{schedule.language || '-'}</td>
-                                        <td className="px-4 py-3 text-sm text-right">
-                                            {canManage() && (
-                                                <>
-                                                    <button
-                                                        onClick={() => setEditingSchedule(schedule)}
-                                                        className="text-primary hover:underline mr-3"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteSchedule(schedule.id, schedule.day_of_week, formatTime(schedule.time))}
-                                                        className="text-red-600 hover:underline"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                {/* External Links Card */}
+                {(church.livestream_url || (church.facebook_url && !church.facebook_url)) && (
+                    <div className="card p-6 md:col-span-2">
+                        <h2 className="text-lg font-semibold mb-4">Connect Online</h2>
+                        <div className="flex flex-wrap gap-4">
+                            {church.livestream_url && (
+                                <a
+                                    href={church.livestream_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                >
+                                    <ExternalLink className="w-5 h-5 mr-2" />
+                                    Watch Live Mass
+                                </a>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
 
+            {/* Main Content: Mass Schedules + Facebook Feed */}
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Left Column: Mass Schedules (flexible width) */}
+                <div className="flex-1 min-w-0">
+                    <div className="card p-6 h-full">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                            <div>
+                                <h2 className="text-lg font-semibold flex items-center">
+                                    <Clock className="w-5 h-5 text-primary mr-2" />
+                                    Mass Schedules
+                                </h2>
+                                <p className="text-sm text-muted">Join us in our celebrations</p>
+                            </div>
+
+                            {canManage() && (
+                                <button
+                                    onClick={() => setShowAddModal(true)}
+                                    className="btn-primary flex items-center w-full sm:w-auto justify-center"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Schedule
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex border-b border-border mb-6">
+                            <button
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'sunday'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                onClick={() => setActiveTab('sunday')}
+                            >
+                                Sunday Masses
+                            </button>
+                            <button
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'weekday'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                onClick={() => setActiveTab('weekday')}
+                            >
+                                Weekday & Saturday
+                            </button>
+                        </div>
+
+                        {/* Schedule List */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {getFilteredSchedules().length === 0 ? (
+                                <div className="col-span-full text-center py-8 text-muted bg-secondary-50 rounded-lg border border-dashed border-secondary-200">
+                                    <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p>No masses scheduled for this day type yet.</p>
+                                </div>
+                            ) : (
+                                getFilteredSchedules().map((schedule: any) => (
+                                    <div
+                                        key={schedule.id}
+                                        className="group relative flex items-center justify-between p-4 rounded-xl border border-secondary-100 bg-secondary-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all duration-200"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-primary-100/50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                                <Clock className="w-5 h-5 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-bold text-foreground">{formatTime(schedule.time)}</p>
+                                                {schedule.language && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-200 text-secondary-800">
+                                                        {schedule.language}
+                                                    </span>
+                                                )}
+                                                <p className="text-xs text-muted mt-0.5">{schedule.day_of_week}</p>
+                                            </div>
+                                        </div>
+
+                                        {canManage() && (
+                                            <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => setEditingSchedule(schedule)}
+                                                    className="p-1.5 text-secondary-500 hover:text-primary hover:bg-primary-50 rounded-md transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteSchedule(schedule.id, schedule.day_of_week, formatTime(schedule.time))}
+                                                    className="p-1.5 text-secondary-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Facebook Feed (fixed 500px width) */}
+                {church.facebook_url && (
+                    <div className="w-full lg:w-[500px] flex-shrink-0">
+                        <FacebookFeed pageUrl={church.facebook_url} height={700} />
+                    </div>
+                )}
+            </div>
             {/* Metadata */}
             <div className="card p-6">
                 <h2 className="text-lg font-semibold mb-4">Metadata</h2>
@@ -350,27 +408,31 @@ export default function ChurchDetailPage() {
             </div>
 
             {/* Modals */}
-            {showAddModal && (
-                <AddScheduleModal
-                    churchId={id!}
-                    onClose={() => setShowAddModal(false)}
-                    onSuccess={() => {
-                        refetch();
-                        setShowAddModal(false);
-                    }}
-                />
-            )}
+            {
+                showAddModal && (
+                    <AddScheduleModal
+                        churchId={id!}
+                        onClose={() => setShowAddModal(false)}
+                        onSuccess={() => {
+                            refetch();
+                            setShowAddModal(false);
+                        }}
+                    />
+                )
+            }
 
-            {editingSchedule && (
-                <EditScheduleModal
-                    schedule={editingSchedule}
-                    onClose={() => setEditingSchedule(null)}
-                    onSuccess={() => {
-                        refetch();
-                        setEditingSchedule(null);
-                    }}
-                />
-            )}
-        </div>
+            {
+                editingSchedule && (
+                    <EditScheduleModal
+                        schedule={editingSchedule}
+                        onClose={() => setEditingSchedule(null)}
+                        onSuccess={() => {
+                            refetch();
+                            setEditingSchedule(null);
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 }

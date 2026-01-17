@@ -37,7 +37,47 @@ export default function AddChurchPage() {
         description: '',
         panorama_url: '',
         livestream_url: '',
+        facebook_url: '',
     });
+
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) {
+            return;
+        }
+
+        const file = e.target.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `panoramas/${fileName}`;
+
+        setUploading(true);
+        setError('');
+
+        try {
+            const { error: uploadError } = await (supabase.storage
+                .from('church-images') as any) // Type assertion due to outdated types
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            // Get public URL
+            const { data } = supabase.storage
+                .from('church-images')
+                .getPublicUrl(filePath);
+
+            setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
+            console.log('✅ Image uploaded:', data.publicUrl);
+        } catch (err: any) {
+            console.error('❌ Error uploading image:', err);
+            setError('Failed to upload image: ' + err.message);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,6 +111,7 @@ export default function AddChurchPage() {
                     description: formData.description.trim() || null,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
+                    facebook_url: formData.facebook_url.trim() || null,
                 }])
                 .select()
                 .single();
@@ -217,22 +258,19 @@ export default function AddChurchPage() {
                         />
                     </div>
 
-                    {/* Panorama URL */}
+                    {/* Facebook URL */}
                     <div>
                         <label className="block text-sm font-medium mb-2">
-                            360° Panorama URL
+                            Official Facebook Page
                         </label>
                         <input
                             type="url"
-                            value={formData.panorama_url}
-                            onChange={(e) => setFormData({ ...formData, panorama_url: e.target.value })}
+                            value={formData.facebook_url}
+                            onChange={(e) => setFormData({ ...formData, facebook_url: e.target.value })}
                             disabled={loading}
                             className="input w-full"
-                            placeholder="e.g., https://..."
+                            placeholder="e.g., https://facebook.com/mychurch"
                         />
-                        <p className="text-xs text-muted mt-1">
-                            Link to 360° virtual tour (optional)
-                        </p>
                     </div>
 
                     {/* Livestream URL */}
@@ -250,6 +288,29 @@ export default function AddChurchPage() {
                         />
                         <p className="text-xs text-muted mt-1">
                             Link to live mass stream (optional)
+                        </p>
+                    </div>
+
+                    {/* 360° Panorama Image Upload */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">
+                            360° Panorama Image
+                        </label>
+                        <div className="flex items-center gap-4">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                disabled={loading || uploading}
+                                className="block w-full text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100"
+                            />
+                        </div>
+                        {uploading && <p className="text-xs text-primary mt-2">Uploading image...</p>}
+                        {formData.panorama_url && !uploading && (
+                            <p className="text-xs text-green-600 mt-2">✓ Image uploaded successfully</p>
+                        )}
+                        <p className="text-xs text-muted mt-1">
+                            Upload an equirectangular image for the 360° tour.
                         </p>
                     </div>
 

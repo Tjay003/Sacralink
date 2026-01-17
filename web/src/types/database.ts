@@ -60,6 +60,7 @@ export interface Database {
                     email: string | null;
                     latitude: number | null;
                     longitude: number | null;
+                    facebook_url: string | null;
                     livestream_url: string | null;
                     donation_qr_url: string | null;
                     panorama_url: string | null;
@@ -79,6 +80,7 @@ export interface Database {
                     email?: string | null;
                     latitude?: number | null;
                     longitude?: number | null;
+                    facebook_url?: string | null;
                     livestream_url?: string | null;
                     donation_qr_url?: string | null;
                     panorama_url?: string | null;
@@ -98,6 +100,7 @@ export interface Database {
                     email?: string | null;
                     latitude?: number | null;
                     longitude?: number | null;
+                    facebook_url?: string | null;
                     livestream_url?: string | null;
                     donation_qr_url?: string | null;
                     panorama_url?: string | null;
