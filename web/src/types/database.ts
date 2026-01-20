@@ -321,28 +321,34 @@ export interface Database {
                 Row: {
                     id: string;
                     church_id: string;
-                    service_type: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
+                    service_type: string;
                     requirement_name: string;
                     description: string | null;
                     is_required: boolean;
+                    allowed_file_types: string[];
+                    display_order: number;
                     created_at: string;
                 };
                 Insert: {
                     id?: string;
                     church_id: string;
-                    service_type: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
+                    service_type: string;
                     requirement_name: string;
                     description?: string | null;
                     is_required?: boolean;
+                    allowed_file_types?: string[];
+                    display_order?: number;
                     created_at?: string;
                 };
                 Update: {
                     id?: string;
                     church_id?: string;
-                    service_type?: 'baptism' | 'wedding' | 'funeral' | 'confirmation' | 'counseling' | 'mass_intention' | 'confession' | 'anointing';
+                    service_type?: string;
                     requirement_name?: string;
                     description?: string | null;
                     is_required?: boolean;
+                    allowed_file_types?: string[];
+                    display_order?: number;
                     created_at?: string;
                 };
             };
@@ -352,33 +358,33 @@ export interface Database {
                     appointment_id: string;
                     requirement_id: string | null;
                     file_url: string;
-                    file_name: string | null;
-                    is_verified: boolean;
-                    verified_by: string | null;
-                    verified_at: string | null;
-                    created_at: string;
+                    file_name: string;
+                    file_type: string;
+                    file_size: number | null;
+                    uploaded_at: string;
+                    uploaded_by: string | null;
                 };
                 Insert: {
                     id?: string;
                     appointment_id: string;
                     requirement_id?: string | null;
                     file_url: string;
-                    file_name?: string | null;
-                    is_verified?: boolean;
-                    verified_by?: string | null;
-                    verified_at?: string | null;
-                    created_at?: string;
+                    file_name: string;
+                    file_type: string;
+                    file_size?: number | null;
+                    uploaded_at?: string;
+                    uploaded_by?: string | null;
                 };
                 Update: {
                     id?: string;
                     appointment_id?: string;
                     requirement_id?: string | null;
                     file_url?: string;
-                    file_name?: string | null;
-                    is_verified?: boolean;
-                    verified_by?: string | null;
-                    verified_at?: string | null;
-                    created_at?: string;
+                    file_name?: string;
+                    file_type?: string;
+                    file_size?: number | null;
+                    uploaded_at?: string;
+                    uploaded_by?: string | null;
                 };
             };
             activity_logs: {

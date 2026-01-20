@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, Calendar, User, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 
 import type { Appointment as BaseAppointment } from '../../types/database';
 
@@ -20,6 +21,7 @@ export default function AppointmentsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [viewingDocumentsFor, setViewingDocumentsFor] = useState<string | null>(null);
 
     const canManageAppointments = profile?.role === 'admin'
         || profile?.role === 'super_admin'
@@ -166,22 +168,33 @@ export default function AppointmentsPage() {
                                 )}
                             </div>
 
-                            {/* Actions - Visible only to Managers for Pending items */}
-                            {canManageAppointments && appointment.status === 'pending' && (
+                            {/* Actions - Visible only to Managers */}
+                            {canManageAppointments && (
                                 <div className="flex items-center gap-2 md:flex-col md:justify-center">
+                                    {appointment.status === 'pending' && (
+                                        <>
+                                            <button
+                                                onClick={() => handleStatusUpdate(appointment.id, 'approved')}
+                                                className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 justify-center"
+                                            >
+                                                <CheckCircle className="w-4 h-4 mr-2" />
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
+                                                className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 justify-center"
+                                            >
+                                                <XCircle className="w-4 h-4 mr-2" />
+                                                Reject
+                                            </button>
+                                        </>
+                                    )}
                                     <button
-                                        onClick={() => handleStatusUpdate(appointment.id, 'approved')}
-                                        className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 justify-center"
+                                        onClick={() => setViewingDocumentsFor(appointment.id)}
+                                        className="btn-secondary w-full md:w-32 justify-center"
                                     >
-                                        <CheckCircle className="w-4 h-4 mr-2" />
-                                        Approve
-                                    </button>
-                                    <button
-                                        onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
-                                        className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 justify-center"
-                                    >
-                                        <XCircle className="w-4 h-4 mr-2" />
-                                        Reject
+                                        <FileText className="w-4 h-4 mr-2" />
+                                        Docs
                                     </button>
                                 </div>
                             )}
@@ -199,6 +212,15 @@ export default function AppointmentsPage() {
                     ))
                 )}
             </div>
+
+            {/* Document Viewer Modal */}
+            {viewingDocumentsFor && (
+                <DocumentViewerModal
+                    appointmentId={viewingDocumentsFor}
+                    isOpen={true}
+                    onClose={() => setViewingDocumentsFor(null)}
+                />
+            )}
         </div>
     );
 }

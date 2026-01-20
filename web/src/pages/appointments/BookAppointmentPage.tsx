@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, FileText, CheckCircle, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { getRequirements } from '../../lib/supabase/requirements';
+import { uploadDocument } from '../../lib/supabase/documents';
+import DocumentUploader from '../../components/documents/DocumentUploader';
 import type { Church } from '../../types/database';
+
+type SacramentRequirement = {
+    id: string;
+    requirement_name: string;
+    description: string | null;
+    is_required: boolean;
+    allowed_file_types: string[];
+    display_order: number;
+};
 
 export default function BookAppointmentPage() {
     const { id } = useParams<{ id: string }>();
@@ -12,7 +24,11 @@ export default function BookAppointmentPage() {
 
     // State
     const [church, setChurch] = useState<Church | null>(null);
+    const [requirements, setRequirements] = useState<SacramentRequirement[]>([]);
+    const [documents, setDocuments] = useState<Map<string, File>>(new Map());
+    const [uploadedDocumentIds, setUploadedDocumentIds] = useState<Map<string, string>>(new Map());
     const [loadingChurch, setLoadingChurch] = useState(true);
+    const [loadingRequirements, setLoadingRequirements] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -26,13 +42,14 @@ export default function BookAppointmentPage() {
     });
 
     const SERVICE_TYPES = [
-        'Baptism',
-        'Wedding',
-        'Funeral',
-        'Confirmation',
-        'Blessing',
-        'Other'
+        { value: 'Baptism', label: 'Baptism' },
+        { value: 'Wedding', label: 'Wedding' },
+        { value: 'Funeral', label: 'Funeral' },
+        { value: 'Confirmation', label: 'Confirmation' },
+        { value: 'Blessing', label: 'Blessing' },
+        { value: 'Other', label: 'Other' },
     ];
+
 
     // Fetch Church Details
     useEffect(() => {
@@ -59,16 +76,74 @@ export default function BookAppointmentPage() {
         fetchChurch();
     }, [id]);
 
+    // Fetch Requirements when service type changes
+    useEffect(() => {
+        async function fetchRequirements() {
+            if (!id || !formData.service_type) return;
+
+            setLoadingRequirements(true);
+            try {
+                console.log('Fetching requirements for:', { churchId: id, serviceType: formData.service_type });
+                const reqs = await getRequirements(id, formData.service_type.toLowerCase());
+                console.log('Requirements fetched:', reqs);
+                setRequirements(reqs as any);
+                // Clear documents when service type changes
+                setDocuments(new Map());
+                setUploadedDocumentIds(new Map());
+            } catch (err: any) {
+                console.error('Error fetching requirements:', err);
+            } finally {
+                setLoadingRequirements(false);
+            }
+        }
+
+        fetchRequirements();
+    }, [id, formData.service_type]);
+
+    const handleFileSelect = (requirementId: string, file: File) => {
+        const newDocs = new Map(documents);
+        newDocs.set(requirementId, file);
+        setDocuments(newDocs);
+    };
+
+    const handleFileRemove = (requirementId: string) => {
+        const newDocs = new Map(documents);
+        newDocs.delete(requirementId);
+        setDocuments(newDocs);
+
+        const newUploadedIds = new Map(uploadedDocumentIds);
+        newUploadedIds.delete(requirementId);
+        setUploadedDocumentIds(newUploadedIds);
+    };
+
+    const validateRequiredDocuments = (): boolean => {
+        const requiredReqs = requirements.filter(r => r.is_required);
+        for (const req of requiredReqs) {
+            if (!documents.has(req.id)) {
+                setError(`Missing required document: ${req.requirement_name}`);
+                return false;
+            }
+        }
+        return true;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !id) return;
+
+        // Validate required documents
+        if (!validateRequiredDocuments()) {
+            return;
+        }
 
         setSubmitting(true);
         setError('');
 
         try {
-            const { error: insertError } = await (supabase
-                .from('appointments') as any)
+            // 1. Create the appointment
+            const { data: appointment, error: insertError } = await (supabase
+                .from('appointments')
+                // @ts-ignore - Supabase type inference issue
                 .insert([{
                     user_id: user.id,
                     church_id: id,
@@ -77,9 +152,18 @@ export default function BookAppointmentPage() {
                     appointment_time: formData.appointment_time,
                     notes: formData.notes || null,
                     status: 'pending'
-                }]);
+                }])
+                .select()
+                .single() as any);
 
             if (insertError) throw insertError;
+
+            // 2. Upload all documents
+            const uploadPromises = Array.from(documents.entries()).map(([requirementId, file]) =>
+                uploadDocument(appointment.id, requirementId, file)
+            );
+
+            await Promise.all(uploadPromises);
 
             setSuccess('Appointment request submitted successfully!');
 
@@ -123,10 +207,10 @@ export default function BookAppointmentPage() {
                     </div>
                     <h2 className="text-2xl font-bold text-green-700">Request Sent!</h2>
                     <p className="text-gray-600">
-                        Your request for a <strong>{formData.service_type}</strong> at {church.name} has been submitted.
+                        Your request for a <strong>{SERVICE_TYPES.find(t => t.value === formData.service_type)?.label}</strong> at {church.name} has been submitted.
                     </p>
                     <p className="text-sm text-gray-500">
-                        The church admin will review your request shortly. You will be redirected back to the church details...
+                        The church admin will review your request and documents shortly. You will be redirected back to the church details...
                     </p>
                 </div>
             </div>
@@ -134,7 +218,7 @@ export default function BookAppointmentPage() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="max-w-3xl mx-auto space-y-6">
             <button
                 onClick={() => navigate(`/churches/${id}`)}
                 className="flex items-center text-gray-500 hover:text-gray-900"
@@ -153,7 +237,7 @@ export default function BookAppointmentPage() {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Service Type */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -166,7 +250,7 @@ export default function BookAppointmentPage() {
                             className="input-field"
                         >
                             {SERVICE_TYPES.map(type => (
-                                <option key={type} value={type}>{type}</option>
+                                <option key={type.value} value={type.value}>{type.label}</option>
                             ))}
                         </select>
                     </div>
@@ -223,6 +307,43 @@ export default function BookAppointmentPage() {
                             />
                         </div>
                     </div>
+
+                    {/* Required Documents Section */}
+                    {(() => {
+                        console.log('Rendering requirements section:', { loadingRequirements, requirementsLength: requirements.length, requirements });
+                        return null;
+                    })()}
+                    {loadingRequirements ? (
+                        <div className="p-6 text-center border border-gray-200 rounded-lg bg-gray-50">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <p className="text-sm text-gray-500 mt-2">Loading requirements...</p>
+                        </div>
+                    ) : requirements.length > 0 ? (
+                        <div className="border-t border-gray-200 pt-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Upload className="w-5 h-5 text-primary" />
+                                <h3 className="text-lg font-semibold">Required Documents</h3>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Please upload the following documents for your {SERVICE_TYPES.find(t => t.value === formData.service_type)?.label} request:
+                            </p>
+
+                            <div className="space-y-4">
+                                {requirements.map((req) => (
+                                    <DocumentUploader
+                                        key={req.id}
+                                        requirementId={req.id}
+                                        requirementName={req.requirement_name}
+                                        isRequired={req.is_required}
+                                        allowedFileTypes={req.allowed_file_types}
+                                        onFileSelect={(file) => handleFileSelect(req.id, file)}
+                                        onFileRemove={() => handleFileRemove(req.id)}
+                                        uploadedFile={documents.get(req.id)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
 
                     <div className="pt-4">
                         <button
