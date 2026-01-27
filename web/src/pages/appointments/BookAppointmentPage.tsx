@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getRequirements } from '../../lib/supabase/requirements';
 import { uploadDocument } from '../../lib/supabase/documents';
+import { notifyAdminsOfNewAppointment } from '../../lib/supabase/notifications';
 import DocumentUploader from '../../components/documents/DocumentUploader';
 import type { Church } from '../../types/database';
 
@@ -164,6 +165,16 @@ export default function BookAppointmentPage() {
             );
 
             await Promise.all(uploadPromises);
+
+            // 3. Notify admins of new appointment
+            if (church && user) {
+                await notifyAdminsOfNewAppointment(
+                    id,
+                    user.user_metadata?.full_name || 'A user',
+                    formData.service_type,
+                    appointment.id
+                );
+            }
 
             setSuccess('Appointment request submitted successfully!');
 

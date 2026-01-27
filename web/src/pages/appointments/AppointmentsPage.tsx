@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { notifyUserOfStatusChange } from '../../lib/supabase/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 
@@ -63,12 +64,24 @@ export default function AppointmentsPage() {
 
     const handleStatusUpdate = async (id: string, newStatus: string) => {
         try {
+            // Find the appointment to get user info
+            const appointment = appointments.find(app => app.id === id);
+            if (!appointment) return;
+
             const { error } = await (supabase
                 .from('appointments') as any)
                 .update({ status: newStatus })
                 .eq('id', id);
 
             if (error) throw error;
+
+            // Send notification to user
+            await notifyUserOfStatusChange(
+                appointment.user_id,
+                appointment.service_type,
+                newStatus as 'approved' | 'rejected',
+                id
+            );
 
             // Optimistic update
             setAppointments(prev => prev.map(app =>

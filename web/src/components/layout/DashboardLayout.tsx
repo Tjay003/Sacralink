@@ -16,6 +16,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationBell from '../notifications/NotificationBell';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -128,6 +129,9 @@ export default function DashboardLayout() {
 
                         {/* Right Section */}
                         <div className="flex items-center gap-4">
+                            {/* Notification Bell */}
+                            <NotificationBell />
+
                             {/* User Menu */}
                             <div className="relative">
                                 <button
