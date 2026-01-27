@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
 import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Facebook } from 'lucide-react';
@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
 import FacebookFeed from '../../components/social/FacebookFeed';
+import ImageLightbox from '../../components/churches/ImageLightbox';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -27,6 +28,8 @@ export default function ChurchDetailPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<'sunday' | 'weekday'>('sunday');
+    const [galleryImages, setGalleryImages] = useState<string[]>([]);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     const getFilteredSchedules = () => {
         if (!church?.mass_schedules) return [];
@@ -71,6 +74,28 @@ export default function ChurchDetailPage() {
     };
 
     const isSuperAdmin = profile?.role === 'super_admin';
+
+    // Fetch gallery images
+    useEffect(() => {
+        const fetchGallery = async () => {
+            if (!id) return;
+            try {
+                const { data } = await supabase
+                    .from('church_images')
+                    .select('image_url')
+                    .eq('church_id', id)
+                    .order('display_order', { ascending: true });
+
+                if (data) {
+                    setGalleryImages(data.map((img: any) => img.image_url));
+                }
+            } catch (err) {
+                console.error('Error fetching gallery:', err);
+            }
+        };
+
+        fetchGallery();
+    }, [id]);
 
     // Format time from 24hr to 12hr
     const formatTime = (time: string) => {
@@ -392,6 +417,30 @@ export default function ChurchDetailPage() {
                     </div>
                 )}
             </div>
+
+            {/* Church Gallery */}
+            {galleryImages.length > 0 && (
+                <div className="card p-6">
+                    <h2 className="text-lg font-semibold mb-4">Church Gallery</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {galleryImages.map((imageUrl, index) => (
+                            <div
+                                key={index}
+                                className="relative group cursor-pointer overflow-hidden rounded-lg"
+                                onClick={() => setLightboxIndex(index)}
+                            >
+                                <img
+                                    src={imageUrl}
+                                    alt={`${church.name} - Image ${index + 1}`}
+                                    className="w-full h-48 object-cover transition-transform duration-200 group-hover:scale-110"
+                                />
+                                <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity duration-200" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Metadata */}
             <div className="card p-6">
                 <h2 className="text-lg font-semibold mb-4">Metadata</h2>
@@ -433,6 +482,15 @@ export default function ChurchDetailPage() {
                     />
                 )
             }
+
+            {/* Lightbox */}
+            {lightboxIndex !== null && (
+                <ImageLightbox
+                    images={galleryImages}
+                    initialIndex={lightboxIndex}
+                    onClose={() => setLightboxIndex(null)}
+                />
+            )}
         </div >
     );
 }

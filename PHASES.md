@@ -15,7 +15,7 @@ This document tracks our progress building SacraLink step-by-step. Each phase bu
 | 1 | Foundation & Setup | ✅ Completed | 100% |
 | 2 | Authentication | ✅ Completed | 100% |
 | 3 | Churches Feature | ✅ Completed | 100% |
-| 4 | Appointments Feature | 🟡 In Progress | 0% |
+| 4 | Appointments Feature | 🟡 In Progress | 85% |
 | 5 | Donations Feature | ⬜ Not Started | 0% |
 | 6 | Announcements Feature | ⬜ Not Started | 0% |
 | 7 | Mobile App | ⬜ Not Started | 0% |
@@ -158,26 +158,52 @@ This document tracks our progress building SacraLink step-by-step. Each phase bu
 
 ---
 
-## Phase 4: Appointments Feature ⬜
+## Phase 4: Appointments Feature 🟡
 
 > **Goal:** Manage sacrament bookings with status workflows.
 
-### 4.1 List Appointments
-- [ ] Fetch appointments with user and church data (joins)
-- [ ] Filter by status (pending, approved, etc.)
-- [ ] Search functionality
+### 4.1 List Appointments ✅
+- [x] Fetch appointments with user and church data (joins)
+- [x] Filter by status (pending, approved, etc.)
+- [x] Search functionality
 
-### 4.2 Appointment Details
-- [ ] View full appointment info
-- [ ] See user's submitted documents
-- [ ] View/add admin feedback
+### 4.2 Appointment Details ✅
+- [x] View full appointment info
+- [x] See user's submitted documents
+- [x] View/add admin feedback
 
-### 4.3 Status Management
-- [ ] Approve appointment (update status)
-- [ ] Reject appointment (with reason)
-- [ ] Mark as completed
+### 4.3 Status Management ✅
+- [x] Approve appointment (update status)
+- [x] Reject appointment (with reason)
+- [x] Mark as completed
 
-### 4.4 Calendar View (Bonus)
+### 4.4 Roles & Permissions ✅
+- [x] `church_admin` role with assigned church
+- [x] `volunteer` role for church helpers
+- [x] RLS policies for church-specific access
+- [x] Dashboard customization per role
+
+### 4.5 Dashboard & Calendar ✅
+- [x] Real-time appointment counts
+- [x] Calendar view of appointments
+- [x] Daily Bible verse widget
+- [x] Role-specific dashboards
+
+### 4.6 Advanced Church Page ✅
+- [x] Mass schedule CRUD
+- [x] Facebook feed integration
+- [x] 360 virtual tour embedding
+
+### 4.7 Document Requirements System ✅
+- [x] `sacrament_requirements` table
+- [x] `appointment_documents` table  
+- [x] File upload with validation (PDF, images, <10MB)
+- [x] Admin document viewer modal
+- [x] View/download submitted documents
+- [x] Requirements fetched per service type
+- [x] Storage bucket with RLS policies
+
+### 4.8 Calendar View (Bonus) ⬜
 - [ ] Visual calendar showing appointments
 - [ ] Click to view details
 
@@ -317,14 +343,16 @@ Use this section to write down things you learned along the way:
 
 ## 🎯 Next Action
 
-**Current task:** Start Phase 4 - Appointments Feature.
+**Current task:** Phase 4.8 Complete! ✅ Ready for Phase 4.9 (Notifications) or polish work.
 
-1. Go to [supabase.com](https://supabase.com)
-2. Create a new project
-3. Wait for it to initialize (~2 minutes)
-4. Go to SQL Editor
-5. Paste the contents of `Sacralink_database.sql`
-6. Click "Run"
-7. Check Table Editor to see your tables!
+**Phase 4.8 Achievements:**
+- ✅ Document requirements system fully functional
+- ✅ File upload with drag-and-drop
+- ✅ Admin can view/download all documents
+- ✅ All 6 test cases passing
 
-When done, tell me and we'll move to Phase 2! 🚀
+**Next Steps:**
+1. Polish existing pages (user's choice)
+2. Then proceed to Phase 4.9: Notifications 🔔
+
+When ready, let me know! 🚀

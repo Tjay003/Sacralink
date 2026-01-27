@@ -113,6 +113,33 @@ export interface Database {
                 };
             };
 
+            church_images: {
+                Row: {
+                    id: string;
+                    church_id: string;
+                    image_url: string;
+                    display_order: number;
+                    uploaded_by: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    church_id: string;
+                    image_url: string;
+                    display_order?: number;
+                    uploaded_by?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    church_id?: string;
+                    image_url?: string;
+                    display_order?: number;
+                    uploaded_by?: string | null;
+                    created_at?: string;
+                };
+            };
+
             donations: {
                 Row: {
                     id: string;

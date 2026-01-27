@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
-import { Building2, ArrowLeft } from 'lucide-react';
+import { Building2, ArrowLeft, ImageIcon, X } from 'lucide-react';
+import GalleryUploader from '../../components/churches/GalleryUploader';
 
 /**
  * EditChurchPage - Form to edit an existing church
@@ -62,6 +63,8 @@ export default function EditChurchPage() {
     });
 
     const [uploading, setUploading] = useState(false);
+    const [galleryImages, setGalleryImages] = useState<any[]>([]);
+    const [loadingGallery, setLoadingGallery] = useState(false);
 
     // Pre-fill form when church data loads
     useEffect(() => {
@@ -78,6 +81,30 @@ export default function EditChurchPage() {
             });
         }
     }, [church]);
+
+    // Fetch gallery images
+    const fetchGallery = async () => {
+        if (!id) return;
+        setLoadingGallery(true);
+        try {
+            const { data, error } = await supabase
+                .from('church_images')
+                .select('*')
+                .eq('church_id', id)
+                .order('display_order', { ascending: true });
+
+            if (error) throw error;
+            setGalleryImages(data || []);
+        } catch (err) {
+            console.error('Error fetching gallery:', err);
+        } finally {
+            setLoadingGallery(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchGallery();
+    }, [id]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) {
@@ -387,6 +414,50 @@ export default function EditChurchPage() {
                         <p className="text-xs text-muted mt-1">
                             Upload an equirectangular image for the 360° tour.
                         </p>
+                    </div>
+
+                    {/* Church Gallery Section */}
+                    <div className="border-t border-border pt-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <ImageIcon className="w-5 h-5 text-primary" />
+                            <h3 className="text-lg font-semibold">Church Gallery</h3>
+                        </div>
+
+                        {/* Existing Images */}
+                        {galleryImages.length > 0 && (
+                            <div className="mb-6">
+                                <h4 className="text-sm font-medium mb-3">Current Images ({galleryImages.length})</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {galleryImages.map((img: any) => (
+                                        <div key={img.id} className="relative group">
+                                            <img
+                                                src={img.image_url}
+                                                alt="Church"
+                                                className="w-full h-32 object-cover rounded-lg"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (confirm('Delete this image?')) {
+                                                        await supabase.from('church_images').delete().eq('id', img.id);
+                                                        fetchGallery();
+                                                    }
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Upload New Images */}
+                        <GalleryUploader
+                            churchId={id!}
+                            onUploadComplete={fetchGallery}
+                        />
                     </div>
 
                     {/* Action Buttons */}
