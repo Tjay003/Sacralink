@@ -21,8 +21,10 @@ export async function createNotification({
     try {
         console.log('📨 Creating notification:', { userId, type, title, message, link });
 
+
         const { data, error } = await (supabase
             .from('notifications')
+            // @ts-ignore - Supabase type inference issue with notifications table
             .insert({
                 user_id: userId,
                 type,
@@ -97,8 +99,10 @@ export async function getUnreadCount() {
  */
 export async function markAsRead(notificationId: string) {
     try {
+
         const { error } = await supabase
             .from('notifications')
+            // @ts-expect-error - Supabase type inference issue
             .update({ is_read: true })
             .eq('id', notificationId);
 
@@ -115,8 +119,10 @@ export async function markAsRead(notificationId: string) {
  */
 export async function markAllAsRead() {
     try {
+
         const { error } = await supabase
             .from('notifications')
+            // @ts-ignore - Supabase type inference issue
             .update({ is_read: true })
             .eq('is_read', false);
 
