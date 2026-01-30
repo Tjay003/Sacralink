@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
 import { featureFlags } from '../../config/featureFlags';
+import logo from '../../assets/logo.png';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -90,10 +91,11 @@ export default function DashboardLayout() {
                 {/* Logo */}
                 <div className="flex items-center justify-between h-16 px-4 border-b border-border">
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-white">
-                            <Church className="w-5 h-5" />
+                        <img src={logo} alt="SacraLink Logo" className="w-10 h-10" />
+                        <div className="text-lg font-extrabold tracking-tight">
+                            <span className="text-primary">SACRA</span>
+                            <span className="text-foreground">LINK</span>
                         </div>
-                        <span className="text-lg font-bold text-foreground">SacraLink</span>
                     </div>
                     <button
                         onClick={() => setSidebarOpen(false)}
