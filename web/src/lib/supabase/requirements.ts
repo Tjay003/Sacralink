@@ -3,7 +3,6 @@ import type { Database } from '@/types/database';
 
 type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
 type InsertSacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Insert'];
-type UpdateSacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Update'];
 
 /**
  * Fetch all requirements for a specific church and service type
@@ -38,7 +37,7 @@ export async function createRequirement(requirement: InsertSacramentRequirement)
 /**
  * Update an existing requirement
  */
-export async function updateRequirement(id: string, updates: UpdateSacramentRequirement) {
+export async function updateRequirement(id: string, updates: any) {
     const { data, error } = await (supabase
         .from('sacrament_requirements')
         // @ts-ignore - Supabase type inference issue

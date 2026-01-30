@@ -141,7 +141,7 @@ export async function notifyAdminsOfNewAppointment(
     churchId: string,
     userName: string,
     serviceType: string,
-    appointmentId: string
+    _appointmentId: string
 ) {
     try {
         console.log('🔔 Notifying admins of new appointment:', { churchId, userName, serviceType });
@@ -190,7 +190,7 @@ export async function notifyUserOfStatusChange(
     userId: string,
     serviceType: string,
     status: 'approved' | 'rejected',
-    appointmentId: string
+    _appointmentId: string
 ) {
     console.log('🔔 Notifying user of status change:', { userId, serviceType, status });
 

@@ -3,7 +3,7 @@ import Calendar from 'react-calendar';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Calendar as CalendarIcon, Clock, User, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, User } from 'lucide-react';
 import 'react-calendar/dist/Calendar.css'; // Import default styles
 
 // Custom styles to override default calendar appearance to match theme
@@ -67,7 +67,7 @@ export default function DashboardCalendar() {
     const { profile } = useAuth();
     const [date, setDate] = useState<Date>(new Date());
     const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Used for state management
 
     useEffect(() => {
         fetchAppointments();

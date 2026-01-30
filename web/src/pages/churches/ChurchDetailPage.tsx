@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Facebook } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar } from 'lucide-react';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -139,7 +139,7 @@ export default function ChurchDetailPage() {
         );
     }
 
-    const massSchedules = church?.mass_schedules || [];
+    // const massSchedules = church?.mass_schedules || [];
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
