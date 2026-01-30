@@ -67,7 +67,7 @@ export default function DashboardCalendar() {
     const { profile } = useAuth();
     const [date, setDate] = useState<Date>(new Date());
     const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [loading, setLoading] = useState(true); // Used for state management
+    const [_loading, setLoading] = useState(true);
 
     useEffect(() => {
         fetchAppointments();

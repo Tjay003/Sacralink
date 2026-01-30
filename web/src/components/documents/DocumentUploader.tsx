@@ -13,7 +13,7 @@ interface DocumentUploaderProps {
 }
 
 export default function DocumentUploader({
-    requirementId,
+    requirementId: _requirementId,
     requirementName,
     isRequired,
     allowedFileTypes = ['pdf', 'jpg', 'jpeg', 'png'],
@@ -95,8 +95,8 @@ export default function DocumentUploader({
             {!uploadedFile ? (
                 <div
                     className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dragActive
-                            ? 'border-primary bg-primary-50'
-                            : 'border-gray-300 hover:border-primary hover:bg-gray-50'
+                        ? 'border-primary bg-primary-50'
+                        : 'border-gray-300 hover:border-primary hover:bg-gray-50'
                         }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}

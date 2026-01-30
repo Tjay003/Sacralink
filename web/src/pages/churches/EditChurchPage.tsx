@@ -64,7 +64,7 @@ export default function EditChurchPage() {
 
     const [uploading, setUploading] = useState(false);
     const [galleryImages, setGalleryImages] = useState<any[]>([]);
-    const [loadingGallery, setLoadingGallery] = useState(false);
+    const [_loadingGallery, setLoadingGallery] = useState(false);
 
     // Pre-fill form when church data loads
     useEffect(() => {
