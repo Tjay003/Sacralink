@@ -78,7 +78,7 @@ export const dashboardConfig = {
     useMockData: isDemoMode,  // true = use mock data, false = fetch real data from Supabase
 
     // Show/hide quick actions section on dashboard
-    showQuickActions: false,   // true = show buttons, false = hide entire section
+    showQuickActions: !isDemoMode,   // true when demo mode OFF, false when demo mode ON
 
     // Mock data values (only used when useMockData = true)
     // Customize these values for your demo presentations
