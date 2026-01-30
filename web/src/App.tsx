@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { featureFlags } from './config/featureFlags';
 
 // Pages
 import LoginPage from './pages/auth/LoginPage.tsx';
@@ -18,7 +19,6 @@ import ProfilePage from './pages/profile/ProfilePage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
-import LoadingSpinner from './components/ui/LoadingSpinner.tsx';
 
 function AppRoutes() {
   const { user, profile, loading } = useAuth();
@@ -88,7 +88,13 @@ function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="users" element={<UsersPage />} />
+
+        {/* Admin-only routes */}
+        {featureFlags.admin.enabled && (
+          <Route path="users" element={<UsersPage />} />
+        )}
+
+        {/* Church routes - always enabled */}
         <Route path="churches">
           <Route index element={<ChurchesPage />} />
           <Route path="add" element={<AddChurchPage />} />
@@ -96,9 +102,19 @@ function AppRoutes() {
           <Route path=":id/edit" element={<EditChurchPage />} />
           <Route path=":id/book" element={<BookAppointmentPage />} />
         </Route>
+
+        {/* Appointments - always enabled */}
         <Route path="appointments" element={<AppointmentsPage />} />
-        <Route path="donations" element={<DonationsPage />} />
-        <Route path="announcements" element={<AnnouncementsPage />} />
+
+        {/* Donations - feature flagged */}
+        {featureFlags.donations.enabled && (
+          <Route path="donations" element={<DonationsPage />} />
+        )}
+
+        {/* Announcements - feature flagged */}
+        {featureFlags.announcements.enabled && (
+          <Route path="announcements" element={<AnnouncementsPage />} />
+        )}
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

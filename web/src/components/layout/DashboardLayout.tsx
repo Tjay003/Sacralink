@@ -17,14 +17,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
+import { featureFlags } from '../../config/featureFlags';
 
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Users', href: '/users', icon: Users, adminOnly: true },
+    { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' as const },
     { name: 'Churches', href: '/churches', icon: Building2 },
     { name: 'Appointments', href: '/appointments', icon: Calendar },
-    { name: 'Donations', href: '/donations', icon: Heart },
-    { name: 'Announcements', href: '/announcements', icon: Megaphone },
+    { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const },
+    { name: 'Announcements', href: '/announcements', icon: Megaphone, featureKey: 'announcements' as const },
 ];
 
 export default function DashboardLayout() {
@@ -88,8 +89,17 @@ export default function DashboardLayout() {
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
                     {navigation
-                        .filter(item => !item.adminOnly || (item.adminOnly && ['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')))
-                        // Volunteers see the same as regular users for now
+                        .filter(item => {
+                            // Check admin-only permission
+                            if (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) {
+                                return false;
+                            }
+                            // Check feature flag
+                            if (item.featureKey && !featureFlags[item.featureKey].enabled) {
+                                return false;
+                            }
+                            return true;
+                        })
                         .map((item) => (
                             <NavItem key={item.name} item={item} />
                         ))}
