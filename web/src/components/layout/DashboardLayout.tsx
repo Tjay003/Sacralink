@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-    Church,
     LayoutDashboard,
     Building2,
     Calendar,
