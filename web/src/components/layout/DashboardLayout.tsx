@@ -22,8 +22,8 @@ import { featureFlags } from '../../config/featureFlags';
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' as const },
-    { name: 'Churches', href: '/churches', icon: Building2 },
-    { name: 'Appointments', href: '/appointments', icon: Calendar },
+    { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' as const },
+    { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' as const },
     { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const },
     { name: 'Announcements', href: '/announcements', icon: Megaphone, featureKey: 'announcements' as const },
 ];
@@ -39,21 +39,38 @@ export default function DashboardLayout() {
         navigate('/login');
     };
 
-    const NavItem = ({ item }: { item: typeof navigation[0] }) => (
-        <NavLink
-            to={item.href}
-            onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
-                    ? 'bg-primary text-white'
-                    : 'text-secondary-600 hover:bg-secondary-100'
-                }`
-            }
-        >
-            <item.icon className="w-5 h-5" />
-            {item.name}
-        </NavLink>
-    );
+    const NavItem = ({ item, disabled }: { item: typeof navigation[0]; disabled?: boolean }) => {
+        if (disabled) {
+            // Render as disabled button (not clickable)
+            return (
+                <div
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium 
+                               text-secondary-300 cursor-not-allowed opacity-50"
+                    title="This feature is not available in demo mode"
+                >
+                    <item.icon className="w-5 h-5" />
+                    {item.name}
+                </div>
+            );
+        }
+
+        // Render as normal NavLink
+        return (
+            <NavLink
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${isActive
+                        ? 'bg-primary text-white'
+                        : 'text-secondary-600 hover:bg-secondary-100'
+                    }`
+                }
+            >
+                <item.icon className="w-5 h-5" />
+                {item.name}
+            </NavLink>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-background">
@@ -88,21 +105,22 @@ export default function DashboardLayout() {
 
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
-                    {navigation
-                        .filter(item => {
-                            // Check admin-only permission
-                            if (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) {
-                                return false;
-                            }
-                            // Check feature flag
-                            if (item.featureKey && !featureFlags[item.featureKey].enabled) {
-                                return false;
-                            }
-                            return true;
-                        })
-                        .map((item) => (
-                            <NavItem key={item.name} item={item} />
-                        ))}
+                    {navigation.map((item) => {
+                        // Check if item should be disabled
+                        const isDisabled =
+                            // Admin-only permission check
+                            (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) ||
+                            // Feature flag check
+                            (item.featureKey && !featureFlags[item.featureKey].enabled);
+
+                        return (
+                            <NavItem
+                                key={item.name}
+                                item={item}
+                                disabled={isDisabled}
+                            />
+                        );
+                    })}
                 </nav>
 
                 {/* Bottom Section */}

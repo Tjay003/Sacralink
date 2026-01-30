@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import { Calendar, Clock, MapPin, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { dashboardConfig } from '../../config/featureFlags';
 
 interface Appointment {
     id: string;
@@ -155,37 +156,39 @@ export default function UserDashboard() {
                 <div className="space-y-6">
                     <DailyVerse />
 
-                    {/* Quick Actions */}
-                    <div className="card p-6">
-                        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => navigate('/churches')}
-                                className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                            >
-                                <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                    <PlusCircle className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-sm">Book Appointment</div>
-                                    <div className="text-xs text-muted">Find a church & schedule</div>
-                                </div>
-                            </button>
+                    {/* Quick Actions - Controlled by dashboardConfig */}
+                    {dashboardConfig.showQuickActions && (
+                        <div className="card p-6">
+                            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+                            <div className="space-y-3">
+                                <button
+                                    onClick={() => navigate('/churches')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
+                                        <PlusCircle className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Book Appointment</div>
+                                        <div className="text-xs text-muted">Find a church & schedule</div>
+                                    </div>
+                                </button>
 
-                            <button
-                                onClick={() => navigate('/churches')}
-                                className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                            >
-                                <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                    <span className="text-xl">⛪</span>
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-sm">Browse Churches</div>
-                                    <div className="text-xs text-muted">Explore parishes</div>
-                                </div>
-                            </button>
+                                <button
+                                    onClick={() => navigate('/churches')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                        <span className="text-xl">⛪</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Browse Churches</div>
+                                        <div className="text-xs text-muted">Explore parishes</div>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

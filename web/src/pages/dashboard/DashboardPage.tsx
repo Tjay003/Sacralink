@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import UserDashboard from './UserDashboard';
 import DashboardCalendar from '../../components/dashboard/DashboardCalendar';
 import DailyVerse from '../../components/dashboard/DailyVerse';
+import { dashboardConfig } from '../../config/featureFlags';
 
 /**
  * DashboardPage - Main dashboard that shows different content based on user role
@@ -32,6 +33,13 @@ export default function DashboardPage() {
     }, [profile]);
 
     const fetchUserCount = async () => {
+        // Use mock data if enabled
+        if (dashboardConfig.useMockData) {
+            setUserCount(dashboardConfig.mockData.totalUsers);
+            return;
+        }
+
+        // Fetch real data from Supabase
         const { count } = await supabase
             .from('profiles')
             .select('*', { count: 'exact', head: true });
@@ -41,6 +49,16 @@ export default function DashboardPage() {
 
     const fetchDashboardStats = async () => {
         try {
+            // Use mock data if enabled
+            if (dashboardConfig.useMockData) {
+                setStats({
+                    pendingAppointments: dashboardConfig.mockData.pendingRequests,
+                    activeEvents: dashboardConfig.mockData.upcomingAppointments
+                });
+                return;
+            }
+
+            // Fetch real data from Supabase
             // 1. Pending Appointments (RLS filtered)
             const { count: pendingCount } = await supabase
                 .from('appointments')
@@ -107,7 +125,11 @@ export default function DashboardPage() {
                     <div className="card p-6 flex flex-col justify-between">
                         <div>
                             <p className="text-sm text-muted mb-1">Total Churches</p>
-                            <p className="text-3xl font-bold text-gray-800">{churches.length}</p>
+                            <p className="text-3xl font-bold text-gray-800">
+                                {dashboardConfig.useMockData
+                                    ? dashboardConfig.mockData.totalChurches
+                                    : churches.length}
+                            </p>
                         </div>
                         <div className="self-end p-2 bg-purple-50 rounded-lg">
                             <span className="text-2xl">⛪</span>
@@ -148,69 +170,71 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                     <DailyVerse />
 
-                    {/* Quick Actions */}
-                    <div className="card p-6">
-                        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-                        <div className="space-y-3">
-                            {profile?.role !== 'volunteer' && (
+                    {/* Quick Actions - Controlled by dashboardConfig */}
+                    {dashboardConfig.showQuickActions && (
+                        <div className="card p-6">
+                            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+                            <div className="space-y-3">
+                                {profile?.role !== 'volunteer' && (
+                                    <button
+                                        onClick={() => navigate('/users')}
+                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                    >
+                                        <div className="bg-blue-100 p-2 rounded-full mr-3">
+                                            <span className="text-lg">👥</span>
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-sm">Manage Users</div>
+                                            <div className="text-xs text-muted">View and edit user roles</div>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {profile?.role === 'volunteer' && profile.assigned_church_id && (
+                                    <button
+                                        onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
+                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                    >
+                                        <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                            <span className="text-lg">⛪</span>
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-sm">My Church</div>
+                                            <div className="text-xs text-muted">Update church details</div>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {profile?.role !== 'volunteer' && (
+                                    <button
+                                        onClick={() => navigate('/churches')}
+                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                    >
+                                        <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                            <span className="text-lg">⛪</span>
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-sm">Manage Churches</div>
+                                            <div className="text-xs text-muted">AAdd or edit parishes</div>
+                                        </div>
+                                    </button>
+                                )}
+
                                 <button
-                                    onClick={() => navigate('/users')}
+                                    onClick={() => navigate('/appointments')}
                                     className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                 >
-                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">👥</span>
+                                    <div className="bg-yellow-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">📅</span>
                                     </div>
                                     <div>
-                                        <div className="font-semibold text-sm">Manage Users</div>
-                                        <div className="text-xs text-muted">View and edit user roles</div>
+                                        <div className="font-semibold text-sm">Appointments</div>
+                                        <div className="text-xs text-muted">Review pending requests</div>
                                     </div>
                                 </button>
-                            )}
-
-                            {profile?.role === 'volunteer' && profile.assigned_church_id && (
-                                <button
-                                    onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
-                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                >
-                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">⛪</span>
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm">My Church</div>
-                                        <div className="text-xs text-muted">Update church details</div>
-                                    </div>
-                                </button>
-                            )}
-
-                            {profile?.role !== 'volunteer' && (
-                                <button
-                                    onClick={() => navigate('/churches')}
-                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                >
-                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">⛪</span>
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm">Manage Churches</div>
-                                        <div className="text-xs text-muted">AAdd or edit parishes</div>
-                                    </div>
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => navigate('/appointments')}
-                                className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                            >
-                                <div className="bg-yellow-100 p-2 rounded-full mr-3">
-                                    <span className="text-lg">📅</span>
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-sm">Appointments</div>
-                                    <div className="text-xs text-muted">Review pending requests</div>
-                                </div>
-                            </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>
