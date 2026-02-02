@@ -13,6 +13,7 @@ import {
     ChevronDown,
     User,
     Users,
+    Search,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
@@ -88,7 +89,7 @@ export default function DashboardLayout() {
                     }`}
             >
                 {/* Logo */}
-                <div className="flex items-center justify-between h-16 px-4 border-b border-border">
+                <div className="flex items-center justify-center h-16 px-4 border-b border-border relative">
                     <div className="flex items-center gap-3">
                         <img src={logo} alt="SacraLink Logo" className="w-10 h-10" />
                         <div className="text-lg font-extrabold tracking-tight">
@@ -98,7 +99,7 @@ export default function DashboardLayout() {
                     </div>
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="lg:hidden p-2 text-secondary-500 hover:text-foreground"
+                        className="lg:hidden absolute right-4 p-2 text-secondary-500 hover:text-foreground"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -149,11 +150,16 @@ export default function DashboardLayout() {
                             <Menu className="w-5 h-5" />
                         </button>
 
-                        {/* Page Title - Dynamic based on role */}
-                        <div className="hidden lg:block">
-                            <h1 className="text-lg font-semibold text-foreground">
-                                {profile?.role === 'user' ? 'Dashboard' : 'Admin Dashboard'}
-                            </h1>
+                        {/* Search Bar */}
+                        <div className="flex-1 max-w-md hidden lg:block">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search anything..."
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                />
+                            </div>
                         </div>
 
                         {/* Right Section */}

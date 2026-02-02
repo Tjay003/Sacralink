@@ -6,7 +6,10 @@ import { supabase } from '../../lib/supabase';
 import UserDashboard from './UserDashboard';
 import DashboardCalendar from '../../components/dashboard/DashboardCalendar';
 import DailyVerse from '../../components/dashboard/DailyVerse';
+import StatCard from '../../components/dashboard/StatCard';
 import { dashboardConfig } from '../../config/featureFlags';
+import { mockTrendData } from '../../config/mockData';
+import { Users, Building2, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
 
 /**
  * DashboardPage - Main dashboard that shows different content based on user role
@@ -106,56 +109,50 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Total Users - Hidden for Church Admin & Volunteer */}
                 {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <div className="card p-6 flex flex-col justify-between">
-                        <div>
-                            <p className="text-sm text-muted mb-1">Total Users</p>
-                            <p className="text-3xl font-bold text-gray-800">{userCount}</p>
-                        </div>
-                        <div className="self-end p-2 bg-blue-50 rounded-lg">
-                            <span className="text-2xl">👥</span>
-                        </div>
-                    </div>
+                    <StatCard
+                        title="Total Users"
+                        value={dashboardConfig.useMockData ? mockTrendData.totalUsers.value : userCount}
+                        icon={Users}
+                        trend={mockTrendData.totalUsers.trend}
+                        iconBgColor="bg-blue-100"
+                        iconColor="text-blue-600"
+                    />
                 )}
 
                 {/* Total Churches - Hidden for Church Admin & Volunteer */}
                 {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <div className="card p-6 flex flex-col justify-between">
-                        <div>
-                            <p className="text-sm text-muted mb-1">Total Churches</p>
-                            <p className="text-3xl font-bold text-gray-800">
-                                {dashboardConfig.useMockData
-                                    ? dashboardConfig.mockData.totalChurches
-                                    : churches.length}
-                            </p>
-                        </div>
-                        <div className="self-end p-2 bg-purple-50 rounded-lg">
-                            <span className="text-2xl">⛪</span>
-                        </div>
-                    </div>
+                    <StatCard
+                        title="Total Churches"
+                        value={dashboardConfig.useMockData ? mockTrendData.totalChurches.value : churches.length}
+                        icon={Building2}
+                        trend={mockTrendData.totalChurches.trend}
+                        iconBgColor="bg-purple-100"
+                        iconColor="text-purple-600"
+                    />
                 )}
 
-                <div className="card p-6 flex flex-col justify-between">
-                    <div>
-                        <p className="text-sm text-muted mb-1">Pending Requests</p>
-                        <p className="text-3xl font-bold text-yellow-600">{stats.pendingAppointments}</p>
-                    </div>
-                    <div className="self-end p-2 bg-yellow-50 rounded-lg">
-                        <span className="text-2xl">📅</span>
-                    </div>
-                </div>
+                {/* Pending Requests */}
+                <StatCard
+                    title="Pending Requests"
+                    value={dashboardConfig.useMockData ? mockTrendData.pendingRequests.value : stats.pendingAppointments}
+                    icon={CalendarIcon}
+                    trend={mockTrendData.pendingRequests.trend}
+                    iconBgColor="bg-yellow-100"
+                    iconColor="text-yellow-600"
+                />
 
-                <div className="card p-6 flex flex-col justify-between">
-                    <div>
-                        <p className="text-sm text-muted mb-1">Ref Upcoming</p>
-                        <p className="text-3xl font-bold text-green-600">{stats.activeEvents}</p>
-                    </div>
-                    <div className="self-end p-2 bg-green-50 rounded-lg">
-                        <span className="text-2xl">🎉</span>
-                    </div>
-                </div>
+                {/* Upcoming Events */}
+                <StatCard
+                    title="Upcoming Events"
+                    value={dashboardConfig.useMockData ? mockTrendData.upcomingEvents.value : stats.activeEvents}
+                    icon={TrendingUp}
+                    trend={mockTrendData.upcomingEvents.trend}
+                    iconBgColor="bg-emerald-100"
+                    iconColor="text-emerald-600"
+                />
             </div>
 
             {/* Main Content Grid */}

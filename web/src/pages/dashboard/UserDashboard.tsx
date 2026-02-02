@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import DailyVerse from '../../components/dashboard/DailyVerse';
-import { Calendar, Clock, MapPin, PlusCircle } from 'lucide-react';
+import StatCard from '../../components/dashboard/StatCard';
+import { Calendar, Clock, MapPin, PlusCircle, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { dashboardConfig } from '../../config/featureFlags';
+import { mockTrendData } from '../../config/mockData';
 
 interface Appointment {
     id: string;
@@ -79,6 +81,36 @@ export default function UserDashboard() {
                         <p className="text-blue-100 opacity-90">
                             You have <span className="font-bold text-white">{upcomingCount}</span> upcoming appointments and <span className="font-bold text-white">{pendingCount}</span> pending requests.
                         </p>
+                    </div>
+
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <StatCard
+                            title="Upcoming Appointments"
+                            value={dashboardConfig.useMockData ? mockTrendData.userUpcoming.value : upcomingCount}
+                            icon={Calendar}
+                            trend={mockTrendData.userUpcoming.trend}
+                            iconBgColor="bg-blue-100"
+                            iconColor="text-blue-600"
+                        />
+
+                        <StatCard
+                            title="Pending Requests"
+                            value={dashboardConfig.useMockData ? mockTrendData.userPending.value : pendingCount}
+                            icon={Clock}
+                            trend={mockTrendData.userPending.trend}
+                            iconBgColor="bg-yellow-100"
+                            iconColor="text-yellow-600"
+                        />
+
+                        <StatCard
+                            title="Total Bookings"
+                            value={dashboardConfig.useMockData ? mockTrendData.userTotalBookings.value : appointments.length}
+                            icon={BarChart3}
+                            trend={mockTrendData.userTotalBookings.trend}
+                            iconBgColor="bg-emerald-100"
+                            iconColor="text-emerald-600"
+                        />
                     </div>
 
                     {/* Upcoming Appointments */}
