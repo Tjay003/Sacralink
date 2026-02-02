@@ -92,6 +92,9 @@ export default function UserDashboard() {
                             trend={mockTrendData.userUpcoming.trend}
                             iconBgColor="bg-blue-100"
                             iconColor="text-blue-600"
+                            gradientFrom="from-blue-600"
+                            gradientTo="to-blue-400"
+                            gradientDirection="to-br"
                         />
 
                         <StatCard
@@ -101,6 +104,9 @@ export default function UserDashboard() {
                             trend={mockTrendData.userPending.trend}
                             iconBgColor="bg-yellow-100"
                             iconColor="text-yellow-600"
+                            gradientFrom="from-blue-600"
+                            gradientTo="to-blue-400"
+                            gradientDirection="to-tr"
                         />
 
                         <StatCard
@@ -110,6 +116,9 @@ export default function UserDashboard() {
                             trend={mockTrendData.userTotalBookings.trend}
                             iconBgColor="bg-emerald-100"
                             iconColor="text-emerald-600"
+                            gradientFrom="from-blue-600"
+                            gradientTo="to-blue-400"
+                            gradientDirection="to-bl"
                         />
                     </div>
 

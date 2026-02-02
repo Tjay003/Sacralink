@@ -59,7 +59,7 @@ export default function DailyVerse() {
     }, []);
 
     return (
-        <div className="rounded-lg shadow-sm bg-blue-900 text-white p-6 relative overflow-hidden">
+        <div className="rounded-lg shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute top-0 right-0 p-4 opacity-10">
                 <BookOpen className="w-32 h-32" />
@@ -67,17 +67,17 @@ export default function DailyVerse() {
 
             <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-blue-200">
+                    <div className="flex items-center gap-2 text-white/80">
                         <BookOpen className="w-4 h-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">Daily Verse</span>
                     </div>
                     <button
                         onClick={fetchVerse}
                         disabled={loading}
-                        className="p-1 hover:bg-blue-800 rounded-full transition-colors"
+                        className="p-1 hover:bg-white/20 rounded-full transition-colors"
                         title="Get new verse"
                     >
-                        <RefreshCw className={`w-4 h-4 text-blue-200 ${loading ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-4 h-4 text-white/80 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
 
@@ -86,7 +86,7 @@ export default function DailyVerse() {
                         <p className="text-lg md:text-xl font-serif leading-relaxed opacity-95">
                             "{verse.text}"
                         </p>
-                        <p className="text-sm font-medium text-blue-200 text-right">
+                        <p className="text-sm font-medium text-white/80 text-right">
                             — {verse.reference}
                         </p>
                     </div>

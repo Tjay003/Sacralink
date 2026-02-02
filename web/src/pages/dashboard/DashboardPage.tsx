@@ -100,9 +100,9 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             {/* Admin Dashboard Header */}
-            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-900 to-blue-800 text-white border-none">
+            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-br from-blue-600 to-blue-400 text-white border-none">
                 <h1 className="text-2xl font-bold mb-2">Welcome Back, {profile?.full_name?.split(' ')[0] || 'User'}!</h1>
-                <p className="text-blue-100 opacity-90">
+                <p className="text-white/90 opacity-90">
                     You are logged in as <span className="font-semibold capitalize">{profile?.role.replace('_', ' ')}</span>.
                     Here is what's happening today.
                 </p>
@@ -119,6 +119,9 @@ export default function DashboardPage() {
                         trend={mockTrendData.totalUsers.trend}
                         iconBgColor="bg-blue-100"
                         iconColor="text-blue-600"
+                        gradientFrom="from-blue-600"
+                        gradientTo="to-blue-400"
+                        gradientDirection="to-br"
                     />
                 )}
 
@@ -131,6 +134,9 @@ export default function DashboardPage() {
                         trend={mockTrendData.totalChurches.trend}
                         iconBgColor="bg-purple-100"
                         iconColor="text-purple-600"
+                        gradientFrom="from-blue-600"
+                        gradientTo="to-blue-400"
+                        gradientDirection="to-tr"
                     />
                 )}
 
@@ -142,6 +148,9 @@ export default function DashboardPage() {
                     trend={mockTrendData.pendingRequests.trend}
                     iconBgColor="bg-yellow-100"
                     iconColor="text-yellow-600"
+                    gradientFrom="from-blue-600"
+                    gradientTo="to-blue-400"
+                    gradientDirection="to-bl"
                 />
 
                 {/* Upcoming Events */}
@@ -152,6 +161,9 @@ export default function DashboardPage() {
                     trend={mockTrendData.upcomingEvents.trend}
                     iconBgColor="bg-emerald-100"
                     iconColor="text-emerald-600"
+                    gradientFrom="from-blue-600"
+                    gradientTo="to-blue-400"
+                    gradientDirection="to-tl"
                 />
             </div>
 
