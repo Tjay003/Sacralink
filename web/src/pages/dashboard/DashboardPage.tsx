@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import UserDashboard from './UserDashboard';
-import DashboardCalendar from '../../components/dashboard/DashboardCalendar';
+import UpcomingEventsTimeline from '../../components/dashboard/UpcomingEventsTimeline';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import StatCard from '../../components/dashboard/StatCard';
 import { dashboardConfig } from '../../config/featureFlags';
@@ -170,9 +170,9 @@ export default function DashboardPage() {
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* Left Column (2/3): Calendar */}
+                {/* Left Column (2/3): Upcoming Events */}
                 <div className="lg:col-span-2 space-y-6">
-                    <DashboardCalendar />
+                    <UpcomingEventsTimeline />
                 </div>
 
                 {/* Right Column (1/3): Quick Actions & Verse */}

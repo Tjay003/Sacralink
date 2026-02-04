@@ -33,6 +33,7 @@ export default function DashboardLayout() {
     const navigate = useNavigate();
     const { profile, signOut } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
 
     const handleSignOut = async () => {
@@ -50,7 +51,7 @@ export default function DashboardLayout() {
                     title="This feature is not available in demo mode"
                 >
                     <item.icon className="w-5 h-5" />
-                    {item.name}
+                    {!sidebarCollapsed && item.name}
                 </div>
             );
         }
@@ -68,7 +69,7 @@ export default function DashboardLayout() {
                 }
             >
                 <item.icon className="w-5 h-5" />
-                {item.name}
+                {!sidebarCollapsed && item.name}
             </NavLink>
         );
     };
@@ -85,18 +86,22 @@ export default function DashboardLayout() {
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-border transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                    }`}
+                className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-border transform transition-all duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                    } ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64`}
             >
                 {/* Logo */}
-                <div className="flex items-center justify-center h-16 px-4 border-b border-border relative">
-                    <div className="flex items-center gap-3">
-                        <img src={logo} alt="SacraLink Logo" className="w-10 h-10" />
-                        <div className="text-lg font-extrabold tracking-tight">
-                            <span className="text-primary">SACRA</span>
-                            <span className="text-foreground">LINK</span>
+                <div className="flex items-center justify-center h-16 px-4 relative">
+                    {!sidebarCollapsed ? (
+                        <div className="flex items-center gap-3">
+                            <img src={logo} alt="SacraLink Logo" className="w-10 h-10" />
+                            <div className="text-lg font-extrabold tracking-tight">
+                                <span className="text-primary">SACRA</span>
+                                <span className="text-foreground">LINK</span>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <img src={logo} alt="SacraLink Logo" className="w-10 h-10" />
+                    )}
                     <button
                         onClick={() => setSidebarOpen(false)}
                         className="lg:hidden absolute right-4 p-2 text-secondary-500 hover:text-foreground"
@@ -132,26 +137,35 @@ export default function DashboardLayout() {
                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-secondary-600 hover:bg-secondary-100 transition-colors"
                     >
                         <Settings className="w-5 h-5" />
-                        Settings
+                        {!sidebarCollapsed && 'Settings'}
                     </NavLink>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <div className="lg:pl-64">
+            <div className={`transition-all duration-200 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white border-b border-border">
-                    <div className="flex items-center justify-between h-full px-4 lg:px-8">
+                    <div className="relative flex items-center justify-between h-full px-4 lg:px-8">
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="lg:hidden p-2 text-secondary-500 hover:text-foreground"
+                            className="lg:hidden absolute left-4 p-2 text-secondary-500 hover:text-foreground"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+
+                        {/* Desktop Sidebar Collapse Button */}
+                        <button
+                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                            className="hidden lg:block absolute left-4 p-2 text-secondary-500 hover:text-foreground"
+                            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         >
                             <Menu className="w-5 h-5" />
                         </button>
 
                         {/* Search Bar */}
-                        <div className="flex-1 max-w-md hidden lg:block">
+                        <div className="flex-1 max-w-md hidden lg:block ml-12">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                                 <input

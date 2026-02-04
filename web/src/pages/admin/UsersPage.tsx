@@ -215,10 +215,20 @@ export default function UsersPage() {
                                     <tr key={user.id} className="hover:bg-secondary-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                                                    <span className="text-primary font-semibold">
-                                                        {user.full_name?.charAt(0).toUpperCase() || 'U'}
-                                                    </span>
+                                                <div className="flex-shrink-0 h-10 w-10">
+                                                    {user.avatar_url ? (
+                                                        <img
+                                                            src={user.avatar_url}
+                                                            alt={user.full_name || 'User'}
+                                                            className="h-10 w-10 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                                            <span className="text-primary font-semibold">
+                                                                {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="ml-4">
                                                     <div className="text-sm font-medium text-foreground">

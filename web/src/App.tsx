@@ -15,7 +15,7 @@ import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
 import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
 import UsersPage from './pages/admin/UsersPage.tsx';
-import ProfilePage from './pages/profile/ProfilePage.tsx';
+import ProfilePage from './pages/ProfilePage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
