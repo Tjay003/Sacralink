@@ -35,8 +35,15 @@ export default function DashboardLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-    const handleSignOut = async () => {
+    const handleSignOutClick = () => {
+        setShowLogoutModal(true);
+        setUserMenuOpen(false);
+    };
+
+    const handleConfirmSignOut = async () => {
+        setShowLogoutModal(false);
         await signOut();
         navigate('/login');
     };
@@ -237,7 +244,7 @@ export default function DashboardLayout() {
                                             </NavLink>
                                             <hr className="my-1 border-border" />
                                             <button
-                                                onClick={handleSignOut}
+                                                onClick={handleSignOutClick}
                                                 className="flex items-center gap-2 w-full px-4 py-2 text-sm text-destructive hover:bg-red-50"
                                             >
                                                 <LogOut className="w-4 h-4" />
@@ -256,6 +263,42 @@ export default function DashboardLayout() {
                     <Outlet />
                 </main>
             </div>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                <LogOut className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">Sign Out</h3>
+                                <p className="text-sm text-muted">Are you sure you want to sign out?</p>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-muted mb-6">
+                            You'll need to sign in again to access your account.
+                        </p>
+
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowLogoutModal(false)}
+                                className="px-4 py-2 text-sm font-medium text-secondary-700 hover:bg-secondary-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmSignOut}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
