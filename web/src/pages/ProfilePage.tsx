@@ -21,7 +21,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
         try {
-            const data = await getCurrentProfile();
+            const data: any = await getCurrentProfile();
             setProfileData(data);
             setEditedData({
                 full_name: data?.full_name || '',
@@ -43,13 +43,13 @@ export default function ProfilePage() {
             const { data: { user } } = await (await import('../lib/supabase')).supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            const { error: updateError } = await (await import('../lib/supabase')).supabase
-                .from('profiles')
+            const { error: updateError } = await ((await import('../lib/supabase')).supabase
+                .from('profiles') as any)
                 .update({
                     full_name: editedData.full_name,
                     phone_number: editedData.phone_number || null
                 })
-                .eq('id', user.id) as any;
+                .eq('id', user.id);
 
             if (updateError) throw updateError;
 

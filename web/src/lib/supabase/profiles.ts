@@ -78,9 +78,9 @@ export async function uploadAvatar(file: File): Promise<string> {
 
         // Update profile with new avatar URL
         const { error: updateError } = await (supabase
-            .from('profiles')
+            .from('profiles') as any)
             .update({ avatar_url: data.publicUrl })
-            .eq('id', user.id) as any);
+            .eq('id', user.id);
 
         if (updateError) throw updateError;
 
@@ -128,9 +128,9 @@ export async function deleteAvatar(): Promise<void> {
 
         // Remove URL from profile
         const { error } = await (supabase
-            .from('profiles')
+            .from('profiles') as any)
             .update({ avatar_url: null })
-            .eq('id', user.id) as any);
+            .eq('id', user.id);
 
         if (error) throw error;
     } catch (error) {
