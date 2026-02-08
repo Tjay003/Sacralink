@@ -18,7 +18,7 @@ interface FeatureFlags {
     churches: FeatureFlag;
     appointments: FeatureFlag;
     donations: FeatureFlag;
-    announcements: FeatureFlag;
+    systemAnnouncements: FeatureFlag;
     admin: FeatureFlag;
     calendar: FeatureFlag;
 }
@@ -45,11 +45,11 @@ export const featureFlags: FeatureFlags = {
         description: 'Cashless donation verification system',
     },
 
-    // Announcements feature (Phase 6 - not started)
-    announcements: {
-        enabled: !isDemoMode, // Hidden in demo mode
-        label: 'Announcements',
-        description: 'Parish announcements management',
+    // System Announcements (Phase 3.5 - completed)
+    systemAnnouncements: {
+        enabled: !isDemoMode, // Always enabled (can be toggled)
+        label: 'System Announcements',
+        description: 'App-wide announcements management and banner',
     },
 
     // Admin/Users management

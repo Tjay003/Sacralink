@@ -477,6 +477,75 @@ export interface Database {
                     entity_id?: string | null;
                     metadata?: Record<string, unknown> | null;
                     created_at?: string;
+                }
+            };
+
+            church_announcements: {
+                Row: {
+                    id: string;
+                    church_id: string;
+                    title: string;
+                    content: string;
+                    created_by: string | null;
+                    created_at: string;
+                    updated_at: string;
+                    is_pinned: boolean;
+                };
+                Insert: {
+                    id?: string;
+                    church_id: string;
+                    title: string;
+                    content: string;
+                    created_by?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    is_pinned?: boolean;
+                };
+                Update: {
+                    id?: string;
+                    church_id?: string;
+                    title?: string;
+                    content?: string;
+                    created_by?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    is_pinned?: boolean;
+                };
+            };
+
+            system_announcements: {
+                Row: {
+                    id: string;
+                    title: string;
+                    content: string;
+                    type: 'info' | 'warning' | 'maintenance' | 'success';
+                    created_by: string | null;
+                    created_at: string;
+                    updated_at: string;
+                    expires_at: string | null;
+                    is_active: boolean;
+                };
+                Insert: {
+                    id?: string;
+                    title: string;
+                    content: string;
+                    type?: 'info' | 'warning' | 'maintenance' | 'success';
+                    created_by?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    expires_at?: string | null;
+                    is_active?: boolean;
+                };
+                Update: {
+                    id?: string;
+                    title?: string;
+                    content?: string;
+                    type?: 'info' | 'warning' | 'maintenance' | 'success';
+                    created_by?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                    expires_at?: string | null;
+                    is_active?: boolean;
                 };
             };
         };
@@ -507,3 +576,5 @@ export type ServiceDuration = Tables<'service_durations'>;
 export type SacramentRequirement = Tables<'sacrament_requirements'>;
 export type AppointmentDocument = Tables<'appointment_documents'>;
 export type ActivityLog = Tables<'activity_logs'>;
+export type ChurchAnnouncement = Tables<'church_announcements'>;
+export type SystemAnnouncement = Tables<'system_announcements'>;

@@ -26,7 +26,7 @@ const navigation = [
     { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' as const },
     { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' as const },
     { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const },
-    { name: 'Announcements', href: '/announcements', icon: Megaphone, featureKey: 'announcements' as const },
+    { name: 'System Announcements', href: '/admin/system-announcements', icon: Megaphone, superAdminOnly: true, featureKey: 'systemAnnouncements' as const },
 ];
 
 export default function DashboardLayout() {
@@ -120,12 +120,18 @@ export default function DashboardLayout() {
                 {/* Navigation */}
                 <nav className="p-4 space-y-1">
                     {navigation.map((item) => {
-                        // Check if item should be disabled
-                        const isDisabled =
-                            // Admin-only permission check
-                            (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) ||
-                            // Feature flag check
-                            (item.featureKey && !featureFlags[item.featureKey].enabled);
+                        // Check if user has permission for super-admin-only items (admin, super_admin)
+                        if ((item as any).superAdminOnly && !['admin', 'super_admin'].includes(profile?.role || '')) {
+                            return null; // Hide super-admin-only items from unauthorized users
+                        }
+
+                        // Check if user has permission for admin-only items (admin, super_admin, church_admin)
+                        if (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) {
+                            return null; // Hide admin-only items from unauthorized users
+                        }
+
+                        // Check if item should be disabled (feature flag only)
+                        const isDisabled = item.featureKey && !featureFlags[item.featureKey].enabled;
 
                         return (
                             <NavItem

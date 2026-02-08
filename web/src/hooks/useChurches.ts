@@ -20,6 +20,7 @@ export type { MassSchedule };
 
 export type Church = DbChurch & {
     mass_schedules?: MassSchedule[];
+    status?: 'active' | 'inactive' | null;
 };
 
 export function useChurches() {

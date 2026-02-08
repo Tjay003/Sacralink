@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
 import { Building2, ArrowLeft, ImageIcon, X } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
+import { useAuth } from '../../contexts/AuthContext';
 
 /**
  * EditChurchPage - Form to edit an existing church
@@ -14,9 +15,6 @@ import GalleryUploader from '../../components/churches/GalleryUploader';
  * - Update database on save
  * - Navigate back to detail page after save
  */
-import { useAuth } from '../../contexts/AuthContext';
-// ... rest of imports
-
 export default function EditChurchPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -57,6 +55,7 @@ export default function EditChurchPage() {
         contact_number: '',
         email: '',
         description: '',
+        status: 'active' as 'active' | 'inactive',
         panorama_url: '',
         livestream_url: '',
         facebook_url: '',
@@ -75,6 +74,7 @@ export default function EditChurchPage() {
                 contact_number: church.contact_number || '',
                 email: church.email || '',
                 description: church.description || '',
+                status: (church.status || 'active') as 'active' | 'inactive',
                 panorama_url: church.panorama_url || '',
                 livestream_url: church.livestream_url || '',
                 facebook_url: church.facebook_url || '',
@@ -175,6 +175,7 @@ export default function EditChurchPage() {
                     contact_number: formData.contact_number.trim() || null,
                     email: formData.email.trim() || null,
                     description: formData.description.trim() || null,
+                    status: formData.status,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
                     facebook_url: formData.facebook_url.trim() || null,
@@ -356,6 +357,27 @@ export default function EditChurchPage() {
                             rows={4}
                         />
                     </div>
+
+                    {/* Church Status - Only for Super Admin and Admin */}
+                    {(profile?.role === 'super_admin' || profile?.role === 'admin') && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                Church Status
+                            </label>
+                            <select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                                disabled={loading}
+                                className="input w-full"
+                            >
+                                <option value="active">✅ Active - Visible to all users</option>
+                                <option value="inactive">🔒 Inactive - Hidden from regular users</option>
+                            </select>
+                            <p className="text-xs text-muted mt-1">
+                                Inactive churches are hidden from public view and cannot accept appointments.
+                            </p>
+                        </div>
+                    )}
 
                     {/* Facebook URL */}
                     <div>

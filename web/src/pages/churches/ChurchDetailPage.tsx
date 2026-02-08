@@ -9,6 +9,11 @@ import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
 import FacebookFeed from '../../components/social/FacebookFeed';
 import ImageLightbox from '../../components/churches/ImageLightbox';
+import { AnnouncementsList, AnnouncementForm } from '../../components/announcements';
+import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
+import type { ChurchAnnouncement } from '../../types/database';
+import { Megaphone } from 'lucide-react';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -30,6 +35,13 @@ export default function ChurchDetailPage() {
     const [activeTab, setActiveTab] = useState<'sunday' | 'weekday'>('sunday');
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+    const [editingAnnouncement, setEditingAnnouncement] = useState<ChurchAnnouncement | null>(null);
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; announcement: ChurchAnnouncement | null }>({ show: false, announcement: null });
+    const [deletingAnnouncement, setDeletingAnnouncement] = useState(false);
+
+    // Fetch church announcements
+    const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
 
     const getFilteredSchedules = () => {
         if (!church?.mass_schedules) return [];
@@ -441,6 +453,52 @@ export default function ChurchDetailPage() {
                 </div>
             )}
 
+            {/* Church Announcements */}
+            <div className="card p-6">
+                <div className="flex items-start justify-between mb-4">
+                    <div>
+                        <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Megaphone className="w-5 h-5 text-primary" />
+                            Church Announcements
+                        </h2>
+                        <p className="text-sm text-muted mt-1">Latest updates and news from this church</p>
+                    </div>
+                    {canManage() && (
+                        <button
+                            onClick={() => {
+                                setEditingAnnouncement(null);
+                                setShowAnnouncementForm(true);
+                            }}
+                            className="btn-primary flex items-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Announcement
+                        </button>
+                    )}
+                </div>
+
+                {announcementsLoading ? (
+                    <div className="text-center py-8">
+                        <p className="text-muted">Loading announcements...</p>
+                    </div>
+                ) : (
+                    <AnnouncementsList
+                        announcements={announcements}
+                        type="church"
+                        showActions={canManage()}
+                        emptyMessage="No announcements have been posted yet. Check back later for updates!"
+                        onEdit={(announcement) => {
+                            setEditingAnnouncement(announcement as ChurchAnnouncement);
+                            setShowAnnouncementForm(true);
+                        }}
+                        onDelete={(announcement) => {
+                            setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
+                        }}
+
+                    />
+                )}
+            </div>
+
             {/* Metadata */}
             <div className="card p-6">
                 <h2 className="text-lg font-semibold mb-4">Metadata</h2>
@@ -491,6 +549,54 @@ export default function ChurchDetailPage() {
                     onClose={() => setLightboxIndex(null)}
                 />
             )}
+
+            {/* Announcement Form Modal */}
+            {showAnnouncementForm && (
+                <AnnouncementForm
+                    type="church"
+                    churchId={id!}
+                    announcement={editingAnnouncement || undefined}
+                    onSuccess={() => {
+                        setShowAnnouncementForm(false);
+                        setEditingAnnouncement(null);
+                        refetchAnnouncements();
+                    }}
+                    onCancel={() => {
+                        setShowAnnouncementForm(false);
+                        setEditingAnnouncement(null);
+                    }}
+                />
+            )}
+            {/* Delete Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={deleteConfirmation.show}
+                title="Delete Announcement"
+                message={`Are you sure you want to delete "${deleteConfirmation.announcement?.title}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                variant="danger"
+                loading={deletingAnnouncement}
+                onConfirm={async () => {
+                    if (!deleteConfirmation.announcement) return;
+                    setDeletingAnnouncement(true);
+                    try {
+                        const { error } = await supabase
+                            .from('church_announcements')
+                            .delete()
+                            .eq('id', deleteConfirmation.announcement.id);
+
+                        if (error) throw error;
+                        refetchAnnouncements();
+                        setDeleteConfirmation({ show: false, announcement: null });
+                    } catch (err: any) {
+                        alert('Failed to delete announcement: ' + err.message);
+                    } finally {
+                        setDeletingAnnouncement(false);
+                    }
+                }}
+                onCancel={() => setDeleteConfirmation({ show: false, announcement: null })}
+            />
+
         </div >
+
     );
 }

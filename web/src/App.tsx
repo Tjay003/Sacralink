@@ -13,8 +13,8 @@ import EditChurchPage from './pages/churches/EditChurchPage.tsx';
 import BookAppointmentPage from './pages/appointments/BookAppointmentPage.tsx';
 import AppointmentsPage from './pages/appointments/AppointmentsPage.tsx';
 import DonationsPage from './pages/donations/DonationsPage.tsx';
-import AnnouncementsPage from './pages/announcements/AnnouncementsPage.tsx';
 import UsersPage from './pages/admin/UsersPage.tsx';
+import SystemAnnouncementsPage from './pages/admin/SystemAnnouncementsPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
 
 // Layout
@@ -111,9 +111,9 @@ function AppRoutes() {
           <Route path="donations" element={<DonationsPage />} />
         )}
 
-        {/* Announcements - feature flagged */}
-        {featureFlags.announcements.enabled && (
-          <Route path="announcements" element={<AnnouncementsPage />} />
+        {/* System Announcements - Admin only */}
+        {featureFlags.admin.enabled && (
+          <Route path="admin/system-announcements" element={<SystemAnnouncementsPage />} />
         )}
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

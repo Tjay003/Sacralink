@@ -31,11 +31,17 @@ export default function ChurchesPage() {
     const canAddChurch = profile?.role === 'super_admin';
     const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin' || profile?.role === 'volunteer';
 
-    // Filter churches by search query
-    const filteredChurches = churches.filter(church =>
-        church.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        church.address.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Filter churches by search query and status
+    const filteredChurches = churches.filter(church => {
+        // Search filter
+        const matchesSearch = church.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            church.address.toLowerCase().includes(searchQuery.toLowerCase());
+
+        // Status filter - hide inactive churches from regular users
+        const isVisibleToUser = church.status !== 'inactive' || hasAdminAccess;
+
+        return matchesSearch && isVisibleToUser;
+    });
 
     // Loading state
     if (loading) {
@@ -159,8 +165,15 @@ export default function ChurchesPage() {
                                                         <Building2 className="w-5 h-5 text-primary" />
                                                     </div>
                                                     <div className="ml-4">
-                                                        <div className="text-sm font-medium text-foreground">
-                                                            {church.name}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-medium text-foreground">
+                                                                {church.name}
+                                                            </span>
+                                                            {church.status === 'inactive' && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                                    🔒 Inactive
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {church.description && (
                                                             <div className="text-sm text-muted line-clamp-1">
