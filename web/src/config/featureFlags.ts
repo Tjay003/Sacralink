@@ -54,7 +54,7 @@ export const featureFlags: FeatureFlags = {
 
     // Admin/Users management
     admin: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // enabled now (can be toggled)
         label: 'User Management',
         description: 'Admin user management',
     },
