@@ -14,6 +14,15 @@ import EditRoleModal from '../../components/admin/EditRoleModal';
  * - Edit user roles
  * - View user details
  */
+// Role hierarchy for sorting (lower number = higher priority)
+const ROLE_PRIORITY: Record<string, number> = {
+    'super_admin': 1,
+    'admin': 2,
+    'church_admin': 3,
+    'volunteer': 4,
+    'user': 5
+};
+
 export default function UsersPage() {
     const { profile: currentUser, session } = useAuth();
     const [users, setUsers] = useState<Profile[]>([]);
@@ -23,6 +32,8 @@ export default function UsersPage() {
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
 
     // Fetch all users
     useEffect(() => {
@@ -85,7 +96,23 @@ export default function UsersPage() {
             filtered = filtered.filter(user => user.role === roleFilter);
         }
 
+        // Sort by role hierarchy, then by name
+        filtered.sort((a, b) => {
+            const roleA = ROLE_PRIORITY[a.role] || 999;
+            const roleB = ROLE_PRIORITY[b.role] || 999;
+
+            if (roleA !== roleB) {
+                return roleA - roleB; // Lower priority number comes first
+            }
+
+            // Same role, sort by name
+            const nameA = a.full_name || '';
+            const nameB = b.full_name || '';
+            return nameA.localeCompare(nameB);
+        });
+
         setFilteredUsers(filtered);
+        setCurrentPage(1); // Reset to first page when filters change
     };
 
     const handleEditRole = (user: Profile) => {
@@ -166,10 +193,11 @@ export default function UsersPage() {
                             className="input w-full"
                         >
                             <option value="all">All Roles</option>
-                            <option value="user">User</option>
-                            <option value="volunteer">Volunteer</option>
-                            <option value="admin">Admin</option>
                             <option value="super_admin">Super Admin</option>
+                            <option value="admin">Admin</option>
+                            <option value="church_admin">Church Admin</option>
+                            <option value="volunteer">Volunteer</option>
+                            <option value="user">User</option>
                         </select>
                     </div>
                 </div>
@@ -211,7 +239,7 @@ export default function UsersPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredUsers.map((user) => (
+                                filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => (
                                     <tr key={user.id} className="hover:bg-secondary-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
@@ -278,6 +306,66 @@ export default function UsersPage() {
                 </div>
             </div>
 
+
+
+            {/* Pagination Controls */}
+            {filteredUsers.length > 0 && (
+                <div className="card p-4 flex items-center justify-between">
+                    <div className="text-sm text-muted">
+                        Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)} to{' '}
+                        {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Previous
+                        </button>
+                        
+                        {(() => {
+                            const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+                            const pages = [];
+                            const maxVisible = 5;
+                            
+                            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                            
+                            if (endPage - startPage < maxVisible - 1) {
+                                startPage = Math.max(1, endPage - maxVisible + 1);
+                            }
+                            
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i)}
+                                        className={`px-3 py-1 text-sm border rounded-md ${
+                                            currentPage === i
+                                                ? 'bg-primary text-white border-primary'
+                                                : 'border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {i}
+                                    </button>
+                                );
+                            }
+                            
+                            return pages;
+                        })()}
+                        
+                        <button
+                            onClick={() => setCurrentPage(Math.min(Math.ceil(filteredUsers.length / itemsPerPage), currentPage + 1))}
+                            disabled={currentPage >= Math.ceil(filteredUsers.length / itemsPerPage)}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Edit Role Modal */}
             {showEditModal && selectedUser && (
                 <EditRoleModal
@@ -292,3 +380,4 @@ export default function UsersPage() {
         </div>
     );
 }
+
