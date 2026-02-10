@@ -4,10 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import StatCard from '../../components/dashboard/StatCard';
+import ChurchSelector from '../../components/dashboard/ChurchSelector';
+import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
+import { SystemAnnouncementsBanner } from '../../components/announcements';
 import { Calendar, Clock, MapPin, PlusCircle, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { dashboardConfig } from '../../config/featureFlags';
 import { mockTrendData } from '../../config/mockData';
+import { useChurches } from '../../hooks/useChurches';
 
 interface Appointment {
     id: string;
@@ -32,8 +36,27 @@ interface Appointment {
 export default function UserDashboard() {
     const { profile } = useAuth();
     const navigate = useNavigate();
+    const { churches } = useChurches();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+
+    // Load selected church from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('selectedChurchId');
+        if (saved) {
+            setSelectedChurchId(saved);
+        }
+    }, []);
+
+    // Save selected church to localStorage
+    useEffect(() => {
+        if (selectedChurchId) {
+            localStorage.setItem('selectedChurchId', selectedChurchId);
+        } else {
+            localStorage.removeItem('selectedChurchId');
+        }
+    }, [selectedChurchId]);
 
     useEffect(() => {
         fetchAppointments();
@@ -68,8 +91,13 @@ export default function UserDashboard() {
     const upcomingCount = appointments.filter(a => a.status === 'approved').length;
     const pendingCount = appointments.filter(a => a.status === 'pending').length;
 
+    // Find selected church name
+    const selectedChurch = churches.find(c => c.id === selectedChurchId);
+
     return (
         <div className="space-y-6">
+            {/* System Announcements Banner */}
+            <SystemAnnouncementsBanner />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Welcome & Appointments */}
                 <div className="lg:col-span-2 space-y-6">
@@ -82,6 +110,20 @@ export default function UserDashboard() {
                             You have <span className="font-bold text-white">{upcomingCount}</span> upcoming appointments and <span className="font-bold text-white">{pendingCount}</span> pending requests.
                         </p>
                     </div>
+
+                    {/* Church Selector */}
+                    <ChurchSelector
+                        selectedChurchId={selectedChurchId}
+                        onChurchSelect={setSelectedChurchId}
+                    />
+
+                    {/* Church Announcements Widget */}
+                    {selectedChurchId && (
+                        <ChurchAnnouncementsWidget
+                            churchId={selectedChurchId}
+                            churchName={selectedChurch?.name}
+                        />
+                    )}
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

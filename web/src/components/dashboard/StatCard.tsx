@@ -16,6 +16,7 @@ interface StatCardProps {
     gradientDirection?: 'to-br' | 'to-tr' | 'to-bl' | 'to-tl' | 'to-r' | 'to-l';
     isActive?: boolean;
     onClick?: () => void;
+    loading?: boolean;
 }
 
 export default function StatCard({
@@ -30,6 +31,7 @@ export default function StatCard({
     gradientDirection = 'to-br',
     isActive = false,
     onClick,
+    loading = false,
 }: StatCardProps) {
     // Format large numbers with commas
     const formattedValue = typeof value === 'number'
@@ -96,8 +98,13 @@ export default function StatCard({
                     <h3 className={`
                         text-4xl font-bold mb-3 transition-colors duration-300
                         ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}
-                    `}>
-                        {formattedValue}
+                    `}
+                    >
+                        {loading ? (
+                            <div className="h-10 bg-muted rounded w-20 animate-pulse" />
+                        ) : (
+                            formattedValue
+                        )}
                     </h3>
 
                     {trend && (

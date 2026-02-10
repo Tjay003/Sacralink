@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import UserDashboard from './UserDashboard';
+import ChurchAdminDashboard from './ChurchAdminDashboard';
+import SuperAdminDashboard from './SuperAdminDashboard';
 import UpcomingEventsTimeline from '../../components/dashboard/UpcomingEventsTimeline';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import StatCard from '../../components/dashboard/StatCard';
@@ -97,7 +99,17 @@ export default function DashboardPage() {
         return <UserDashboard />;
     }
 
-    // Show admin dashboard for admin, super_admin, church_admin, and volunteer
+    // Show church admin dashboard for church admins
+    if (profile?.role === 'church_admin') {
+        return <ChurchAdminDashboard churchId={profile.assigned_church_id || null} />;
+    }
+
+    // Show super admin dashboard for super_admin and admin
+    if (profile?.role === 'super_admin' || profile?.role === 'admin') {
+        return <SuperAdminDashboard />;
+    }
+
+    // Show volunteer dashboard
     return (
         <div className="space-y-6">
             {/* Admin Dashboard Header */}
@@ -114,35 +126,31 @@ export default function DashboardPage() {
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Total Users - Hidden for Church Admin & Volunteer */}
-                {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <StatCard
-                        title="Total Users"
-                        value={dashboardConfig.useMockData ? mockTrendData.totalUsers.value : userCount}
-                        icon={Users}
-                        trend={mockTrendData.totalUsers.trend}
-                        iconBgColor="bg-blue-100"
-                        iconColor="text-blue-600"
-                        gradientFrom="from-blue-600"
-                        gradientTo="to-blue-400"
-                        gradientDirection="to-br"
-                    />
-                )}
+                {/* Total Users */}
+                <StatCard
+                    title="Total Users"
+                    value={dashboardConfig.useMockData ? mockTrendData.totalUsers.value : userCount}
+                    icon={Users}
+                    trend={mockTrendData.totalUsers.trend}
+                    iconBgColor="bg-blue-100"
+                    iconColor="text-blue-600"
+                    gradientFrom="from-blue-600"
+                    gradientTo="to-blue-400"
+                    gradientDirection="to-br"
+                />
 
-                {/* Total Churches - Hidden for Church Admin & Volunteer */}
-                {profile?.role !== 'church_admin' && profile?.role !== 'volunteer' && (
-                    <StatCard
-                        title="Total Churches"
-                        value={dashboardConfig.useMockData ? mockTrendData.totalChurches.value : churches.length}
-                        icon={Building2}
-                        trend={mockTrendData.totalChurches.trend}
-                        iconBgColor="bg-purple-100"
-                        iconColor="text-purple-600"
-                        gradientFrom="from-blue-600"
-                        gradientTo="to-blue-400"
-                        gradientDirection="to-tr"
-                    />
-                )}
+                {/* Total Churches */}
+                <StatCard
+                    title="Total Churches"
+                    value={dashboardConfig.useMockData ? mockTrendData.totalChurches.value : churches.length}
+                    icon={Building2}
+                    trend={mockTrendData.totalChurches.trend}
+                    iconBgColor="bg-purple-100"
+                    iconColor="text-purple-600"
+                    gradientFrom="from-blue-600"
+                    gradientTo="to-blue-400"
+                    gradientDirection="to-tr"
+                />
 
                 {/* Pending Requests */}
                 <StatCard
@@ -205,7 +213,7 @@ export default function DashboardPage() {
 
                                 {profile?.role === 'volunteer' && profile.assigned_church_id && (
                                     <button
-                                        onClick={() => navigate(`/churches/${profile.assigned_church_id}`)}
+                                        onClick={() => navigate(`/ churches / ${profile.assigned_church_id} `)}
                                         className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                     >
                                         <div className="bg-purple-100 p-2 rounded-full mr-3">
