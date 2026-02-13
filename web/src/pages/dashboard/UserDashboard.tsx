@@ -9,7 +9,7 @@ import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnounce
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import { Calendar, Clock, MapPin, PlusCircle, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
-import { dashboardConfig } from '../../config/featureFlags';
+import { dashboardConfig, isFeatureEnabled } from '../../config/featureFlags';
 import { mockTrendData } from '../../config/mockData';
 import { useChurches } from '../../hooks/useChurches';
 
@@ -102,7 +102,7 @@ export default function UserDashboard() {
                 {/* Left Column: Welcome & Appointments */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Welcome Section */}
-                    <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-900 to-blue-800 text-white border-none">
+                    <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-600 to-blue-400 text-white border-none">
                         <h1 className="text-2xl font-bold mb-2">
                             Welcome, {profile?.full_name?.split(' ')[0] || 'User'}!
                         </h1>
@@ -165,74 +165,76 @@ export default function UserDashboard() {
                     </div>
 
                     {/* Upcoming Appointments */}
-                    <div className="card p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold flex items-center gap-2">
-                                <Calendar className="w-5 h-5 text-primary" />
-                                Upcoming Appointments
-                            </h2>
-                            <button
-                                onClick={() => navigate('/appointments')}
-                                className="text-sm text-primary hover:underline"
-                            >
-                                View All
-                            </button>
-                        </div>
+                    {isFeatureEnabled('userUpcomingAppointments') && (
+                        <div className="card p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-semibold flex items-center gap-2">
+                                    <Calendar className="w-5 h-5 text-primary" />
+                                    Upcoming Appointments
+                                </h2>
+                                <button
+                                    onClick={() => navigate('/appointments')}
+                                    className="text-sm text-primary hover:underline"
+                                >
+                                    View All
+                                </button>
+                            </div>
 
-                        <div className="space-y-4">
-                            {loading ? (
-                                <p className="text-muted text-center py-4">Loading appointments...</p>
-                            ) : appointments.length > 0 ? (
-                                appointments.map(app => (
-                                    <div key={app.id} className="flex items-start p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                        {/* Date Box */}
-                                        <div className="flex-shrink-0 w-16 text-center bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden mr-4">
-                                            <div className="bg-primary-50 text-primary-800 text-xs font-bold py-1 uppercase">
-                                                {format(new Date(app.appointment_date), 'MMM')}
-                                            </div>
-                                            <div className="text-xl font-bold text-gray-800 py-1">
-                                                {format(new Date(app.appointment_date), 'dd')}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex-grow">
-                                            <div className="flex justify-between items-start">
-                                                <h3 className="font-semibold text-lg text-gray-900">{app.service_type}</h3>
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize
-                                                    ${app.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {app.status}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center text-sm text-muted mt-1 gap-4">
-                                                <div className="flex items-center">
-                                                    <Clock className="w-3 h-3 mr-1" />
-                                                    {app.appointment_time}
+                            <div className="space-y-4">
+                                {loading ? (
+                                    <p className="text-muted text-center py-4">Loading appointments...</p>
+                                ) : appointments.length > 0 ? (
+                                    appointments.map(app => (
+                                        <div key={app.id} className="flex items-start p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                            {/* Date Box */}
+                                            <div className="flex-shrink-0 w-16 text-center bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden mr-4">
+                                                <div className="bg-primary-50 text-primary-800 text-xs font-bold py-1 uppercase">
+                                                    {format(new Date(app.appointment_date), 'MMM')}
                                                 </div>
-                                                <div className="flex items-center">
-                                                    <MapPin className="w-3 h-3 mr-1" />
-                                                    {app.church?.name}
+                                                <div className="text-xl font-bold text-gray-800 py-1">
+                                                    {format(new Date(app.appointment_date), 'dd')}
                                                 </div>
                                             </div>
+
+                                            <div className="flex-grow">
+                                                <div className="flex justify-between items-start">
+                                                    <h3 className="font-semibold text-lg text-gray-900">{app.service_type}</h3>
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize
+                                                        ${app.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                        {app.status}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center text-sm text-muted mt-1 gap-4">
+                                                    <div className="flex items-center">
+                                                        <Clock className="w-3 h-3 mr-1" />
+                                                        {app.appointment_time}
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <MapPin className="w-3 h-3 mr-1" />
+                                                        {app.church?.name}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-8 text-muted">
+                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <Calendar className="w-6 h-6 text-gray-400" />
+                                        </div>
+                                        <p>No upcoming appointments found.</p>
+                                        <button
+                                            onClick={() => navigate('/churches')}
+                                            className="mt-2 text-primary hover:underline text-sm"
+                                        >
+                                            Browse churches to book one
+                                        </button>
                                     </div>
-                                ))
-                            ) : (
-                                <div className="text-center py-8 text-muted">
-                                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                        <Calendar className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                    <p>No upcoming appointments found.</p>
-                                    <button
-                                        onClick={() => navigate('/churches')}
-                                        className="mt-2 text-primary hover:underline text-sm"
-                                    >
-                                        Browse churches to book one
-                                    </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Right Column: Verse & Actions */}

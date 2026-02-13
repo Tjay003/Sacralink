@@ -6,6 +6,7 @@ import SystemAnnouncementsManagement from '../../components/dashboard/SystemAnno
 import ChurchAdminDashboard from './ChurchAdminDashboard';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import { useAuth } from '../../contexts/AuthContext';
+import { isFeatureEnabled } from '../../config/featureFlags';
 
 /**
  * SuperAdminDashboard - Dashboard for super administrators
@@ -44,10 +45,10 @@ export default function SuperAdminDashboard() {
     return (
         <div className="space-y-6">
             {/* System Announcements Banner */}
-            <SystemAnnouncementsBanner />
+            {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsBanner />}
 
             {/* Header with Church Selector */}
-            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-900 to-blue-800 text-white border-none">
+            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-600 to-blue-400 text-white border-none">
                 <h1 className="text-2xl font-bold mb-2">
                     Welcome Back, {profile?.full_name?.split(' ')[0] || 'Admin'}!
                 </h1>
@@ -56,10 +57,12 @@ export default function SuperAdminDashboard() {
                 </p>
 
                 {/* Church Selector */}
-                <ChurchSelectorDropdown
-                    selectedChurchId={selectedChurchId}
-                    onChurchSelect={setSelectedChurchId}
-                />
+                {isFeatureEnabled('churchSelector') && (
+                    <ChurchSelectorDropdown
+                        selectedChurchId={selectedChurchId}
+                        onChurchSelect={setSelectedChurchId}
+                    />
+                )}
             </div>
 
             {/* Diocese-Wide Stats */}
@@ -70,44 +73,46 @@ export default function SuperAdminDashboard() {
                 {/* Left Column (2/3 width) */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* System Announcements Management */}
-                    <SystemAnnouncementsManagement />
+                    {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsManagement />}
                 </div>
 
                 {/* Right Column (1/3 width) */}
                 <div className="space-y-6">
                     {/* Daily Verse */}
-                    <DailyVerse />
+                    {isFeatureEnabled('dailyVerse') && <DailyVerse />}
 
                     {/* Quick Actions */}
-                    <div className="bg-card border rounded-lg p-6">
-                        <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
-                        <div className="space-y-2">
-                            <a
-                                href="/churches"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                🏛️ Manage All Churches
-                            </a>
-                            <a
-                                href="/users"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                👥 Manage Users
-                            </a>
-                            <a
-                                href="/appointments"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                📅 All Appointments
-                            </a>
-                            <a
-                                href="/donations"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                💝 Donations
-                            </a>
+                    {isFeatureEnabled('quickLinks') && (
+                        <div className="bg-card border rounded-lg p-6">
+                            <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
+                            <div className="space-y-2">
+                                <a
+                                    href="/churches"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    🏛️ Manage All Churches
+                                </a>
+                                <a
+                                    href="/users"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    👥 Manage Users
+                                </a>
+                                <a
+                                    href="/appointments"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    📅 All Appointments
+                                </a>
+                                <a
+                                    href="/donations"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    💝 Donations
+                                </a>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

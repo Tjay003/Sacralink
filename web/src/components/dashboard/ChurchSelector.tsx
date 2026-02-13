@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronDown, ExternalLink } from 'lucide-react';
 import { useChurches } from '../../hooks/useChurches';
+import { isDemoMode } from '../../config/featureFlags';
 
 interface ChurchSelectorProps {
     selectedChurchId: string | null;
@@ -72,20 +73,32 @@ export default function ChurchSelector({ selectedChurchId, onChurchSelect }: Chu
             {/* Dropdown */}
             <div className="relative">
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors"
+                    onClick={() => !isDemoMode && setIsOpen(!isOpen)}
+                    disabled={isDemoMode}
+                    title={isDemoMode ? "This feature is not available in demo mode" : "Select a church"}
+                    className={`w-full flex items-center justify-between px-4 py-3 border rounded-lg transition-colors ${isDemoMode
+                            ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                            : 'bg-background hover:bg-muted'
+                        }`}
                 >
-                    <span className="text-sm font-medium text-foreground">
+                    <span className={`text-sm font-medium ${isDemoMode ? 'text-gray-500' : 'text-foreground'
+                        }`}>
                         {selectedChurch ? selectedChurch.name : 'Select a church'}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isDemoMode ? 'text-gray-400' : 'text-muted-foreground'
+                        } ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* View Church Details Button */}
                 {selectedChurch && (
                     <button
                         onClick={() => navigate(`/churches/${selectedChurchId}`)}
-                        className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm"
+                        disabled={isDemoMode}
+                        title={isDemoMode ? "This feature is not available in demo mode" : "View church details"}
+                        className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg transition-colors font-medium text-sm ${isDemoMode
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }`}
                     >
                         <ExternalLink className="w-4 h-4" />
                         View Church Details
@@ -122,8 +135,8 @@ export default function ChurchSelector({ selectedChurchId, onChurchSelect }: Chu
                                     key={church.id}
                                     onClick={() => handleSelect(church.id)}
                                     className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${selectedChurchId === church.id
-                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-medium'
-                                            : 'text-gray-900 dark:text-gray-100'
+                                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100 font-medium'
+                                        : 'text-gray-900 dark:text-gray-100'
                                         }`}
                                 >
                                     <div className="font-medium">{church.name}</div>

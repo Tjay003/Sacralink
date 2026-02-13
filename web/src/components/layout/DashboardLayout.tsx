@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
-import { featureFlags } from '../../config/featureFlags';
+import { featureFlags, isDemoMode } from '../../config/featureFlags';
 import logo from '../../assets/logo.png';
 
 const navigation = [
@@ -133,11 +133,16 @@ export default function DashboardLayout() {
                         // Check if item should be disabled (feature flag only)
                         const isDisabled = item.featureKey && !featureFlags[item.featureKey].enabled;
 
+                        // Special case: System Announcements should be disabled in demo mode
+                        // even though the feature flag is enabled (we want to show it but not make it clickable)
+                        const isSystemAnnouncementsInDemoMode =
+                            item.name === 'System Announcements' && isDemoMode;
+
                         return (
                             <NavItem
                                 key={item.name}
                                 item={item}
-                                disabled={isDisabled}
+                                disabled={isDisabled || isSystemAnnouncementsInDemoMode}
                             />
                         );
                     })}

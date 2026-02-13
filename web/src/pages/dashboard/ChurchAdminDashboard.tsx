@@ -5,6 +5,7 @@ import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
 import ChurchAnnouncementsManagement from '../../components/dashboard/ChurchAnnouncementsManagement';
 import RecentAppointmentsWidget from '../../components/dashboard/RecentAppointmentsWidget';
 import DailyVerse from '../../components/dashboard/DailyVerse';
+import { isFeatureEnabled } from '../../config/featureFlags';
 
 interface ChurchAdminDashboardProps {
     churchId: string | null;
@@ -55,7 +56,9 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                     <ChurchAnnouncementsManagement churchId={churchId} />
 
                     {/* Recent Appointments */}
-                    <RecentAppointmentsWidget churchId={churchId} limit={5} />
+                    {isFeatureEnabled('churchRecentAppointments') && (
+                        <RecentAppointmentsWidget churchId={churchId} limit={5} />
+                    )}
                 </div>
 
                 {/* Right Column (1/3 width) */}
@@ -64,29 +67,31 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                     <DailyVerse />
 
                     {/* Quick Actions */}
-                    <div className="bg-card border rounded-lg p-6">
-                        <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
-                        <div className="space-y-2">
-                            <a
-                                href={`/churches/${churchId}`}
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                📍 My Church Details
-                            </a>
-                            <a
-                                href="/appointments"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                📅 All Appointments
-                            </a>
-                            <a
-                                href="/donations"
-                                className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                            >
-                                💝 Donations
-                            </a>
+                    {isFeatureEnabled('churchQuickLinks') && (
+                        <div className="bg-card border rounded-lg p-6">
+                            <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
+                            <div className="space-y-2">
+                                <a
+                                    href={`/churches/${churchId}`}
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    📍 My Church Details
+                                </a>
+                                <a
+                                    href="/appointments"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    📅 All Appointments
+                                </a>
+                                <a
+                                    href="/donations"
+                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                >
+                                    💝 Donations
+                                </a>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

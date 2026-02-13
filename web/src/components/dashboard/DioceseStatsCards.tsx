@@ -33,12 +33,14 @@ export default function DioceseStatsCards() {
             // 1. Total Churches (with active count)
             const { data: churchesData, error: churchesError } = await supabase
                 .from('churches')
-                .select('id, status');
+                .select('id, is_active');
 
             if (churchesError) throw churchesError;
 
             const totalChurches = churchesData?.length || 0;
-            const activeChurches = churchesData?.filter(c => c.status === 'active').length || 0;
+
+            // @ts-expect-error - is_active exists in database schema
+            const activeChurches = churchesData?.filter(c => c.is_active).length || 0;
 
             // 2. Total Members (users assigned to a church)
             const { count: totalMembers, error: membersError } = await supabase
@@ -101,10 +103,11 @@ export default function DioceseStatsCards() {
                     isUp: true,
                     label: `${stats.activeChurches} active`
                 }}
-                iconBgColor="bg-purple-100"
-                iconColor="text-purple-600"
-                gradientFrom="from-blue-900"
-                gradientTo="to-blue-800"
+                iconBgColor="bg-blue-100"
+                iconColor="text-blue-600"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-br"
                 loading={loading}
             />
 
@@ -118,10 +121,11 @@ export default function DioceseStatsCards() {
                     isUp: stats.newMembers > 0,
                     label: `${stats.newMembers} new this month`
                 }}
-                iconBgColor="bg-blue-100"
-                iconColor="text-blue-600"
-                gradientFrom="from-blue-900"
-                gradientTo="to-blue-800"
+                iconBgColor="bg-purple-100" // Changed to purple to vary icon bg if not active, though active overrides it
+                iconColor="text-purple-600"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-tr"
                 loading={loading}
             />
 
@@ -137,8 +141,9 @@ export default function DioceseStatsCards() {
                 }}
                 iconBgColor="bg-yellow-100"
                 iconColor="text-yellow-600"
-                gradientFrom="from-blue-900"
-                gradientTo="to-blue-800"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-bl"
                 loading={loading}
             />
 
@@ -154,8 +159,9 @@ export default function DioceseStatsCards() {
                 }}
                 iconBgColor="bg-emerald-100"
                 iconColor="text-emerald-600"
-                gradientFrom="from-blue-900"
-                gradientTo="to-blue-800"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-tl"
                 loading={loading}
             />
         </div>

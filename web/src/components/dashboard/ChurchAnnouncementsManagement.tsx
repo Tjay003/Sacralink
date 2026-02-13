@@ -6,6 +6,7 @@ import AnnouncementForm from '../announcements/AnnouncementForm';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import type { ChurchAnnouncement } from '../../types/database';
 import { supabase } from '../../lib/supabase';
+import { isDemoMode } from '../../config/featureFlags';
 
 interface ChurchAnnouncementsManagementProps {
     churchId: string | null;
@@ -104,7 +105,12 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                             setEditingAnnouncement(null);
                             setShowForm(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm font-medium"
+                        disabled={isDemoMode}
+                        title={isDemoMode ? "This feature is not available in demo mode" : "Create new church announcement"}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isDemoMode
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                            }`}
                     >
                         <Plus className="w-4 h-4" />
                         New Announcement
@@ -146,15 +152,23 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <button
                                             onClick={() => handleEdit(announcement)}
-                                            className="p-2 hover:bg-blue-100 text-blue-600 rounded transition-colors"
-                                            title="Edit"
+                                            disabled={isDemoMode}
+                                            title={isDemoMode ? "This feature is not available in demo mode" : "Edit"}
+                                            className={`p-2 rounded transition-colors ${isDemoMode
+                                                    ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                    : 'hover:bg-blue-100 text-blue-600'
+                                                }`}
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => setDeleteConfirmation({ show: true, announcement })}
-                                            className="p-2 hover:bg-red-100 text-red-600 rounded transition-colors"
-                                            title="Delete"
+                                            disabled={isDemoMode}
+                                            title={isDemoMode ? "This feature is not available in demo mode" : "Delete"}
+                                            className={`p-2 rounded transition-colors ${isDemoMode
+                                                    ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                    : 'hover:bg-red-100 text-red-600'
+                                                }`}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

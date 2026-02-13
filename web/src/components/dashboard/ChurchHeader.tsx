@@ -52,7 +52,7 @@ export default function ChurchHeader({ churchId }: ChurchHeaderProps) {
     }
 
     return (
-        <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white rounded-lg p-6 shadow-sm">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between">
                 {/* Church Info */}
                 <div className="flex items-center gap-4">
@@ -69,8 +69,8 @@ export default function ChurchHeader({ churchId }: ChurchHeaderProps) {
                 <div className="flex items-center gap-3">
                     {/* Status Badge */}
                     <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${church.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
                         }`}>
                         {church.status === 'active' ? '✅ Active' : '⏸️ Inactive'}
                     </span>

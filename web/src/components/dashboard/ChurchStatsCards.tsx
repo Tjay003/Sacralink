@@ -92,9 +92,9 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 icon={Calendar}
                 iconBgColor="bg-yellow-100"
                 iconColor="text-yellow-600"
-                gradientFrom="from-yellow-600"
-                gradientTo="to-yellow-400"
-                gradientDirection="to-br"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-tr"
                 loading={loading}
             />
 
@@ -104,9 +104,9 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 icon={TrendingUp}
                 iconBgColor="bg-green-100"
                 iconColor="text-green-600"
-                gradientFrom="from-green-600"
-                gradientTo="to-green-400"
-                gradientDirection="to-br"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-bl"
                 loading={loading}
             />
         </div>
