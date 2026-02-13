@@ -108,8 +108,8 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                         disabled={isDemoMode}
                         title={isDemoMode ? "This feature is not available in demo mode" : "Create new church announcement"}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isDemoMode
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                            : 'bg-orange-600 hover:bg-orange-700 text-white'
                             }`}
                     >
                         <Plus className="w-4 h-4" />
@@ -146,7 +146,7 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                                             {announcement.title}
                                         </h4>
                                         <p className="text-sm text-muted-foreground">
-                                            Posted {formatRelativeTime(announcement.created_at)}
+                                            Posted {formatRelativeTime(announcement.created_at || new Date().toISOString())}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -155,8 +155,8 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                                             disabled={isDemoMode}
                                             title={isDemoMode ? "This feature is not available in demo mode" : "Edit"}
                                             className={`p-2 rounded transition-colors ${isDemoMode
-                                                    ? 'text-gray-400 cursor-not-allowed opacity-50'
-                                                    : 'hover:bg-blue-100 text-blue-600'
+                                                ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                : 'hover:bg-blue-100 text-blue-600'
                                                 }`}
                                         >
                                             <Edit2 className="w-4 h-4" />
@@ -166,8 +166,8 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                                             disabled={isDemoMode}
                                             title={isDemoMode ? "This feature is not available in demo mode" : "Delete"}
                                             className={`p-2 rounded transition-colors ${isDemoMode
-                                                    ? 'text-gray-400 cursor-not-allowed opacity-50'
-                                                    : 'hover:bg-red-100 text-red-600'
+                                                ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                : 'hover:bg-red-100 text-red-600'
                                                 }`}
                                         >
                                             <Trash2 className="w-4 h-4" />

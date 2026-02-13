@@ -52,7 +52,7 @@ export function useChurches() {
             }
 
             console.log('✅ Fetched churches:', data?.length || 0);
-            setChurches(data || []);
+            setChurches((data || []) as Church[]);
         } catch (err) {
             console.error('❌ Unexpected error:', err);
             setError('Failed to fetch churches');

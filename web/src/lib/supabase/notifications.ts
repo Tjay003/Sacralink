@@ -102,7 +102,6 @@ export async function markAsRead(notificationId: string) {
 
         const { error } = await supabase
             .from('notifications')
-            // @ts-expect-error - Supabase type inference issue
             .update({ is_read: true })
             .eq('id', notificationId);
 

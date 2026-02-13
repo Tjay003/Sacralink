@@ -116,7 +116,7 @@ export default function DashboardPage() {
             <div className="rounded-lg shadow-sm p-6 bg-gradient-to-br from-blue-600 to-blue-400 text-white border-none">
                 <h1 className="text-2xl font-bold mb-2">Welcome Back, {profile?.full_name?.split(' ')[0] || 'User'}!</h1>
                 <p className="text-white/90 opacity-90">
-                    You are logged in as <span className="font-semibold capitalize">{profile?.role.replace('_', ' ')}</span>.
+                    You are logged in as <span className="font-semibold capitalize">{(profile?.role || 'user').replace('_', ' ')}</span>.
                     Here is what's happening today.
                 </p>
             </div>

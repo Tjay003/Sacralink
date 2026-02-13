@@ -88,7 +88,7 @@ export default function SystemAnnouncementsBanner() {
     return (
         <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((announcement) => {
-                const config = typeConfig[announcement.type];
+                const config = typeConfig[(announcement.type || 'info') as 'info' | 'warning' | 'maintenance' | 'success'];
                 const Icon = config.icon;
 
                 return (

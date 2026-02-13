@@ -1043,3 +1043,4 @@ export type Profile = Tables<"profiles">
 export type Church = Tables<"churches">
 export type Appointment = Tables<"appointments">
 export type Donation = Tables<"donations">
+export type MassSchedule = Tables<"mass_schedules">

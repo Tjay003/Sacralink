@@ -12,7 +12,7 @@ export async function getRequirements(churchId: string, serviceType: string) {
         .from('sacrament_requirements')
         .select('*')
         .eq('church_id', churchId)
-        .eq('service_type', serviceType)
+        .eq('service_type', serviceType as any)
         .order('display_order', { ascending: true });
 
     if (error) throw error;
@@ -69,25 +69,21 @@ export async function deleteRequirement(id: string) {
 export async function seedDefaultRequirements(churchId: string) {
     const defaultRequirements: InsertSacramentRequirement[] = [
         // Baptism
-        { church_id: churchId, service_type: 'Baptism', requirement_name: 'Birth Certificate', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'Baptism', requirement_name: 'Godparent Certificate', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'Baptism', requirement_name: 'Parent Marriage Certificate', is_required: false, display_order: 3 },
+        { church_id: churchId, service_type: 'baptism', requirement_name: 'Birth Certificate', is_required: true, display_order: 1 },
+        { church_id: churchId, service_type: 'baptism', requirement_name: 'Godparent Certificate', is_required: true, display_order: 2 },
+        { church_id: churchId, service_type: 'baptism', requirement_name: 'Parent Marriage Certificate', is_required: false, display_order: 3 },
 
         // Wedding
-        { church_id: churchId, service_type: 'Wedding', requirement_name: 'Baptismal Certificate (Bride)', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'Wedding', requirement_name: 'Baptismal Certificate (Groom)', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'Wedding', requirement_name: 'Confirmation Certificate', is_required: true, display_order: 3 },
-        { church_id: churchId, service_type: 'Wedding', requirement_name: 'CENOMAR (Certificate of No Marriage)', is_required: true, display_order: 4 },
-        { church_id: churchId, service_type: 'Wedding', requirement_name: 'Pre-Cana Certificate', is_required: true, display_order: 5 },
+        { church_id: churchId, service_type: 'wedding', requirement_name: 'Baptismal Certificate (Bride)', is_required: true, display_order: 1 },
+        { church_id: churchId, service_type: 'wedding', requirement_name: 'Baptismal Certificate (Groom)', is_required: true, display_order: 2 },
+        { church_id: churchId, service_type: 'wedding', requirement_name: 'Confirmation Certificate', is_required: true, display_order: 3 },
+        { church_id: churchId, service_type: 'wedding', requirement_name: 'CENOMAR (Certificate of No Marriage)', is_required: true, display_order: 4 },
+        { church_id: churchId, service_type: 'wedding', requirement_name: 'Pre-Cana Certificate', is_required: true, display_order: 5 },
 
         // Confirmation
-        { church_id: churchId, service_type: 'Confirmation', requirement_name: 'Baptismal Certificate', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'Confirmation', requirement_name: 'First Communion Certificate', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'Confirmation', requirement_name: 'Sponsor Certificate', is_required: true, display_order: 3 },
-
-        // First Communion
-        { church_id: churchId, service_type: 'First Communion', requirement_name: 'Baptismal Certificate', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'First Communion', requirement_name: 'Attendance Record', is_required: true, display_order: 2 },
+        { church_id: churchId, service_type: 'confirmation', requirement_name: 'Baptismal Certificate', is_required: true, display_order: 1 },
+        { church_id: churchId, service_type: 'confirmation', requirement_name: 'First Communion Certificate', is_required: true, display_order: 2 },
+        { church_id: churchId, service_type: 'confirmation', requirement_name: 'Sponsor Certificate', is_required: true, display_order: 3 },
     ];
 
     // @ts-ignore - Supabase type inference issue

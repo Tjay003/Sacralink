@@ -92,10 +92,8 @@ export default function GalleryUploader({ churchId, onUploadComplete }: GalleryU
                     .from('church-images')
                     .getPublicUrl(filePath);
 
-                // Create database record
                 const { error: dbError } = await supabase
                     .from('church_images')
-                    // @ts-expect-error - Supabase type inference limitation for church_images table
                     .insert({
                         church_id: churchId,
                         image_url: publicUrl,

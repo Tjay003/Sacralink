@@ -52,11 +52,11 @@ function AppRoutes() {
     hasProfile: !!profile,
     profileRole: profile?.role,
     allowedRoles: ['user', 'admin', 'super_admin'],
-    isAllowed: profile && ['user', 'admin', 'super_admin'].includes(profile.role)
+    isAllowed: profile && profile.role && ['user', 'admin', 'super_admin'].includes(profile.role)
   });
 
   // User doesn't have required role - show access denied
-  if (!profile || !['user', 'admin', 'super_admin', 'church_admin', 'volunteer'].includes(profile.role)) {
+  if (!profile || !profile.role || !['user', 'admin', 'super_admin', 'church_admin', 'volunteer'].includes(profile.role)) {
     console.warn('❌ Access denied - invalid role');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

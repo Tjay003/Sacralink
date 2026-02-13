@@ -61,7 +61,7 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
                 .limit(limit);
 
             if (error) throw error;
-            setAppointments(data || []);
+            setAppointments((data || []) as any);
         } catch (err) {
             console.error('Error fetching appointments:', err);
         } finally {
@@ -143,10 +143,10 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
                                     </div>
                                 </div>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${appointment.status === 'approved'
-                                        ? 'bg-green-100 text-green-800'
-                                        : appointment.status === 'pending'
-                                            ? 'bg-yellow-100 text-yellow-800'
-                                            : 'bg-red-100 text-red-800'
+                                    ? 'bg-green-100 text-green-800'
+                                    : appointment.status === 'pending'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-red-100 text-red-800'
                                     }`}>
                                     {appointment.status}
                                 </span>

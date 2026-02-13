@@ -143,8 +143,8 @@ export default function SystemAnnouncementsManagement() {
                                             <h4 className="font-medium text-foreground line-clamp-1">
                                                 {announcement.title}
                                             </h4>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(announcement.type)}`}>
-                                                {announcement.type}
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(announcement.type || 'general')}`}>
+                                                {announcement.type || 'general'}
                                             </span>
                                             {!announcement.is_active && (
                                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -153,9 +153,9 @@ export default function SystemAnnouncementsManagement() {
                                             )}
                                         </div>
                                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                            <span>Created {formatDate(announcement.created_at)}</span>
+                                            <span>Created {formatDate(announcement.created_at || new Date().toISOString())}</span>
                                             {announcement.expires_at && (
-                                                <span>Expires {formatDate(announcement.expires_at)}</span>
+                                                <span>Expires {formatDate(announcement.expires_at || new Date().toISOString())}</span>
                                             )}
                                         </div>
                                     </div>

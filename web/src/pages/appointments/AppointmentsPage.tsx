@@ -150,7 +150,7 @@ export default function AppointmentsPage() {
                                         {appointment.status}
                                     </span>
                                     <span className="text-sm text-gray-500">
-                                        Requested on {new Date(appointment.created_at).toLocaleDateString()}
+                                        Requested on {new Date(appointment.created_at || new Date().toISOString()).toLocaleDateString()}
                                     </span>
                                 </div>
                                 <h3 className="font-semibold text-lg">{appointment.service_type}</h3>

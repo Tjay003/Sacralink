@@ -47,8 +47,8 @@ export default function AnnouncementForm({
             setFormData({
                 title: announcement.title,
                 content: announcement.content,
-                isPinned: isChurchAnnouncement ? (announcement as ChurchAnnouncement).is_pinned : false,
-                announcementType: !isChurchAnnouncement ? (announcement as SystemAnnouncement).type : 'info',
+                isPinned: isChurchAnnouncement ? ((announcement as ChurchAnnouncement).is_pinned || false) : false,
+                announcementType: !isChurchAnnouncement ? ((announcement as SystemAnnouncement).type as any || 'info') : 'info',
                 expiresAt: !isChurchAnnouncement && (announcement as SystemAnnouncement).expires_at
                     ? new Date((announcement as SystemAnnouncement).expires_at!).toISOString().slice(0, 16)
                     : '',
@@ -96,7 +96,6 @@ export default function AnnouncementForm({
                 if (isEditing) {
                     const { error: updateError } = await supabase
                         .from('church_announcements')
-                        // @ts-expect-error - Supabase generated types don't match insert types
                         .update(churchData)
                         .eq('id', announcement.id);
 
@@ -104,7 +103,6 @@ export default function AnnouncementForm({
                 } else {
                     const { error: insertError } = await supabase
                         .from('church_announcements')
-                        // @ts-expect-error - Supabase generated types don't match insert types
                         .insert([churchData]);
 
                     if (insertError) throw insertError;
@@ -122,7 +120,6 @@ export default function AnnouncementForm({
                 if (isEditing) {
                     const { error: updateError } = await supabase
                         .from('system_announcements')
-                        // @ts-expect-error - Supabase generated types don't match insert types
                         .update(systemData)
                         .eq('id', announcement.id);
 
@@ -130,7 +127,6 @@ export default function AnnouncementForm({
                 } else {
                     const { error: insertError } = await supabase
                         .from('system_announcements')
-                        // @ts-expect-error - Supabase generated types don't match insert types
                         .insert([systemData]);
 
                     if (insertError) throw insertError;

@@ -98,8 +98,8 @@ export default function UsersPage() {
 
         // Sort by role hierarchy, then by name
         filtered.sort((a, b) => {
-            const roleA = ROLE_PRIORITY[a.role] || 999;
-            const roleB = ROLE_PRIORITY[b.role] || 999;
+            const roleA = ROLE_PRIORITY[a.role || 'user'] || 999;
+            const roleB = ROLE_PRIORITY[b.role || 'user'] || 999;
 
             if (roleA !== roleB) {
                 return roleA - roleB; // Lower priority number comes first
@@ -269,8 +269,8 @@ export default function UsersPage() {
                                             <div className="text-sm text-foreground">{user.email}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
-                                                {formatRole(user.role)}
+                                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                {formatRole(user.role || 'user')}
                                             </span>
                                         </td>
                                         {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
@@ -323,38 +323,37 @@ export default function UsersPage() {
                         >
                             Previous
                         </button>
-                        
+
                         {(() => {
                             const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
                             const pages = [];
                             const maxVisible = 5;
-                            
+
                             let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
                             let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-                            
+
                             if (endPage - startPage < maxVisible - 1) {
                                 startPage = Math.max(1, endPage - maxVisible + 1);
                             }
-                            
+
                             for (let i = startPage; i <= endPage; i++) {
                                 pages.push(
                                     <button
                                         key={i}
                                         onClick={() => setCurrentPage(i)}
-                                        className={`px-3 py-1 text-sm border rounded-md ${
-                                            currentPage === i
+                                        className={`px-3 py-1 text-sm border rounded-md ${currentPage === i
                                                 ? 'bg-primary text-white border-primary'
                                                 : 'border-gray-300 hover:bg-gray-50'
-                                        }`}
+                                            }`}
                                     >
                                         {i}
                                     </button>
                                 );
                             }
-                            
+
                             return pages;
                         })()}
-                        
+
                         <button
                             onClick={() => setCurrentPage(Math.min(Math.ceil(filteredUsers.length / itemsPerPage), currentPage + 1))}
                             disabled={currentPage >= Math.ceil(filteredUsers.length / itemsPerPage)}

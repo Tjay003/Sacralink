@@ -505,11 +505,11 @@ export default function ChurchDetailPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <span className="text-muted">Created:</span>
-                        <p className="font-medium">{new Date(church.created_at).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(church.created_at || new Date().toISOString()).toLocaleDateString()}</p>
                     </div>
                     <div>
                         <span className="text-muted">Last Updated:</span>
-                        <p className="font-medium">{new Date(church.updated_at).toLocaleDateString()}</p>
+                        <p className="font-medium">{new Date(church.updated_at || new Date().toISOString()).toLocaleDateString()}</p>
                     </div>
                 </div>
             </div>

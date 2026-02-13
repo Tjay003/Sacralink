@@ -23,7 +23,7 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
     const isChurchAdmin = useIsChurchAdmin();
     const { churches } = useChurches();
 
-    const [selectedRole, setSelectedRole] = useState(user.role);
+    const [selectedRole, setSelectedRole] = useState(user.role || 'user');
     const [selectedChurchId, setSelectedChurchId] = useState(user.assigned_church_id || '');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -108,7 +108,7 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                                 Role
                             </label>
                             <select
-                                value={selectedRole}
+                                value={selectedRole || 'user'}
                                 onChange={(e) => setSelectedRole(e.target.value as any)}
                                 className="input w-full"
                                 disabled={loading}

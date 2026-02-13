@@ -92,7 +92,7 @@ export default function DashboardCalendar() {
                 .gte('appointment_date', new Date().toISOString().split('T')[0]); // Only future/today
 
             if (error) throw error;
-            setAppointments(data || []);
+            setAppointments((data || []) as any);
         } catch (err) {
             console.error('Error fetching calendar appointments:', err);
         } finally {
