@@ -38,8 +38,6 @@ export default function DioceseStatsCards() {
             if (churchesError) throw churchesError;
 
             const totalChurches = churchesData?.length || 0;
-
-            // @ts-expect-error - is_active exists in database schema
             const activeChurches = churchesData?.filter(c => c.is_active).length || 0;
 
             // 2. Total Members (users assigned to a church)

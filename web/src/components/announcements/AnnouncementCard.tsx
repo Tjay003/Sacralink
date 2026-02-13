@@ -57,9 +57,9 @@ export default function AnnouncementCard({
 
     // Type badge colors for system announcements
     const getTypeBadge = () => {
-        if (type !== 'system') return null;
+        if (type !== 'system' || !systemAnn.type) return null;
 
-        const badges = {
+        const badges: Record<string, { icon: string; class: string }> = {
             info: { icon: '📘', class: 'bg-blue-100 text-blue-800' },
             warning: { icon: '⚠️', class: 'bg-yellow-100 text-yellow-800' },
             maintenance: { icon: '🔧', class: 'bg-orange-100 text-orange-800' },
@@ -67,6 +67,8 @@ export default function AnnouncementCard({
         };
 
         const badge = badges[systemAnn.type];
+        if (!badge) return null;
+
         return (
             <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${badge.class}`}>
                 {badge.icon} {systemAnn.type.charAt(0).toUpperCase() + systemAnn.type.slice(1)}
@@ -96,7 +98,7 @@ export default function AnnouncementCard({
                     <div className="flex items-center gap-3 text-sm text-muted">
                         <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            Posted {formatDate(announcement.created_at)}
+                            Posted {formatDate(announcement.created_at || new Date().toISOString())}
                         </span>
 
                         {/* Church name for church announcements */}

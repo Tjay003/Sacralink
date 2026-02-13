@@ -36,7 +36,7 @@ export default function ChurchPerformanceGrid() {
             // Fetch all churches
             const { data: churchesData, error: churchesError } = await supabase
                 .from('churches')
-                .select('id, name, status');
+                .select('id, name, is_active');
 
             if (churchesError) throw churchesError;
 
@@ -60,7 +60,7 @@ export default function ChurchPerformanceGrid() {
                     return {
                         id: church.id,
                         name: church.name,
-                        status: church.status as 'active' | 'inactive',
+                        status: church.is_active ? 'active' : 'inactive' as 'active' | 'inactive',
                         memberCount: memberCount || 0,
                         eventCount: eventCount || 0,
                     };
@@ -144,8 +144,8 @@ export default function ChurchPerformanceGrid() {
                                 <h3 className="font-semibold text-foreground truncate">{church.name}</h3>
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ml-2 ${church.status === 'active'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-gray-100 text-gray-800'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
                                 }`}>
                                 {church.status}
                             </span>
