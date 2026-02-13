@@ -10,7 +10,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import PasswordStrengthIndicator from '../../components/auth/PasswordStrengthIndicator';
-import { validatePassword } from '../../utils/passwordValidation';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
