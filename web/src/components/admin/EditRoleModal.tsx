@@ -28,6 +28,11 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // Check if user being edited is a super_admin
+    const isEditingSuperAdmin = user.role === 'super_admin';
+    // Only super_admins can edit other super_admins
+    const canEditThisUser = !isEditingSuperAdmin || isSuperAdmin;
+
     // Determine available roles based on current user's role
     const availableRoles = isSuperAdmin
         ? ['user', 'volunteer', 'church_admin', 'admin', 'super_admin']
@@ -95,6 +100,14 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                 <div className="card p-6 max-w-md w-full">
                     <h2 className="text-xl font-bold mb-4">Edit User Access</h2>
 
+                    {/* Super Admin Protection Warning */}
+                    {isEditingSuperAdmin && !isSuperAdmin && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-sm text-red-600 font-medium">🔒 This user is a Super Admin</p>
+                            <p className="text-xs text-red-500 mt-1">Only Super Admins can modify Super Admin roles.</p>
+                        </div>
+                    )}
+
                     <div className="mb-4 p-4 bg-secondary-50 rounded-lg">
                         <p className="text-sm text-muted mb-1">User</p>
                         <p className="font-semibold">{user.full_name}</p>
@@ -111,7 +124,7 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                                 value={selectedRole || 'user'}
                                 onChange={(e) => setSelectedRole(e.target.value as any)}
                                 className="input w-full"
-                                disabled={loading}
+                                disabled={loading || !canEditThisUser}
                             >
                                 {availableRoles.map((role) => (
                                     <option key={role} value={role}>
@@ -132,7 +145,7 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                                     value={selectedChurchId}
                                     onChange={(e) => setSelectedChurchId(e.target.value)}
                                     className="input w-full"
-                                    disabled={loading || selectedRole === 'super_admin'}
+                                    disabled={loading || selectedRole === 'super_admin' || !canEditThisUser}
                                 >
                                     <option value="">-- No Church Assigned --</option>
                                     {churches.map((church) => (
@@ -176,9 +189,9 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                             <button
                                 type="submit"
                                 className="btn-primary flex-1"
-                                disabled={loading}
+                                disabled={loading || !canEditThisUser}
                             >
-                                {loading ? 'Saving...' : 'Save Changes'}
+                                {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}
                             </button>
                         </div>
                     </form>

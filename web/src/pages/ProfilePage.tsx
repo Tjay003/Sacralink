@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User, Mail, Phone, Shield, Calendar } from 'lucide-react';
 import AvatarUpload from '../components/profile/AvatarUpload';
+import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import { getCurrentProfile } from '../lib/supabase/profiles';
 import { format } from 'date-fns';
 
@@ -14,6 +15,7 @@ export default function ProfilePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -202,9 +204,20 @@ export default function ProfilePage() {
                                 <input
                                     type="tel"
                                     value={editedData.phone_number || ''}
-                                    onChange={(e) => setEditedData({ ...editedData, phone_number: e.target.value })}
+                                    onChange={(e) => {
+                                        // Only allow numbers and common phone characters (+, -, spaces, parentheses)
+                                        const value = e.target.value.replace(/[^0-9+\-() ]/g, '');
+                                        setEditedData({ ...editedData, phone_number: value });
+                                    }}
+                                    onKeyPress={(e) => {
+                                        // Prevent non-numeric and non-phone characters
+                                        if (!/[0-9+\-() ]/.test(e.key)) {
+                                            e.preventDefault();
+                                        }
+                                    }}
                                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                                    placeholder="Enter your phone number"
+                                    placeholder="Enter your phone number (e.g., +63 912 345 6789)"
+                                    maxLength={20}
                                 />
                             ) : (
                                 <p className="text-base text-foreground">
@@ -248,14 +261,22 @@ export default function ProfilePage() {
             <div className="card p-6">
                 <h2 className="text-lg font-semibold mb-4">Account Actions</h2>
                 <div className="space-y-3">
-                    <button className="btn btn-outline w-full sm:w-auto">
+                    <button
+                        onClick={() => setShowChangePasswordModal(true)}
+                        className="btn btn-outline w-full sm:w-auto"
+                    >
                         Change Password
                     </button>
                     <p className="text-sm text-muted">
-                        Password management coming soon
+                        Update your password to keep your account secure
                     </p>
                 </div>
             </div>
+
+            {/* Change Password Modal */}
+            {showChangePasswordModal && (
+                <ChangePasswordModal onClose={() => setShowChangePasswordModal(false)} />
+            )}
         </div>
     );
 }

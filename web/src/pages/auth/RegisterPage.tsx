@@ -9,6 +9,8 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
+import PasswordStrengthIndicator from '../../components/auth/PasswordStrengthIndicator';
+import { validatePassword } from '../../utils/passwordValidation';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -18,7 +20,12 @@ import logo from '../../assets/logo.png';
 const registerSchema = z.object({
     fullName: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number')
+        .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Password must contain at least one special character'),
     confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -32,6 +39,7 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [password, setPassword] = useState(''); // For strength indicator
 
     const {
         register,
@@ -156,7 +164,9 @@ export default function RegisterPage() {
                                         type={showPassword ? 'text' : 'password'}
                                         placeholder="Password"
                                         className={`rounded-lg bg-gray-50 border-transparent focus:border-primary px-3 h-10 pr-10 ${errors.password ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                                        {...register('password')}
+                                        {...register('password', {
+                                            onChange: (e) => setPassword(e.target.value)
+                                        })}
                                     />
                                     <button
                                         type="button"
@@ -169,6 +179,7 @@ export default function RegisterPage() {
                                 {errors.password && (
                                     <p className="text-xs text-destructive">{errors.password.message}</p>
                                 )}
+                                <PasswordStrengthIndicator password={password} />
                             </div>
 
                             <div className="space-y-2">
