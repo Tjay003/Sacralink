@@ -94,6 +94,8 @@ export default function NotificationBell() {
             case 'appointment_rejected': return '❌';
             case 'appointment_created': return '📅';
             case 'document_submitted': return '📎';
+            case 'donation_verified': return '💚';
+            case 'donation_rejected': return '❌';
             default: return '🔔';
         }
     };

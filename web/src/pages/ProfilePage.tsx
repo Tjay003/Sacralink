@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Mail, Phone, Shield, Calendar } from 'lucide-react';
+import { User, Mail, Phone, Shield, Calendar, Heart, CheckCircle, XCircle, Clock } from 'lucide-react';
 import AvatarUpload from '../components/profile/AvatarUpload';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import { getCurrentProfile } from '../lib/supabase/profiles';
-import { format } from 'date-fns';
+import { getUserDonations, type Donation } from '../lib/supabase/donations';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function ProfilePage() {
     const { refreshProfile } = useAuth();
@@ -16,10 +17,22 @@ export default function ProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+    const [donations, setDonations] = useState<Donation[]>([]);
+    const [totalDonated, setTotalDonated] = useState(0);
+    const [donationsLoading, setDonationsLoading] = useState(true);
 
     useEffect(() => {
         fetchProfile();
+        fetchMyDonations();
     }, []);
+
+    const fetchMyDonations = async () => {
+        setDonationsLoading(true);
+        const { data, totalDonated: total } = await getUserDonations();
+        setDonations(data);
+        setTotalDonated(total);
+        setDonationsLoading(false);
+    };
 
     const fetchProfile = async () => {
         try {
@@ -255,6 +268,69 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* My Donations */}
+            <div className="card p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                        <Heart className="w-5 h-5 text-red-500" />
+                        My Donations
+                    </h2>
+                    {totalDonated > 0 && (
+                        <div className="text-right">
+                            <p className="text-xs text-muted">Total Donated</p>
+                            <p className="text-lg font-bold text-primary">
+                                ₱{totalDonated.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {donationsLoading ? (
+                    <div className="flex justify-center py-6">
+                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : donations.length === 0 ? (
+                    <div className="text-center py-8 text-muted">
+                        <Heart className="w-10 h-10 mx-auto mb-2 text-muted/40" />
+                        <p className="text-sm">No donations yet.</p>
+                        <p className="text-xs mt-1">Visit a church page to make your first donation!</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {donations.map(d => {
+                            const statusConfig = {
+                                pending: { icon: <Clock className="w-3.5 h-3.5" />, cls: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
+                                verified: { icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'bg-green-100 text-green-700', label: 'Verified' },
+                                rejected: { icon: <XCircle className="w-3.5 h-3.5" />, cls: 'bg-red-100 text-red-700', label: 'Rejected' },
+                            };
+                            const status = statusConfig[d.status || 'pending'];
+                            return (
+                                <div key={d.id} className="flex items-center justify-between p-3 bg-muted/5 rounded-xl border border-border gap-3">
+                                    <div className="min-w-0">
+                                        <p className="font-medium text-sm truncate">{(d.church as any)?.name || 'Church'}</p>
+                                        <p className="text-xs text-muted">
+                                            {d.created_at
+                                                ? formatDistanceToNow(new Date(d.created_at), { addSuffix: true })
+                                                : ''}
+                                        </p>
+                                        {d.status === 'rejected' && d.notes && (
+                                            <p className="text-xs text-red-600 mt-0.5">Reason: {d.notes}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                        <p className="font-bold text-sm">₱{Number(d.amount).toLocaleString('en-PH')}</p>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.cls}`}>
+                                            {status.icon}
+                                            {status.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* Account Actions */}

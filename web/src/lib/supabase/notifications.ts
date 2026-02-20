@@ -211,3 +211,32 @@ export async function notifyUserOfStatusChange(
 
     console.log('📬 User notification result:', result);
 }
+
+/**
+ * Notify a donor when their donation status changes (verified / rejected)
+ */
+export async function notifyDonorOfDonationStatus(
+    donorUserId: string,
+    churchName: string,
+    amount: number,
+    status: 'verified' | 'rejected',
+    rejectionReason?: string
+) {
+    const formattedAmount = `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+
+    const title = status === 'verified'
+        ? '✅ Donation Verified'
+        : '❌ Donation Rejected';
+
+    const message = status === 'verified'
+        ? `Your ${formattedAmount} donation to ${churchName} has been verified. Thank you! 🙏`
+        : `Your ${formattedAmount} donation to ${churchName} was rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`;
+
+    await createNotification({
+        userId: donorUserId,
+        type: `donation_${status}`,
+        title,
+        message,
+        link: '/profile',
+    });
+}

@@ -25,7 +25,7 @@ const navigation = [
     { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' as const },
     { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' as const },
     { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' as const },
-    { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const },
+    { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const, staffOnly: true },
     { name: 'System Announcements', href: '/admin/system-announcements', icon: Megaphone, superAdminOnly: true, featureKey: 'systemAnnouncements' as const },
 ];
 
@@ -128,6 +128,11 @@ export default function DashboardLayout() {
                         // Check if user has permission for admin-only items (admin, super_admin, church_admin)
                         if (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) {
                             return null; // Hide admin-only items from unauthorized users
+                        }
+
+                        // Hide staff-only items from regular users (they use Profile page for their donation history)
+                        if ((item as any).staffOnly && ['user'].includes(profile?.role || '')) {
+                            return null;
                         }
 
                         // Check if item should be disabled (feature flag only)

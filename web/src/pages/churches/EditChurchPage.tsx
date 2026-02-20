@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
-import { Building2, ArrowLeft, ImageIcon, X } from 'lucide-react';
+import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -59,7 +59,13 @@ export default function EditChurchPage() {
         panorama_url: '',
         livestream_url: '',
         facebook_url: '',
+        gcash_number: '',
+        maya_number: '',
+        gcash_qr_url: '',
+        maya_qr_url: '',
     });
+
+    const [uploadingQr, setUploadingQr] = useState(false);
 
     const [uploading, setUploading] = useState(false);
     const [galleryImages, setGalleryImages] = useState<any[]>([]);
@@ -78,6 +84,10 @@ export default function EditChurchPage() {
                 panorama_url: church.panorama_url || '',
                 livestream_url: church.livestream_url || '',
                 facebook_url: church.facebook_url || '',
+                gcash_number: church.gcash_number || '',
+                maya_number: church.maya_number || '',
+                gcash_qr_url: (church as any).gcash_qr_url || '',
+                maya_qr_url: (church as any).maya_qr_url || '',
             });
         }
     }, [church]);
@@ -107,39 +117,45 @@ export default function EditChurchPage() {
     }, [id]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) {
-            return;
-        }
-
+        if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `panoramas/${fileName}`;
-
         setUploading(true);
         setError('');
-
         try {
             const { error: uploadError } = await (supabase.storage
-                .from('church-images') as any) // Type assertion due to outdated types
+                .from('church-images') as any)
                 .upload(filePath, file);
-
-            if (uploadError) {
-                throw uploadError;
-            }
-
-            // Get public URL
-            const { data } = supabase.storage
-                .from('church-images')
-                .getPublicUrl(filePath);
-
+            if (uploadError) throw uploadError;
+            const { data } = supabase.storage.from('church-images').getPublicUrl(filePath);
             setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
-            console.log('✅ Image uploaded:', data.publicUrl);
         } catch (err: any) {
-            console.error('❌ Error uploading image:', err);
             setError('Failed to upload image: ' + err.message);
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleQrUpload = async (field: 'gcash_qr_url' | 'maya_qr_url', e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `qr/${id}-${field}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        setUploadingQr(true);
+        setError('');
+        try {
+            const { error: uploadError } = await (supabase.storage
+                .from('church-images') as any)
+                .upload(fileName, file, { upsert: true });
+            if (uploadError) throw uploadError;
+            const { data } = supabase.storage.from('church-images').getPublicUrl(fileName);
+            setFormData(prev => ({ ...prev, [field]: data.publicUrl }));
+        } catch (err: any) {
+            setError('Failed to upload QR image: ' + err.message);
+        } finally {
+            setUploadingQr(false);
         }
     };
 
@@ -179,6 +195,10 @@ export default function EditChurchPage() {
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
                     facebook_url: formData.facebook_url.trim() || null,
+                    gcash_number: formData.gcash_number.trim() || null,
+                    maya_number: formData.maya_number.trim() || null,
+                    gcash_qr_url: formData.gcash_qr_url.trim() || null,
+                    maya_qr_url: formData.maya_qr_url.trim() || null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', id);
@@ -438,7 +458,94 @@ export default function EditChurchPage() {
                         </p>
                     </div>
 
-                    {/* Church Gallery Section */}
+                    {/* ── Donation Settings ─────────────────────────── */}
+                    <div className="border-t border-border pt-6 space-y-6">
+                        <div className="flex items-center gap-2">
+                            <Heart className="w-5 h-5 text-red-500" />
+                            <h3 className="text-lg font-semibold">Donation Settings</h3>
+                        </div>
+                        <p className="text-xs text-muted -mt-4">
+                            Set up payment methods so members can donate to this church.
+                        </p>
+
+                        {/* GCash */}
+                        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 space-y-3">
+                            <p className="text-sm font-semibold text-blue-700">💙 GCash</p>
+                            <div>
+                                <label className="block text-xs font-medium text-blue-600 mb-1">GCash Number</label>
+                                <input
+                                    type="text"
+                                    value={formData.gcash_number}
+                                    onChange={(e) => setFormData({ ...formData, gcash_number: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full"
+                                    placeholder="e.g., 0917-123-4567"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-blue-600 mb-1">GCash QR Code</label>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-16 h-16 rounded-lg border-2 border-dashed border-blue-200 flex items-center justify-center overflow-hidden bg-white flex-shrink-0">
+                                        {formData.gcash_qr_url
+                                            ? <img src={formData.gcash_qr_url} alt="GCash QR" className="w-full h-full object-contain" />
+                                            : <QrCode className="w-6 h-6 text-blue-200" />}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors">
+                                            <QrCode className="w-3.5 h-3.5" />
+                                            {uploadingQr ? 'Uploading...' : formData.gcash_qr_url ? 'Replace' : 'Upload QR'}
+                                            <input type="file" accept="image/*" onChange={(e) => handleQrUpload('gcash_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
+                                        </label>
+                                        {formData.gcash_qr_url && (
+                                            <button type="button" onClick={() => setFormData(p => ({ ...p, gcash_qr_url: '' }))} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                                                <X className="w-3 h-3" /> Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Maya */}
+                        <div className="p-4 rounded-xl bg-green-50 border border-green-100 space-y-3">
+                            <p className="text-sm font-semibold text-green-700">🟢 Maya</p>
+                            <div>
+                                <label className="block text-xs font-medium text-green-600 mb-1">Maya Number</label>
+                                <input
+                                    type="text"
+                                    value={formData.maya_number}
+                                    onChange={(e) => setFormData({ ...formData, maya_number: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full"
+                                    placeholder="e.g., 0917-987-6543"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-green-600 mb-1">Maya QR Code</label>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-16 h-16 rounded-lg border-2 border-dashed border-green-200 flex items-center justify-center overflow-hidden bg-white flex-shrink-0">
+                                        {formData.maya_qr_url
+                                            ? <img src={formData.maya_qr_url} alt="Maya QR" className="w-full h-full object-contain" />
+                                            : <QrCode className="w-6 h-6 text-green-200" />}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors">
+                                            <QrCode className="w-3.5 h-3.5" />
+                                            {uploadingQr ? 'Uploading...' : formData.maya_qr_url ? 'Replace' : 'Upload QR'}
+                                            <input type="file" accept="image/*" onChange={(e) => handleQrUpload('maya_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
+                                        </label>
+                                        {formData.maya_qr_url && (
+                                            <button type="button" onClick={() => setFormData(p => ({ ...p, maya_qr_url: '' }))} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
+                                                <X className="w-3 h-3" /> Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Church Gallery ────────────────────────────── */}
                     <div className="border-t border-border pt-6">
                         <div className="flex items-center gap-2 mb-4">
                             <ImageIcon className="w-5 h-5 text-primary" />

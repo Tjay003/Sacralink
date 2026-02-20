@@ -355,12 +355,14 @@ export type Database = {
           email: string | null
           facebook_url: string | null
           gcash_number: string | null
+          gcash_qr_url: string | null
           id: string
           is_active: boolean | null
           latitude: number | null
           livestream_url: string | null
           longitude: number | null
           maya_number: string | null
+          maya_qr_url: string | null
           name: string
           operating_hours: Json | null
           panorama_url: string | null
@@ -376,12 +378,14 @@ export type Database = {
           email?: string | null
           facebook_url?: string | null
           gcash_number?: string | null
+          gcash_qr_url?: string | null
           id?: string
           is_active?: boolean | null
           latitude?: number | null
           livestream_url?: string | null
           longitude?: number | null
           maya_number?: string | null
+          maya_qr_url?: string | null
           name: string
           operating_hours?: Json | null
           panorama_url?: string | null
@@ -397,12 +401,14 @@ export type Database = {
           email?: string | null
           facebook_url?: string | null
           gcash_number?: string | null
+          gcash_qr_url?: string | null
           id?: string
           is_active?: boolean | null
           latitude?: number | null
           livestream_url?: string | null
           longitude?: number | null
           maya_number?: string | null
+          maya_qr_url?: string | null
           name?: string
           operating_hours?: Json | null
           panorama_url?: string | null

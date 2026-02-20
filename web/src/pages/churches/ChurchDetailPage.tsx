@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart } from 'lucide-react';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,9 @@ import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import type { ChurchAnnouncement } from '../../types/database';
 import { Megaphone } from 'lucide-react';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
+import { getRecentDonors } from '../../lib/supabase/donations';
+import { formatDistanceToNow } from 'date-fns';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -38,6 +41,8 @@ export default function ChurchDetailPage() {
     const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<ChurchAnnouncement | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; announcement: ChurchAnnouncement | null }>({ show: false, announcement: null });
+    const [showDonateModal, setShowDonateModal] = useState(false);
+    const [recentDonors, setRecentDonors] = useState<{ id: string; maskedName: string; created_at: string | null }[]>([]);
     const [deletingAnnouncement, setDeletingAnnouncement] = useState(false);
 
     // Fetch church announcements
@@ -175,7 +180,7 @@ export default function ChurchDetailPage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                         {/* Book Appointment (Visible to all logged in users) */}
                         <button
                             onClick={() => navigate(`/churches/${id}/book`)}
@@ -184,6 +189,20 @@ export default function ChurchDetailPage() {
                             <Calendar className="w-4 h-4" />
                             Book Appointment
                         </button>
+
+                        {/* Donate button - visible if church has payment info */}
+                        {(church.gcash_number || church.maya_number) && (
+                            <button
+                                onClick={() => {
+                                    getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
+                                    setShowDonateModal(true);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
+                            >
+                                <Heart className="w-4 h-4" />
+                                Donate
+                            </button>
+                        )}
 
                         {/* Admin Action Buttons */}
                         {canManage() && (
@@ -321,6 +340,50 @@ export default function ChurchDetailPage() {
                     </div>
                 )}
             </div>
+
+            {/* Donate / Recent Donors */}
+            {(church.gcash_number || church.maya_number) && (
+                <div className="card p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Heart className="w-5 h-5 text-red-500" />
+                            Support This Church
+                        </h2>
+                        <button
+                            onClick={() => {
+                                getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
+                                setShowDonateModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors"
+                        >
+                            <Heart className="w-4 h-4" />
+                            Donate Now
+                        </button>
+                    </div>
+
+                    {recentDonors.length > 0 ? (
+                        <div className="space-y-2">
+                            <p className="text-xs text-muted uppercase tracking-wide font-medium mb-3">Recent Generous Souls</p>
+                            {recentDonors.map(donor => (
+                                <div key={donor.id} className="flex items-center gap-2 text-sm">
+                                    <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                                        <Heart className="w-3.5 h-3.5 text-red-500" />
+                                    </div>
+                                    <span className="font-medium">{donor.maskedName}</span>
+                                    <span className="text-muted">donated a kind amount</span>
+                                    <span className="text-muted text-xs ml-auto">
+                                        {donor.created_at ? formatDistanceToNow(new Date(donor.created_at), { addSuffix: true }) : ''}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted">
+                            Be the first to donate and support this church community! 🙏
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Main Content: Mass Schedules + Facebook Feed */}
             <div className="flex flex-col lg:flex-row gap-6">
@@ -595,6 +658,24 @@ export default function ChurchDetailPage() {
                 }}
                 onCancel={() => setDeleteConfirmation({ show: false, announcement: null })}
             />
+
+            {/* Donate Modal */}
+            {showDonateModal && church && (
+                <SubmitDonationModal
+                    church={{
+                        id: church.id,
+                        name: church.name,
+                        gcash_number: church.gcash_number,
+                        maya_number: church.maya_number,
+                        gcash_qr_url: church.gcash_qr_url,
+                        maya_qr_url: church.maya_qr_url,
+                    }}
+                    onClose={() => setShowDonateModal(false)}
+                    onSuccess={() => {
+                        getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
+                    }}
+                />
+            )}
 
         </div >
 
