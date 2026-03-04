@@ -78,7 +78,7 @@ export default function ChurchesPage() {
                 {canAddChurch && (
                     <button
                         onClick={() => navigate('/churches/add')}
-                        className="btn-primary"
+                        className="btn-primary rounded-lg px-4 py-2"
                     >
                         <Plus className="w-4 h-4" />
                         Add Church
@@ -95,7 +95,7 @@ export default function ChurchesPage() {
                         placeholder="Search churches..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="input pl-10"
+                        className="input w-full !pl-10"
                     />
                 </div>
             </div>
@@ -114,7 +114,7 @@ export default function ChurchesPage() {
                         {canAddChurch && (
                             <button
                                 onClick={() => navigate('/churches/add')}
-                                className="btn-primary"
+                                className="btn-primary rounded-lg px-4 py-2"
                             >
                                 <Plus className="w-4 h-4" />
                                 Add Your First Church
@@ -216,7 +216,7 @@ export default function ChurchesPage() {
                                                                 e.stopPropagation();
                                                                 navigate(`/churches/${church.id}/edit`);
                                                             }}
-                                                            className="btn-secondary text-sm"
+                                                            className="btn-secondary text-sm rounded-lg px-3 py-1.5"
                                                         >
                                                             Edit
                                                         </button>

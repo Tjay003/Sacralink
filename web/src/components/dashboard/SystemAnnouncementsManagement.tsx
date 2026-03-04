@@ -86,14 +86,14 @@ export default function SystemAnnouncementsManagement() {
         <>
             <div className="bg-card border rounded-lg p-6">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
                             <Megaphone className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                             <h3 className="font-semibold text-foreground">System Announcements</h3>
-                            <p className="text-sm text-muted-foreground">Manage diocese-wide messages</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1">Manage diocese-wide messages</p>
                         </div>
                     </div>
 
@@ -104,13 +104,14 @@ export default function SystemAnnouncementsManagement() {
                         }}
                         disabled={isDemoMode}
                         title={isDemoMode ? "This feature is not available in demo mode" : "Create new system announcement"}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium ${isDemoMode
+                        className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shrink-0 ${isDemoMode
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
                             : 'bg-blue-600 hover:bg-blue-700 text-white'
                             }`}
                     >
                         <Plus className="w-4 h-4" />
-                        New System Announcement
+                        <span className="hidden sm:inline">New System Announcement</span>
+                        <span className="sm:hidden">New</span>
                     </button>
                 </div>
 

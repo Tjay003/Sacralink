@@ -99,7 +99,7 @@ export const featureFlags: FeatureFlags = {
 
     // Churches feature (Phase 3 - completed)
     churches: {
-        enabled: !isDemoMode,
+        enabled: true, // Always visible in demo mode
         label: 'Churches',
         description: 'Church directory and management',
     },

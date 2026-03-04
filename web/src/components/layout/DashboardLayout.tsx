@@ -154,7 +154,7 @@ export default function DashboardLayout() {
                 </nav>
 
                 {/* Bottom Section */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-white z-10">
                     <NavLink
                         to="/settings"
                         className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-secondary-600 hover:bg-secondary-100 transition-colors"
@@ -169,38 +169,41 @@ export default function DashboardLayout() {
             <div className={`transition-all duration-200 ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
                 {/* Header */}
                 <header className="sticky top-0 z-30 h-16 bg-white border-b border-border">
-                    <div className="relative flex items-center justify-between h-full px-4 lg:px-8">
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setSidebarOpen(true)}
-                            className="lg:hidden absolute left-4 p-2 text-secondary-500 hover:text-foreground"
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
+                    <div className="flex items-center justify-between h-full px-4 lg:px-8 gap-3">
+                        {/* Left: Mobile burger / Desktop collapse */}
+                        <div className="flex items-center gap-3">
+                            {/* Mobile Menu Button */}
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="lg:hidden p-2 text-secondary-500 hover:text-foreground"
+                            >
+                                <Menu className="w-5 h-5" />
+                            </button>
 
-                        {/* Desktop Sidebar Collapse Button */}
-                        <button
-                            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            className="hidden lg:block absolute left-4 p-2 text-secondary-500 hover:text-foreground"
-                            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
+                            {/* Desktop Sidebar Collapse Button */}
+                            <button
+                                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                                className="hidden lg:block p-2 text-secondary-500 hover:text-foreground"
+                                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            >
+                                <Menu className="w-5 h-5" />
+                            </button>
 
-                        {/* Search Bar */}
-                        <div className="flex-1 max-w-md hidden lg:block ml-12">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Search anything..."
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                />
+                            {/* Search Bar - desktop only */}
+                            <div className="flex-1 max-w-md hidden lg:block">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search anything..."
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        {/* Right Section */}
-                        <div className="flex items-center gap-4">
+                        {/* Right Section - always on the far right */}
+                        <div className="flex items-center gap-3 ml-auto">
                             {/* Notification Bell */}
                             <NotificationBell />
 

@@ -84,8 +84,8 @@ export default function AvatarUpload({ onUploadSuccess, onDeleteSuccess }: Avata
     return (
         <div className="space-y-4">
             {/* Avatar Display */}
-            <div className="flex items-center gap-6">
-                <div className="relative">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left">
+                <div className="relative shrink-0">
                     <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200">
                         {currentAvatar ? (
                             <img
@@ -106,12 +106,12 @@ export default function AvatarUpload({ onUploadSuccess, onDeleteSuccess }: Avata
                     )}
                 </div>
 
-                <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
+                <div className="flex-1 space-y-3 w-full">
+                    <div className="flex flex-col sm:flex-row justify-center sm:justify-start gap-2">
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading || deleting}
-                            className="btn btn-primary flex items-center gap-2"
+                            className="btn btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
                         >
                             <Upload className="w-4 h-4" />
                             {profile?.avatar_url ? 'Change Photo' : 'Upload Photo'}
@@ -121,7 +121,7 @@ export default function AvatarUpload({ onUploadSuccess, onDeleteSuccess }: Avata
                             <button
                                 onClick={handleDelete}
                                 disabled={uploading || deleting}
-                                className="btn btn-outline flex items-center gap-2"
+                                className="btn btn-outline flex items-center justify-center gap-2 w-full sm:w-auto"
                             >
                                 {deleting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />

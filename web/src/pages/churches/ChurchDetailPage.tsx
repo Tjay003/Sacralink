@@ -17,6 +17,7 @@ import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
+import { isDemoMode } from '../../config/featureFlags';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -169,25 +170,26 @@ export default function ChurchDetailPage() {
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Churches
                 </button>
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 w-full">
+                        <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
                             <Building2 className="w-8 h-8 text-primary" />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-bold">{church.name}</h1>
-                            <p className="text-muted">Church Details</p>
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-bold truncate">{church.name}</h1>
+                            <p className="text-muted truncate">Church Details</p>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 flex-wrap">
-                        {/* Book Appointment (Visible to all logged in users) */}
+                    <div className="flex flex-row gap-2 w-full sm:w-auto">
+                        {/* Book Appointment (Disabled in demo mode) */}
                         <button
-                            onClick={() => navigate(`/churches/${id}/book`)}
-                            className="btn-primary"
+                            onClick={() => !isDemoMode && navigate(`/churches/${id}/book`)}
+                            disabled={isDemoMode}
+                            className={`btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2 ${isDemoMode ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            <Calendar className="w-4 h-4" />
-                            Book Appointment
+                            <Calendar className="w-4 h-4 shrink-0 mb-1" />
+                            <span className="text-xs truncate">Book Appointment</span>
                         </button>
 
                         {/* Donate button - visible if church has payment info */}
@@ -197,10 +199,10 @@ export default function ChurchDetailPage() {
                                     getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
                                     setShowDonateModal(true);
                                 }}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
+                                className="flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
                             >
-                                <Heart className="w-4 h-4" />
-                                Donate
+                                <Heart className="w-4 h-4 shrink-0" />
+                                <span className="text-xs">Donate</span>
                             </button>
                         )}
 
@@ -208,10 +210,10 @@ export default function ChurchDetailPage() {
                         {canManage() && (
                             <button
                                 onClick={() => navigate(`/churches/${id}/edit`)}
-                                className="btn-secondary"
+                                className="btn-secondary flex flex-col items-center justify-center rounded-lg px-3 py-1.5"
                             >
-                                <Edit className="w-4 h-4" />
-                                Edit
+                                <Edit className="w-4 h-4 shrink-0 mb-1" />
+                                <span className="text-xs">Edit</span>
                             </button>
                         )}
 
@@ -243,10 +245,10 @@ export default function ChurchDetailPage() {
                                         }
                                     }
                                 }}
-                                className="btn-secondary text-red-600 hover:bg-red-50"
+                                className="btn-secondary text-red-600 hover:bg-red-50 flex flex-col items-center justify-center"
                             >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
+                                <Trash2 className="w-4 h-4 shrink-0 mb-1" />
+                                <span className="text-xs">Delete</span>
                             </button>
                         )}
                     </div>
@@ -402,7 +404,7 @@ export default function ChurchDetailPage() {
                             {canManage() && (
                                 <button
                                     onClick={() => setShowAddModal(true)}
-                                    className="btn-primary flex items-center w-full sm:w-auto justify-center"
+                                    className="btn-primary flex items-center w-full sm:w-auto justify-center rounded-lg px-4 py-2"
                                 >
                                     <Plus className="w-4 h-4 mr-2" />
                                     Add Schedule
@@ -516,51 +518,54 @@ export default function ChurchDetailPage() {
                 </div>
             )}
 
-            {/* Church Announcements */}
-            <div className="card p-6">
-                <div className="flex items-start justify-between mb-4">
-                    <div>
-                        <h2 className="text-lg font-semibold flex items-center gap-2">
-                            <Megaphone className="w-5 h-5 text-primary" />
-                            Church Announcements
-                        </h2>
-                        <p className="text-sm text-muted mt-1">Latest updates and news from this church</p>
+            {/* Church Announcements — hidden in demo mode */}
+            {!isDemoMode && (
+                <div className="card p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+                        <div className="w-full">
+                            <h2 className="text-lg font-semibold flex items-center gap-2">
+                                <Megaphone className="w-5 h-5 text-primary shrink-0" />
+                                Church Announcements
+                            </h2>
+                            <p className="text-sm text-muted mt-1">Latest updates and news from this church</p>
+                        </div>
+                        {canManage() && (
+                            <button
+                                onClick={() => {
+                                    setEditingAnnouncement(null);
+                                    setShowAnnouncementForm(true);
+                                }}
+                                className="btn-primary flex items-center gap-2 rounded-lg px-4 py-2 shrink-0 w-full sm:w-auto justify-center"
+                            >
+                                <Plus className="w-4 h-4 shrink-0" />
+                                <span className="hidden sm:inline">New Announcement</span>
+                                <span className="sm:hidden">New Announcement</span>
+                            </button>
+                        )}
                     </div>
-                    {canManage() && (
-                        <button
-                            onClick={() => {
-                                setEditingAnnouncement(null);
+
+                    {announcementsLoading ? (
+                        <div className="text-center py-8">
+                            <p className="text-muted">Loading announcements...</p>
+                        </div>
+                    ) : (
+                        <AnnouncementsList
+                            announcements={announcements}
+                            type="church"
+                            showActions={canManage()}
+                            emptyMessage="No announcements have been posted yet. Check back later for updates!"
+                            onEdit={(announcement) => {
+                                setEditingAnnouncement(announcement as ChurchAnnouncement);
                                 setShowAnnouncementForm(true);
                             }}
-                            className="btn-primary flex items-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" />
-                            New Announcement
-                        </button>
+                            onDelete={(announcement) => {
+                                setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
+                            }}
+
+                        />
                     )}
                 </div>
-
-                {announcementsLoading ? (
-                    <div className="text-center py-8">
-                        <p className="text-muted">Loading announcements...</p>
-                    </div>
-                ) : (
-                    <AnnouncementsList
-                        announcements={announcements}
-                        type="church"
-                        showActions={canManage()}
-                        emptyMessage="No announcements have been posted yet. Check back later for updates!"
-                        onEdit={(announcement) => {
-                            setEditingAnnouncement(announcement as ChurchAnnouncement);
-                            setShowAnnouncementForm(true);
-                        }}
-                        onDelete={(announcement) => {
-                            setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
-                        }}
-
-                    />
-                )}
-            </div>
+            )}
 
             {/* Metadata */}
             <div className="card p-6">

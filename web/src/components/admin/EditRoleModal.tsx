@@ -91,12 +91,12 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 z-40"
+                className="fixed inset-0 bg-black/50 z-[60]"
                 onClick={onClose}
             />
 
             {/* Modal */}
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                 <div className="card p-6 max-w-md w-full">
                     <h2 className="text-xl font-bold mb-4">Edit User Access</h2>
 
@@ -181,14 +181,14 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="btn-secondary flex-1"
+                                className="btn-secondary flex-1 rounded-lg"
                                 disabled={loading}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="btn-primary flex-1"
+                                className="btn-primary flex-1 rounded-lg"
                                 disabled={loading || !canEditThisUser}
                             >
                                 {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}
