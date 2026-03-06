@@ -82,16 +82,7 @@ export default function RegisterPage() {
     }
 
     return (
-        <AuthLayout
-            rightContent={
-                <div className="text-sm">
-                    <span className="text-muted-foreground">Already have an account? </span>
-                    <Link to="/login" className="font-semibold text-primary hover:text-primary-600 transition-colors">
-                        Login
-                    </Link>
-                </div>
-            }
-        >
+        <AuthLayout>
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

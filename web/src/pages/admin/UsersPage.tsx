@@ -293,7 +293,7 @@ export default function UsersPage() {
                                             <button
                                                 onClick={() => handleEditRole(user)}
                                                 disabled={user.id === currentUser?.id}
-                                                className="btn-secondary px-3 py-1.5 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="btn-primary text-white px-3 py-1.5 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 Edit Role
                                             </button>
