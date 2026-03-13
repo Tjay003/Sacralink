@@ -216,7 +216,7 @@ export default function ChurchesPage() {
                                                                 e.stopPropagation();
                                                                 navigate(`/churches/${church.id}/edit`);
                                                             }}
-                                                            className="btn-secondary text-sm rounded-lg px-3 py-1.5"
+                                                            className="btn-primary text-sm rounded-lg px-3 py-1.5"
                                                         >
                                                             Edit
                                                         </button>

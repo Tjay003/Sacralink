@@ -66,7 +66,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* Diocese-Wide Stats */}
-            <DioceseStatsCards />
+            <DioceseStatsCards selectedChurchId={selectedChurchId} />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

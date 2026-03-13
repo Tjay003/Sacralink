@@ -4,15 +4,14 @@ import { supabase } from '../../lib/supabase';
 import StatCard from './StatCard';
 
 /**
- * DioceseStatsCards - Aggregate statistics across all churches
- * 
- * Metrics:
- * - Total Churches (active/inactive)
- * - Total Members (all assigned users)
- * - Active Events (approved future appointments)
- * - Growth Rate (new members last 30 days)
+ * DioceseStatsCards - Aggregate statistics across all churches (or one church)
  */
-export default function DioceseStatsCards() {
+
+interface Props {
+    selectedChurchId?: string | null;
+}
+
+export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
     const [stats, setStats] = useState({
         totalChurches: 0,
         activeChurches: 0,
@@ -24,13 +23,13 @@ export default function DioceseStatsCards() {
 
     useEffect(() => {
         fetchDioceseStats();
-    }, []);
+    }, [selectedChurchId]); // re-fetch when church filter changes
 
     const fetchDioceseStats = async () => {
         try {
             setLoading(true);
 
-            // 1. Total Churches (with active count)
+            // 1. Total Churches (always diocese-wide)
             const { data: churchesData, error: churchesError } = await supabase
                 .from('churches')
                 .select('id, is_active');
@@ -40,33 +39,52 @@ export default function DioceseStatsCards() {
             const totalChurches = churchesData?.length || 0;
             const activeChurches = churchesData?.filter(c => c.is_active).length || 0;
 
-            // 2. Total Members (users assigned to a church)
-            const { count: totalMembers, error: membersError } = await supabase
+            // 2. Total Members — filtered by church if one is selected
+            let membersQuery = supabase
                 .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .not('assigned_church_id', 'is', null);
+                .select('*', { count: 'exact', head: true });
 
+            if (selectedChurchId) {
+                membersQuery = membersQuery.eq('assigned_church_id', selectedChurchId);
+            } else {
+                // All Churches: count everyone (all users)
+                // Remove the .not filter so we include all registered users
+                membersQuery = supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true });
+            }
+
+            const { count: totalMembers, error: membersError } = await membersQuery;
             if (membersError) throw membersError;
 
-            // 3. Active Events (approved appointments in the future)
-            const { count: activeEvents, error: eventsError } = await supabase
+            // 3. Active Events — filtered by church if one is selected
+            let eventsQuery = supabase
                 .from('appointments')
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'approved')
                 .gte('appointment_date', new Date().toISOString().split('T')[0]);
 
+            if (selectedChurchId) {
+                eventsQuery = eventsQuery.eq('church_id', selectedChurchId);
+            }
+
+            const { count: activeEvents, error: eventsError } = await eventsQuery;
             if (eventsError) throw eventsError;
 
-            // 4. New Members (last 30 days)
+            // 4. New Members (last 30 days) — filtered by church if one is selected
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-            const { count: newMembers, error: newMembersError } = await supabase
+            let newMembersQuery = supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
-                .not('assigned_church_id', 'is', null)
                 .gte('created_at', thirtyDaysAgo.toISOString());
 
+            if (selectedChurchId) {
+                newMembersQuery = newMembersQuery.eq('assigned_church_id', selectedChurchId);
+            }
+
+            const { count: newMembers, error: newMembersError } = await newMembersQuery;
             if (newMembersError) throw newMembersError;
 
             setStats({
@@ -111,7 +129,7 @@ export default function DioceseStatsCards() {
 
             {/* Total Members */}
             <StatCard
-                title="Total Members"
+                title={selectedChurchId ? 'Church Members' : 'Total Members'}
                 value={loading ? '...' : stats.totalMembers}
                 icon={Users}
                 trend={{
@@ -119,7 +137,7 @@ export default function DioceseStatsCards() {
                     isUp: stats.newMembers > 0,
                     label: `${stats.newMembers} new this month`
                 }}
-                iconBgColor="bg-purple-100" // Changed to purple to vary icon bg if not active, though active overrides it
+                iconBgColor="bg-purple-100"
                 iconColor="text-purple-600"
                 gradientFrom="from-blue-600"
                 gradientTo="to-blue-400"

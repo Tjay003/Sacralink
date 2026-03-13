@@ -3,6 +3,7 @@ import { directFetchProfiles } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 /**
  * UsersPage - Admin page for managing all users
@@ -34,6 +35,7 @@ export default function UsersPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+    const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
     // Fetch all users
     useEffect(() => {
@@ -203,8 +205,75 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Users Table */}
-            <div className="card overflow-hidden">
+            {/* ── Mobile Card List (visible on < md) ── */}
+            <div className="md:hidden space-y-2">
+                {filteredUsers.length === 0 ? (
+                    <div className="card p-6 text-center text-muted">No users found</div>
+                ) : (
+                    filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
+                        const isExpanded = expandedUserId === user.id;
+                        return (
+                            <div key={user.id} className="card overflow-hidden">
+                                {/* Always-visible row */}
+                                <button
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary-50 transition-colors"
+                                    onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                                >
+                                    {/* Avatar */}
+                                    {user.avatar_url ? (
+                                        <img src={user.avatar_url} alt={user.full_name || 'User'} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+                                    ) : (
+                                        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-primary font-semibold">{user.full_name?.charAt(0).toUpperCase() || 'U'}</span>
+                                        </div>
+                                    )}
+                                    {/* Name + Role */}
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground truncate">{user.full_name || 'No name'}</p>
+                                        <span className={`mt-0.5 px-2 py-0.5 inline-flex text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role || 'user')}`}>
+                                            {formatRole(user.role || 'user')}
+                                        </span>
+                                    </div>
+                                    {/* Expand chevron */}
+                                    {isExpanded
+                                        ? <ChevronUp className="w-4 h-4 text-muted flex-shrink-0" />
+                                        : <ChevronDown className="w-4 h-4 text-muted flex-shrink-0" />}
+                                </button>
+
+                                {/* Expanded details */}
+                                {isExpanded && (
+                                    <div className="px-4 pb-4 pt-1 border-t border-border space-y-2 text-sm">
+                                        <div>
+                                            <span className="text-muted text-xs uppercase tracking-wide">Email</span>
+                                            <p className="text-foreground break-all">{user.email}</p>
+                                        </div>
+                                        {(currentUser?.role === 'super_admin' || currentUser?.role === 'admin') && (
+                                            <div>
+                                                <span className="text-muted text-xs uppercase tracking-wide">Assigned Church</span>
+                                                <p className="text-foreground">{user.assigned_church_id ? 'Assigned' : '—'}</p>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <span className="text-muted text-xs uppercase tracking-wide">Registered</span>
+                                            <p className="text-foreground">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleEditRole(user)}
+                                            disabled={user.id === currentUser?.id}
+                                            className="mt-2 w-full btn-primary text-white px-3 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Edit Role
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* ── Desktop Table (hidden on mobile) ── */}
+            <div className="hidden md:block card overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-secondary-50 border-b border-border">
@@ -305,6 +374,7 @@ export default function UsersPage() {
                     </table>
                 </div>
             </div>
+            {/* end desktop table */}
 
 
 
