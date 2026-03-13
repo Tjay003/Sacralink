@@ -24,10 +24,10 @@ export default function AuthLayout({ children, rightContent }: AuthLayoutProps) 
             </div>
 
             {/* Right Side - Form */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 relative">
+            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-4 sm:p-8 lg:p-12 relative">
 
 
-                <div className="w-full max-w-[440px] space-y-8">
+                <div className="w-full max-w-[440px] space-y-4 sm:space-y-8">
                     {children}
                 </div>
 

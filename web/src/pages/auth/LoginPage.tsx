@@ -11,6 +11,7 @@ import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import SocialAuthButtons from '../../components/auth/SocialAuthButtons';
 
 import { Card, CardContent } from "@/components/ui/card"
 import logo from '../../assets/logo.png';
@@ -55,20 +56,20 @@ export default function LoginPage() {
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="w-full"
             >
-                <div className="flex flex-col items-center mb-6 space-y-2">
-                    <img src={logo} alt="SacraLink Logo" className="w-16 h-16 mb-2" />
-                    <div className="text-3xl font-extrabold tracking-tight">
+                <div className="flex flex-col items-center mb-4 sm:mb-6 space-y-2">
+                    <img src={logo} alt="SacraLink Logo" className="w-12 h-12 sm:w-16 sm:h-16 mb-1 sm:mb-2" />
+                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                         <span className="text-primary">SACRA</span>
                         <span className="text-foreground">LINK</span>
                     </div>
                 </div>
 
-                <div className="text-center mb-6 space-y-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Welcome Back</h1>
+                <div className="text-center mb-4 sm:mb-6 space-y-1 sm:space-y-2">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Welcome Back</h1>
                     <p className="text-muted-foreground">Welcome Back, Please Enter your details</p>
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6">
                     <AuthTabs activeTab="login" />
                 </div>
 
@@ -85,7 +86,7 @@ export default function LoginPage() {
                             </motion.div>
                         )}
 
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
                             <div className="space-y-2">
                                 <Input
                                     id="email"
@@ -132,7 +133,7 @@ export default function LoginPage() {
 
                             <Button
                                 type="submit"
-                                className="w-full rounded-lg h-14 text-base shadow-md active:scale-[0.98] transition-all bg-primary hover:bg-primary/90 text-white"
+                                className="w-full rounded-lg h-12 sm:h-14 text-base shadow-md transition-all duration-200 ease-in-out hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary hover:bg-primary/90 text-white"
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? (
@@ -145,6 +146,8 @@ export default function LoginPage() {
                                 )}
                             </Button>
                         </form>
+
+                        <SocialAuthButtons />
                     </CardContent>
                 </Card>
             </motion.div>

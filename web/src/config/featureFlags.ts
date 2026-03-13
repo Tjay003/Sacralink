@@ -40,6 +40,7 @@ interface FeatureFlags {
     quickLinks: FeatureFlag; // Regular user quick links
     userChurchSelector: FeatureFlag;
     userUpcomingAppointments: FeatureFlag;
+    socialAuth: FeatureFlag;
 }
 
 export const featureFlags: FeatureFlags = {
@@ -155,6 +156,13 @@ export const featureFlags: FeatureFlags = {
         enabled: !isDemoMode, // Hidden in demo mode
         label: 'Upcoming Appointments',
         description: 'List of user\'s upcoming appointments',
+    },
+
+    // Social Authentication (Login/Register)
+    socialAuth: {
+        enabled: !isDemoMode, // Hidden in demo mode
+        label: 'Social Authentication',
+        description: 'Google and Facebook login buttons',
     },
 };
 
