@@ -311,7 +311,7 @@ export default function ChurchDetailPage() {
                                 360° Virtual Tour
                             </h2>
                         </div>
-                        <div style={{ height: '400px', width: '100%' }}>
+                        <div style={{ height: '400px', width: '100%', isolation: 'isolate', position: 'relative' }}>
                             <ReactPhotoSphereViewer
                                 src={church.panorama_url}
                                 height={'400px'}

@@ -16,6 +16,7 @@ import DonationsPage from './pages/donations/DonationsPage.tsx';
 import UsersPage from './pages/admin/UsersPage.tsx';
 import SystemAnnouncementsPage from './pages/admin/SystemAnnouncementsPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
+import PrivacyPage from './pages/PrivacyPage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -41,6 +42,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -116,6 +118,7 @@ function AppRoutes() {
           <Route path="admin/system-announcements" element={<SystemAnnouncementsPage />} />
         )}
       </Route>
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
