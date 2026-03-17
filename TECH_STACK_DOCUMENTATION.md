@@ -1,7 +1,7 @@
 # SACRALINK - Tech Stack & Page Documentation
 
-> **Version:** 1.0  
-> **Last Updated:** 2026-02-07  
+> **Version:** 1.1  
+> **Last Updated:** 2026-03-15  
 > **Project:** Church Management & Sacrament Booking System
 
 ---
@@ -77,7 +77,7 @@ sacralink/
 | Service | Technology | Purpose |
 |---------|-----------|---------|
 | **Database** | PostgreSQL | Relational database |
-| **Authentication** | Supabase Auth | Email/Password, OAuth (Google) |
+| **Authentication** | Supabase Auth | Email/Password, OAuth (Google, Facebook) |
 | **File Storage** | Supabase Storage | Image & document storage |
 | **Realtime** | Supabase Realtime | Real-time subscriptions |
 | **Functions** | Supabase Edge Functions (Deno) | Serverless functions |
@@ -126,7 +126,9 @@ web/
 │   │   │   └── EditRoleModal.tsx
 │   │   ├── auth/           # Authentication components
 │   │   │   ├── AuthLayout.tsx
-│   │   │   └── AuthTabs.tsx
+│   │   │   ├── AuthTabs.tsx
+│   │   │   ├── SocialAuthButtons.tsx
+│   │   │   └── PasswordStrengthIndicator.tsx
 │   │   ├── churches/       # Church-related components
 │   │   │   ├── EditScheduleModal.tsx
 │   │   │   └── ImageLightbox.tsx
@@ -189,7 +191,8 @@ web/
 │   │   │   └── DonationsPage.tsx
 │   │   ├── profile/        # Profile pages
 │   │   │   └── ProfilePage.tsx
-│   │   └── ProfilePage.tsx # User profile (root level)
+│   │   ├── ProfilePage.tsx # User profile (root level)
+│   │   └── PrivacyPage.tsx # Privacy policy page (Meta/Google OAuth)
 │   │
 │   ├── types/              # TypeScript type definitions
 │   │   └── database.ts     # Database schema types
@@ -759,6 +762,8 @@ Built using **Shadcn/UI** (Radix UI primitives):
 #### Authentication Components (`components/auth/`)
 - **AuthLayout**: Wrapper layout for login/register pages
 - **AuthTabs**: Tab navigation between login and register
+- **SocialAuthButtons**: Google & Facebook OAuth login/register buttons (feature-flagged)
+- **PasswordStrengthIndicator**: Password strength meter on register page
 
 #### Dashboard Components (`components/dashboard/`)
 - **DailyVerse**: Bible verse widget for user dashboard

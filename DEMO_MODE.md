@@ -16,19 +16,28 @@ This project supports a **Demo Mode** feature flag system that allows you to hid
 
 ## What Gets Hidden in Demo Mode
 
-When `VITE_DEMO_MODE=true`, the following incomplete features are hidden:
+When `VITE_DEMO_MODE=true`, the following features are hidden (controlled via `featureFlags.ts`):
 
-### 🚫 Hidden Features
-- ❌ **Donations** - Phase 5 (not started)
-- ❌ **Announcements** - Phase 6 (not started)
-- ❌ **Users/Admin Management** - Admin feature (incomplete)
+### 🚫 Hidden Features (in Demo Mode)
+- ❌ **Donations** - Cashless donation verification system
+- ❌ **Calendar View** - Visual appointment calendar
+- ❌ **Church Selector** - Super Admin church dropdown
+- ❌ **Church Quick Links** - Church admin quick actions
+- ❌ **Recent Appointments** - Church admin dashboard widget
+- ❌ **Quick Links** - User dashboard quick actions
+- ❌ **Upcoming Appointments** - User dashboard widget
+- ❌ **Social Auth Buttons** - Google & Facebook login buttons
 
-### ✅ Visible Features
-- ✅ **Dashboard** - Fully functional
-- ✅ **Churches** - Complete CRUD operations
+### ✅ Always Visible Features
+- ✅ **Dashboard** - Role-based dashboard (all roles)
+- ✅ **Churches** - Full CRUD operations
 - ✅ **Mass Schedules** - Add, edit, delete schedules
-- ✅ **Appointments** - Book and manage appointments
-- ✅ **Profile** - User profile management
+- ✅ **Appointments** - Book and manage sacrament appointments
+- ✅ **Announcements** - Parish announcements management
+- ✅ **User Management** - Admin user & role management
+- ✅ **Profile** - User profile & avatar management
+- ✅ **System Announcements** - Super admin broadcasts
+- ✅ **Daily Bible Verse** - User dashboard widget
 
 ## How It Works
 

@@ -6,9 +6,10 @@ import imageCompression from 'browser-image-compression';
  */
 async function compressImage(file: File): Promise<File> {
     const options = {
-        maxSizeMB: 0.5, // 500KB max
-        maxWidthOrHeight: 400, // 400x400px
+        maxSizeMB: 0.2,          // 200KB max — safely under the 512KB storage bucket limit
+        maxWidthOrHeight: 400,   // 400x400px
         useWebWorker: true,
+        fileType: 'image/jpeg',  // Always output JPEG for better compression ratios
     };
 
     try {
@@ -16,127 +17,107 @@ async function compressImage(file: File): Promise<File> {
         return compressedFile;
     } catch (error) {
         console.error('Error compressing image:', error);
-        throw new Error('Failed to compress image');
+        throw new Error('Failed to compress image. Please try a different photo.');
     }
 }
 
 /**
- * Upload avatar for the current user
+ * Upload avatar for the current user.
+ *
+ * Safe ordering: upload NEW file first (upsert), THEN delete old URL from profile record.
+ * This way, if the upload fails, the user keeps their existing avatar.
+ *
  * @param file - Image file to upload
  * @returns Public URL of the uploaded avatar
  */
 export async function uploadAvatar(file: File): Promise<string> {
-    try {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Not authenticated');
 
-        // Validate file type
-        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!validTypes.includes(file.type)) {
-            throw new Error('Invalid file type. Please upload JPG, PNG, or WEBP');
-        }
-
-        // Validate file size (max 5MB before compression)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-            throw new Error('File too large. Maximum size is 5MB');
-        }
-
-        // Compress image
-        const compressedFile = await compressImage(file);
-
-        // Delete old avatar if exists
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('avatar_url')
-            .eq('id', user.id)
-            .single() as { data: { avatar_url: string | null } | null };
-
-        if (profile?.avatar_url) {
-            await deleteAvatar();
-        }
-
-        // Generate file path
-        const fileExt = compressedFile.name.split('.').pop() || 'jpg';
-        const fileName = `${user.id}/avatar.${fileExt}`;
-
-        // Upload to storage
-        const { error: uploadError } = await supabase.storage
-            .from('avatars')
-            .upload(fileName, compressedFile, {
-                cacheControl: '3600',
-                upsert: true
-            });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(fileName);
-
-        // Update profile with new avatar URL
-        const { error: updateError } = await (supabase
-            .from('profiles') as any)
-            .update({ avatar_url: data.publicUrl })
-            .eq('id', user.id);
-
-        if (updateError) throw updateError;
-
-        return data.publicUrl;
-    } catch (error) {
-        console.error('Error uploading avatar:', error);
-        throw error;
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Please upload a JPG, PNG, or WEBP image.');
     }
+
+    // Validate file size (max 5MB before compression)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+        throw new Error('File too large. Please choose an image under 5MB.');
+    }
+
+    // Compress image BEFORE uploading
+    const compressedFile = await compressImage(file);
+
+    // Always use a fixed path so upsert overwrites the existing file
+    const fileName = `${user.id}/avatar.jpg`;
+
+    // Upload to storage (upsert = overwrite if exists)
+    const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, compressedFile, {
+            cacheControl: '0',   // No cache so the browser shows the new image immediately
+            upsert: true,
+            contentType: 'image/jpeg',
+        });
+
+    if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+
+    // Build the public URL (add cache-buster so the browser doesn't show the old cached image)
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
+
+    // Update profile with new avatar URL
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+    if (updateError) {
+        console.error('Profile update error:', updateError);
+        throw new Error(`Failed to save avatar: ${updateError.message}`);
+    }
+
+    return publicUrl;
 }
 
 /**
  * Delete avatar for the current user
  */
 export async function deleteAvatar(): Promise<void> {
-    try {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Not authenticated');
 
-        // Get current avatar URL
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('avatar_url')
-            .eq('id', user.id)
-            .single() as { data: { avatar_url: string | null } | null };
+    // Get current avatar URL from profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single() as { data: { avatar_url: string | null } | null };
 
-        if (profile?.avatar_url) {
-            try {
-                // Extract file path from URL
-                const url = new URL(profile.avatar_url);
-                const pathParts = url.pathname.split('/avatars/');
-                if (pathParts.length > 1) {
-                    const path = pathParts[1];
-
-                    // Delete from storage
-                    await supabase.storage
-                        .from('avatars')
-                        .remove([path]);
-                }
-            } catch (err) {
-                console.error('Error deleting avatar file:', err);
-                // Continue anyway to clear the URL from profile
-            }
+    // Remove the file from storage if it exists
+    if (profile?.avatar_url) {
+        try {
+            const fileName = `${user.id}/avatar.jpg`;
+            await supabase.storage.from('avatars').remove([fileName]);
+        } catch (err) {
+            console.warn('Could not remove avatar file from storage:', err);
+            // Continue anyway — clearing the URL from the profile is the important part
         }
-
-        // Remove URL from profile
-        const { error } = await (supabase
-            .from('profiles') as any)
-            .update({ avatar_url: null })
-            .eq('id', user.id);
-
-        if (error) throw error;
-    } catch (error) {
-        console.error('Error deleting avatar:', error);
-        throw error;
     }
+
+    // Clear avatar_url from profile
+    const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id);
+
+    if (error) throw new Error(`Failed to remove avatar: ${error.message}`);
 }
 
 /**

@@ -47,16 +47,17 @@ export default function AvatarUpload({ onUploadSuccess, onDeleteSuccess }: Avata
         setUploading(true);
         try {
             const url = await uploadAvatar(file);
-            await refreshProfile();
             onUploadSuccess?.(url);
+        } catch (err: any) {
+            console.error('Avatar upload failed:', err);
+            setError(err.message || 'Failed to upload avatar. Please try again.');
+        } finally {
+            // Always refresh profile so the UI reflects whatever is currently in the DB
+            await refreshProfile();
             setPreview(null);
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to upload avatar');
-            setPreview(null);
-        } finally {
             setUploading(false);
         }
     };

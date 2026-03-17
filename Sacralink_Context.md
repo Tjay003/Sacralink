@@ -1,5 +1,5 @@
 # SACRALINK: Project Master Context & "Bible"
-> **Version:** 2.0 | **Last Updated:** 2026-01-09  
+> **Version:** 2.1 | **Last Updated:** 2026-03-15  
 > **Use this file as context for AI coding assistants.**
 
 ---
@@ -45,7 +45,7 @@ sacralink/
 
 ### Backend
 - **Database:** Supabase (PostgreSQL)
-- **Auth:** Supabase Auth (Email/Password, Google OAuth)
+- **Auth:** Supabase Auth (Email/Password, Google OAuth, Facebook OAuth)
 - **Storage:** Supabase Storage
 - **Functions:** Supabase Edge Functions (Deno)
 - **Realtime:** Supabase Realtime (for notifications)
@@ -237,21 +237,23 @@ colors: {
 ## 10. Development Phases
 
 ### Phase 1: Foundation (Week 1-2)
-- [ ] Setup monorepo structure
-- [ ] Configure Supabase project
-- [ ] Run database migrations
-- [ ] Setup authentication context
-- [ ] Create shared TypeScript types
+- [x] Setup monorepo structure
+- [x] Configure Supabase project
+- [x] Run database migrations
+- [x] Setup authentication context
+- [x] Create shared TypeScript types
 
 ### Phase 2: Web Admin Dashboard (Week 3-5)
-- [ ] Auth pages (Login/Register)
-- [ ] Dashboard layout
-- [ ] Church CRUD
-- [ ] Mass schedule management
-- [ ] Priest management
-- [ ] Appointment management
-- [ ] Donation verification
-- [ ] Announcement management
+- [x] Auth pages (Login/Register) with Google + Facebook OAuth
+- [x] Dashboard layout with role-based rendering
+- [x] Church CRUD
+- [x] Mass schedule management
+- [x] Priest/volunteer role management
+- [x] Appointment management with document uploads
+- [x] Announcements management
+- [x] User/Admin management
+- [x] Super Admin dashboard with church stats
+- [ ] Donation verification (in progress)
 
 ### Phase 3: Mobile App (Week 6-8)
 - [ ] Auth screens

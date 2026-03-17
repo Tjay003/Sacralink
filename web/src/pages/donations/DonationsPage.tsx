@@ -203,13 +203,13 @@ export default function DonationsPage() {
 
             {/* Search */}
             <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                 <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Search by name or reference..."
-                    className="input pl-10 w-full"
+                    className="input w-full !pl-10"
                 />
             </div>
 

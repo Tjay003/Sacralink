@@ -79,7 +79,7 @@ export default function SystemAnnouncementsPage() {
                             setEditingAnnouncement(null);
                             setShowForm(true);
                         }}
-                        className="btn-primary flex items-center gap-2"
+                        className="btn-primary flex items-center gap-2 rounded-lg px-4 py-2"
                     >
                         <Plus className="w-4 h-4" />
                         New Announcement
