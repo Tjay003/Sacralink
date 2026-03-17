@@ -6,7 +6,6 @@ import {
     Calendar,
     Heart,
     Megaphone,
-    Settings,
     LogOut,
     Menu,
     X,
@@ -155,13 +154,13 @@ export default function DashboardLayout() {
 
                 {/* Bottom Section */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-white z-10">
-                    <NavLink
-                        to="/settings"
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-secondary-600 hover:bg-secondary-100 transition-colors"
+                    <button
+                        onClick={handleSignOutClick}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-destructive hover:bg-red-50 transition-colors w-full text-left"
                     >
-                        <Settings className="w-5 h-5" />
-                        {!sidebarCollapsed && 'Settings'}
-                    </NavLink>
+                        <LogOut className="w-5 h-5" />
+                        {!sidebarCollapsed && 'Sign Out'}
+                    </button>
                 </div>
             </aside>
 
@@ -252,14 +251,6 @@ export default function DashboardLayout() {
                                             >
                                                 <User className="w-4 h-4" />
                                                 Profile
-                                            </NavLink>
-                                            <NavLink
-                                                to="/settings"
-                                                onClick={() => setUserMenuOpen(false)}
-                                                className="flex items-center gap-2 px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-50"
-                                            >
-                                                <Settings className="w-4 h-4" />
-                                                Settings
                                             </NavLink>
                                             <hr className="my-1 border-border" />
                                             <button
