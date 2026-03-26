@@ -1,5 +1,5 @@
 # SACRALINK: Project Master Context & "Bible"
-> **Version:** 3.0 | **Last Updated:** 2026-03-20
+> **Version:** 4.0 | **Last Updated:** 2026-03-27
 > **Use this file as context for AI coding assistants. Read this file FIRST before touching any code.**
 
 ---
@@ -141,6 +141,7 @@ All authenticated routes are nested under `DashboardLayout`. Auth is handled by 
 ## 9. Database Schema Summary
 
 > **Full schema:** `supabase/migrations/Sacralink_database.sql`
+> **Latest migrations:** `023_fix_notifications_rls.sql`, `024_fix_profiles_rls_recursion.sql`
 
 ### Enums
 ```typescript
@@ -228,13 +229,51 @@ notifications.user_id     → profiles.id
 - Managed in `lib/supabase/profiles.ts` via `uploadAvatar()` / `deleteAvatar()`
 
 ### G. Notifications
-- Stored in `notifications` table (Supabase Realtime)
+- Stored in `notifications` table with RLS enabled
 - Shown via `NotificationBell` icon in the top-right header
 - Clicking the bell opens a dropdown with notification list
+- **Cross-user notifications:** `createNotification()` does NOT use `.select()` after `.insert()` — this is intentional. The SELECT RLS policy (`user_id = auth.uid()`) blocks the inserter from reading notifications belonging to another user, which causes a 403 if `.select()` is chained. The insert is fire-and-forget.
+- **Who can create notifications for whom:**
+  - Any authenticated user can INSERT a notification (permissive INSERT policy)
+  - Users can only SELECT/UPDATE/DELETE their OWN notifications
+  - `notifyAdminsOfNewAppointment()` notifies church-level admins only — super_admins are excluded by design
+  - `notifyUserOfStatusChange()` is called by admins when approving/rejecting appointments
 
 ---
 
-## 12. Key Components & Files
+## 12. Security Architecture
+
+### RLS (Row Level Security)
+All tables in `public` schema have RLS enabled. Key patterns:
+
+| Table | Key Policy Pattern |
+|-------|-------------------|
+| `profiles` | SECURITY DEFINER helper functions (`get_current_user_role()`, `get_current_user_church_id()`) prevent recursion — never query profiles FROM a profiles policy directly |
+| `notifications` | INSERT is open to all authenticated users; SELECT/UPDATE/DELETE scoped to `user_id = auth.uid()` |
+| `appointments` | Users see own; admins see church's; super_admin sees all |
+| `donations` | Users see own; admins see church's |
+| `announcements`, `churches`, `events` | Public SELECT; admin-only INSERT/UPDATE/DELETE |
+
+### SECURITY DEFINER Helper Functions
+Created to avoid RLS recursion on `profiles`:
+- `public.get_current_user_role()` — returns current user's role as TEXT, bypasses RLS
+- `public.get_current_user_church_id()` — returns current user's `church_id`, bypasses RLS
+- `public.is_admin_or_staff(target_user_id)` — checks if a target user is admin/staff
+
+> [!WARNING]
+> Never write policies on `profiles` that do `EXISTS (SELECT 1 FROM profiles WHERE ...)` — this causes infinite recursion → 500 error. Always use the SECURITY DEFINER helper functions instead.
+
+### Security Headers (`web/vercel.json`)
+```
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+---
+
+## 13. Key Components & Files
 
 | File | Purpose |
 |------|---------|
@@ -252,7 +291,7 @@ notifications.user_id     → profiles.id
 
 ---
 
-## 13. Development Status
+## 14. Development Status
 
 ### ✅ Web App — Completed
 - [x] Auth (Login, Register, Google OAuth, Facebook OAuth)
@@ -283,7 +322,7 @@ notifications.user_id     → profiles.id
 
 ---
 
-## 14. Environment Variables
+## 15. Environment Variables
 
 ```env
 # /web/.env
@@ -294,7 +333,7 @@ VITE_DEMO_MODE=false       # Set to true to hide incomplete features for demos
 
 ---
 
-## 15. Design System
+## 16. Design System
 
 ### Color Palette
 ```javascript

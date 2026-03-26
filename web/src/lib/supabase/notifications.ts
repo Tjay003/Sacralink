@@ -22,7 +22,10 @@ export async function createNotification({
         console.log('📨 Creating notification:', { userId, type, title, message, link });
 
 
-        const { data, error } = await (supabase
+        // Note: No .select() here — adding it would cause a 403 for cross-user notifications
+        // because the SELECT RLS policy (user_id = auth.uid()) blocks the inserter
+        // from seeing notification rows that belong to a different user.
+        const { error } = await (supabase
             .from('notifications')
             // @ts-ignore - Supabase type inference issue with notifications table
             .insert({
@@ -31,17 +34,15 @@ export async function createNotification({
                 title,
                 message,
                 link
-            })
-            .select()
-            .single() as any);
+            }) as any);
 
         if (error) {
             console.error('❌ Error inserting notification:', error);
             throw error;
         }
 
-        console.log('✅ Notification created successfully:', data);
-        return { data, error: null };
+        console.log('✅ Notification created successfully');
+        return { data: null, error: null };
     } catch (err: any) {
         console.error('❌ Error creating notification:', err);
         return { data: null, error: err };
@@ -134,7 +135,9 @@ export async function markAllAsRead() {
 }
 
 /**
- * Helper function to notify admins when a new appointment is created
+ * Helper function to notify church admins when a new appointment is created.
+ * Note: Super admins are intentionally excluded — they are not responsible
+ * for church-level appointment approvals.
  */
 export async function notifyAdminsOfNewAppointment(
     churchId: string,
@@ -143,47 +146,62 @@ export async function notifyAdminsOfNewAppointment(
     _appointmentId: string
 ) {
     try {
-        console.log('🔔 Notifying admins of new appointment:', { churchId, userName, serviceType });
+        console.log('🔔 Notifying church admins of new appointment:', { churchId, userName, serviceType });
 
-        // Get all admins for this church
-        const { data: admins, error: adminError } = await supabase
-            .from('profiles')
-            .select('id')
-            .or(`role.eq.super_admin,and(role.in.(admin,church_admin,volunteer),or(church_id.eq.${churchId},assigned_church_id.eq.${churchId}))`);
+        // Step 1: Find admins/church_admins/volunteers assigned to this church.
+        // We use two separate simple queries to avoid complex OR syntax issues.
+        const [byChurchId, byAssignedChurchId] = await Promise.all([
+            supabase
+                .from('profiles')
+                .select('id')
+                .in('role', ['admin', 'church_admin', 'volunteer'])
+                .eq('church_id', churchId),
+            supabase
+                .from('profiles')
+                .select('id')
+                .in('role', ['admin', 'church_admin', 'volunteer'])
+                .eq('assigned_church_id', churchId),
+        ]);
 
-        console.log('📋 Found admins:', admins, 'Error:', adminError);
+        if (byChurchId.error) console.error('❌ church_id query error:', byChurchId.error);
+        if (byAssignedChurchId.error) console.error('❌ assigned_church_id query error:', byAssignedChurchId.error);
 
-        if (adminError) {
-            console.error('❌ Error fetching admins:', adminError);
+        // Deduplicate by ID
+        const allAdmins = [
+            ...(byChurchId.data || []),
+            ...(byAssignedChurchId.data || []),
+        ];
+        const uniqueAdminIds = [...new Set(allAdmins.map((a: any) => a.id))];
+
+        console.log('📋 Found church admin IDs to notify:', uniqueAdminIds);
+
+        if (uniqueAdminIds.length === 0) {
+            console.warn('⚠️ No church admins found for church:', churchId);
             return;
         }
 
-        if (!admins || admins.length === 0) {
-            console.warn('⚠️ No admins found for church:', churchId);
-            return;
-        }
-
-        // Create notification for each admin
-        console.log(`✉️ Creating ${admins.length} notifications...`);
-        const notifications = admins.map((admin: any) =>
-            createNotification({
-                userId: admin.id,
-                type: 'appointment_created',
-                title: 'New Appointment Request',
-                message: `${userName} requested a ${serviceType} appointment`,
-                link: `/appointments`
-            })
+        // Step 2: Create a notification for each admin
+        const results = await Promise.all(
+            uniqueAdminIds.map((adminId) =>
+                createNotification({
+                    userId: adminId,
+                    type: 'appointment_created',
+                    title: 'New Appointment Request',
+                    message: `${userName} requested a ${serviceType} appointment`,
+                    link: `/appointments`,
+                })
+            )
         );
 
-        const results = await Promise.all(notifications);
-        console.log('✅ Notification results:', results);
+        console.log('✅ Admin notification results:', results);
     } catch (err) {
         console.error('❌ Error notifying admins:', err);
     }
 }
 
 /**
- * Helper function to notify user when appointment status changes
+ * Helper function to notify a user when their appointment status changes.
+ * Called by admins when they approve or reject a booking.
  */
 export async function notifyUserOfStatusChange(
     userId: string,
@@ -206,10 +224,14 @@ export async function notifyUserOfStatusChange(
         type: `appointment_${status}`,
         title,
         message,
-        link: `/appointments`
+        link: `/appointments`,
     });
 
-    console.log('📬 User notification result:', result);
+    if (result.error) {
+        console.error('❌ Failed to notify user of status change:', result.error);
+    } else {
+        console.log('✅ User notified of status change:', result.data);
+    }
 }
 
 /**
