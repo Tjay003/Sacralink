@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { seedDefaultRequirements } from '../../lib/supabase/requirements';
 import { Building2, ArrowLeft } from 'lucide-react';
 
 /**
@@ -124,6 +125,16 @@ export default function AddChurchPage() {
             }
 
             console.log('✅ Church created:', data);
+
+            // Seed default sacrament requirements for the new church
+            // (non-fatal — log warning if it fails)
+            try {
+                await seedDefaultRequirements((data as any).id);
+                console.log('✅ Default requirements seeded for new church');
+            } catch (seedErr) {
+                console.warn('⚠️ Could not seed default requirements:', seedErr);
+            }
+
             setSuccess('Church created successfully!');
 
             // Navigate to church detail page after 1 second

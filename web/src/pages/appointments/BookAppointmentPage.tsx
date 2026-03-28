@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, FileText, CheckCircle, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getRequirements } from '../../lib/supabase/requirements';
@@ -258,7 +258,7 @@ export default function BookAppointmentPage() {
                             required
                             value={formData.service_type}
                             onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                            className="input-field"
+                            className="input w-full"
                         >
                             {SERVICE_TYPES.map(type => (
                                 <option key={type.value} value={type.value}>{type.label}</option>
@@ -272,15 +272,14 @@ export default function BookAppointmentPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Preferred Date
                             </label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <div>
                                 <input
                                     type="date"
                                     required
                                     min={new Date().toISOString().split('T')[0]}
                                     value={formData.appointment_date}
                                     onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
-                                    className="input-field pl-10"
+                                    className="input w-full"
                                 />
                             </div>
                         </div>
@@ -289,14 +288,13 @@ export default function BookAppointmentPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Preferred Time
                             </label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                            <div>
                                 <input
                                     type="time"
                                     required
                                     value={formData.appointment_time}
                                     onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
-                                    className="input-field pl-10"
+                                    className="input w-full"
                                 />
                             </div>
                         </div>
@@ -307,13 +305,12 @@ export default function BookAppointmentPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Special Requests / Notes
                         </label>
-                        <div className="relative">
-                            <FileText className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <div>
                             <textarea
                                 rows={4}
                                 value={formData.notes}
                                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                className="input-field pl-10 pt-2"
+                                className="input pt-2 w-full min-h-[100px]"
                                 placeholder="Any specific details..."
                             />
                         </div>
@@ -360,7 +357,7 @@ export default function BookAppointmentPage() {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="btn-primary w-full justify-center"
+                            className="btn-primary w-full justify-center rounded-lg py-2.5"
                         >
                             {submitting ? 'Submitting...' : 'Submit Request'}
                         </button>

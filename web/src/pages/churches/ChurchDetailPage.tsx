@@ -17,7 +17,8 @@ import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
-import { isDemoMode } from '../../config/featureFlags';
+import { isDemoMode, featureFlags, isFeatureEnabled } from '../../config/featureFlags';
+import ChurchChatbot from '../../components/ai/ChurchChatbot';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -182,15 +183,16 @@ export default function ChurchDetailPage() {
                     </div>
 
                     <div className="flex flex-row gap-2 w-full sm:w-auto">
-                        {/* Book Appointment (Disabled in demo mode) */}
-                        <button
-                            onClick={() => !isDemoMode && navigate(`/churches/${id}/book`)}
-                            disabled={isDemoMode}
-                            className={`btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2 ${isDemoMode ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                            <Calendar className="w-4 h-4 shrink-0 mb-1" />
-                            <span className="text-xs truncate">Book Appointment</span>
-                        </button>
+                        {/* Book Appointment */}
+                        {isFeatureEnabled('appointments') && (
+                            <button
+                                onClick={() => navigate(`/churches/${id}/book`)}
+                                className="btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2"
+                            >
+                                <Calendar className="w-4 h-4 shrink-0 mb-1" />
+                                <span className="text-xs truncate">Book Appointment</span>
+                            </button>
+                        )}
 
                         {/* Donate button - visible if church has payment info */}
                         {(church.gcash_number || church.maya_number) && (
@@ -682,7 +684,12 @@ export default function ChurchDetailPage() {
                 />
             )}
 
-        </div >
+            {/* AI Parish Assistant Chatbot - floating widget */}
+            {featureFlags.parishionerChatbot.enabled && (
+                <ChurchChatbot churchId={church.id} churchName={church.name} />
+            )}
+
+        </div>
 
     );
 }

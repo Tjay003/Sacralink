@@ -41,6 +41,9 @@ interface FeatureFlags {
     userChurchSelector: FeatureFlag;
     userUpcomingAppointments: FeatureFlag;
     socialAuth: FeatureFlag;
+
+    // === AI FEATURES ===
+    parishionerChatbot: FeatureFlag;
 }
 
 export const featureFlags: FeatureFlags = {
@@ -89,7 +92,7 @@ export const featureFlags: FeatureFlags = {
 
     // Church Recent Appointments (Church Admin Dashboard)
     churchRecentAppointments: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // Always enabled
         label: 'Recent Appointments',
         description: 'Recent appointment bookings for the church',
     },
@@ -107,7 +110,7 @@ export const featureFlags: FeatureFlags = {
 
     // Appointments feature (Phase 4 - completed)
     appointments: {
-        enabled: !isDemoMode,
+        enabled: true,
         label: 'Appointments',
         description: 'Sacrament booking and management',
     },
@@ -153,7 +156,7 @@ export const featureFlags: FeatureFlags = {
 
     // Upcoming Appointments (User Dashboard)
     userUpcomingAppointments: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // Always enabled
         label: 'Upcoming Appointments',
         description: 'List of user\'s upcoming appointments',
     },
@@ -163,6 +166,13 @@ export const featureFlags: FeatureFlags = {
         enabled: !isDemoMode, // Hidden in demo mode
         label: 'Social Authentication',
         description: 'Google and Facebook login buttons',
+    },
+
+    // AI Parishioner Chatbot (Church Detail Page)
+    parishionerChatbot: {
+        enabled: !isDemoMode,
+        label: 'AI Parishioner Assistant',
+        description: 'AI chatbot on church pages that answers parishioner questions using church data',
     },
 };
 

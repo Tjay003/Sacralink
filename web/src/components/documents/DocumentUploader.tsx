@@ -25,22 +25,38 @@ export default function DocumentUploader({
     const [dragActive, setDragActive] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleDrag = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.type === "dragenter" || e.type === "dragover") {
-            setDragActive(true);
-        } else if (e.type === "dragleave") {
-            setDragActive(false);
-        }
-    };
+    // Normalize allowed types for the <input accept=""> attribute.
+    // Handles both MIME types ('image/jpeg') and extensions ('jpg').
+    const acceptAttr = allowedFileTypes
+        .map(t => t.includes('/') ? t : `.${t}`)
+        .join(',');
+
+    // Human-readable label for the upload hint text
+    const displayTypes = allowedFileTypes
+        .map(t => {
+            if (t.includes('/')) {
+                const sub = t.split('/')[1].toUpperCase();
+                return sub === 'JPEG' ? 'JPG' : sub;
+            }
+            return t.toUpperCase();
+        })
+        .join(', ');
 
     const validateFile = (file: File): string | null => {
-        const fileExt = file.name.split('.').pop()?.toLowerCase();
+        const fileExt = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const fileMime = file.type;
 
-        // Check file type
-        if (fileExt && !allowedFileTypes.includes(fileExt)) {
-            return `Invalid file type. Allowed: ${allowedFileTypes.join(', ')}`;
+        // allowedFileTypes can be MIME types ('image/jpeg') or extensions ('jpg')
+        const isAllowed = allowedFileTypes.some(allowed => {
+            if (allowed.includes('/')) {
+                return allowed === fileMime; // MIME type match
+            } else {
+                return allowed.toLowerCase() === fileExt; // Extension match
+            }
+        });
+
+        if (!isAllowed) {
+            return `Invalid file type. Allowed: ${displayTypes}`;
         }
 
         // Check file size (max 10MB)
@@ -50,6 +66,16 @@ export default function DocumentUploader({
         }
 
         return null;
+    };
+
+    const handleDrag = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === 'dragenter' || e.type === 'dragover') {
+            setDragActive(true);
+        } else if (e.type === 'dragleave') {
+            setDragActive(false);
+        }
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -108,7 +134,7 @@ export default function DocumentUploader({
                         ref={inputRef}
                         type="file"
                         className="hidden"
-                        accept={allowedFileTypes.map(ext => `.${ext}`).join(',')}
+                        accept={acceptAttr}
                         onChange={handleChange}
                     />
 
@@ -117,7 +143,7 @@ export default function DocumentUploader({
                         <span className="text-primary font-medium">Click to upload</span> or drag and drop
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                        {allowedFileTypes.map(ext => ext.toUpperCase()).join(', ')} (Max 10MB)
+                        {displayTypes} (Max 10MB)
                     </p>
                 </div>
             ) : (
