@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertCircle, Bot, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
 import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
@@ -14,6 +15,7 @@ interface ChurchAdminDashboardProps {
 }
 
 export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardProps) {
+    const navigate = useNavigate();
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [syncMessage, setSyncMessage] = useState('');
@@ -30,7 +32,6 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
             });
 
             if (error) {
-                // Extract detailed error from the response body
                 let errorMsg = error.message;
                 try {
                     const body = await (error as any).context?.json?.();
@@ -87,15 +88,28 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                     <DailyVerse />
 
                     {/* AI Knowledge Sync */}
-                    <div className="bg-card border rounded-lg p-6">
-                        <div className="flex items-center gap-2 mb-3">
+                    <div className="bg-card border rounded-lg p-6 space-y-4">
+                        <div className="flex items-center gap-2">
                             <Bot className="w-5 h-5 text-primary" />
                             <h3 className="font-semibold text-foreground">AI Parish Assistant</h3>
                         </div>
-                        <p className="text-xs text-muted mb-4 leading-relaxed">
-                            Sync your church data so the AI chatbot can accurately answer parishioner questions.
+                        <p className="text-xs text-muted leading-relaxed">
+                            Sync your church data and custom knowledge sections so the AI can accurately answer parishioner questions in English and Filipino.
                         </p>
 
+                        {/* Knowledge Base link */}
+                        <button
+                            onClick={() => navigate('/knowledge')}
+                            className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-secondary-200 bg-secondary-50/50 hover:bg-white hover:border-primary/40 transition-all text-sm group"
+                        >
+                            <div className="flex items-center gap-2">
+                                <BookOpen className="w-4 h-4 text-primary" />
+                                <span className="font-medium text-foreground">Manage Knowledge Base</span>
+                            </div>
+                            <ExternalLink className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
+                        </button>
+
+                        {/* Sync button */}
                         <button
                             id="sync-ai-knowledge-btn"
                             onClick={handleSyncAI}
@@ -116,19 +130,19 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                         </button>
 
                         {syncStatus === 'success' && (
-                            <div className="mt-3 flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
                                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                                 <p className="text-xs text-green-700">{syncMessage}</p>
                             </div>
                         )}
                         {syncStatus === 'error' && (
-                            <div className="mt-3 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
                                 <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
                                 <p className="text-xs text-red-700">{syncMessage}</p>
                             </div>
                         )}
                         {lastSynced && (
-                            <p className="text-xs text-muted mt-2 text-center">Last synced at {lastSynced}</p>
+                            <p className="text-xs text-muted text-center">Last synced at {lastSynced}</p>
                         )}
                     </div>
 

@@ -188,14 +188,14 @@ export default function AppointmentsPage() {
                                         <>
                                             <button
                                                 onClick={() => handleStatusUpdate(appointment.id, 'approved')}
-                                                className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 justify-center"
+                                                className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 flex items-center justify-center rounded-lg py-2"
                                             >
                                                 <CheckCircle className="w-4 h-4 mr-2" />
                                                 Approve
                                             </button>
                                             <button
                                                 onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
-                                                className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 justify-center"
+                                                className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 flex items-center justify-center rounded-lg py-2"
                                             >
                                                 <XCircle className="w-4 h-4 mr-2" />
                                                 Reject
@@ -204,7 +204,7 @@ export default function AppointmentsPage() {
                                     )}
                                     <button
                                         onClick={() => setViewingDocumentsFor(appointment.id)}
-                                        className="btn-secondary w-full md:w-32 justify-center"
+                                        className="btn-secondary w-full md:w-32 flex items-center justify-center rounded-lg py-2"
                                     >
                                         <FileText className="w-4 h-4 mr-2" />
                                         Docs

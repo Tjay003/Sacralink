@@ -100,6 +100,14 @@ export default function AddChurchPage() {
         setError('');
         setSuccess('');
 
+        // Validate PH contact number if provided
+        const contact = formData.contact_number.trim();
+        if (contact && !/^(\+639|09)\d{9}$/.test(contact.replace(/\s/g, ''))) {
+            setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
+            setLoading(false);
+            return;
+        }
+
         try {
             // Insert into database
             const { data, error: insertError } = await (supabase
@@ -232,11 +240,19 @@ export default function AddChurchPage() {
                         <input
                             type="tel"
                             value={formData.contact_number}
-                            onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                            onChange={(e) => {
+                                let raw = e.target.value.replace(/[^0-9+]/g, '');
+                                if (raw.startsWith('09')) raw = '+63' + raw.slice(1);
+                                if (raw.length > 13) raw = raw.slice(0, 13);
+                                setFormData({ ...formData, contact_number: raw });
+                            }}
                             disabled={loading}
                             className="input w-full"
-                            placeholder="e.g., +63 912 345 6789"
+                            placeholder="09171234567 or +639171234567"
+                            maxLength={13}
+                            inputMode="tel"
                         />
+                        <p className="text-xs text-muted mt-1">Philippine mobile number — 11 digits starting with 09, or +639XXXXXXXXXX</p>
                     </div>
 
                     {/* Email */}

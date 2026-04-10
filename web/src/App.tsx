@@ -17,6 +17,7 @@ import UsersPage from './pages/admin/UsersPage.tsx';
 import SystemAnnouncementsPage from './pages/admin/SystemAnnouncementsPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
 import PrivacyPage from './pages/PrivacyPage.tsx';
+import KnowledgeBasePage from './pages/admin/KnowledgeBasePage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -117,6 +118,9 @@ function AppRoutes() {
         {featureFlags.admin.enabled && (
           <Route path="admin/system-announcements" element={<SystemAnnouncementsPage />} />
         )}
+
+        {/* Knowledge Base - Church Admin & Super Admin */}
+        <Route path="knowledge" element={<KnowledgeBasePage />} />
       </Route>
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

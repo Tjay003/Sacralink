@@ -437,7 +437,10 @@ export default function ChurchDetailPage() {
                         </div>
 
                         {/* Schedule List */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div 
+                            className="grid gap-4" 
+                            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
+                        >
                             {getFilteredSchedules().length === 0 ? (
                                 <div className="col-span-full text-center py-8 text-muted bg-secondary-50 rounded-lg border border-dashed border-secondary-200">
                                     <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -449,36 +452,38 @@ export default function ChurchDetailPage() {
                                         key={schedule.id}
                                         className="group relative flex items-center justify-between p-4 rounded-xl border border-secondary-100 bg-secondary-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all duration-200"
                                     >
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3 min-w-0 pr-8">
                                             <div className="w-12 h-12 rounded-full bg-primary-100/50 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                                                 <Clock className="w-5 h-5 text-primary" />
                                             </div>
-                                            <div>
-                                                <p className="text-lg font-bold text-foreground">{formatTime(schedule.time)}</p>
-                                                {schedule.language && (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-200 text-secondary-800">
-                                                        {schedule.language}
-                                                    </span>
-                                                )}
-                                                <p className="text-xs text-muted mt-0.5">{schedule.day_of_week}</p>
+                                            <div className="min-w-0">
+                                                <p className="text-lg font-bold text-foreground truncate">{formatTime(schedule.time)}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {schedule.language && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-200 text-secondary-800 shrink-0">
+                                                            {schedule.language}
+                                                        </span>
+                                                    )}
+                                                    <p className="text-xs text-muted truncate">{schedule.day_of_week}</p>
+                                                </div>
                                             </div>
                                         </div>
 
                                         {canManage() && (
-                                            <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="absolute top-2 right-2 flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm rounded-md shadow-sm p-0.5 border border-secondary-100">
                                                 <button
                                                     onClick={() => setEditingSchedule(schedule)}
-                                                    className="p-1.5 text-secondary-500 hover:text-primary hover:bg-primary-50 rounded-md transition-colors"
+                                                    className="p-1 text-secondary-500 hover:text-primary hover:bg-primary-50 rounded transition-colors"
                                                     title="Edit"
                                                 >
-                                                    <Edit className="w-4 h-4" />
+                                                    <Edit className="w-3.5 h-3.5" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteSchedule(schedule.id, schedule.day_of_week, formatTime(schedule.time))}
-                                                    className="p-1.5 text-secondary-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                                    className="p-1 text-secondary-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                                     title="Delete"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                             </div>
                                         )}

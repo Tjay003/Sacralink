@@ -54,6 +54,14 @@ export default function ProfilePage() {
         setError(null);
         setSuccess(false);
 
+        // Validate PH phone number if provided
+        const phone = editedData.phone_number?.trim() || '';
+        if (phone && !/^(\+639|09)\d{9}$/.test(phone.replace(/\s/g, ''))) {
+            setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
+            setSaving(false);
+            return;
+        }
+
         try {
             const { data: { user } } = await (await import('../lib/supabase')).supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
@@ -214,24 +222,26 @@ export default function ProfilePage() {
                         <div className="flex-1">
                             <label className="text-sm font-medium text-muted">Phone Number</label>
                             {isEditing ? (
-                                <input
-                                    type="tel"
-                                    value={editedData.phone_number || ''}
-                                    onChange={(e) => {
-                                        // Only allow numbers and common phone characters (+, -, spaces, parentheses)
-                                        const value = e.target.value.replace(/[^0-9+\-() ]/g, '');
-                                        setEditedData({ ...editedData, phone_number: value });
-                                    }}
-                                    onKeyPress={(e) => {
-                                        // Prevent non-numeric and non-phone characters
-                                        if (!/[0-9+\-() ]/.test(e.key)) {
-                                            e.preventDefault();
-                                        }
-                                    }}
-                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                                    placeholder="Enter your phone number (e.g., +63 912 345 6789)"
-                                    maxLength={20}
-                                />
+                                <div>
+                                    <input
+                                        type="tel"
+                                        value={editedData.phone_number || ''}
+                                        onChange={(e) => {
+                                            // Strip everything except digits and leading +
+                                            let raw = e.target.value.replace(/[^0-9+]/g, '');
+                                            // Auto-convert 09xx → +639xx
+                                            if (raw.startsWith('09')) raw = '+63' + raw.slice(1);
+                                            // Enforce max length: +63 + 10 digits = 13
+                                            if (raw.length > 13) raw = raw.slice(0, 13);
+                                            setEditedData({ ...editedData, phone_number: raw });
+                                        }}
+                                        className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                                        placeholder="09171234567 or +639171234567"
+                                        maxLength={13}
+                                        inputMode="tel"
+                                    />
+                                    <p className="text-xs text-muted mt-1">Philippine mobile number — 11 digits starting with 09, or +639XXXXXXXXXX</p>
+                                </div>
                             ) : (
                                 <p className="text-base text-foreground">
                                     {profileData?.phone_number || 'Not set'}
