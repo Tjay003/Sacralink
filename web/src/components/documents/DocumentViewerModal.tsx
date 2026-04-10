@@ -64,24 +64,25 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] sm:max-h-[80vh] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
                     <div className="flex items-center gap-3">
-                        <FileText className="w-6 h-6 text-primary" />
-                        <h2 className="text-xl font-bold">Submitted Documents</h2>
+                        <FileText className="w-6 h-6 text-primary shrink-0" />
+                        <h2 className="text-lg sm:text-xl font-bold">Submitted Documents</h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
+                        title="Close"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-12">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
@@ -97,25 +98,25 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
                             <p className="text-gray-500">No documents uploaded yet</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {documents.map((doc) => (
                                 <div
                                     key={doc.id}
-                                    className="border border-gray-200 rounded-lg p-4 hover:border-primary transition-colors"
+                                    className="border border-gray-200 rounded-xl p-4 hover:border-primary transition-colors"
                                 >
-                                    <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start justify-between gap-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <FileText className="w-5 h-5 text-primary flex-shrink-0" />
-                                                <h3 className="font-medium text-gray-900 truncate">
+                                                <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">
                                                     {doc.sacrament_requirements?.requirement_name || 'Document'}
                                                 </h3>
                                             </div>
-                                            <p className="text-sm text-gray-600 truncate mb-2">
+                                            <p className="text-sm text-gray-500 truncate mb-2">
                                                 {doc.file_name}
                                             </p>
-                                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                <span>{formatFileSize(doc.file_size)}</span>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                                                <span className="font-medium">{formatFileSize(doc.file_size)}</span>
                                                 <span>•</span>
                                                 <span>Uploaded {formatDate(doc.uploaded_at)}</span>
                                             </div>
@@ -126,14 +127,14 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
                                                 href={doc.file_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="btn-secondary p-2"
+                                                className="btn-secondary p-2 rounded-lg"
                                                 title="View"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </a>
                                             <button
                                                 onClick={() => handleDownload(doc.file_url, doc.file_name)}
-                                                className="btn-primary p-2"
+                                                className="btn-primary p-2 rounded-lg"
                                                 title="Download"
                                             >
                                                 <Download className="w-4 h-4" />
@@ -147,10 +148,10 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
                     <button
                         onClick={onClose}
-                        className="btn-secondary"
+                        className="btn-secondary rounded-lg px-5 py-2 text-sm font-medium"
                     >
                         Close
                     </button>
@@ -159,3 +160,4 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
         </div>
     );
 }
+

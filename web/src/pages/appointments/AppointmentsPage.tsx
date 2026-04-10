@@ -140,8 +140,8 @@ export default function AppointmentsPage() {
                 ) : (
                     filteredAppointments.map((appointment) => (
                         <div key={appointment.id} className="card p-4 flex flex-col md:flex-row justify-between gap-4">
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
+                            <div className="space-y-2 flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize
                                         ${appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                                             appointment.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -157,19 +157,19 @@ export default function AppointmentsPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-gray-600">
                                     <div className="flex items-center gap-2">
-                                        <Building2 className="w-4 h-4" />
-                                        {appointment.church?.name || 'Unknown Church'}
+                                        <Building2 className="w-4 h-4 shrink-0" />
+                                        <span className="truncate">{appointment.church?.name || 'Unknown Church'}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <User className="w-4 h-4" />
-                                        {appointment.profile?.full_name || 'Unknown User'}
+                                        <User className="w-4 h-4 shrink-0" />
+                                        <span className="truncate">{appointment.profile?.full_name || 'Unknown User'}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Calendar className="w-4 h-4" />
+                                        <Calendar className="w-4 h-4 shrink-0" />
                                         {appointment.appointment_date}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Clock className="w-4 h-4" />
+                                        <Clock className="w-4 h-4 shrink-0" />
                                         {appointment.appointment_time}
                                     </div>
                                 </div>
@@ -181,46 +181,53 @@ export default function AppointmentsPage() {
                                 )}
                             </div>
 
-                            {/* Actions - Visible only to Managers */}
-                            {canManageAppointments && (
-                                <div className="flex items-center gap-2 md:flex-col md:justify-center">
-                                    {appointment.status === 'pending' && (
-                                        <>
-                                            <button
-                                                onClick={() => handleStatusUpdate(appointment.id, 'approved')}
-                                                className="btn-primary bg-green-600 hover:bg-green-700 w-full md:w-32 flex items-center justify-center rounded-lg py-2"
-                                            >
-                                                <CheckCircle className="w-4 h-4 mr-2" />
-                                                Approve
-                                            </button>
-                                            <button
-                                                onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
-                                                className="btn-secondary text-red-600 hover:bg-red-50 w-full md:w-32 flex items-center justify-center rounded-lg py-2"
-                                            >
-                                                <XCircle className="w-4 h-4 mr-2" />
-                                                Reject
-                                            </button>
-                                        </>
-                                    )}
+                            {/* Right-side Actions Panel */}
+                            <div className="flex flex-row md:flex-col items-center justify-start md:justify-center gap-2 md:min-w-[140px] shrink-0">
+                                {/* Approve / Reject — only for managers on pending */}
+                                {canManageAppointments && appointment.status === 'pending' && (
+                                    <>
+                                        <button
+                                            onClick={() => handleStatusUpdate(appointment.id, 'approved')}
+                                            className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
+                                        >
+                                            <CheckCircle className="w-4 h-4 shrink-0" />
+                                            Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
+                                            className="btn-secondary text-red-600 hover:bg-red-50 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
+                                        >
+                                            <XCircle className="w-4 h-4 shrink-0" />
+                                            Reject
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Docs button — always visible to managers */}
+                                {canManageAppointments && (
                                     <button
                                         onClick={() => setViewingDocumentsFor(appointment.id)}
-                                        className="btn-secondary w-full md:w-32 flex items-center justify-center rounded-lg py-2"
+                                        className="btn-secondary flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
                                     >
-                                        <FileText className="w-4 h-4 mr-2" />
+                                        <FileText className="w-4 h-4 shrink-0" />
                                         Docs
                                     </button>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Read-Only Status for Users OR Non-Pending items */}
-                            {(!canManageAppointments || appointment.status !== 'pending') && (
-                                <div className="flex items-center md:flex-col md:justify-center min-w-[128px]">
-                                    <p className="text-sm text-gray-400 italic font-medium">
-                                        {appointment.status === 'pending' ? 'Awaiting Review' :
-                                            appointment.status === 'approved' ? 'Approved' : 'Rejected'}
-                                    </p>
-                                </div>
-                            )}
+                                {/* Status label for resolved appointments */}
+                                {appointment.status !== 'pending' && (
+                                    <span className={`text-sm font-medium italic ${
+                                        appointment.status === 'approved' ? 'text-green-600' : 'text-red-500'
+                                    }`}>
+                                        {appointment.status === 'approved' ? 'Approved' : 'Rejected'}
+                                    </span>
+                                )}
+
+                                {/* Awaiting label for regular users */}
+                                {!canManageAppointments && appointment.status === 'pending' && (
+                                    <span className="text-sm text-yellow-600 font-medium italic">Awaiting Review</span>
+                                )}
+                            </div>
                         </div>
                     ))
                 )}
