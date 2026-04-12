@@ -317,6 +317,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                  * React will batch these and re-render once instead of three times.
                  */
                 console.log('📝 Updating all state together...');
+
+                // If there's a session but no profile, the user was deleted from the DB.
+                // Auto sign out to clear the stale session and send them to login.
+                if (session?.user && !profileData) {
+                    console.warn('⚠️ Session exists but no profile found — user likely deleted. Signing out...');
+                    await supabase.auth.signOut();
+                    if (mounted) {
+                        setSession(null);
+                        setUser(null);
+                        setProfile(null);
+                        setLoading(false);
+                    }
+                    return;
+                }
+
                 setSession(session);
                 setUser(session?.user ?? null);
                 setProfile(profileData);
@@ -365,6 +380,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     console.log('👤 Fetching profile after auth change...');
                     profileData = await fetchProfile(session.user.id, session.access_token);
                     if (!mounted) return;
+
+                    // Auto sign out if session exists but profile is gone (deleted user)
+                    if (!profileData) {
+                        console.warn('⚠️ Auth change: session but no profile — signing out stale session...');
+                        await supabase.auth.signOut();
+                        if (mounted) {
+                            setSession(null);
+                            setUser(null);
+                            setProfile(null);
+                            setLoading(false);
+                        }
+                        return;
+                    }
                 }
 
                 // Batch all state updates
