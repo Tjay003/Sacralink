@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp, ArrowLeft, AlertCircle, CheckCircle, XCircle, Bot } from 'lucide-react';
+import { BookOpen, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp, ArrowLeft, AlertCircle, CheckCircle, XCircle, Bot, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -16,6 +16,7 @@ export default function KnowledgeBasePage() {
     const { profile } = useAuth();
     const navigate = useNavigate();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const churchId = (profile as any)?.church_id ?? (profile as any)?.assigned_church_id ?? null;
     const canEdit = profile?.role === 'super_admin' || profile?.role === 'church_admin' || profile?.role === 'admin';
 
@@ -35,9 +36,24 @@ export default function KnowledgeBasePage() {
     const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [syncMessage, setSyncMessage] = useState('');
     const [lastSynced, setLastSynced] = useState<string | null>(null);
+    const [isStale, setIsStale] = useState(false);
 
-    const fetchSections = async () => {
+    // Load last synced time from localStorage
+    useEffect(() => {
         if (!churchId) return;
+        const stored = localStorage.getItem(`kb_last_synced_${churchId}`);
+        if (stored) {
+            const daysSince = (Date.now() - new Date(stored).getTime()) / (1000 * 60 * 60 * 24);
+            setLastSynced(new Date(stored).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }));
+            setIsStale(daysSince > 7);
+        } else {
+            setIsStale(true); // Never synced
+        }
+    }, [churchId]);
+
+    const fetchSections = useCallback(async () => {
+        if (!churchId) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any)
             .from('church_knowledge_sections')
             .select('id, title, content, display_order, updated_at')
@@ -46,12 +62,11 @@ export default function KnowledgeBasePage() {
             .order('created_at', { ascending: true });
         if (!error && data) setSections(data as KnowledgeSection[]);
         setLoading(false);
-    };
+    }, [churchId]);
 
     useEffect(() => {
         fetchSections();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [churchId]);
+    }, [fetchSections]);
 
     const openNew = () => {
         setEditingId('new');
@@ -76,6 +91,39 @@ export default function KnowledgeBasePage() {
         setSaveError(null);
     };
 
+    const handleSync = async (silent = false) => {
+        if (!churchId || isSyncing) return;
+        setIsSyncing(true);
+        if (!silent) setSyncStatus('idle');
+
+        try {
+            const { data, error } = await supabase.functions.invoke('sync-church-knowledge', {
+                body: { churchId },
+            });
+            if (error) {
+                let msg = error.message;
+                try {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const body = await (error as any).context?.json?.();
+                    if (body?.error) msg = body.error;
+                } catch { /* ignore */ }
+                throw new Error(msg);
+            }
+            const now = new Date();
+            localStorage.setItem(`kb_last_synced_${churchId}`, now.toISOString());
+            setLastSynced(now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }));
+            setIsStale(false);
+            setSyncStatus('success');
+            setSyncMessage(`Synced ${data.chunksProcessed} knowledge chunks successfully.`);
+        } catch (err: unknown) {
+            setSyncStatus('error');
+            setSyncMessage(err instanceof Error ? err.message : 'Sync failed.');
+        } finally {
+            setIsSyncing(false);
+            setTimeout(() => setSyncStatus('idle'), 12000);
+        }
+    };
+
     const handleSave = async () => {
         if (!formTitle.trim() || !formContent.trim() || !churchId || !profile) return;
         setSaving(true);
@@ -84,6 +132,7 @@ export default function KnowledgeBasePage() {
         try {
             if (editingId === 'new') {
                 const maxOrder = sections.length > 0 ? Math.max(...sections.map(s => s.display_order)) + 1 : 0;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { error } = await (supabase as any)
                     .from('church_knowledge_sections')
                     .insert({
@@ -95,6 +144,7 @@ export default function KnowledgeBasePage() {
                     });
                 if (error) throw new Error(error.message);
             } else {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { error } = await (supabase as any)
                     .from('church_knowledge_sections')
                     .update({
@@ -107,46 +157,22 @@ export default function KnowledgeBasePage() {
             }
             await fetchSections();
             cancelEdit();
-        } catch (err: any) {
-            setSaveError(err.message || 'Failed to save. Please try again.');
+            // Auto-sync after saving so AI is always up to date
+            await handleSync(true);
+        } catch (err: unknown) {
+            setSaveError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async (id: string, title: string) => {
-        if (!confirm(`Delete section "${title}"? This cannot be undone. Remember to re-sync the AI after deleting.`)) return;
+        if (!confirm(`Delete section "${title}"? This cannot be undone.`)) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase as any).from('church_knowledge_sections').delete().eq('id', id);
         await fetchSections();
-    };
-
-    const handleSync = async () => {
-        if (!churchId || isSyncing) return;
-        setIsSyncing(true);
-        setSyncStatus('idle');
-
-        try {
-            const { data, error } = await supabase.functions.invoke('sync-church-knowledge', {
-                body: { churchId },
-            });
-            if (error) {
-                let msg = error.message;
-                try {
-                    const body = await (error as any).context?.json?.();
-                    if (body?.error) msg = body.error;
-                } catch { /* ignore */ }
-                throw new Error(msg);
-            }
-            setSyncStatus('success');
-            setSyncMessage(`Synced ${data.chunksProcessed} knowledge chunks successfully.`);
-            setLastSynced(new Date().toLocaleTimeString());
-        } catch (err: any) {
-            setSyncStatus('error');
-            setSyncMessage(err.message || 'Sync failed.');
-        } finally {
-            setIsSyncing(false);
-            setTimeout(() => setSyncStatus('idle'), 12000);
-        }
+        // Auto-sync so deleted content is removed from AI immediately
+        await handleSync(true);
     };
 
     const charCount = (text: string) => {
@@ -213,7 +239,7 @@ export default function KnowledgeBasePage() {
                         </button>
                     )}
                     <button
-                        onClick={handleSync}
+                        onClick={() => handleSync()}
                         disabled={isSyncing}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                     >
@@ -231,6 +257,19 @@ export default function KnowledgeBasePage() {
                     </button>
                 </div>
             </div>
+
+            {/* Stale sync warning */}
+            {isStale && syncStatus === 'idle' && (
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <Clock className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                        <p className="text-sm text-amber-700 font-medium">
+                            {lastSynced ? `AI knowledge was last synced on ${lastSynced}` : 'AI knowledge has never been synced'}
+                        </p>
+                        <p className="text-xs text-amber-600 mt-0.5">We recommend syncing regularly so the AI has the latest information.</p>
+                    </div>
+                </div>
+            )}
 
             {/* Sync status */}
             {syncStatus === 'success' && (
@@ -409,9 +448,9 @@ export default function KnowledgeBasePage() {
             )}
 
             {/* Footer tip */}
-            {sections.length > 0 && syncStatus === 'idle' && (
+            {sections.length > 0 && syncStatus === 'idle' && !isStale && (
                 <p className="text-xs text-muted text-center pb-2">
-                    After making changes, click <strong>Sync AI Knowledge Base</strong> to update what the chatbot knows.
+                    After making changes, the AI syncs automatically. You can also click <strong>Sync AI Knowledge Base</strong> manually.
                 </p>
             )}
         </div>
