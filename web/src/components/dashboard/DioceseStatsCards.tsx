@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, Calendar, TrendingUp } from 'lucide-react';
+import { Building2, Users, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import StatCard from './StatCard';
 

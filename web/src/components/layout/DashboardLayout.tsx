@@ -12,7 +12,6 @@ import {
     ChevronDown,
     User,
     Users,
-    Search,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
