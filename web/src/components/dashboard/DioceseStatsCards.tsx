@@ -108,7 +108,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
         : '0.0';
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
             {/* Total Churches */}
             <StatCard
                 title="Total Churches"
@@ -163,7 +163,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 loading={loading}
             />
 
-            {/* Growth Rate */}
+            {/* Growth Rate (Hidden for now)
             <StatCard
                 title="Growth Rate"
                 value={loading ? '...' : `${growthPercentage}%`}
@@ -179,7 +179,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 gradientTo="to-blue-400"
                 gradientDirection="to-tl"
                 loading={loading}
-            />
+            /> */}
         </div>
     );
 }

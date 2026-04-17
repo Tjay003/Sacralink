@@ -85,6 +85,7 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                         </div>
                     </div>
 
+
                     {/* Options List */}
                     <div className="max-h-64 overflow-y-auto">
                         {/* All Churches Option */}

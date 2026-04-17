@@ -188,7 +188,7 @@ export default function DashboardLayout() {
                                 <Menu className="w-5 h-5" />
                             </button>
 
-                            {/* Search Bar - desktop only */}
+                            {/* Search Bar - desktop only (Hidden for now)
                             <div className="flex-1 max-w-md hidden lg:block">
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -198,7 +198,7 @@ export default function DashboardLayout() {
                                         className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                     />
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* Right Section - always on the far right */}
