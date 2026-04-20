@@ -16,6 +16,17 @@ interface Appointment extends BaseAppointment {
     } | null;
 }
 
+/** Converts a raw HH:MM:SS / HH:MM string to 12‑hour AM/PM format */
+const formatTime = (time: string | null | undefined): string => {
+    if (!time) return '—';
+    const [hourStr, minuteStr] = time.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const period = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return `${hour}:${minute} ${period}`;
+};
+
 export default function AppointmentsPage() {
     const { profile } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -23,6 +34,26 @@ export default function AppointmentsPage() {
     const [error, setError] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [viewingDocumentsFor, setViewingDocumentsFor] = useState<string | null>(null);
+
+    // Confirmation modal state
+    const [confirmModal, setConfirmModal] = useState<{
+        open: boolean;
+        appointmentId: string;
+        newStatus: 'approved' | 'rejected';
+        serviceType: string;
+    } | null>(null);
+
+    const openConfirmModal = (id: string, newStatus: 'approved' | 'rejected', serviceType: string) => {
+        setConfirmModal({ open: true, appointmentId: id, newStatus, serviceType });
+    };
+
+    const closeConfirmModal = () => setConfirmModal(null);
+
+    const handleConfirm = async () => {
+        if (!confirmModal) return;
+        await handleStatusUpdate(confirmModal.appointmentId, confirmModal.newStatus);
+        closeConfirmModal();
+    };
 
     const canManageAppointments = profile?.role === 'admin'
         || profile?.role === 'super_admin'
@@ -170,7 +201,7 @@ export default function AppointmentsPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Clock className="w-4 h-4 shrink-0" />
-                                        {appointment.appointment_time}
+                                        {formatTime(appointment.appointment_time)}
                                     </div>
                                 </div>
 
@@ -187,14 +218,14 @@ export default function AppointmentsPage() {
                                 {canManageAppointments && appointment.status === 'pending' && (
                                     <>
                                         <button
-                                            onClick={() => handleStatusUpdate(appointment.id, 'approved')}
+                                            onClick={() => openConfirmModal(appointment.id, 'approved', appointment.service_type)}
                                             className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
                                         >
                                             <CheckCircle className="w-4 h-4 shrink-0" />
                                             Approve
                                         </button>
                                         <button
-                                            onClick={() => handleStatusUpdate(appointment.id, 'rejected')}
+                                            onClick={() => openConfirmModal(appointment.id, 'rejected', appointment.service_type)}
                                             className="btn-secondary text-red-600 hover:bg-red-50 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
                                         >
                                             <XCircle className="w-4 h-4 shrink-0" />
@@ -240,6 +271,62 @@ export default function AppointmentsPage() {
                     isOpen={true}
                     onClose={() => setViewingDocumentsFor(null)}
                 />
+            )}
+
+            {/* Approve / Reject Confirmation Modal */}
+            {confirmModal?.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        {/* Icon */}
+                        <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
+                            confirmModal.newStatus === 'approved' ? 'bg-green-100' : 'bg-red-100'
+                        }`}>
+                            {confirmModal.newStatus === 'approved'
+                                ? <CheckCircle className="w-7 h-7 text-green-600" />
+                                : <XCircle className="w-7 h-7 text-red-600" />
+                            }
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg font-semibold text-center text-foreground mb-1">
+                            {confirmModal.newStatus === 'approved' ? 'Approve Appointment?' : 'Reject Appointment?'}
+                        </h3>
+
+                        {/* Body */}
+                        <p className="text-sm text-center text-gray-500 mb-6">
+                            Are you sure you want to{' '}
+                            <span className={`font-semibold ${
+                                confirmModal.newStatus === 'approved' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                                {confirmModal.newStatus}
+                            </span>{' '}
+                            the <span className="font-semibold text-foreground">{confirmModal.serviceType}</span> appointment?
+                            {confirmModal.newStatus === 'rejected' && (
+                                <span className="block mt-1 text-red-500">This action will notify the parishioner.</span>
+                            )}
+                        </p>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={closeConfirmModal}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirm}
+                                className={`px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${
+                                    confirmModal.newStatus === 'approved'
+                                        ? 'bg-green-600 hover:bg-green-700'
+                                        : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                            >
+                                {confirmModal.newStatus === 'approved' ? 'Yes, Approve' : 'Yes, Reject'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
