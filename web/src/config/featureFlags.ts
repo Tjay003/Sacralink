@@ -60,7 +60,7 @@ export const featureFlags: FeatureFlags = {
 
     // Church Selector (Super Admin Dashboard)
     churchSelector: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // Always visible
         label: 'Church Selector',
         description: 'Dropdown to select and manage different churches',
     },

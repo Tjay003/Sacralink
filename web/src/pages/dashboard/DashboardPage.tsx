@@ -104,6 +104,11 @@ export default function DashboardPage() {
         return <ChurchAdminDashboard churchId={profile.assigned_church_id || null} />;
     }
 
+    // Volunteers get the same dashboard as church admins (can manage announcements for their church)
+    if (profile?.role === 'volunteer') {
+        return <ChurchAdminDashboard churchId={profile.assigned_church_id || null} />;
+    }
+
     // Show super admin dashboard for super_admin and admin
     if (profile?.role === 'super_admin' || profile?.role === 'admin') {
         return <SuperAdminDashboard />;

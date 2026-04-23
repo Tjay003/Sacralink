@@ -525,54 +525,52 @@ export default function ChurchDetailPage() {
                 </div>
             )}
 
-            {/* Church Announcements — hidden in demo mode */}
-            {!isDemoMode && (
-                <div className="card p-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-                        <div className="w-full">
-                            <h2 className="text-lg font-semibold flex items-center gap-2">
-                                <Megaphone className="w-5 h-5 text-primary shrink-0" />
-                                Church Announcements
-                            </h2>
-                            <p className="text-sm text-muted mt-1">Latest updates and news from this church</p>
-                        </div>
-                        {canManage() && (
-                            <button
-                                onClick={() => {
-                                    setEditingAnnouncement(null);
-                                    setShowAnnouncementForm(true);
-                                }}
-                                className="btn-primary flex items-center gap-2 rounded-lg px-4 py-2 shrink-0 w-full sm:w-auto justify-center"
-                            >
-                                <Plus className="w-4 h-4 shrink-0" />
-                                <span className="hidden sm:inline">New Announcement</span>
-                                <span className="sm:hidden">New Announcement</span>
-                            </button>
-                        )}
+            {/* Church Announcements */}
+            <div className="card p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+                    <div className="w-full">
+                        <h2 className="text-lg font-semibold flex items-center gap-2">
+                            <Megaphone className="w-5 h-5 text-primary shrink-0" />
+                            Church Announcements
+                        </h2>
+                        <p className="text-sm text-muted mt-1">Latest updates and news from this church</p>
                     </div>
-
-                    {announcementsLoading ? (
-                        <div className="text-center py-8">
-                            <p className="text-muted">Loading announcements...</p>
-                        </div>
-                    ) : (
-                        <AnnouncementsList
-                            announcements={announcements}
-                            type="church"
-                            showActions={canManage()}
-                            emptyMessage="No announcements have been posted yet. Check back later for updates!"
-                            onEdit={(announcement) => {
-                                setEditingAnnouncement(announcement as ChurchAnnouncement);
+                    {canManage() && (
+                        <button
+                            onClick={() => {
+                                setEditingAnnouncement(null);
                                 setShowAnnouncementForm(true);
                             }}
-                            onDelete={(announcement) => {
-                                setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
-                            }}
-
-                        />
+                            className="btn-primary flex items-center gap-2 rounded-lg px-4 py-2 shrink-0 w-full sm:w-auto justify-center"
+                        >
+                            <Plus className="w-4 h-4 shrink-0" />
+                            <span className="hidden sm:inline">New Announcement</span>
+                            <span className="sm:hidden">New Announcement</span>
+                        </button>
                     )}
                 </div>
-            )}
+
+                {announcementsLoading ? (
+                    <div className="text-center py-8">
+                        <p className="text-muted">Loading announcements...</p>
+                    </div>
+                ) : (
+                    <AnnouncementsList
+                        announcements={announcements}
+                        type="church"
+                        showActions={canManage()}
+                        emptyMessage="No announcements have been posted yet. Check back later for updates!"
+                        onEdit={(announcement) => {
+                            setEditingAnnouncement(announcement as ChurchAnnouncement);
+                            setShowAnnouncementForm(true);
+                        }}
+                        onDelete={(announcement) => {
+                            setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
+                        }}
+
+                    />
+                )}
+            </div>
 
             {/* Metadata */}
             <div className="card p-6">
