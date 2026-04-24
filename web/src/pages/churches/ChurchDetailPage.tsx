@@ -17,7 +17,7 @@ import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
-import { isDemoMode, featureFlags, isFeatureEnabled } from '../../config/featureFlags';
+import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
 import ChurchChatbot from '../../components/ai/ChurchChatbot';
 
 /**

@@ -201,50 +201,31 @@ export default function DashboardPage() {
                         <div className="card p-6">
                             <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
                             <div className="space-y-3">
-                                {profile?.role !== 'volunteer' && (
-                                    <button
-                                        onClick={() => navigate('/users')}
-                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                    >
-                                        <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                            <span className="text-lg">👥</span>
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-sm">Manage Users</div>
-                                            <div className="text-xs text-muted">View and edit user roles</div>
-                                        </div>
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => navigate('/users')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">👥</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Manage Users</div>
+                                        <div className="text-xs text-muted">View and edit user roles</div>
+                                    </div>
+                                </button>
 
-                                {profile?.role === 'volunteer' && profile.assigned_church_id && (
-                                    <button
-                                        onClick={() => navigate(`/ churches / ${profile.assigned_church_id} `)}
-                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                    >
-                                        <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                            <span className="text-lg">⛪</span>
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-sm">My Church</div>
-                                            <div className="text-xs text-muted">Update church details</div>
-                                        </div>
-                                    </button>
-                                )}
-
-                                {profile?.role !== 'volunteer' && (
-                                    <button
-                                        onClick={() => navigate('/churches')}
-                                        className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                    >
-                                        <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                            <span className="text-lg">⛪</span>
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-sm">Manage Churches</div>
-                                            <div className="text-xs text-muted">AAdd or edit parishes</div>
-                                        </div>
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => navigate('/churches')}
+                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
+                                >
+                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
+                                        <span className="text-lg">⛪</span>
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-sm">Manage Churches</div>
+                                        <div className="text-xs text-muted">Add or edit parishes</div>
+                                    </div>
+                                </button>
 
                                 <button
                                     onClick={() => navigate('/appointments')}
