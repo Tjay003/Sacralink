@@ -69,7 +69,7 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-background border rounded-lg shadow-lg max-h-96 overflow-hidden">
+                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-96 overflow-hidden">
                     {/* Search Input */}
                     <div className="p-3 border-b bg-background">
                         <div className="relative">
@@ -91,14 +91,23 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                         {/* All Churches Option */}
                         <button
                             onClick={() => handleSelect(null)}
-                            className={`w-full flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors text-left ${selectedChurchId === null ? 'bg-blue-50' : ''
-                                }`}
+                            className={`w-full flex items-center justify-between px-4 py-3 transition-all text-left group ${
+                                selectedChurchId === null
+                                    ? 'bg-blue-50 border-l-2 border-blue-500'
+                                    : 'hover:bg-blue-50/60 border-l-2 border-transparent'
+                            }`}
                         >
                             <div className="flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-blue-600" />
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                                    selectedChurchId === null ? 'bg-blue-100' : 'bg-gray-100 group-hover:bg-blue-100'
+                                }`}>
+                                    <Building2 className={`w-4 h-4 transition-colors ${
+                                        selectedChurchId === null ? 'text-blue-600' : 'text-gray-500 group-hover:text-blue-600'
+                                    }`} />
+                                </div>
                                 <div>
-                                    <div className="text-sm font-medium text-foreground">All Churches</div>
-                                    <div className="text-xs text-gray-600">Diocese-wide view</div>
+                                    <div className="text-sm font-semibold text-foreground">All Churches</div>
+                                    <div className="text-xs text-gray-500">Diocese-wide view</div>
                                 </div>
                             </div>
                             {selectedChurchId === null && (
@@ -119,23 +128,29 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                                 <button
                                     key={church.id}
                                     onClick={() => handleSelect(church.id)}
-                                    className={`w-full flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors text-left ${selectedChurchId === church.id ? 'bg-blue-50' : ''
-                                        }`}
+                                    className={`w-full flex items-center justify-between px-4 py-3 transition-all text-left group ${
+                                        selectedChurchId === church.id
+                                            ? 'bg-blue-50 border-l-2 border-blue-500'
+                                            : 'hover:bg-blue-50/60 border-l-2 border-transparent'
+                                    }`}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-sm font-medium text-foreground truncate">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className={`text-sm font-medium truncate transition-colors ${
+                                                selectedChurchId === church.id ? 'text-blue-700' : 'text-foreground group-hover:text-blue-700'
+                                            }`}>
                                                 {church.name}
                                             </span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${church.status === 'active'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-gray-100 text-gray-800'
-                                                }`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                                                church.status === 'active'
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : 'bg-gray-100 text-gray-600'
+                                            }`}>
                                                 {church.status}
                                             </span>
                                         </div>
                                         {church.address && (
-                                            <div className="text-xs text-gray-600 truncate">
+                                            <div className="text-xs text-gray-500 truncate">
                                                 {church.address}
                                             </div>
                                         )}

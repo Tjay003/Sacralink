@@ -96,7 +96,7 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                         </div>
                         <div>
                             <h3 className="font-semibold text-foreground">Church Announcements</h3>
-                            <p className="text-sm text-muted-foreground">Manage your parish updates</p>
+                            <p className="text-sm text-gray-500">Manage your parish updates</p>
                         </div>
                     </div>
 
@@ -123,43 +123,46 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                         ))}
                     </div>
                 ) : latestAnnouncements.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                        <Megaphone className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                        <p className="text-sm">No announcements yet</p>
-                        <p className="text-xs mt-1">Click "New Announcement" to create one</p>
+                    <div className="text-center py-10">
+                        <div className="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Megaphone className="w-7 h-7 text-orange-300" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-700">No announcements yet</p>
+                        <p className="text-xs mt-1 text-gray-400">Click "New Announcement" to create one</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {latestAnnouncements.map((announcement) => (
                             <div
                                 key={announcement.id}
-                                className="p-4 bg-background border rounded-lg hover:bg-muted transition-colors"
+                                className="group flex items-start justify-between gap-3 p-4 bg-white border border-gray-100 rounded-xl hover:border-orange-200 hover:shadow-sm transition-all duration-200"
                             >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-medium text-foreground mb-1 line-clamp-1">
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-2 flex-shrink-0" />
+                                    <div className="min-w-0">
+                                        <h4 className="font-semibold text-gray-800 mb-0.5 line-clamp-1">
                                             {announcement.title}
                                         </h4>
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-xs text-gray-400">
                                             Posted {formatRelativeTime(announcement.created_at || new Date().toISOString())}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button
-                                            onClick={() => handleEdit(announcement)}
-                                            title="Edit"
-                                            className="p-2 rounded transition-colors hover:bg-blue-100 text-blue-600"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setDeleteConfirmation({ show: true, announcement })}
-                                            title="Delete"
-                                            className="p-2 rounded transition-colors hover:bg-red-100 text-red-600"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleEdit(announcement)}
+                                        title="Edit"
+                                        className="p-1.5 rounded-lg transition-colors hover:bg-blue-50 text-gray-400 hover:text-blue-600"
+                                    >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirmation({ show: true, announcement })}
+                                        title="Delete"
+                                        className="p-1.5 rounded-lg transition-colors hover:bg-red-50 text-gray-400 hover:text-red-600"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
                             </div>
                         ))}
