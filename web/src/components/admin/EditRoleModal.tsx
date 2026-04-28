@@ -177,18 +177,18 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                             </div>
                         )}
 
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 pt-2 border-t border-gray-100">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="btn-secondary flex-1 rounded-lg"
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
                                 disabled={loading}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="btn-primary flex-1 rounded-lg"
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
                                 disabled={loading || !canEditThisUser}
                             >
                                 {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}

@@ -143,19 +143,19 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
                     </div>
 
                     {/* Buttons */}
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
                         <button
                             type="button"
                             onClick={onClose}
                             disabled={loading}
-                            className="btn-secondary flex-1"
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="btn-primary flex-1"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
                         >
                             {loading ? 'Adding...' : 'Add Schedule'}
                         </button>

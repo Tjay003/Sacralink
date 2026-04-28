@@ -7,7 +7,7 @@ import StatCard from '../../components/dashboard/StatCard';
 import ChurchSelector from '../../components/dashboard/ChurchSelector';
 import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
-import { Calendar, Clock, MapPin, PlusCircle, BarChart3 } from 'lucide-react';
+import { Calendar, Clock, MapPin, PlusCircle, BarChart3, Church } from 'lucide-react';
 import { format } from 'date-fns';
 import { dashboardConfig, isFeatureEnabled } from '../../config/featureFlags';
 import { mockTrendData } from '../../config/mockData';
@@ -263,8 +263,8 @@ export default function UserDashboard() {
                                     onClick={() => navigate('/churches')}
                                     className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                 >
-                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                        <span className="text-xl">⛪</span>
+                                    <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                                        <Church className="w-4 h-4 text-purple-600" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-sm">Browse Churches</div>

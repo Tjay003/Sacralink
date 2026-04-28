@@ -238,7 +238,8 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'gcash' ? 'bg-blue-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
                                             }`}
                                     >
-                                        💙 GCash
+                                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-400 mr-1.5"></span>
+                                        GCash
                                     </button>
                                 )}
                                 {hasMaya && (
@@ -247,7 +248,8 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                                         className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'maya' ? 'bg-green-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
                                             }`}
                                     >
-                                        🟢 Maya
+                                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400 mr-1.5"></span>
+                                        Maya
                                     </button>
                                 )}
                                 {!hasGcash && !hasMaya && (

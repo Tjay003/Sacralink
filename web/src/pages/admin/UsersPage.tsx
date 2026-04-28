@@ -380,16 +380,16 @@ export default function UsersPage() {
 
             {/* Pagination Controls */}
             {filteredUsers.length > 0 && (
-                <div className="card p-4 flex items-center justify-between">
-                    <div className="text-sm text-muted">
+                <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="text-sm text-muted text-center sm:text-left">
                         Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)} to{' '}
                         {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
                         <button
                             onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                             disabled={currentPage === 1}
-                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Previous
                         </button>
@@ -411,7 +411,7 @@ export default function UsersPage() {
                                     <button
                                         key={i}
                                         onClick={() => setCurrentPage(i)}
-                                        className={`px-3 py-1 text-sm border rounded-md ${currentPage === i
+                                        className={`px-3 py-1.5 text-sm border rounded-lg ${currentPage === i
                                             ? 'bg-primary text-white border-primary'
                                             : 'border-gray-300 hover:bg-gray-50'
                                             }`}
@@ -427,7 +427,7 @@ export default function UsersPage() {
                         <button
                             onClick={() => setCurrentPage(Math.min(Math.ceil(filteredUsers.length / itemsPerPage), currentPage + 1))}
                             disabled={currentPage >= Math.ceil(filteredUsers.length / itemsPerPage)}
-                            className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Next
                         </button>

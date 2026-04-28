@@ -88,7 +88,7 @@ export default function ChurchDetailPage() {
         if (!profile || !church) return false;
         if (profile.role === 'super_admin') return true;
         if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === church.id) return true;
-        if (profile.role === 'admin' && profile.church_id === church.id) return true;
+        if (profile.role === 'admin' && profile.assigned_church_id === church.id) return true;
         return false;
     };
 

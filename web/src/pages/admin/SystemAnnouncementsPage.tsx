@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Megaphone } from 'lucide-react';
+import { Plus, Megaphone, Info, AlertTriangle, Wrench, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystemAnnouncements } from '../../hooks/useSystemAnnouncements';
 import { AnnouncementsList, AnnouncementForm } from '../../components/announcements';
@@ -57,13 +57,6 @@ export default function SystemAnnouncementsPage() {
         <div className="container mx-auto p-6">
             {/* Header */}
             <div className="mb-6">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="flex items-center text-muted hover:text-foreground mb-4"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                </button>
                 <div className="flex items-start justify-between">
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -101,39 +94,43 @@ export default function SystemAnnouncementsPage() {
                     </button>
                     <button
                         onClick={() => setFilterType('info')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'info'
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'info'
                             ? 'bg-blue-600 text-white'
                             : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                             }`}
                     >
-                        📘 Info ({announcements.filter(a => a.type === 'info').length})
+                        <Info className="w-3.5 h-3.5" />
+                        Info ({announcements.filter(a => a.type === 'info').length})
                     </button>
                     <button
                         onClick={() => setFilterType('warning')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'warning'
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'warning'
                             ? 'bg-yellow-600 text-white'
                             : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                             }`}
                     >
-                        ⚠️ Warning ({announcements.filter(a => a.type === 'warning').length})
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Warning ({announcements.filter(a => a.type === 'warning').length})
                     </button>
                     <button
                         onClick={() => setFilterType('maintenance')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'maintenance'
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'maintenance'
                             ? 'bg-orange-600 text-white'
                             : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                             }`}
                     >
-                        🔧 Maintenance ({announcements.filter(a => a.type === 'maintenance').length})
+                        <Wrench className="w-3.5 h-3.5" />
+                        Maintenance ({announcements.filter(a => a.type === 'maintenance').length})
                     </button>
                     <button
                         onClick={() => setFilterType('success')}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'success'
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg font-medium transition-colors ${filterType === 'success'
                             ? 'bg-green-600 text-white'
                             : 'bg-green-100 text-green-800 hover:bg-green-200'
                             }`}
                     >
-                        ✅ Success ({announcements.filter(a => a.type === 'success').length})
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Success ({announcements.filter(a => a.type === 'success').length})
                     </button>
                 </div>
             </div>

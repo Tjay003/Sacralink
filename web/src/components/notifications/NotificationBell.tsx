@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../lib/supabase/notifications';
 
@@ -90,13 +90,13 @@ export default function NotificationBell() {
 
     const getNotificationIcon = (type: string) => {
         switch (type) {
-            case 'appointment_approved': return '✅';
-            case 'appointment_rejected': return '❌';
-            case 'appointment_created': return '📅';
-            case 'document_submitted': return '📎';
-            case 'donation_verified': return '💚';
-            case 'donation_rejected': return '❌';
-            default: return '🔔';
+            case 'appointment_approved': return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+            case 'appointment_rejected': return <XCircle className="w-4 h-4 text-red-500" />;
+            case 'appointment_created': return <Calendar className="w-4 h-4 text-blue-500" />;
+            case 'document_submitted': return <Paperclip className="w-4 h-4 text-purple-500" />;
+            case 'donation_verified': return <Leaf className="w-4 h-4 text-emerald-500" />;
+            case 'donation_rejected': return <XCircle className="w-4 h-4 text-red-500" />;
+            default: return <Bell className="w-4 h-4 text-gray-400" />;
         }
     };
 
@@ -152,9 +152,9 @@ export default function NotificationBell() {
                                             }`}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <span className="text-xl flex-shrink-0">
+                                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 flex-shrink-0">
                                                 {getNotificationIcon(notification.type)}
-                                            </span>
+                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-sm ${!notification.is_read ? 'font-semibold' : 'font-medium'
                                                     }`}>

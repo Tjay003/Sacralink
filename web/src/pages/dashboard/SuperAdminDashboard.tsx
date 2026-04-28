@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Landmark, Users, Calendar, Heart } from 'lucide-react';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchSelectorDropdown from '../../components/dashboard/ChurchSelectorDropdown';
 import DioceseStatsCards from '../../components/dashboard/DioceseStatsCards';
@@ -88,27 +89,31 @@ export default function SuperAdminDashboard() {
                             <div className="space-y-2">
                                 <a
                                     href="/churches"
-                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                                 >
-                                    🏛️ Manage All Churches
+                                    <Landmark className="w-4 h-4 text-blue-500 shrink-0" />
+                                    Manage All Churches
                                 </a>
                                 <a
                                     href="/users"
-                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                                 >
-                                    👥 Manage Users
+                                    <Users className="w-4 h-4 text-indigo-500 shrink-0" />
+                                    Manage Users
                                 </a>
                                 <a
                                     href="/appointments"
-                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                                 >
-                                    📅 All Appointments
+                                    <Calendar className="w-4 h-4 text-purple-500 shrink-0" />
+                                    All Appointments
                                 </a>
                                 <a
                                     href="/donations"
-                                    className="block w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                                 >
-                                    💝 Donations
+                                    <Heart className="w-4 h-4 text-red-500 shrink-0" />
+                                    Donations
                                 </a>
                             </div>
                         </div>

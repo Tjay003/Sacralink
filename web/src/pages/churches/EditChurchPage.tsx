@@ -33,7 +33,7 @@ export default function EditChurchPage() {
 
         // For admin, church_admin, volunteer -> check if they are editing THEIR church
         if (id) {
-            if (profile.role === 'admin' && profile.church_id === id) return true;
+            if (profile.role === 'admin' && profile.assigned_church_id === id) return true;
             if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === id) return true;
         }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import PasswordStrengthIndicator from '../auth/PasswordStrengthIndicator';
 import { validatePassword } from '../../utils/passwordValidation';
 
@@ -114,8 +114,9 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                     )}
 
                     {success && (
-                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-                            ✅ Password changed successfully!
+                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-sm text-green-700">
+                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                            Password changed successfully!
                         </div>
                     )}
 
@@ -213,18 +214,18 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
                             )}
                         </div>
 
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex gap-3 pt-2 border-t border-gray-100">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="btn-secondary flex-1"
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
                                 disabled={loading}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
-                                className="btn-primary flex-1"
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
                                 disabled={loading || !currentPassword || !newPassword || !confirmPassword}
                             >
                                 {loading ? 'Changing...' : 'Change Password'}

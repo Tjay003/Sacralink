@@ -11,7 +11,7 @@ import DailyVerse from '../../components/dashboard/DailyVerse';
 import StatCard from '../../components/dashboard/StatCard';
 import { dashboardConfig } from '../../config/featureFlags';
 import { mockTrendData } from '../../config/mockData';
-import { Users, Building2, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
+import { Users, Building2, Calendar as CalendarIcon, TrendingUp, Church } from 'lucide-react';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 
 /**
@@ -205,8 +205,8 @@ export default function DashboardPage() {
                                     onClick={() => navigate('/users')}
                                     className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                 >
-                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">👥</span>
+                                    <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                                        <Users className="w-4 h-4 text-blue-600" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-sm">Manage Users</div>
@@ -218,8 +218,8 @@ export default function DashboardPage() {
                                     onClick={() => navigate('/churches')}
                                     className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                 >
-                                    <div className="bg-purple-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">⛪</span>
+                                    <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                                        <Church className="w-4 h-4 text-purple-600" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-sm">Manage Churches</div>
@@ -231,8 +231,8 @@ export default function DashboardPage() {
                                     onClick={() => navigate('/appointments')}
                                     className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
                                 >
-                                    <div className="bg-yellow-100 p-2 rounded-full mr-3">
-                                        <span className="text-lg">📅</span>
+                                    <div className="bg-yellow-100 p-2 rounded-lg mr-3">
+                                        <CalendarIcon className="w-4 h-4 text-yellow-600" />
                                     </div>
                                     <div>
                                         <div className="font-semibold text-sm">Appointments</div>

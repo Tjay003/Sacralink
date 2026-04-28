@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Building2, ExternalLink } from 'lucide-react';
+import { Building2, ExternalLink, CheckCircle2, PauseCircle } from 'lucide-react';
 import { useChurches } from '../../hooks/useChurches';
 
 interface ChurchHeaderProps {
@@ -68,11 +68,14 @@ export default function ChurchHeader({ churchId }: ChurchHeaderProps) {
                 {/* Actions & Status */}
                 <div className="flex items-center gap-3">
                     {/* Status Badge */}
-                    <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${church.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
+                        church.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
-                        {church.status === 'active' ? '✅ Active' : '⏸️ Inactive'}
+                        {church.status === 'active'
+                            ? <><CheckCircle2 className="w-3.5 h-3.5" /> Active</>  
+                            : <><PauseCircle className="w-3.5 h-3.5" /> Inactive</>}
                     </span>
 
                     {/* View Details Button */}

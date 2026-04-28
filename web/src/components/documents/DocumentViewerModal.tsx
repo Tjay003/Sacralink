@@ -127,14 +127,14 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
                                                 href={doc.file_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="btn-secondary p-2 rounded-lg"
+                                                className="p-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors"
                                                 title="View"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </a>
                                             <button
                                                 onClick={() => handleDownload(doc.file_url, doc.file_name)}
-                                                className="btn-primary p-2 rounded-lg"
+                                                className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
                                                 title="Download"
                                             >
                                                 <Download className="w-4 h-4" />
@@ -151,7 +151,7 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
                 <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-gray-200">
                     <button
                         onClick={onClose}
-                        className="btn-secondary rounded-lg px-5 py-2 text-sm font-medium"
+                        className="px-5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors"
                     >
                         Close
                     </button>

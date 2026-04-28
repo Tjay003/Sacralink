@@ -106,7 +106,7 @@ export default function DonationsPage() {
                     <h1 className="text-2xl font-bold text-foreground">Donations</h1>
                     <p className="text-muted">Verify and manage cashless donations</p>
                 </div>
-                <button onClick={fetchDonations} className="btn-outline flex items-center gap-2 self-start">
+                <button onClick={fetchDonations} className="flex items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors shadow-sm">
                     <RefreshCw className="w-4 h-4" />
                     Refresh
                 </button>
