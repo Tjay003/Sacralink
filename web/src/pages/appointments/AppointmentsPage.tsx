@@ -91,7 +91,23 @@ export default function AppointmentsPage() {
 
     useEffect(() => {
         fetchAppointments();
-    }, []);
+
+        // Realtime subscription — re-fetch whenever any appointment row changes
+        const channel = supabase
+            .channel('appointments-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'appointments' },
+                () => {
+                    fetchAppointments();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [profile?.assigned_church_id]);
 
     const handleStatusUpdate = async (id: string, newStatus: string) => {
         try {

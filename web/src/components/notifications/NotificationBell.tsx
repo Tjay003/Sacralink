@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../lib/supabase/notifications';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Notification {
     id: string;
@@ -14,6 +16,7 @@ interface Notification {
 }
 
 export default function NotificationBell() {
+    const { user } = useAuth();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
@@ -37,10 +40,29 @@ export default function NotificationBell() {
     useEffect(() => {
         fetchNotifications();
 
-        // Refresh every 30 seconds
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-    }, []);
+        if (!user) return;
+
+        // Realtime subscription — triggers on any INSERT or UPDATE to notifications for this user
+        const channel = supabase
+            .channel('notifications-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`,
+                },
+                () => {
+                    fetchNotifications();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
 
     // Close dropdown when clicking outside
     useEffect(() => {

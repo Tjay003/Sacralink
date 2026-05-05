@@ -36,6 +36,18 @@ export default function DashboardPage() {
             fetchUserCount();
         }
         fetchDashboardStats();
+
+        // Realtime — refresh stats when any appointment changes
+        const channel = supabase
+            .channel('dashboard-appointments-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'appointments' },
+                () => { fetchDashboardStats(); }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
     const fetchUserCount = async () => {

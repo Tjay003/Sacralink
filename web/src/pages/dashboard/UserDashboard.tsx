@@ -60,6 +60,25 @@ export default function UserDashboard() {
 
     useEffect(() => {
         fetchAppointments();
+
+        if (!profile) return;
+
+        // Realtime — re-fetch user's appointments when any change occurs
+        const channel = supabase
+            .channel('user-appointments-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'appointments',
+                    filter: `user_id=eq.${profile.id}`,
+                },
+                () => { fetchAppointments(); }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
     }, [profile]);
 
     const fetchAppointments = async () => {

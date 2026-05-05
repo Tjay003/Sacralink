@@ -5,6 +5,7 @@ import { getAllDonations, getChurchDonations, type Donation } from '../../lib/su
 import DonationDetailModal from '../../components/donations/DonationDetailModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
+import { supabase } from '../../lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 
 type StatusTab = 'pending' | 'verified' | 'rejected' | 'all';
@@ -49,7 +50,21 @@ export default function DonationsPage() {
         setLoading(false);
     }, [effectiveChurchId, isSuperAdmin]);
 
-    useEffect(() => { fetchDonations(); }, [fetchDonations]);
+    useEffect(() => {
+        fetchDonations();
+
+        // Realtime — re-fetch when any donation row changes
+        const channel = supabase
+            .channel('donations-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'donations' },
+                () => { fetchDonations(); }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [fetchDonations]);
 
     // Active church name for display
     const activeChurchName = isChurchStaff
