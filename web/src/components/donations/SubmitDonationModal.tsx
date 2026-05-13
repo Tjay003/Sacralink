@@ -89,6 +89,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
     const [loading, setLoading] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [showAsSupporter, setShowAsSupporter] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // ── Validation helpers ─────────────────────────────────────
@@ -159,6 +160,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
             amount: parseFloat(amount),
             referenceNumber: referenceNumber.trim(),
             proofFile: proofFile!,
+            showAsSupporter,
         });
 
         if (error) {
@@ -380,6 +382,21 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                                 )}
                                 {proofErr && <FieldError msg={proofErr} />}
                             </div>
+
+                            {/* Supporter opt-in */}
+                            <label className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/10 cursor-pointer transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showAsSupporter}
+                                    onChange={(e) => setShowAsSupporter(e.target.checked)}
+                                    disabled={loading}
+                                    className="mt-0.5 w-4 h-4 rounded accent-primary flex-shrink-0"
+                                />
+                                <div>
+                                    <p className="text-sm font-medium">Show my name as a supporter</p>
+                                    <p className="text-xs text-muted mt-0.5">Your name will appear on this church's supporters section. Your donation amount will never be shown publicly.</p>
+                                </div>
+                            </label>
 
                             {/* Actions */}
                             <div className="flex gap-3 pt-2">

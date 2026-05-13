@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, CheckCircle, XCircle, User, Hash, Calendar, Eye } from 'lucide-react';
+import { X, CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
+import { createNotification } from '../../lib/supabase/notifications';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DonationDetailModalProps {
@@ -28,6 +29,15 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
             setLoading(false);
             return;
         }
+        // Send thank-you notification to the donor
+        const churchName = (donation.church as any)?.name || 'the church';
+        await createNotification({
+            userId: donation.user_id,
+            type: 'donation_verified',
+            title: 'Thank you for your donation! 🙏',
+            message: `Your donation to ${churchName} has been received and verified. God bless you!`,
+            link: '/profile',
+        });
         onUpdated();
         onClose();
     };
@@ -120,6 +130,18 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                                     {donation.reference_number || 'N/A'}
                                 </p>
                             </div>
+                        </div>
+
+                        {/* Supporter opt-in indicator */}
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                            donation.show_as_supporter
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-muted/10 text-muted'
+                        }`}>
+                            <Heart className={`w-4 h-4 flex-shrink-0 ${donation.show_as_supporter ? 'fill-rose-400 text-rose-400' : ''}`} />
+                            {donation.show_as_supporter
+                                ? 'Donor opted in to appear as a supporter'
+                                : 'Donor preferred to remain anonymous'}
                         </div>
 
                         {/* Proof Screenshot */}

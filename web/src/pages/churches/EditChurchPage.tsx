@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
-import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode } from 'lucide-react';
+import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode, Star } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -88,6 +88,7 @@ export default function EditChurchPage() {
                 maya_number: church.maya_number || '',
                 gcash_qr_url: (church as any).gcash_qr_url || '',
                 maya_qr_url: (church as any).maya_qr_url || '',
+                featured_image_url: church.featured_image_url || '',
             });
         }
     }, [church]);
@@ -207,6 +208,7 @@ export default function EditChurchPage() {
                     maya_number: formData.maya_number.trim() || null,
                     gcash_qr_url: formData.gcash_qr_url.trim() || null,
                     maya_qr_url: formData.maya_qr_url.trim() || null,
+                    featured_image_url: formData.featured_image_url?.trim() || null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', id);
@@ -567,33 +569,65 @@ export default function EditChurchPage() {
                             <ImageIcon className="w-5 h-5 text-primary" />
                             <h3 className="text-lg font-semibold">Church Gallery</h3>
                         </div>
+                        <p className="text-sm text-muted mb-6">Upload photos to the gallery and choose one to feature on the church's card.</p>
 
                         {/* Existing Images */}
                         {galleryImages.length > 0 && (
                             <div className="mb-6">
                                 <h4 className="text-sm font-medium mb-3">Current Images ({galleryImages.length})</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {galleryImages.map((img: any) => (
-                                        <div key={img.id} className="relative group">
-                                            <img
-                                                src={img.image_url}
-                                                alt="Church"
-                                                className="w-full h-32 object-cover rounded-lg"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={async () => {
-                                                    if (confirm('Delete this image?')) {
-                                                        await supabase.from('church_images').delete().eq('id', img.id);
-                                                        fetchGallery();
-                                                    }
-                                                }}
-                                                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
+                                    {galleryImages.map((img: any) => {
+                                        const isFeatured = formData.featured_image_url === img.image_url;
+                                        return (
+                                            <div key={img.id} className={`relative group rounded-lg overflow-hidden border-2 transition-all ${isFeatured ? 'border-amber-400 shadow-md ring-2 ring-amber-400/20' : 'border-transparent hover:border-border'}`}>
+                                                <img
+                                                    src={img.image_url}
+                                                    alt="Church"
+                                                    className="w-full h-32 object-cover"
+                                                />
+                                                
+                                                {/* Featured Badge */}
+                                                {isFeatured && (
+                                                    <div className="absolute top-0 left-0 bg-amber-400 text-white px-2 py-1 text-[10px] font-bold rounded-br-lg shadow-sm flex items-center gap-1">
+                                                        <Star className="w-3 h-3 fill-white" />
+                                                        FEATURED
+                                                    </div>
+                                                )}
+
+                                                <div className="absolute top-2 right-2 flex flex-col gap-2">
+                                                    {/* Delete Button */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            if (confirm('Delete this image?')) {
+                                                                await supabase.from('church_images').delete().eq('id', img.id);
+                                                                if (isFeatured) {
+                                                                    setFormData(prev => ({ ...prev, featured_image_url: '' }));
+                                                                }
+                                                                fetchGallery();
+                                                            }
+                                                        }}
+                                                        className="bg-red-500/90 hover:bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm backdrop-blur-md"
+                                                        title="Delete image"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
+                                                    
+                                                    {/* Set Featured Button */}
+                                                    {!isFeatured && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({ ...prev, featured_image_url: img.image_url }))}
+                                                            className="bg-gray-900/60 hover:bg-amber-400 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm backdrop-blur-md"
+                                                            title="Set as featured image"
+                                                        >
+                                                            <Star className="w-4 h-4 hover:fill-white" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

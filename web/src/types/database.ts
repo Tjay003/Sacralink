@@ -354,6 +354,7 @@ export type Database = {
           donation_qr_url: string | null
           email: string | null
           facebook_url: string | null
+          featured_image_url: string | null
           gcash_number: string | null
           gcash_qr_url: string | null
           id: string
@@ -377,6 +378,7 @@ export type Database = {
           donation_qr_url?: string | null
           email?: string | null
           facebook_url?: string | null
+          featured_image_url?: string | null
           gcash_number?: string | null
           gcash_qr_url?: string | null
           id?: string
@@ -400,6 +402,7 @@ export type Database = {
           donation_qr_url?: string | null
           email?: string | null
           facebook_url?: string | null
+          featured_image_url?: string | null
           gcash_number?: string | null
           gcash_qr_url?: string | null
           id?: string
@@ -426,6 +429,7 @@ export type Database = {
           notes: string | null
           proof_url: string | null
           reference_number: string | null
+          show_as_supporter: boolean
           status: Database["public"]["Enums"]["donation_status"] | null
           user_id: string
           verified_at: string | null
@@ -439,6 +443,7 @@ export type Database = {
           notes?: string | null
           proof_url?: string | null
           reference_number?: string | null
+          show_as_supporter?: boolean
           status?: Database["public"]["Enums"]["donation_status"] | null
           user_id: string
           verified_at?: string | null
@@ -452,6 +457,7 @@ export type Database = {
           notes?: string | null
           proof_url?: string | null
           reference_number?: string | null
+          show_as_supporter?: boolean
           status?: Database["public"]["Enums"]["donation_status"] | null
           user_id?: string
           verified_at?: string | null

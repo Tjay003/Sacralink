@@ -263,6 +263,24 @@ export default function ProfilePage() {
                         </div>
                     </div>
 
+                    {/* Benefactor Badge — shown when user has at least 1 verified donation */}
+                    {donations.some(d => d.status === 'verified') && (
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-rose-50 rounded-lg">
+                                <Heart className="w-5 h-5 text-rose-500 fill-rose-300" />
+                            </div>
+                            <div className="flex-1">
+                                <label className="text-sm font-medium text-muted">Recognition</label>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold">
+                                        🤍 Benefactor
+                                    </span>
+                                    <span className="text-xs text-muted">Thank you for your generosity!</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Member Since (Read-only) */}
                     <div className="flex items-start gap-3">
                         <div className="p-2 bg-gray-50 rounded-lg">

@@ -173,8 +173,10 @@ export default function ChurchDetailPage() {
                 </button>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4 w-full">
-                        <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                            <Building2 className="w-8 h-8 text-primary" />
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center shrink-0">
+                            {church.featured_image_url
+                                ? <img src={church.featured_image_url} alt={church.name} className="w-full h-full object-cover" />
+                                : <Building2 className="w-8 h-8 text-primary" />}
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-2xl font-bold truncate">{church.name}</h1>

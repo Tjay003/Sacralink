@@ -9,6 +9,7 @@ export interface Donation {
     reference_number: string | null;
     proof_url: string | null;
     status: 'pending' | 'verified' | 'rejected';
+    show_as_supporter: boolean;
     verified_by: string | null;
     verified_at: string | null;
     notes: string | null;
@@ -27,11 +28,13 @@ export async function submitDonation({
     amount,
     referenceNumber,
     proofFile,
+    showAsSupporter = false,
 }: {
     churchId: string;
     amount: number;
     referenceNumber: string;
     proofFile: File;
+    showAsSupporter?: boolean;
 }) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -64,6 +67,7 @@ export async function submitDonation({
                 reference_number: referenceNumber,
                 proof_url: proofUrl,
                 status: 'pending',
+                show_as_supporter: showAsSupporter,
             })
             .select()
             .single();
