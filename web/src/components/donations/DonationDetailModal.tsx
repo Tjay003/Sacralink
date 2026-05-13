@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
 import { createNotification } from '../../lib/supabase/notifications';
@@ -65,10 +66,10 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
         rejected: 'bg-red-100 text-red-700',
     };
 
-    return (
+    return createPortal(
         <>
-            <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                 <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto">
                     {/* Header */}
                     <div className="flex items-center justify-between p-6 border-b border-border">
@@ -229,6 +230,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                     </div>
                 </div>
             </div>
-        </>
+        </>,
+        document.body
     );
 }

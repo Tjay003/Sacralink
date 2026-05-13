@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { directUpdateProfile } from '../../lib/directApi';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
@@ -87,16 +88,16 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
         }
     };
 
-    return (
+    return createPortal(
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 z-[60]"
+                className="fixed inset-0 bg-black/50 z-[9998]"
                 onClick={onClose}
             />
 
             {/* Modal */}
-            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                 <div className="card p-6 max-w-md w-full">
                     <h2 className="text-xl font-bold mb-4">Edit User Access</h2>
 
@@ -197,6 +198,7 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                     </form>
                 </div>
             </div>
-        </>
+        </>,
+        document.body
     );
 }

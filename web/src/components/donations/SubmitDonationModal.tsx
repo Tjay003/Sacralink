@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Heart, Upload, ImageIcon, CheckCircle, QrCode, AlertCircle } from 'lucide-react';
 import { submitDonation } from '../../lib/supabase/donations';
 import qrSample from '../../assets/qrPh/qr Sample.png';
@@ -176,10 +177,10 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
 
     // ── Success screen ─────────────────────────────────────────
     if (submitted) {
-        return (
+        return createPortal(
             <>
-                <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     <div className="card p-8 max-w-sm w-full text-center">
                         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <CheckCircle className="w-10 h-10 text-green-600" />
@@ -191,7 +192,8 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                         </p>
                     </div>
                 </div>
-            </>
+            </>,
+            document.body
         );
     }
 
@@ -202,10 +204,10 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
     const activeColor = activeTab === 'gcash' ? 'text-blue-500' : 'text-green-500';
     const activeBgTab = activeTab === 'gcash' ? 'bg-blue-500' : 'bg-green-500';
 
-    return (
+    return createPortal(
         <>
-            <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                 <div className="card max-w-md w-full max-h-[92vh] overflow-y-auto">
 
                     {/* Header */}
@@ -433,6 +435,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                     </div>
                 </div>
             </div>
-        </>
+        </>,
+        document.body
     );
 }

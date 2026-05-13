@@ -115,9 +115,9 @@ export const featureFlags: FeatureFlags = {
         description: 'Sacrament booking and management',
     },
 
-    // Donations feature (Phase 5 - not started)
+    // Donations feature (Phase 5 - completed)
     donations: {
-        enabled: !isDemoMode,
+        enabled: true, // Always visible - feature is complete
         label: 'Donations',
         description: 'Cashless donation verification system',
     },
