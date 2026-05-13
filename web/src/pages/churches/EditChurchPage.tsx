@@ -63,6 +63,7 @@ export default function EditChurchPage() {
         maya_number: '',
         gcash_qr_url: '',
         maya_qr_url: '',
+        featured_image_url: '',
     });
 
     const [uploadingQr, setUploadingQr] = useState(false);

@@ -46,6 +46,7 @@ export default function ChurchDetailPage() {
     const [showDonateModal, setShowDonateModal] = useState(false);
     const [recentDonors, setRecentDonors] = useState<{ id: string; maskedName: string; created_at: string | null }[]>([]);
     const [deletingAnnouncement, setDeletingAnnouncement] = useState(false);
+    const [supporters, setSupporters] = useState<{ id: string; full_name: string | null }[]>([]);
 
     // Fetch church announcements
     const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
@@ -114,6 +115,29 @@ export default function ChurchDetailPage() {
         };
 
         fetchGallery();
+    }, [id]);
+
+    // Fetch opted-in supporters
+    useEffect(() => {
+        const fetchSupporters = async () => {
+            if (!id) return;
+            const { data } = await supabase
+                .from('donations')
+                .select('user_id, profiles!donations_user_id_fkey(id, full_name)')
+                .eq('church_id', id)
+                .eq('status', 'verified')
+                .eq('show_as_supporter', true);
+
+            if (data) {
+                // Deduplicate by user_id
+                const seen = new Set<string>();
+                const unique = data
+                    .filter((d: any) => d.profiles && !seen.has(d.user_id) && seen.add(d.user_id))
+                    .map((d: any) => ({ id: d.user_id, full_name: d.profiles?.full_name || 'Anonymous' }));
+                setSupporters(unique);
+            }
+        };
+        fetchSupporters();
     }, [id]);
 
     // Format time from 24hr to 12hr
@@ -573,6 +597,31 @@ export default function ChurchDetailPage() {
                     />
                 )}
             </div>
+
+            {/* Church Supporters */}
+            {supporters.length > 0 && (
+                <div className="card p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Heart className="w-5 h-5 text-rose-500 fill-rose-300" />
+                        <h2 className="text-lg font-semibold">Church Supporters</h2>
+                        <span className="ml-auto text-xs text-muted bg-muted/10 px-2 py-0.5 rounded-full">
+                            {supporters.length} {supporters.length === 1 ? 'supporter' : 'supporters'}
+                        </span>
+                    </div>
+                    <p className="text-sm text-muted mb-4">These parishioners have generously supported this church.</p>
+                    <div className="flex flex-wrap gap-2">
+                        {supporters.map((s) => (
+                            <span
+                                key={s.id}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-sm font-medium border border-rose-100"
+                            >
+                                <Heart className="w-3 h-3 fill-rose-300 text-rose-400" />
+                                {s.full_name}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Metadata */}
             <div className="card p-6">
