@@ -10,7 +10,6 @@ import { SystemAnnouncementsBanner } from '../../components/announcements';
 import { Calendar, Clock, MapPin, PlusCircle, BarChart3, Church } from 'lucide-react';
 import { format } from 'date-fns';
 import { dashboardConfig, isFeatureEnabled } from '../../config/featureFlags';
-import { mockTrendData } from '../../config/mockData';
 import { useChurches } from '../../hooks/useChurches';
 
 interface Appointment {
@@ -148,9 +147,9 @@ export default function UserDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <StatCard
                             title="Upcoming Appointments"
-                            value={dashboardConfig.useMockData ? mockTrendData.userUpcoming.value : upcomingCount}
+                            value={upcomingCount}
                             icon={Calendar}
-                            trend={mockTrendData.userUpcoming.trend}
+                            trend={undefined}
                             iconBgColor="bg-blue-100"
                             iconColor="text-blue-600"
                             gradientFrom="from-blue-600"
@@ -160,9 +159,9 @@ export default function UserDashboard() {
 
                         <StatCard
                             title="Pending Requests"
-                            value={dashboardConfig.useMockData ? mockTrendData.userPending.value : pendingCount}
+                            value={pendingCount}
                             icon={Clock}
-                            trend={mockTrendData.userPending.trend}
+                            trend={undefined}
                             iconBgColor="bg-yellow-100"
                             iconColor="text-yellow-600"
                             gradientFrom="from-blue-600"
@@ -172,9 +171,9 @@ export default function UserDashboard() {
 
                         <StatCard
                             title="Total Bookings"
-                            value={dashboardConfig.useMockData ? mockTrendData.userTotalBookings.value : appointments.length}
+                            value={appointments.length}
                             icon={BarChart3}
-                            trend={mockTrendData.userTotalBookings.trend}
+                            trend={undefined}
                             iconBgColor="bg-emerald-100"
                             iconColor="text-emerald-600"
                             gradientFrom="from-blue-600"

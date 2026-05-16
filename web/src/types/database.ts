@@ -245,30 +245,36 @@ export type Database = {
         Row: {
           church_id: string
           content: string
+          category: 'general' | 'mass_schedule' | 'event' | 'emergency' | 'reminder'
           created_at: string | null
           created_by: string | null
           id: string
           is_pinned: boolean | null
+          scheduled_at: string | null
           title: string
           updated_at: string | null
         }
         Insert: {
           church_id: string
           content: string
+          category?: 'general' | 'mass_schedule' | 'event' | 'emergency' | 'reminder'
           created_at?: string | null
           created_by?: string | null
           id?: string
           is_pinned?: boolean | null
+          scheduled_at?: string | null
           title: string
           updated_at?: string | null
         }
         Update: {
           church_id?: string
           content?: string
+          category?: 'general' | 'mass_schedule' | 'event' | 'emergency' | 'reminder'
           created_at?: string | null
           created_by?: string | null
           id?: string
           is_pinned?: boolean | null
+          scheduled_at?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -290,6 +296,42 @@ export type Database = {
           {
             foreignKeyName: "church_announcements_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      church_favorites: {
+        Row: {
+          id: string
+          user_id: string
+          church_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          church_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          church_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_favorites_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "church_favorites_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

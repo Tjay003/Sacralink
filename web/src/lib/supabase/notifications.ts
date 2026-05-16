@@ -262,3 +262,40 @@ export async function notifyDonorOfDonationStatus(
         link: '/profile',
     });
 }
+
+/**
+ * Notify all followers of a church when a new announcement is posted.
+ * Called by AnnouncementForm after a successful church announcement insert.
+ */
+export async function notifyFollowersOfAnnouncement(
+    churchId: string,
+    churchName: string,
+    announcementId: string,
+    announcementTitle: string
+) {
+    try {
+        const { getChurchFollowerIds } = await import('./churchFavorites');
+        const followerIds = await getChurchFollowerIds(churchId);
+
+        if (followerIds.length === 0) return;
+
+        const link = `/churches/${churchId}?announcement=${announcementId}`;
+
+        await Promise.all(
+            followerIds.map((userId) =>
+                createNotification({
+                    userId,
+                    type: 'church_announcement',
+                    title: `📢 New announcement from ${churchName}`,
+                    message: announcementTitle,
+                    link,
+                })
+            )
+        );
+
+        console.log(`✅ Notified ${followerIds.length} followers of ${churchName}`);
+    } catch (err) {
+        console.error('❌ Error notifying followers of announcement:', err);
+    }
+}
+

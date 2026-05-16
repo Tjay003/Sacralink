@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck } from 'lucide-react';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,6 +19,7 @@ import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
 import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
 import ChurchChatbot from '../../components/ai/ChurchChatbot';
+import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -47,6 +48,30 @@ export default function ChurchDetailPage() {
     const [recentDonors, setRecentDonors] = useState<{ id: string; maskedName: string; created_at: string | null }[]>([]);
     const [deletingAnnouncement, setDeletingAnnouncement] = useState(false);
     const [supporters, setSupporters] = useState<{ id: string; full_name: string | null }[]>([]);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
+    const [searchParams] = useSearchParams();
+    const deepLinkAnnouncementId = searchParams.get('announcement');
+
+    // Load follow state + check for ?announcement= deep link
+    useEffect(() => {
+        if (id && profile) {
+            isChurchFollowed(id).then(setIsFollowing);
+        }
+    }, [id, profile]);
+
+    const handleFollowToggle = async () => {
+        if (!id || !profile) return;
+        setFollowLoading(true);
+        if (isFollowing) {
+            await unfollowChurch(id);
+            setIsFollowing(false);
+        } else {
+            await followChurch(id);
+            setIsFollowing(true);
+        }
+        setFollowLoading(false);
+    };
 
     // Fetch church announcements
     const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
@@ -231,6 +256,25 @@ export default function ChurchDetailPage() {
                             >
                                 <Heart className="w-4 h-4 shrink-0" />
                                 <span className="text-xs">Donate</span>
+                            </button>
+                        )}
+
+                        {/* Follow / Unfollow button — for regular users */}
+                        {profile && (
+                            <button
+                                onClick={handleFollowToggle}
+                                disabled={followLoading}
+                                title={isFollowing ? 'Unfollow this church' : 'Follow to get notified of announcements'}
+                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all border ${
+                                    isFollowing
+                                        ? 'bg-primary text-white border-primary hover:bg-primary/90'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-primary hover:text-primary'
+                                } disabled:opacity-60`}
+                            >
+                                {isFollowing
+                                    ? <BookmarkCheck className="w-4 h-4 shrink-0" />
+                                    : <Bookmark className="w-4 h-4 shrink-0" />}
+                                <span className="text-xs">{isFollowing ? 'Following' : 'Follow'}</span>
                             </button>
                         )}
 
@@ -577,7 +621,7 @@ export default function ChurchDetailPage() {
                 </div>
 
                 {announcementsLoading ? (
-                    <div className="text-center py-8">
+                    <div className="card p-6 text-center">
                         <p className="text-muted">Loading announcements...</p>
                     </div>
                 ) : (
@@ -586,6 +630,7 @@ export default function ChurchDetailPage() {
                         type="church"
                         showActions={canManage()}
                         emptyMessage="No announcements have been posted yet. Check back later for updates!"
+                        initialOpenId={deepLinkAnnouncementId ?? undefined}
                         onEdit={(announcement) => {
                             setEditingAnnouncement(announcement as ChurchAnnouncement);
                             setShowAnnouncementForm(true);
@@ -593,7 +638,6 @@ export default function ChurchDetailPage() {
                         onDelete={(announcement) => {
                             setDeleteConfirmation({ show: true, announcement: announcement as ChurchAnnouncement });
                         }}
-
                     />
                 )}
             </div>
@@ -679,6 +723,7 @@ export default function ChurchDetailPage() {
                 <AnnouncementForm
                     type="church"
                     churchId={id!}
+                    churchName={church?.name}
                     announcement={editingAnnouncement || undefined}
                     onSuccess={() => {
                         setShowAnnouncementForm(false);

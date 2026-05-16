@@ -183,13 +183,15 @@ export const isFeatureEnabled = (feature: keyof FeatureFlags): boolean => {
 
 // Dashboard Configuration - Controls mock data and UI elements
 export const dashboardConfig = {
-    // Toggle between real database data and mock data for demos
-    useMockData: isDemoMode,  // true = use mock data, false = fetch real data from Supabase
+    // Toggle between real database data and mock data for demos.
+    // NOTE: This only affects the Super Admin / Admin dashboards.
+    // The User Dashboard always fetches real data from Supabase regardless of this flag.
+    useMockData: isDemoMode,  // true = use mock data (admin dashboards only), false = real data
 
-    // Show/hide quick actions section on dashboard
+    // Show/hide quick actions section on user dashboard
     showQuickActions: !isDemoMode,   // true when demo mode OFF, false when demo mode ON
 
-    // Mock data values (only used when useMockData = true)
+    // Mock data values (only used by admin dashboards when useMockData = true)
     // Customize these values for your demo presentations
     mockData: {
         totalUsers: 150,

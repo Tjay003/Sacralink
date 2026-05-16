@@ -1,4 +1,5 @@
-import { Pin, Edit, Trash2, Building2, Calendar } from 'lucide-react';
+import { Pin, Edit, Trash2, Building2, Calendar, Megaphone, Church, CalendarDays, AlertTriangle, Bell, Clock } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ChurchAnnouncement, SystemAnnouncement } from '../../types/database';
 
 interface AnnouncementCardProps {
@@ -6,6 +7,7 @@ interface AnnouncementCardProps {
     type: 'church' | 'system';
     onEdit?: () => void;
     onDelete?: () => void;
+    onView?: () => void;
     showActions?: boolean;
 }
 
@@ -24,6 +26,7 @@ export default function AnnouncementCard({
     type,
     onEdit,
     onDelete,
+    onView,
     showActions = false
 }: AnnouncementCardProps) {
     const isChurchAnnouncement = type === 'church';
@@ -76,12 +79,38 @@ export default function AnnouncementCard({
         );
     };
 
+    // Category badge for church announcements
+    const CATEGORY_STYLES: Record<string, { icon: LucideIcon; class: string; border: string }> = {
+        general:      { icon: Megaphone,     class: 'bg-gray-100 text-gray-700 border-gray-200',     border: 'border-gray-400' },
+        mass_schedule:{ icon: Church,        class: 'bg-blue-100 text-blue-700 border-blue-200',     border: 'border-blue-500' },
+        event:        { icon: CalendarDays,  class: 'bg-purple-100 text-purple-700 border-purple-200', border: 'border-purple-500' },
+        emergency:    { icon: AlertTriangle, class: 'bg-red-100 text-red-700 border-red-200',         border: 'border-red-500' },
+        reminder:     { icon: Bell,          class: 'bg-amber-100 text-amber-700 border-amber-200',   border: 'border-amber-500' },
+    };
+
+    const category = (churchAnn as any).category || 'general';
+    const catStyle = CATEGORY_STYLES[category] || CATEGORY_STYLES.general;
+    const CatIcon = catStyle.icon;
+
+    const getCategoryBadge = () => {
+        if (!isChurchAnnouncement) return null;
+        return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${catStyle.class}`}>
+                <CatIcon className="w-3 h-3" />
+                {category.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+            </span>
+        );
+    };
+
     return (
-        <div className={`card p-4 ${isChurchAnnouncement ? 'border-l-4 border-primary' : 'border-l-4 border-blue-500'}`}>
+        <div className={`card p-4 border-l-4 ${isChurchAnnouncement ? catStyle.border : 'border-blue-500'}`}>
             {/* Header */}
             <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {/* Category badge (church only) */}
+                        {isChurchAnnouncement && getCategoryBadge()}
+
                         {/* Title */}
                         <h3 className="text-lg font-semibold">{announcement.title}</h3>
 
@@ -136,21 +165,41 @@ export default function AnnouncementCard({
                 )}
             </div>
 
-            {/* Content */}
+            {/* Content — truncated, full text via modal */}
             <div className="prose prose-sm max-w-none">
-                <p className="text-foreground whitespace-pre-wrap">{announcement.content}</p>
+                <p className="text-foreground whitespace-pre-wrap line-clamp-3">{announcement.content}</p>
             </div>
+
+            {/* Read more button */}
+            {onView && (
+                <button
+                    onClick={onView}
+                    className="mt-2 text-xs font-medium text-primary hover:underline"
+                >
+                    Read more →
+                </button>
+            )}
+
+            {/* Scheduled notice */}
+            {isChurchAnnouncement && (churchAnn as any).scheduled_at && new Date((churchAnn as any).scheduled_at) > new Date() && (
+                <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Scheduled: {new Date((churchAnn as any).scheduled_at).toLocaleString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                        })}
+                    </p>
+                </div>
+            )}
 
             {/* Expiration notice for system announcements */}
             {type === 'system' && systemAnn.expires_at && (
                 <div className="mt-3 pt-3 border-t border-border">
                     <p className="text-xs text-muted">
                         Expires: {new Date(systemAnn.expires_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
+                            month: 'short', day: 'numeric', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
                         })}
                     </p>
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../lib/supabase/notifications';
 import { supabase } from '../../lib/supabase';
@@ -118,6 +118,7 @@ export default function NotificationBell() {
             case 'document_submitted': return <Paperclip className="w-4 h-4 text-purple-500" />;
             case 'donation_verified': return <Leaf className="w-4 h-4 text-emerald-500" />;
             case 'donation_rejected': return <XCircle className="w-4 h-4 text-red-500" />;
+            case 'church_announcement': return <Megaphone className="w-4 h-4 text-blue-500" />;
             default: return <Bell className="w-4 h-4 text-gray-400" />;
         }
     };
