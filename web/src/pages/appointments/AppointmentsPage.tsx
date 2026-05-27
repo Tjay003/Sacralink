@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { notifyUserOfStatusChange } from '../../lib/supabase/notifications';
 import { useAuth } from '../../contexts/AuthContext';
@@ -33,7 +33,13 @@ export default function AppointmentsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterSacrament, setFilterSacrament] = useState<string>('all');
+    const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+    const [filterDateTo, setFilterDateTo] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const [viewingDocumentsFor, setViewingDocumentsFor] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
 
     // Confirmation modal state
     const [confirmModal, setConfirmModal] = useState<{
@@ -140,9 +146,48 @@ export default function AppointmentsPage() {
         }
     };
 
-    const filteredAppointments = filterStatus === 'all'
-        ? appointments
-        : appointments.filter(app => app.status === filterStatus);
+    const filteredAppointments = appointments.filter(app => {
+        // Status filter
+        if (filterStatus !== 'all' && app.status !== filterStatus) return false;
+        // Sacrament type filter
+        if (filterSacrament !== 'all' && app.service_type !== filterSacrament) return false;
+        // Date from filter
+        if (filterDateFrom && app.appointment_date && app.appointment_date < filterDateFrom) return false;
+        // Date to filter
+        if (filterDateTo && app.appointment_date && app.appointment_date > filterDateTo) return false;
+        // Search by parishioner name
+        if (searchQuery) {
+            const name = app.profile?.full_name?.toLowerCase() || '';
+            if (!name.includes(searchQuery.toLowerCase())) return false;
+        }
+        return true;
+    });
+
+    const paginatedAppointments = filteredAppointments.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
+    const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+
+    const resetToPage1 = () => setCurrentPage(1);
+
+    const activeFilterCount = [
+        filterStatus !== 'all',
+        filterSacrament !== 'all',
+        filterDateFrom !== '',
+        filterDateTo !== '',
+        searchQuery !== '',
+    ].filter(Boolean).length;
+
+    const clearAllFilters = () => {
+        setFilterStatus('all');
+        setFilterSacrament('all');
+        setFilterDateFrom('');
+        setFilterDateTo('');
+        setSearchQuery('');
+        setCurrentPage(1);
+    };
 
     if (loading) {
         return (
@@ -154,23 +199,116 @@ export default function AppointmentsPage() {
 
     return (
         <div className="space-y-6">
+            {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold">{canManageAppointments ? 'Manage Appointments' : 'My Appointments'}</h1>
-                    <p className="text-gray-500">{canManageAppointments ? 'Manage sacramental requests' : 'View status of your requests'}</p>
+                    <p className="text-muted">{canManageAppointments ? 'Manage sacramental requests' : 'View status of your requests'}</p>
                 </div>
-                <div className="flex gap-2">
-                    <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                        className="input-field w-auto"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
-                    </select>
+                <div className="text-sm text-muted">
+                    Total: <span className="font-semibold text-foreground">{appointments.length}</span>
                 </div>
+            </div>
+
+            {/* Filters */}
+            <div className="card p-4">
+                {/* Row 1: Search + Status + Sacrament Type */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Search by name — admins only */}
+                    {canManageAppointments && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Search Parishioner</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name..."
+                                    value={searchQuery}
+                                    onChange={(e) => { setSearchQuery(e.target.value); resetToPage1(); }}
+                                    className="input w-full"
+                                    style={{ paddingLeft: '2.25rem' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Status filter */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Status</label>
+                        <select
+                            value={filterStatus}
+                            onChange={(e) => { setFilterStatus(e.target.value); resetToPage1(); }}
+                            className="input w-full"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="rescheduled">Rescheduled</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    {/* Sacrament type filter */}
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Sacrament Type</label>
+                        <select
+                            value={filterSacrament}
+                            onChange={(e) => { setFilterSacrament(e.target.value); resetToPage1(); }}
+                            className="input w-full"
+                        >
+                            <option value="all">All Types</option>
+                            <option value="baptism">Baptism</option>
+                            <option value="wedding">Wedding</option>
+                            <option value="funeral">Funeral</option>
+                            <option value="confirmation">Confirmation</option>
+                            <option value="counseling">Counseling</option>
+                            <option value="mass_intention">Mass Intention</option>
+                            <option value="confession">Confession</option>
+                            <option value="anointing">Anointing</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Row 2: Date Range — each date gets its own full column */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Date From</label>
+                        <input
+                            type="date"
+                            value={filterDateFrom}
+                            onChange={(e) => { setFilterDateFrom(e.target.value); resetToPage1(); }}
+                            className="input w-full"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-2">Date To</label>
+                        <input
+                            type="date"
+                            value={filterDateTo}
+                            onChange={(e) => { setFilterDateTo(e.target.value); resetToPage1(); }}
+                            className="input w-full"
+                        />
+                    </div>
+                </div>
+
+                {/* Active filter summary + clear */}
+                {activeFilterCount > 0 && (
+                    <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                        <span className="text-sm text-muted">
+                            <span className="inline-flex items-center justify-center w-5 h-5 bg-primary text-white text-xs rounded-full mr-1">{activeFilterCount}</span>
+                            filter{activeFilterCount > 1 ? 's' : ''} active &mdash; showing {filteredAppointments.length} of {appointments.length} appointments
+                        </span>
+                        <button
+                            onClick={clearAllFilters}
+                            className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Clear Filters
+                        </button>
+                    </div>
+                )}
             </div>
 
             {error && (
@@ -185,7 +323,7 @@ export default function AppointmentsPage() {
                         {canManageAppointments ? 'No appointments found.' : 'You have no appointment requests.'}
                     </div>
                 ) : (
-                    filteredAppointments.map((appointment) => (
+                    paginatedAppointments.map((appointment) => (
                         <div key={appointment.id} className="card p-4 flex flex-col md:flex-row justify-between gap-4">
                             <div className="space-y-2 flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -279,6 +417,63 @@ export default function AppointmentsPage() {
                     ))
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {filteredAppointments.length > 0 && (
+                <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="text-sm text-muted text-center sm:text-left">
+                        Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAppointments.length)} to{' '}
+                        {Math.min(currentPage * itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} appointments
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                        <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Previous
+                        </button>
+
+                        {(() => {
+                            const pages = [];
+                            const maxVisible = 5;
+
+                            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+                            if (endPage - startPage < maxVisible - 1) {
+                                startPage = Math.max(1, endPage - maxVisible + 1);
+                            }
+
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i)}
+                                        className={`px-3 py-1.5 text-sm border rounded-lg ${
+                                            currentPage === i
+                                                ? 'bg-primary text-white border-primary'
+                                                : 'border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {i}
+                                    </button>
+                                );
+                            }
+
+                            return pages;
+                        })()}
+
+                        <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage >= totalPages}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Document Viewer Modal */}
             {viewingDocumentsFor && (

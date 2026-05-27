@@ -28,6 +28,7 @@ interface FeatureFlags {
     churchAnnouncements: FeatureFlag;
     churchQuickLinks: FeatureFlag;
     churchRecentAppointments: FeatureFlag;
+    churchAiSync: FeatureFlag;
 
     // === SHARED FEATURES (All Roles) ===
     churches: FeatureFlag;
@@ -95,6 +96,13 @@ export const featureFlags: FeatureFlags = {
         enabled: true, // Always enabled
         label: 'Recent Appointments',
         description: 'Recent appointment bookings for the church',
+    },
+
+    // AI Parish Assistant Sync (Church Admin Dashboard) — hidden in demo mode
+    churchAiSync: {
+        enabled: !isDemoMode,
+        label: 'AI Parish Assistant Sync',
+        description: 'AI knowledge base sync widget on church admin dashboard',
     },
 
     // ========================================
