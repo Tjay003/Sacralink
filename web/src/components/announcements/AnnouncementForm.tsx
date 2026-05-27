@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { X, Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -161,9 +162,9 @@ export default function AnnouncementForm({
 
     const selectedCategory = CATEGORIES.find(c => c.value === formData.category) || CATEGORIES[0];
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border">
                     <h2 className="text-xl font-bold">
@@ -175,7 +176,9 @@ export default function AnnouncementForm({
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    {/* Scrollable fields */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-5">
                     {error && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                             <p className="text-sm text-red-600">{error}</p>
@@ -323,8 +326,10 @@ export default function AnnouncementForm({
                         );
                     })()}
 
-                    {/* Actions */}
-                    <div className="flex gap-3 pt-2 border-t border-gray-100">
+                    </div>
+
+                    {/* Sticky footer — always visible, never inside the scroll */}
+                    <div className="flex gap-3 p-4 border-t border-gray-100 bg-white shrink-0">
                         <button
                             type="button"
                             onClick={onCancel}
@@ -343,6 +348,7 @@ export default function AnnouncementForm({
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
