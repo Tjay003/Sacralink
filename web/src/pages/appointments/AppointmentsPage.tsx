@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { notifyUserOfStatusChange } from '../../lib/supabase/notifications';
 import { useAuth } from '../../contexts/AuthContext';
+import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 
 import type { Appointment as BaseAppointment } from '../../types/database';
@@ -39,7 +40,20 @@ export default function AppointmentsPage() {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [viewingDocumentsFor, setViewingDocumentsFor] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage] = useState(5);
+
+    // Church filter — admin/super_admin only
+    const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
+    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'volunteer';
+    const { churches } = useChurches();
+    const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
+
+    // Effective church for display badge
+    const activeChurchName = isChurchStaff
+        ? churches.find(c => c.id === profile?.assigned_church_id)?.name || 'Your Church'
+        : selectedChurchId === 'all'
+            ? 'All Churches'
+            : churches.find(c => c.id === selectedChurchId)?.name || 'Unknown';
 
     // Confirmation modal state
     const [confirmModal, setConfirmModal] = useState<{
@@ -147,6 +161,8 @@ export default function AppointmentsPage() {
     };
 
     const filteredAppointments = appointments.filter(app => {
+        // Church filter (admin/super_admin only — church staff already scoped by RLS)
+        if (isAdminRole && selectedChurchId !== 'all' && (app as any).church_id !== selectedChurchId) return false;
         // Status filter
         if (filterStatus !== 'all' && app.status !== filterStatus) return false;
         // Sacrament type filter
@@ -178,6 +194,7 @@ export default function AppointmentsPage() {
         filterDateFrom !== '',
         filterDateTo !== '',
         searchQuery !== '',
+        isAdminRole && selectedChurchId !== 'all',
     ].filter(Boolean).length;
 
     const clearAllFilters = () => {
@@ -186,6 +203,7 @@ export default function AppointmentsPage() {
         setFilterDateFrom('');
         setFilterDateTo('');
         setSearchQuery('');
+        if (isAdminRole) setSelectedChurchId('all');
         setCurrentPage(1);
     };
 
@@ -210,7 +228,42 @@ export default function AppointmentsPage() {
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* Church Selector — super_admin & admin only */}
+            {isAdminRole && (
+                <div className="card p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                            <Building2 className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-muted font-medium mb-1">Viewing Appointments For</p>
+                            <div className="relative">
+                                <select
+                                    value={selectedChurchId}
+                                    onChange={(e) => { setSelectedChurchId(e.target.value); resetToPage1(); }}
+                                    className="w-full appearance-none bg-muted/10 border border-border rounded-lg px-3 pr-8 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                                >
+                                    <option value="all">🌐 All Churches</option>
+                                    {churches.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Church Staff badge */}
+            {isChurchStaff && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/20 rounded-lg w-fit">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-primary">{activeChurchName}</span>
+                    <span className="text-xs text-muted">— Your assigned church</span>
+                </div>
+            )}
+
             <div className="card p-4">
                 {/* Row 1: Search + Status + Sacrament Type */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

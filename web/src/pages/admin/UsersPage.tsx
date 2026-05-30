@@ -75,13 +75,14 @@ export default function UsersPage() {
                 // Hide Super Admins and Admins
                 if (user.role === 'super_admin' || user.role === 'admin') return false;
 
-                // Show users if they are assigned to the same church
-                // OR if they are basic users/volunteers assigned to same church
-                // OR if they are unassigned users (no role OR user role, AND no assigned church)
+                // Show users assigned to the same church (volunteers, co-admins)
                 const isAssignedToMyChurch = user.assigned_church_id === currentUser.assigned_church_id;
-                const isUnassigned = (!user.role || user.role === 'user') && !user.assigned_church_id;
 
-                return isAssignedToMyChurch || isUnassigned;
+                // Always show regular users regardless of their church_id —
+                // church admins need to be able to find and promote any user to volunteer
+                const isRegularUser = !user.role || user.role === 'user';
+
+                return isAssignedToMyChurch || isRegularUser;
             });
         }
 
