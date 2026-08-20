@@ -12,7 +12,7 @@ export default function AuthTabs({ activeTab }: AuthTabsProps) {
     ] as const;
 
     return (
-        <div className="relative bg-muted/80 p-1.5 rounded-full w-full max-w-sm mx-auto flex items-center border border-border/50 shadow-inner backdrop-blur-sm">
+        <div className="relative bg-gray-100/90 dark:bg-muted/40 p-1.5 rounded-full w-full max-w-sm mx-auto flex items-center border border-gray-200/70 dark:border-border/40 shadow-inner backdrop-blur-sm">
             {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 return (
