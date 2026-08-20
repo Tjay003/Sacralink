@@ -85,10 +85,10 @@ export default function RegisterPage() {
     return (
         <AuthLayout>
             <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
                 className="w-full"
             >
                 <div className="flex flex-col items-center mb-4 sm:mb-6 space-y-2">
@@ -99,9 +99,9 @@ export default function RegisterPage() {
                     </div>
                 </div>
 
-                <div className="text-center mb-4 sm:mb-6 space-y-1 sm:space-y-2">
+                <div className="text-center mb-4 sm:mb-6 space-y-1 sm:space-y-2 min-h-[64px] flex flex-col justify-center">
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Create Account</h1>
-                    <p className="text-muted-foreground">Join SacraLink to manage your parish.</p>
+                    <p className="text-muted-foreground text-sm sm:text-base">Join SacraLink to manage your parish</p>
                 </div>
 
                 <div className="mb-4 sm:mb-6">
