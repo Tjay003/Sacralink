@@ -173,7 +173,7 @@ export const featureFlags: FeatureFlags = {
     socialAuth: {
         enabled: !isDemoMode, // Hidden in demo mode
         label: 'Social Authentication',
-        description: 'Google and Facebook login buttons',
+        description: 'Google login button',
     },
 
     // AI Parishioner Chatbot (Church Detail Page)

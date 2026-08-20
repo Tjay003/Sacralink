@@ -43,7 +43,7 @@ export default function PrivacyPage() {
                         </p>
                         <ul className="list-disc pl-6 space-y-2 mt-2">
                             <li>To provide, maintain, and secure our service.</li>
-                            <li>To manage your account and authenticate you (e.g., via Google or Facebook Login).</li>
+                            <li>To manage your account and authenticate you (e.g., via Google Login or Email).</li>
                             <li>To communicate with you regarding updates, support, and administrative messages.</li>
                         </ul>
                     </section>

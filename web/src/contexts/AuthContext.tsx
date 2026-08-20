@@ -30,7 +30,6 @@ interface AuthContextType {
     signIn: (email: string, password: string) => Promise<void>;
     signUp: (email: string, password: string, fullName: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
-    signInWithFacebook: () => Promise<void>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
 }
@@ -166,24 +165,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             provider: 'google',
             options: {
                 redirectTo: `${window.location.origin}/dashboard`,
-                scopes: 'https://www.googleapis.com/auth/userinfo.email',
+                scopes: 'email profile',
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',
                 },
-            },
-        });
-        if (error) throw error;
-    };
-
-    /**
-     * signInWithFacebook - Log in a user via Facebook OAuth
-     */
-    const signInWithFacebook = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'facebook',
-            options: {
-                redirectTo: `${window.location.origin}/dashboard`,
             },
         });
         if (error) throw error;
@@ -459,7 +445,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signIn,
                 signUp,
                 signInWithGoogle,
-                signInWithFacebook,
                 signOut,
                 refreshProfile,
             }}
