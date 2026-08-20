@@ -26,7 +26,6 @@ When `VITE_DEMO_MODE=true`, the following features are hidden (controlled via `f
 - ❌ **Recent Appointments** - Church admin dashboard widget
 - ❌ **Quick Links** - User dashboard quick actions
 - ❌ **Upcoming Appointments** - User dashboard widget
-- ❌ **Social Auth Buttons** - Google & Facebook login buttons
 
 ### ✅ Always Visible Features
 - ✅ **Dashboard** - Role-based dashboard (all roles)
@@ -38,6 +37,7 @@ When `VITE_DEMO_MODE=true`, the following features are hidden (controlled via `f
 - ✅ **Profile** - User profile & avatar management
 - ✅ **System Announcements** - Super admin broadcasts
 - ✅ **Daily Bible Verse** - User dashboard widget
+- ✅ **Social Auth** - Google login button
 
 ## How It Works
 

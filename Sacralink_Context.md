@@ -134,7 +134,7 @@ All authenticated routes are nested under `DashboardLayout`. Auth is handled by 
 | `donations` | ❌ | Hidden in demo |
 | `calendar` | ❌ | Hidden in demo |
 | `quickLinks` | ❌ | Hidden in demo |
-| `socialAuth` | ❌ | Google/FB login hidden in demo |
+| `socialAuth` | ✅ | Always enabled (Google sign in) |
 
 ---
 

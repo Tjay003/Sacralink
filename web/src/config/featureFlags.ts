@@ -171,7 +171,7 @@ export const featureFlags: FeatureFlags = {
 
     // Social Authentication (Login/Register)
     socialAuth: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // Always visible, even in demo mode
         label: 'Social Authentication',
         description: 'Google login button',
     },
