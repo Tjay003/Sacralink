@@ -1,37 +1,47 @@
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 interface AuthTabsProps {
     activeTab: 'login' | 'register';
 }
 
 export default function AuthTabs({ activeTab }: AuthTabsProps) {
+    const tabs = [
+        { id: 'login', label: 'Login', path: '/login' },
+        { id: 'register', label: 'Register', path: '/register' },
+    ] as const;
+
     return (
-        <div className="relative bg-gray-200 p-2 rounded-full w-full max-w-sm mx-auto flex isolate">
-            {/* Sliding Background Pill */}
-            <div
-                className="absolute top-2 bottom-2 w-[calc(50%-8px)] bg-white rounded-full shadow-sm transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-                style={{
-                    left: activeTab === 'login' ? '8px' : '50%'
-                }}
-            />
-
-            {/* Login Link */}
-            <Link
-                to="/login"
-                className={`relative z-10 flex-1 py-2.5 text-center text-sm font-medium transition-colors duration-300 ${activeTab === 'login' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-            >
-                Login
-            </Link>
-
-            {/* Register Link */}
-            <Link
-                to="/register"
-                className={`relative z-10 flex-1 py-2.5 text-center text-sm font-medium transition-colors duration-300 ${activeTab === 'register' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-            >
-                Register
-            </Link>
+        <div className="relative bg-muted/80 p-1.5 rounded-full w-full max-w-sm mx-auto flex items-center border border-border/50 shadow-inner backdrop-blur-sm">
+            {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                    <Link
+                        key={tab.id}
+                        to={tab.path}
+                        className={`relative flex-1 py-2 text-center text-sm font-semibold rounded-full transition-colors duration-200 select-none z-10 ${
+                            isActive
+                                ? 'text-foreground font-bold'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        {isActive && (
+                            <motion.div
+                                layoutId="activeAuthTabPill"
+                                transition={{
+                                    type: 'spring',
+                                    stiffness: 450,
+                                    damping: 35,
+                                    mass: 0.8,
+                                }}
+                                className="absolute inset-0 bg-background rounded-full shadow-md border border-border/40 -z-10"
+                            />
+                        )}
+                        <span className="relative z-10">{tab.label}</span>
+                    </Link>
+                );
+            })}
         </div>
     );
 }
+
