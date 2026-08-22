@@ -5,6 +5,7 @@ import { notifyUserOfStatusChange } from '../../lib/supabase/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
+import Modal from '../../components/ui/Modal';
 
 import type { Appointment as BaseAppointment } from '../../types/database';
 
@@ -538,9 +539,35 @@ export default function AppointmentsPage() {
             )}
 
             {/* Approve / Reject Confirmation Modal */}
-            {confirmModal?.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <Modal
+                isOpen={!!confirmModal?.open}
+                onClose={closeConfirmModal}
+                size="md"
+                footer={
+                    <div className="flex gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={closeConfirmModal}
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors shadow-sm"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleConfirm}
+                            className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors shadow-sm ${
+                                confirmModal?.newStatus === 'approved'
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-red-600 hover:bg-red-700'
+                            }`}
+                        >
+                            {confirmModal?.newStatus === 'approved' ? 'Yes, Approve' : 'Yes, Reject'}
+                        </button>
+                    </div>
+                }
+            >
+                {confirmModal && (
+                    <div className="text-center py-2">
                         {/* Icon */}
                         <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
                             confirmModal.newStatus === 'approved' ? 'bg-green-100' : 'bg-red-100'
@@ -552,12 +579,12 @@ export default function AppointmentsPage() {
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-lg font-semibold text-center text-foreground mb-1">
+                        <h3 className="text-xl font-bold text-foreground mb-2">
                             {confirmModal.newStatus === 'approved' ? 'Approve Appointment?' : 'Reject Appointment?'}
                         </h3>
 
                         {/* Body */}
-                        <p className="text-sm text-center text-gray-500 mb-6">
+                        <p className="text-sm text-muted leading-relaxed">
                             Are you sure you want to{' '}
                             <span className={`font-semibold ${
                                 confirmModal.newStatus === 'approved' ? 'text-green-600' : 'text-red-600'
@@ -566,32 +593,12 @@ export default function AppointmentsPage() {
                             </span>{' '}
                             the <span className="font-semibold text-foreground">{confirmModal.serviceType}</span> appointment?
                             {confirmModal.newStatus === 'rejected' && (
-                                <span className="block mt-1 text-red-500">This action will notify the parishioner.</span>
+                                <span className="block mt-1.5 text-red-500 text-xs">This action will notify the parishioner.</span>
                             )}
                         </p>
-
-                        {/* Actions */}
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={closeConfirmModal}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConfirm}
-                                className={`px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${
-                                    confirmModal.newStatus === 'approved'
-                                        ? 'bg-green-600 hover:bg-green-700'
-                                        : 'bg-red-600 hover:bg-red-700'
-                                }`}
-                            >
-                                {confirmModal.newStatus === 'approved' ? 'Yes, Approve' : 'Yes, Reject'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </div>
     );
 }

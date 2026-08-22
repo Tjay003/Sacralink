@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X, CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
+import Modal from '../ui/Modal';
+import { CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
 import { createNotification } from '../../lib/supabase/notifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -66,171 +66,209 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
         rejected: 'bg-red-100 text-red-700',
     };
 
-    return createPortal(
-        <>
-            <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto">
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-border">
-                        <h2 className="text-lg font-bold">Donation Details</h2>
-                        <button onClick={onClose} className="text-muted hover:text-foreground">
-                            <X className="w-5 h-5" />
-                        </button>
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={
+                <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                        <Heart className="w-5 h-5 text-primary" />
                     </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-foreground">Donation Details</h2>
+                        <p className="text-xs text-muted">Reference: {donation.reference_number || 'N/A'}</p>
+                    </div>
+                </div>
+            }
+            size="lg"
+        >
+            <div className="space-y-5">
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
 
-                    <div className="p-6 space-y-5">
-                        {error && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                                {error}
-                            </div>
-                        )}
+                {/* Status badge */}
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[donation.status || 'pending']}`}>
+                    <span className="capitalize">{donation.status}</span>
+                </div>
 
-                        {/* Status badge */}
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[donation.status || 'pending']}`}>
-                            <span className="capitalize">{donation.status}</span>
+                {/* Donor info */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-muted">
+                            <User className="w-3.5 h-3.5" />
+                            Donor
                         </div>
-
-                        {/* Donor info */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-1.5 text-xs text-muted">
-                                    <User className="w-3 h-3" />
-                                    Donor
-                                </div>
-                                <p className="font-semibold">{donorName}</p>
-                                <p className="text-xs text-muted">{donorEmail}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex items-center gap-1.5 text-xs text-muted">
-                                    <Calendar className="w-3 h-3" />
-                                    Submitted
-                                </div>
-                                <p className="font-semibold">
-                                    {donation.created_at
-                                        ? formatDistanceToNow(new Date(donation.created_at), { addSuffix: true })
-                                        : 'Unknown'}
-                                </p>
-                            </div>
+                        <p className="text-sm font-semibold text-foreground">{donorName}</p>
+                        {donorEmail && <p className="text-xs text-muted">{donorEmail}</p>}
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-muted">
+                            <Calendar className="w-3.5 h-3.5" />
+                            Submitted
                         </div>
+                        <p className="text-sm font-semibold text-foreground">
+                            {formatDistanceToNow(new Date(donation.created_at || Date.now()), { addSuffix: true })}
+                        </p>
+                    </div>
+                </div>
 
-                        {/* Amount + Reference */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-primary/5 rounded-xl">
-                                <p className="text-xs text-muted mb-1">Amount</p>
-                                <p className="text-2xl font-bold text-primary">
-                                    ₱{Number(donation.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                                </p>
-                            </div>
-                            <div className="p-4 bg-muted/10 rounded-xl">
-                                <div className="flex items-center gap-1 text-xs text-muted mb-1">
-                                    <Hash className="w-3 h-3" />
-                                    Reference No.
-                                </div>
-                                <p className="font-mono font-semibold text-sm break-all">
-                                    {donation.reference_number || 'N/A'}
-                                </p>
-                            </div>
-                        </div>
+                {/* Church info */}
+                {(donation.church as any)?.name && (
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted">Church</p>
+                        <p className="text-sm font-medium text-foreground">{(donation.church as any).name}</p>
+                    </div>
+                )}
 
-                        {/* Supporter opt-in indicator */}
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                            donation.show_as_supporter
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-muted/10 text-muted'
-                        }`}>
-                            <Heart className={`w-4 h-4 flex-shrink-0 ${donation.show_as_supporter ? 'fill-rose-400 text-rose-400' : ''}`} />
-                            {donation.show_as_supporter
-                                ? 'Donor opted in to appear as a supporter'
-                                : 'Donor preferred to remain anonymous'}
-                        </div>
-
-                        {/* Proof Screenshot */}
-                        {donation.proof_url && (
-                            <div>
-                                <p className="text-sm font-medium mb-2">Payment Proof</p>
-                                <div className="relative">
-                                    <img
-                                        src={donation.proof_url}
-                                        alt="Payment proof"
-                                        className={`w-full rounded-xl border border-border object-contain bg-muted/10 cursor-pointer transition-all ${fullImage ? 'max-h-[500px]' : 'max-h-48'
-                                            }`}
-                                        onClick={() => setFullImage(!fullImage)}
-                                    />
-                                    <button
-                                        onClick={() => setFullImage(!fullImage)}
-                                        className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"
-                                    >
-                                        <Eye className="w-3 h-3" />
-                                        {fullImage ? 'Collapse' : 'View Full'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Rejection note if rejected */}
-                        {donation.status === 'rejected' && donation.notes && (
-                            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-xs font-medium text-red-700 mb-1">Rejection Reason</p>
-                                <p className="text-sm text-red-600">{donation.notes}</p>
-                            </div>
-                        )}
-
-                        {/* Reject form */}
-                        {showRejectForm && (
-                            <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-                                <p className="text-sm font-medium text-red-700">Reason for Rejection</p>
-                                <textarea
-                                    value={rejectionNote}
-                                    onChange={(e) => setRejectionNote(e.target.value)}
-                                    className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
-                                    placeholder="e.g., Reference number doesn't match, screenshot unclear..."
-                                    rows={3}
-                                />
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setShowRejectForm(false)}
-                                        className="flex-1 py-2 text-sm rounded-lg border border-border"
-                                        disabled={loading}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={handleReject}
-                                        className="flex-1 py-2 text-sm rounded-lg bg-red-600 text-white font-medium"
-                                        disabled={loading}
-                                    >
-                                        {loading ? 'Rejecting...' : 'Confirm Reject'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Action buttons */}
-                        {donation.status === 'pending' && !showRejectForm && (
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={() => setShowRejectForm(true)}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-300 text-red-600 font-medium hover:bg-red-50 transition-colors"
-                                    disabled={loading}
-                                >
-                                    <XCircle className="w-4 h-4" />
-                                    Reject
-                                </button>
-                                <button
-                                    onClick={handleVerify}
-                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 transition-colors"
-                                    disabled={loading}
-                                >
-                                    <CheckCircle className="w-4 h-4" />
-                                    {loading ? 'Verifying...' : 'Verify'}
-                                </button>
-                            </div>
+                {/* Amount & Reference */}
+                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/10 rounded-xl">
+                    <div>
+                        <p className="text-xs text-muted mb-0.5">Amount</p>
+                        <p className="text-2xl font-bold text-foreground">
+                            ₱{Number(donation.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-xs text-muted mb-0.5">Reference No.</p>
+                        <p className="text-sm font-mono font-semibold text-foreground flex items-center gap-1">
+                            <Hash className="w-3.5 h-3.5 text-muted" />
+                            {donation.reference_number || 'N/A'}
+                        </p>
+                        {(donation as any).payment_method && (
+                            <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs uppercase font-medium">
+                                {(donation as any).payment_method}
+                            </span>
                         )}
                     </div>
                 </div>
+
+                {/* Supporter opt-in indicator */}
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${
+                    donation.show_as_supporter
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-muted/10 text-muted'
+                }`}>
+                    <Heart className={`w-4 h-4 flex-shrink-0 ${donation.show_as_supporter ? 'fill-rose-400 text-rose-400' : ''}`} />
+                    {donation.show_as_supporter
+                        ? 'Donor opted in to appear as a supporter'
+                        : 'Donor preferred to remain anonymous'}
+                </div>
+
+                {/* Notes */}
+                {donation.notes && (
+                    <div className="space-y-1">
+                        <p className="text-xs text-muted">Donor's Note</p>
+                        <p className="text-sm text-foreground bg-muted/10 p-3 rounded-lg italic">
+                            "{donation.notes}"
+                        </p>
+                    </div>
+                )}
+
+                {/* Proof Screenshot */}
+                {donation.proof_url && (
+                    <div className="space-y-2">
+                        <p className="text-xs text-muted font-medium">Proof of Payment</p>
+                        <div className="relative rounded-xl overflow-hidden border border-border bg-black/5">
+                            <img
+                                src={donation.proof_url}
+                                alt="Proof of payment"
+                                className="w-full max-h-64 object-contain cursor-pointer"
+                                onClick={() => setFullImage(true)}
+                            />
+                            <button
+                                onClick={() => setFullImage(true)}
+                                className="absolute bottom-2 right-2 flex items-center gap-1 px-2.5 py-1.5 bg-black/60 hover:bg-black/80 text-white rounded-lg text-xs transition-colors backdrop-blur-sm"
+                            >
+                                <Eye className="w-3.5 h-3.5" />
+                                View Full
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Full Image Modal */}
+                {fullImage && donation.proof_url && (
+                    <Modal
+                        isOpen={fullImage}
+                        onClose={() => setFullImage(false)}
+                        title="Proof of Payment"
+                        size="full"
+                    >
+                        <div className="flex items-center justify-center p-4">
+                            <img
+                                src={donation.proof_url}
+                                alt="Proof of payment full"
+                                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
+                            />
+                        </div>
+                    </Modal>
+                )}
+
+                {/* Rejection Note Display */}
+                {donation.status === 'rejected' && ((donation as any).rejection_reason || donation.notes) && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
+                        <p className="font-medium text-red-800 mb-1">Rejection Reason:</p>
+                        <p className="text-red-700">{(donation as any).rejection_reason || donation.notes}</p>
+                    </div>
+                )}
+
+                {/* Reject Form */}
+                {showRejectForm && (
+                    <div className="space-y-3 p-4 bg-red-50 border border-red-200 rounded-xl animate-in">
+                        <p className="text-sm font-medium text-red-800">Reason for rejection:</p>
+                        <textarea
+                            value={rejectionNote}
+                            onChange={(e) => setRejectionNote(e.target.value)}
+                            placeholder="e.g., Reference number not found, incorrect amount..."
+                            rows={3}
+                            className="input w-full bg-white text-sm"
+                            disabled={loading}
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowRejectForm(false)}
+                                className="flex-1 py-2 text-sm rounded-lg border border-border bg-white"
+                                disabled={loading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReject}
+                                className="flex-1 py-2 text-sm rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
+                                disabled={loading}
+                            >
+                                {loading ? 'Rejecting...' : 'Confirm Reject'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Action buttons */}
+                {donation.status === 'pending' && !showRejectForm && (
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            onClick={() => setShowRejectForm(true)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-300 text-red-600 font-medium hover:bg-red-50 transition-colors shadow-sm"
+                            disabled={loading}
+                        >
+                            <XCircle className="w-4 h-4" />
+                            Reject
+                        </button>
+                        <button
+                            onClick={handleVerify}
+                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 transition-colors shadow-sm"
+                            disabled={loading}
+                        >
+                            <CheckCircle className="w-4 h-4" />
+                            {loading ? 'Verifying...' : 'Verify'}
+                        </button>
+                    </div>
+                )}
             </div>
-        </>,
-        document.body
+        </Modal>
     );
 }

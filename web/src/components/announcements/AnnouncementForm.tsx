@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
-import { X, Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock } from 'lucide-react';
+import { Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ChurchAnnouncement, SystemAnnouncement } from '../../types/database';
 import { notifyFollowersOfAnnouncement } from '../../lib/supabase/notifications';
+import Modal from '../ui/Modal';
 
 interface AnnouncementFormProps {
     type: 'church' | 'system';
@@ -25,17 +25,15 @@ const CATEGORIES: { value: AnnouncementCategory; label: string; icon: LucideIcon
     { value: 'reminder',      label: 'Reminder',       icon: Bell,          color: 'bg-amber-100 text-amber-700 border-amber-200' },
 ];
 
+const SYSTEM_TYPES = [
+    { value: 'info', label: 'Info', icon: '📘' },
+    { value: 'warning', label: 'Warning', icon: '⚠️' },
+    { value: 'maintenance', label: 'Maintenance', icon: '🔧' },
+    { value: 'success', label: 'Success', icon: '✅' },
+] as const;
+
 /**
  * AnnouncementForm - Create/Edit form for announcements
- *
- * Features:
- * - Create or edit church/system announcements
- * - Validation
- * - Category tag selector for church announcements
- * - Optional scheduled publish date for church announcements
- * - Pin checkbox for church announcements
- * - Notifies church followers on new announcement
- * - Type selector and expiration date for system announcements
  */
 export default function AnnouncementForm({
     type,
@@ -58,6 +56,7 @@ export default function AnnouncementForm({
         expiresAt: '',
     });
 
+    const [isScheduled, setIsScheduled] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -66,6 +65,8 @@ export default function AnnouncementForm({
         if (announcement) {
             const churchAnn = announcement as ChurchAnnouncement;
             const sysAnn = announcement as SystemAnnouncement;
+            const hasScheduled = Boolean(isChurchAnnouncement && (churchAnn as any).scheduled_at);
+            setIsScheduled(hasScheduled);
             setFormData({
                 title: announcement.title,
                 content: announcement.content,
@@ -162,32 +163,26 @@ export default function AnnouncementForm({
 
     const selectedCategory = CATEGORIES.find(c => c.value === formData.category) || CATEGORIES[0];
 
-    return createPortal(
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-border">
-                    <h2 className="text-xl font-bold">
-                        {isEditing ? 'Edit' : 'Create'} {isChurchAnnouncement ? 'Church' : 'System'} Announcement
-                    </h2>
-                    <button onClick={onCancel} className="p-2 hover:bg-secondary-100 rounded-lg transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-                    {/* Scrollable fields */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-5">
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onCancel}
+            title={`${isEditing ? 'Edit' : 'Create'} ${isChurchAnnouncement ? 'Church' : 'System'} Announcement`}
+            size="2xl"
+            bodyClassName="p-0"
+        >
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+                {/* Scrollable fields */}
+                <div className="p-6 space-y-5">
                     {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
                             <p className="text-sm text-red-600">{error}</p>
                         </div>
                     )}
 
                     {/* Title */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1.5">
                             Title <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -199,109 +194,139 @@ export default function AnnouncementForm({
                             maxLength={255}
                             required
                         />
-                        <p className="text-xs text-muted mt-1">{formData.title.length}/255 characters</p>
                     </div>
+
+                    {/* Category (Church only) */}
+                    {isChurchAnnouncement && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Category</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {CATEGORIES.map((cat) => {
+                                    const Icon = cat.icon;
+                                    const isSelected = formData.category === cat.value;
+                                    return (
+                                        <button
+                                            key={cat.value}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, category: cat.value })}
+                                            className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all text-left ${isSelected
+                                                ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                                                : 'border-border hover:bg-secondary-50 text-foreground'
+                                                }`}
+                                        >
+                                            <Icon className="w-4 h-4 flex-shrink-0" />
+                                            <span className="truncate">{cat.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* System Type (System only) */}
+                    {!isChurchAnnouncement && (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Type</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {SYSTEM_TYPES.map((type) => {
+                                    const isSelected = formData.announcementType === type.value;
+                                    return (
+                                        <button
+                                            key={type.value}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, announcementType: type.value as any })}
+                                            className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${isSelected
+                                                ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                                                : 'border-border hover:bg-secondary-50 text-foreground'
+                                                }`}
+                                        >
+                                            <span>{type.icon}</span>
+                                            <span>{type.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Content */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium mb-1.5">
                             Content <span className="text-red-500">*</span>
                         </label>
                         <textarea
                             value={formData.content}
                             onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                            className="input w-full"
-                            placeholder="Announcement content..."
+                            className="input w-full min-h-[120px] resize-y"
+                            placeholder="Write your announcement message here..."
                             rows={5}
                             required
                         />
                     </div>
 
-                    {/* Church-specific: Category */}
+                    {/* Church-specific options */}
                     {isChurchAnnouncement && (
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Category</label>
-                            <div className="flex flex-wrap gap-2">
-                                {CATEGORIES.map((cat) => (
-                                    <button
-                                        key={cat.value}
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, category: cat.value })}
-                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                                            formData.category === cat.value
-                                                ? cat.color + ' ring-2 ring-offset-1 ring-current'
-                                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                                        }`}
-                                    >
-                                        <cat.icon className="w-3.5 h-3.5 shrink-0" />
-                                        {cat.label}
-                                    </button>
-                                ))}
+                        <div className="space-y-4 pt-2 border-t border-border">
+                            {/* Pin Announcement */}
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isPinned}
+                                    onChange={(e) => setFormData({ ...formData, isPinned: e.target.checked })}
+                                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                />
+                                <div>
+                                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                                        <Pin className="w-3.5 h-3.5 text-primary" />
+                                        Pin Announcement
+                                    </div>
+                                    <p className="text-xs text-muted">Pinned announcements appear at the top of the list</p>
+                                </div>
+                            </label>
+
+                            {/* Schedule for later */}
+                            <div className="space-y-2">
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isScheduled}
+                                        onChange={(e) => {
+                                            setIsScheduled(e.target.checked);
+                                            if (!e.target.checked) {
+                                                setFormData({ ...formData, scheduledAt: '' });
+                                            }
+                                        }}
+                                        className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <div>
+                                        <div className="flex items-center gap-1.5 text-sm font-medium">
+                                            <Clock className="w-3.5 h-3.5 text-muted" />
+                                            Schedule for Later
+                                        </div>
+                                        <p className="text-xs text-muted">Publish this announcement at a specific future date and time</p>
+                                    </div>
+                                </label>
+
+                                {isScheduled && (
+                                    <div className="ml-7">
+                                        <input
+                                            type="datetime-local"
+                                            value={formData.scheduledAt}
+                                            onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+                                            className="input w-full"
+                                            min={new Date().toISOString().slice(0, 16)}
+                                            required={isScheduled}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    )}
-
-                    {/* Church-specific: Scheduled Publish */}
-                    {isChurchAnnouncement && (
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Schedule Publish Date{' '}
-                                <span className="text-xs font-normal text-muted">(Optional — leave blank to publish now)</span>
-                            </label>
-                            <input
-                                type="datetime-local"
-                                value={formData.scheduledAt}
-                                onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
-                                className="input w-full"
-                                min={new Date().toISOString().slice(0, 16)}
-                            />
-                            {formData.scheduledAt && (
-                                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> This announcement will only be visible to users after the scheduled time.
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Church-specific: Pin checkbox */}
-                    {isChurchAnnouncement && (
-                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <input
-                                type="checkbox"
-                                id="isPinned"
-                                checked={formData.isPinned}
-                                onChange={(e) => setFormData({ ...formData, isPinned: e.target.checked })}
-                                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                            />
-                            <label htmlFor="isPinned" className="text-sm cursor-pointer select-none flex items-center gap-1.5">
-                                <Pin className="w-3.5 h-3.5 text-primary" />
-                                <span className="font-medium">Pin this announcement</span>
-                                <span className="text-muted">(appears at the top)</span>
-                            </label>
-                        </div>
-                    )}
-
-                    {/* System-specific: Type selector */}
-                    {!isChurchAnnouncement && (
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Announcement Type</label>
-                            <select
-                                value={formData.announcementType}
-                                onChange={(e) => setFormData({ ...formData, announcementType: e.target.value as any })}
-                                className="input w-full"
-                            >
-                                <option value="info">📘 Info - General information</option>
-                                <option value="warning">⚠️ Warning - Important notice</option>
-                                <option value="maintenance">🔧 Maintenance - System maintenance</option>
-                                <option value="success">✅ Success - Good news</option>
-                            </select>
                         </div>
                     )}
 
                     {/* System-specific: Expiration date */}
                     {!isChurchAnnouncement && (
                         <div>
-                            <label className="block text-sm font-medium mb-2">Expiration Date (Optional)</label>
+                            <label className="block text-sm font-medium mb-1.5">Expiration Date (Optional)</label>
                             <input
                                 type="datetime-local"
                                 value={formData.expiresAt}
@@ -317,7 +342,7 @@ export default function AnnouncementForm({
                     {isChurchAnnouncement && (() => {
                         const SelIcon = selectedCategory.icon;
                         return (
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
                                 <p className="text-xs text-muted mb-2 font-medium uppercase tracking-wide">Preview Badge</p>
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${selectedCategory.color}`}>
                                     <SelIcon className="w-3.5 h-3.5" /> {selectedCategory.label}
@@ -325,30 +350,27 @@ export default function AnnouncementForm({
                             </div>
                         );
                     })()}
+                </div>
 
-                    </div>
-
-                    {/* Sticky footer — always visible, never inside the scroll */}
-                    <div className="flex gap-3 p-4 border-t border-gray-100 bg-white shrink-0">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
-                            disabled={loading}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
-                            disabled={loading}
-                        >
-                            {loading ? 'Saving...' : isEditing ? 'Update' : 'Create'} Announcement
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>,
-        document.body
+                {/* Sticky footer */}
+                <div className="flex gap-3 p-4 sm:p-6 border-t border-border bg-gray-50/50 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                        disabled={loading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
+                        disabled={loading}
+                    >
+                        {loading ? 'Saving...' : isEditing ? 'Update' : 'Create'} Announcement
+                    </button>
+                </div>
+            </form>
+        </Modal>
     );
 }

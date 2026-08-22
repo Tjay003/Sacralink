@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Heart, Upload, ImageIcon, CheckCircle, QrCode, AlertCircle } from 'lucide-react';
+import { Heart, Upload, ImageIcon, CheckCircle, QrCode, AlertCircle, X } from 'lucide-react';
 import { submitDonation } from '../../lib/supabase/donations';
 import qrSample from '../../assets/qrPh/qr Sample.png';
+import Modal from '../ui/Modal';
 
 interface Church {
     id: string;
@@ -24,7 +24,7 @@ type PaymentTab = 'gcash' | 'maya';
 function FieldError({ msg }: { msg: string }) {
     return (
         <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-            <AlertCircle className="w-3 h-3 flex-shrink-0" />
+            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
             {msg}
         </p>
     );
@@ -70,8 +70,8 @@ function QrDisplay({ qrUrl, label, color }: QrDisplayProps) {
 }
 
 export default function SubmitDonationModal({ church, onClose, onSuccess }: SubmitDonationModalProps) {
-    const hasGcash = !!(church.gcash_number);
-    const hasMaya = !!(church.maya_number);
+    const hasGcash = !!(church.gcash_number || church.gcash_qr_url);
+    const hasMaya = !!(church.maya_number || church.maya_qr_url);
 
     const defaultTab: PaymentTab = hasGcash ? 'gcash' : 'maya';
     const [activeTab, setActiveTab] = useState<PaymentTab>(defaultTab);
@@ -79,6 +79,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
     // Form values
     const [amount, setAmount] = useState('');
     const [referenceNumber, setReferenceNumber] = useState('');
+    const [notes, setNotes] = useState('');
     const [proofFile, setProofFile] = useState<File | null>(null);
     const [proofPreview, setProofPreview] = useState<string | null>(null);
 
@@ -164,278 +165,285 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
             showAsSupporter,
         });
 
+        setLoading(false);
+
         if (error) {
-            setSubmitError(error.message || 'Failed to submit. Please try again.');
-            setLoading(false);
+            setSubmitError(error.message || 'Failed to submit donation. Please try again.');
             return;
         }
 
         setSubmitted(true);
-        setLoading(false);
         setTimeout(() => { onSuccess(); onClose(); }, 2500);
     };
 
-    // ── Success screen ─────────────────────────────────────────
     if (submitted) {
-        return createPortal(
-            <>
-                <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                    <div className="card p-8 max-w-sm w-full text-center">
-                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckCircle className="w-10 h-10 text-green-600" />
-                        </div>
-                        <h2 className="text-xl font-bold mb-2">Donation Submitted!</h2>
-                        <p className="text-muted text-sm">
-                            Thank you for your generosity 🙏<br />
-                            The church admin will verify your donation shortly.
-                        </p>
+        return (
+            <Modal
+                isOpen={true}
+                onClose={onClose}
+                size="sm"
+                showCloseButton={false}
+            >
+                <div className="text-center py-4">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <CheckCircle className="w-10 h-10 text-green-600" />
                     </div>
+                    <h2 className="text-xl font-bold mb-2 text-foreground">Donation Submitted!</h2>
+                    <p className="text-muted text-sm leading-relaxed">
+                        Thank you for your generosity 🙏<br />
+                        The church admin will verify your donation shortly.
+                    </p>
                 </div>
-            </>,
-            document.body
+            </Modal>
         );
     }
 
-    // ── Active payment info ────────────────────────────────────
     const activeNumber = activeTab === 'gcash' ? church.gcash_number : church.maya_number;
     const activeQr = activeTab === 'gcash' ? church.gcash_qr_url : church.maya_qr_url;
     const activeLabel = activeTab === 'gcash' ? 'GCash' : 'Maya';
     const activeColor = activeTab === 'gcash' ? 'text-blue-500' : 'text-green-500';
     const activeBgTab = activeTab === 'gcash' ? 'bg-blue-500' : 'bg-green-500';
 
-    return createPortal(
-        <>
-            <div className="fixed inset-0 bg-black/50 z-[9998]" onClick={onClose} />
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                <div className="card max-w-md w-full max-h-[92vh] overflow-y-auto">
-
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-border">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-red-100 rounded-lg">
-                                <Heart className="w-5 h-5 text-red-500" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold">Donate to {church.name}</h2>
-                                <p className="text-xs text-muted">Your generosity helps the community 🙏</p>
-                            </div>
-                        </div>
-                        <button onClick={onClose} className="text-muted hover:text-foreground">
-                            <X className="w-5 h-5" />
-                        </button>
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title={
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                        <Heart className="w-5 h-5 text-red-500" />
                     </div>
-
-                    <div className="p-6 space-y-6">
-
-                        {/* Step 1 — Choose method */}
-                        <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
-                                Step 1 — Choose Payment Method
-                            </p>
-
-                            {/* Tabs — only show tabs that exist */}
-                            <div className="flex gap-2">
-                                {hasGcash && (
-                                    <button
-                                        onClick={() => setActiveTab('gcash')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'gcash' ? 'bg-blue-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
-                                            }`}
-                                    >
-                                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-400 mr-1.5"></span>
-                                        GCash
-                                    </button>
-                                )}
-                                {hasMaya && (
-                                    <button
-                                        onClick={() => setActiveTab('maya')}
-                                        className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'maya' ? 'bg-green-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
-                                            }`}
-                                    >
-                                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400 mr-1.5"></span>
-                                        Maya
-                                    </button>
-                                )}
-                                {!hasGcash && !hasMaya && (
-                                    <div className="flex-1 py-2 px-3 rounded-lg text-sm text-muted bg-muted/10 text-center">
-                                        No payment methods configured
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Payment info card */}
-                            {(hasGcash || hasMaya) && (
-                                <div className={`mt-3 p-4 rounded-xl border ${activeTab === 'gcash' ? 'bg-blue-50 border-blue-100' : 'bg-green-50 border-green-100'
-                                    }`}>
-                                    {/* Number */}
-                                    {activeNumber && (
-                                        <div className="text-center mb-3">
-                                            <p className="text-xs text-muted mb-1">{activeLabel} Number</p>
-                                            <p className={`text-2xl font-bold tracking-widest ${activeColor}`}>
-                                                {activeNumber}
-                                            </p>
-                                            <p className="text-xs text-muted mt-1">
-                                                Open {activeLabel} → Send Money → Enter number above
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* QR per merchant */}
-                                    <QrDisplay qrUrl={activeQr} label={activeLabel} color={activeColor} />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Step 2 — Fill in details */}
-                        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-                                Step 2 — Fill in Payment Details
-                            </p>
-
-                            {/* Global submit error */}
-                            {submitError && (
-                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
-                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                    {submitError}
-                                </div>
-                            )}
-
-                            {/* Amount */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Amount Donated (₱) <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-medium">₱</span>
-                                    <input
-                                        type="number"
-                                        value={amount}
-                                        onChange={(e) => handleAmountChange(e.target.value)}
-                                        className={`input w-full pl-8 ${amountErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
-                                        placeholder="0.00"
-                                        min="1"
-                                        step="0.01"
-                                        disabled={loading}
-                                    />
-                                </div>
-                                {amountErr && <FieldError msg={amountErr} />}
-                            </div>
-
-                            {/* Reference Number */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Reference Number <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={referenceNumber}
-                                    onChange={(e) => handleRefChange(e.target.value)}
-                                    className={`input w-full ${refErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
-                                    placeholder="e.g., 1234567890"
-                                    disabled={loading}
-                                    maxLength={30}
-                                />
-                                {refErr
-                                    ? <FieldError msg={refErr} />
-                                    : <p className="text-xs text-muted mt-1">Found in your {activeLabel} transaction history</p>
-                                }
-                            </div>
-
-                            {/* Screenshot Upload */}
-                            <div>
-                                <label className="block text-sm font-medium mb-1">
-                                    Payment Screenshot <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    onChange={handleFileChange}
-                                    className="hidden"
-                                />
-                                {proofPreview ? (
-                                    <div className="relative">
-                                        <img
-                                            src={proofPreview}
-                                            alt="Payment proof"
-                                            className="w-full rounded-xl max-h-48 object-contain bg-muted/10 border border-border"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => { setProofFile(null); setProofPreview(null); setProofErr(''); }}
-                                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-colors ${proofErr
-                                            ? 'border-red-300 text-red-400 hover:border-red-400'
-                                            : 'border-border text-muted hover:border-primary hover:text-primary'
-                                            }`}
-                                    >
-                                        <ImageIcon className="w-8 h-8" />
-                                        <span className="text-sm font-medium">Click to upload screenshot</span>
-                                        <span className="text-xs">JPG, PNG, WebP · max 10MB</span>
-                                    </button>
-                                )}
-                                {proofErr && <FieldError msg={proofErr} />}
-                            </div>
-
-                            {/* Supporter opt-in */}
-                            <label className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/10 cursor-pointer transition-colors">
-                                <input
-                                    type="checkbox"
-                                    checked={showAsSupporter}
-                                    onChange={(e) => setShowAsSupporter(e.target.checked)}
-                                    disabled={loading}
-                                    className="mt-0.5 w-4 h-4 rounded accent-primary flex-shrink-0"
-                                />
-                                <div>
-                                    <p className="text-sm font-medium">Show my name as a supporter</p>
-                                    <p className="text-xs text-muted mt-0.5">Your name will appear on this church's supporters section. Your donation amount will never be shown publicly.</p>
-                                </div>
-                            </label>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="btn-secondary flex-1"
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading || (!hasGcash && !hasMaya)}
-                                    className={`flex-1 flex items-center justify-center gap-2 font-medium py-2 px-4 rounded-lg text-white transition-colors ${loading || (!hasGcash && !hasMaya)
-                                        ? 'bg-muted cursor-not-allowed'
-                                        : `${activeBgTab} hover:opacity-90`
-                                        }`}
-                                >
-                                    {loading ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="w-4 h-4" />
-                                            Submit Donation
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
+                    <div>
+                        <h2 className="text-lg font-bold text-foreground truncate">Donate to {church.name}</h2>
+                        <p className="text-xs text-muted">Your generosity helps the community 🙏</p>
                     </div>
                 </div>
+            }
+            size="md"
+        >
+            <div className="space-y-6">
+                {/* Step 1 — Choose method */}
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">
+                        Step 1 — Choose Payment Method
+                    </p>
+
+                    {/* Tabs — only show tabs that exist */}
+                    <div className="flex gap-2">
+                        {hasGcash && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('gcash')}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'gcash' ? 'bg-blue-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
+                                    }`}
+                            >
+                                <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-400 mr-1.5"></span>
+                                GCash
+                            </button>
+                        )}
+                        {hasMaya && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('maya')}
+                                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'maya' ? 'bg-green-500 text-white' : 'bg-muted/20 text-muted hover:bg-muted/30'
+                                    }`}
+                            >
+                                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-400 mr-1.5"></span>
+                                Maya
+                            </button>
+                        )}
+                        {!hasGcash && !hasMaya && (
+                            <div className="flex-1 py-2 px-3 rounded-lg text-sm text-muted bg-muted/10 text-center">
+                                No payment methods configured
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Payment info card */}
+                    {(hasGcash || hasMaya) && (
+                        <div className={`mt-3 p-4 rounded-xl border ${activeTab === 'gcash' ? 'bg-blue-50 border-blue-100' : 'bg-green-50 border-green-100'
+                            }`}>
+                            {/* Number */}
+                            {activeNumber && (
+                                <div className="text-center mb-3">
+                                    <p className="text-xs text-muted mb-1">{activeLabel} Number</p>
+                                    <p className={`text-2xl font-bold tracking-widest ${activeColor}`}>
+                                        {activeNumber}
+                                    </p>
+                                    <p className="text-xs text-muted mt-1">
+                                        Open {activeLabel} → Send Money → Enter number above
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* QR per merchant */}
+                            <QrDisplay qrUrl={activeQr} label={activeLabel} color={activeColor} />
+                        </div>
+                    )}
+                </div>
+
+                {/* Step 2 — Fill in details */}
+                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+                        Step 2 — Fill in Payment Details
+                    </p>
+
+                    {/* Global submit error */}
+                    {submitError && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            {submitError}
+                        </div>
+                    )}
+
+                    {/* Amount */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Amount Donated (₱) <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-medium">₱</span>
+                            <input
+                                type="number"
+                                value={amount}
+                                onChange={(e) => handleAmountChange(e.target.value)}
+                                className={`input w-full pl-8 ${amountErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
+                                placeholder="0.00"
+                                min="1"
+                                step="0.01"
+                                disabled={loading}
+                            />
+                        </div>
+                        {amountErr && <FieldError msg={amountErr} />}
+                    </div>
+
+                    {/* Reference Number */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Reference Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={referenceNumber}
+                            onChange={(e) => handleRefChange(e.target.value)}
+                            className={`input w-full ${refErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
+                            placeholder="e.g., 1234567890"
+                            disabled={loading}
+                            maxLength={30}
+                        />
+                        {refErr
+                            ? <FieldError msg={refErr} />
+                            : <p className="text-xs text-muted mt-1">Found in your {activeLabel} transaction history</p>
+                        }
+                    </div>
+
+                    {/* Donor Note */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Note / Intention (Optional)
+                        </label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="input w-full"
+                            placeholder="e.g., For church renovation, mass intention..."
+                            rows={2}
+                            disabled={loading}
+                        />
+                    </div>
+
+                    {/* Screenshot Upload */}
+                    <div>
+                        <label className="block text-sm font-medium mb-1">
+                            Payment Screenshot <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleFileChange}
+                            className="hidden"
+                        />
+                        {proofPreview ? (
+                            <div className="relative">
+                                <img
+                                    src={proofPreview}
+                                    alt="Payment proof"
+                                    className="w-full rounded-xl max-h-48 object-contain bg-muted/10 border border-border"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => { setProofFile(null); setProofPreview(null); setProofErr(''); }}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-colors ${proofErr
+                                    ? 'border-red-300 text-red-400 hover:border-red-400'
+                                    : 'border-border text-muted hover:border-primary hover:text-primary'
+                                    }`}
+                            >
+                                <ImageIcon className="w-8 h-8" />
+                                <span className="text-sm font-medium">Click to upload screenshot</span>
+                                <span className="text-xs">JPG, PNG, WebP · max 10MB</span>
+                            </button>
+                        )}
+                        {proofErr && <FieldError msg={proofErr} />}
+                    </div>
+
+                    {/* Supporter opt-in */}
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-border hover:bg-muted/10 cursor-pointer transition-colors">
+                        <input
+                            type="checkbox"
+                            checked={showAsSupporter}
+                            onChange={(e) => setShowAsSupporter(e.target.checked)}
+                            disabled={loading}
+                            className="mt-0.5 w-4 h-4 rounded accent-primary flex-shrink-0"
+                        />
+                        <div>
+                            <p className="text-sm font-medium text-foreground">Show my name as a supporter</p>
+                            <p className="text-xs text-muted mt-0.5">Your name will appear on this church's supporters section. Your donation amount will never be shown publicly.</p>
+                        </div>
+                    </label>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                            disabled={loading}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading || (!hasGcash && !hasMaya)}
+                            className={`flex-1 flex items-center justify-center gap-2 font-semibold py-2.5 px-4 rounded-xl text-white transition-colors shadow-sm ${loading || (!hasGcash && !hasMaya)
+                                ? 'bg-muted cursor-not-allowed'
+                                : `${activeBgTab} hover:opacity-90`
+                                }`}
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Submitting...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-4 h-4" />
+                                    Submit Donation
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </form>
             </div>
-        </>,
-        document.body
+        </Modal>
     );
 }

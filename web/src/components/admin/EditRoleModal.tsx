@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
+import Modal from '../ui/Modal';
 import { directUpdateProfile } from '../../lib/directApi';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
@@ -88,117 +88,108 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
         }
     };
 
-    return createPortal(
-        <>
-            {/* Backdrop */}
-            <div
-                className="fixed inset-0 bg-black/50 z-[9998]"
-                onClick={onClose}
-            />
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Edit User Access"
+            size="md"
+        >
+            {/* Super Admin Protection Warning */}
+            {isEditingSuperAdmin && !isSuperAdmin && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-sm text-red-600 font-medium">🔒 This user is a Super Admin</p>
+                    <p className="text-xs text-red-500 mt-1">Only Super Admins can modify Super Admin roles.</p>
+                </div>
+            )}
 
-            {/* Modal */}
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                <div className="card p-6 max-w-md w-full">
-                    <h2 className="text-xl font-bold mb-4">Edit User Access</h2>
+            <div className="mb-5 p-4 bg-secondary-50 rounded-xl">
+                <p className="text-xs font-medium text-muted uppercase tracking-wider mb-1">User Account</p>
+                <p className="font-semibold text-foreground">{user.full_name}</p>
+                <p className="text-sm text-muted">{user.email}</p>
+            </div>
 
-                    {/* Super Admin Protection Warning */}
-                    {isEditingSuperAdmin && !isSuperAdmin && (
-                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-sm text-red-600 font-medium">🔒 This user is a Super Admin</p>
-                            <p className="text-xs text-red-500 mt-1">Only Super Admins can modify Super Admin roles.</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Role Selection */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                        Role
+                    </label>
+                    <select
+                        value={selectedRole || 'user'}
+                        onChange={(e) => setSelectedRole(e.target.value as any)}
+                        className="input w-full"
+                        disabled={loading || !canEditThisUser}
+                    >
+                        {availableRoles.map((role) => (
+                            <option key={role} value={role}>
+                                {role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Church Selection */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                        Assigned Church
+                    </label>
+
+                    {canSelectChurch ? (
+                        <select
+                            value={selectedChurchId}
+                            onChange={(e) => setSelectedChurchId(e.target.value)}
+                            className="input w-full"
+                            disabled={loading || selectedRole === 'super_admin' || !canEditThisUser}
+                        >
+                            <option value="">-- No Church Assigned --</option>
+                            {churches.map((church) => (
+                                <option key={church.id} value={church.id}>
+                                    {church.name}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm">
+                            {isChurchAdmin ? (
+                                <span>Locked to: <strong>{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
+                            ) : (
+                                <span className="text-muted">No church assignment available</span>
+                            )}
                         </div>
                     )}
 
-                    <div className="mb-4 p-4 bg-secondary-50 rounded-lg">
-                        <p className="text-sm text-muted mb-1">User</p>
-                        <p className="font-semibold">{user.full_name}</p>
-                        <p className="text-sm text-muted">{user.email}</p>
-                    </div>
-
-                    <form onSubmit={handleSubmit}>
-                        {/* Role Selection */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium mb-2">
-                                Role
-                            </label>
-                            <select
-                                value={selectedRole || 'user'}
-                                onChange={(e) => setSelectedRole(e.target.value as any)}
-                                className="input w-full"
-                                disabled={loading || !canEditThisUser}
-                            >
-                                {availableRoles.map((role) => (
-                                    <option key={role} value={role}>
-                                        {role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Church Selection */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium mb-2">
-                                Assigned Church
-                            </label>
-
-                            {canSelectChurch ? (
-                                <select
-                                    value={selectedChurchId}
-                                    onChange={(e) => setSelectedChurchId(e.target.value)}
-                                    className="input w-full"
-                                    disabled={loading || selectedRole === 'super_admin' || !canEditThisUser}
-                                >
-                                    <option value="">-- No Church Assigned --</option>
-                                    {churches.map((church) => (
-                                        <option key={church.id} value={church.id}>
-                                            {church.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <div className="p-3 bg-gray-100 rounded border border-gray-200 text-sm">
-                                    {isChurchAdmin ? (
-                                        <span>Locked to: <strong>{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
-                                    ) : (
-                                        <span className="text-muted">No church assignment available</span>
-                                    )}
-                                </div>
-                            )}
-
-                            {selectedRole === 'church_admin' && !selectedChurchId && canSelectChurch && (
-                                <p className="text-xs text-amber-600 mt-1">
-                                    ⚠️ Warning: Church Admins should have an assigned church.
-                                </p>
-                            )}
-                        </div>
-
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-sm text-red-600">{error}</p>
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 pt-2 border-t border-gray-100">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
-                                disabled={loading}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
-                                disabled={loading || !canEditThisUser}
-                            >
-                                {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}
-                            </button>
-                        </div>
-                    </form>
+                    {selectedRole === 'church_admin' && !selectedChurchId && canSelectChurch && (
+                        <p className="text-xs text-amber-600 mt-1">
+                            ⚠️ Warning: Church Admins should have an assigned church.
+                        </p>
+                    )}
                 </div>
-            </div>
-        </>,
-        document.body
+
+                {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                )}
+
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                        disabled={loading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
+                        disabled={loading || !canEditThisUser}
+                    >
+                        {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
     );
 }

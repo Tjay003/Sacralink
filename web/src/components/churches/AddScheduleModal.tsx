@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X } from 'lucide-react';
+import Modal from '../ui/Modal';
 
 interface AddScheduleModalProps {
     churchId: string;
@@ -70,98 +70,89 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
     };
 
     return (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold">Add Mass Schedule</h2>
-                    <button
-                        onClick={onClose}
-                        className="text-muted hover:text-foreground"
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            title="Add Mass Schedule"
+            size="md"
+        >
+            {/* Error Message */}
+            {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-600">{error}</p>
+                </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Day of Week */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                        Day of Week <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                        value={formData.day_of_week}
+                        onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
+                        disabled={loading}
+                        className="input w-full"
                     >
-                        <X className="w-5 h-5" />
-                    </button>
+                        {DAYS_OF_WEEK.map((day) => (
+                            <option key={day} value={day}>
+                                {day}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                )}
+                {/* Time */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                        Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="time"
+                        value={formData.time}
+                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                        disabled={loading}
+                        required
+                        className="input w-full"
+                    />
+                </div>
 
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Day of Week */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Day of Week <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            value={formData.day_of_week}
-                            onChange={(e) => setFormData({ ...formData, day_of_week: e.target.value })}
-                            disabled={loading}
-                            className="input w-full"
-                            required
-                        >
-                            {DAYS_OF_WEEK.map((day) => (
-                                <option key={day} value={day}>
-                                    {day}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                {/* Language */}
+                <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                        Language (Optional)
+                    </label>
+                    <input
+                        type="text"
+                        value={formData.language}
+                        onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                        disabled={loading}
+                        className="input w-full"
+                        placeholder="e.g., English, Tagalog, Latin"
+                    />
+                </div>
 
-                    {/* Time */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Time <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="time"
-                            value={formData.time}
-                            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                            disabled={loading}
-                            className="input w-full"
-                            required
-                        />
-                    </div>
-
-                    {/* Language */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Language (Optional)
-                        </label>
-                        <input
-                            type="text"
-                            value={formData.language}
-                            onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                            disabled={loading}
-                            className="input w-full"
-                            placeholder="e.g., English, Tagalog, Latin"
-                        />
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="flex gap-3 pt-4 border-t border-gray-100">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
-                        >
-                            {loading ? 'Adding...' : 'Add Schedule'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={loading}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
+                    >
+                        {loading ? 'Adding...' : 'Add Schedule'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
     );
 }

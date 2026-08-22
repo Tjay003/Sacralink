@@ -1,4 +1,5 @@
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import Modal from '../ui/Modal';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -13,13 +14,7 @@ interface ConfirmationModalProps {
 }
 
 /**
- * ConfirmationModal - Reusable confirmation dialog
- * 
- * Features:
- * - Customizable title, message, and button labels
- * - Different visual variants (danger, warning, info)
- * - Loading state support
- * - Accessible keyboard navigation
+ * ConfirmationModal - Reusable confirmation dialog backed by centralized Modal primitive
  */
 export default function ConfirmationModal({
     isOpen,
@@ -32,8 +27,6 @@ export default function ConfirmationModal({
     onCancel,
     loading = false,
 }: ConfirmationModalProps) {
-    if (!isOpen) return null;
-
     const variantStyles = {
         danger: 'bg-red-50 border-red-200 text-red-800',
         warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
@@ -47,38 +40,23 @@ export default function ConfirmationModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-border">
-                    <h2 className="text-xl font-bold">{title}</h2>
+        <Modal
+            isOpen={isOpen}
+            onClose={onCancel}
+            title={title}
+            size="md"
+            footer={
+                <div className="flex gap-3 w-full">
                     <button
+                        type="button"
                         onClick={onCancel}
                         disabled={loading}
-                        className="p-2 hover:bg-secondary-100 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                    <div className={`flex items-start gap-3 p-4 rounded-lg border ${variantStyles[variant]}`}>
-                        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm">{message}</p>
-                    </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3 px-6 pb-6">
-                    <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
                     >
                         {cancelLabel}
                     </button>
                     <button
+                        type="button"
                         onClick={onConfirm}
                         disabled={loading}
                         className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 shadow-sm ${buttonStyles[variant]}`}
@@ -86,7 +64,13 @@ export default function ConfirmationModal({
                         {loading ? 'Processing...' : confirmLabel}
                     </button>
                 </div>
+            }
+        >
+            <div className={`flex items-start gap-3 p-4 rounded-xl border ${variantStyles[variant]}`}>
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm leading-relaxed">{message}</p>
             </div>
-        </div>
+        </Modal>
     );
 }
+
