@@ -204,7 +204,7 @@ export default function KnowledgeBasePage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto py-6 px-4 space-y-6 animate-in">
+        <div className="max-w-4xl mx-auto py-6 px-4 space-y-6">
 
             {/* Header */}
             <div className="flex items-start justify-between gap-4 flex-wrap">

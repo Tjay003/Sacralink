@@ -1,6 +1,6 @@
 # 🎭 Demo Mode Configuration
 
-This project supports a **Demo Mode** feature flag system that allows you to hide incomplete features for client presentations while keeping all code intact for development.
+This project supports a **Demo Mode** feature flag system that allows you to hide incomplete or WIP features for client presentations while keeping all code intact for development.
 
 ## Quick Start
 
@@ -14,55 +14,43 @@ This project supports a **Demo Mode** feature flag system that allows you to hid
 2. Set `VITE_DEMO_MODE=false` or remove the line
 3. Restart the dev server: `npm run dev`
 
-## What Gets Hidden in Demo Mode
+## Feature Visibility Matrix
 
-When `VITE_DEMO_MODE=true`, the following features are hidden (controlled via `featureFlags.ts`):
+All flags are configured in [`web/src/config/featureFlags.ts`](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/web/src/config/featureFlags.ts).
 
-### 🚫 Hidden Features (in Demo Mode)
-- ❌ **Donations** - Cashless donation verification system
-- ❌ **Calendar View** - Visual appointment calendar
-- ❌ **Church Selector** - Super Admin church dropdown
-- ❌ **Church Quick Links** - Church admin quick actions
-- ❌ **Recent Appointments** - Church admin dashboard widget
-- ❌ **Quick Links** - User dashboard quick actions
-- ❌ **Upcoming Appointments** - User dashboard widget
+### 🚫 Hidden / Disabled in Demo Mode (`!isDemoMode`)
+- ❌ **AI Parishioner Assistant** (`parishionerChatbot`) - Floating AI chatbot on church detail pages
+- ❌ **AI Knowledge Base Sync** (`churchAiSync`) - Admin dashboard AI sync button & widget
+- ❌ **Calendar View** (`calendar`) - Visual appointments calendar widget
+- ❌ **Church Quick Links** (`churchQuickLinks`) - Church admin quick actions
+- ❌ **User Quick Links** (`quickLinks`) - Parishioner dashboard quick action buttons
 
-### ✅ Always Visible Features
-- ✅ **Dashboard** - Role-based dashboard (all roles)
-- ✅ **Churches** - Full CRUD operations
-- ✅ **Mass Schedules** - Add, edit, delete schedules
-- ✅ **Appointments** - Book and manage sacrament appointments
-- ✅ **Announcements** - Parish announcements management
-- ✅ **User Management** - Admin user & role management
+### 🟡 Visible with Demo Mode Restrictions
+- 🟡 **System Announcements** (`systemAnnouncements`) - Always visible; action buttons disabled in demo mode
+- 🟡 **Church Announcements** (`churchAnnouncements`) - Always visible; action buttons disabled in demo mode
+- 🟡 **User Church Selector** (`userChurchSelector`) - Always visible; action buttons disabled in demo mode
+
+### ✅ Always Visible Features (`enabled: true`)
+- ✅ **Dashboard** - Role-based dashboard (Super Admin, Church Admin, Parishioner)
+- ✅ **Churches** (`churches`) - Full CRUD operations & 360° virtual tour
+- ✅ **Appointments** (`appointments`) - Book and manage sacrament appointments
+- ✅ **Donations** (`donations`) - Full cashless donation verification workflow
+- ✅ **User Management** (`admin`) - Admin user and role management
+- ✅ **Super Admin Church Selector** (`churchSelector`) - Church selection dropdown
+- ✅ **Recent Appointments Widget** (`churchRecentAppointments`) - Church admin dashboard widget
+- ✅ **Upcoming Appointments Widget** (`userUpcomingAppointments`) - User dashboard widget
+- ✅ **Daily Bible Verse** (`dailyVerse`) - User dashboard widget
+- ✅ **Social Auth** (`socialAuth`) - Google login button
 - ✅ **Profile** - User profile & avatar management
-- ✅ **System Announcements** - Super admin broadcasts
-- ✅ **Daily Bible Verse** - User dashboard widget
-- ✅ **Social Auth** - Google login button
 
 ## How It Works
 
-The feature flag system works at three levels:
-
-1. **Routes** - Disabled features don't register routes (users can't access them via URL)
-2. **Navigation** - Menu items for disabled features are hidden from the sidebar
-3. **Configuration** - All flags are centralized in `src/config/featureFlags.ts`
-
-## For Deployment
-
-When deploying to production (Vercel, Netlify, etc.):
-
-1. Add `VITE_DEMO_MODE=true` to your environment variables in the hosting platform
-2. Deploy as normal
-3. Your client will only see completed features
+The feature flag system operates at three levels:
+1. **Routes** - Disabled features do not register routes in [`App.tsx`](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/web/src/App.tsx)
+2. **Navigation** - Sidebar menu items for disabled features are filtered out in [`DashboardLayout.tsx`](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/web/src/components/layout/DashboardLayout.tsx)
+3. **Components & Widgets** - Individual components check `isFeatureEnabled('flagName')` or `isDemoMode` to conditionally render UI
 
 ## Technical Details
 
-- **Config file**: `web/src/config/featureFlags.ts`
-- **Modified files**: 
-  - `web/src/App.tsx` - Route protection
-  - `web/src/components/layout/DashboardLayout.tsx` - Navigation filtering
-  - `web/.env` - Environment configuration
-
----
-
-**Note**: This is a development feature, not production security. For actual feature access control, use proper role-based permissions.
+- **Configuration File**: [`web/src/config/featureFlags.ts`](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/web/src/config/featureFlags.ts)
+- **Environment File**: `web/.env` (`VITE_DEMO_MODE=true|false`)

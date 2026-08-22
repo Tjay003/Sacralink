@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Building2,
@@ -29,6 +29,7 @@ const navigation = [
 
 export default function DashboardLayout() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { profile, signOut } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -269,7 +270,9 @@ export default function DashboardLayout() {
 
                 {/* Page Content */}
                 <main className="p-4 lg:p-8">
-                    <Outlet />
+                    <div key={location.pathname} className="animate-in">
+                        <Outlet />
+                    </div>
                 </main>
             </div>
 

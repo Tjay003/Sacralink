@@ -62,7 +62,7 @@ sacralink/
 ## 4. Coding Rules (MANDATORY — Do Not Break These)
 
 1. **TypeScript Only** – No `.js` files. Use interfaces for all data models.
-2. **Supabase First** – Always check `Sacralink_database.sql` before writing queries. Never guess column names.
+2. **Supabase First** – Always check `supabase/migrations/APPLY_ALL_MIGRATIONS.sql` or individual migration files in `supabase/migrations/` before writing queries. Never guess column names.
 3. **Tailwind v4** – Use utility classes only. Do NOT write `.css` files. Note: Tailwind v4 uses `@import "tailwindcss"` not `@tailwind` directives.
 4. **Icons** – `lucide-react` for web. `lucide-react-native` for mobile.
 5. **Error Handling** – Always handle `loading` and `error` states in UI.
@@ -120,28 +120,35 @@ All authenticated routes are nested under `DashboardLayout`. Auth is handled by 
 
 ## 8. Feature Flags (`/web/src/config/featureFlags.ts`)
 
-**Controlled by** `VITE_DEMO_MODE=true` in `.env`. When demo mode is ON, incomplete features are hidden.
+**Controlled by** `VITE_DEMO_MODE=true` in `.env`. When demo mode is ON, incomplete or WIP features are hidden (see `DEMO_MODE.md`).
 
-| Flag | Always On | Demo Mode Behavior |
-|------|-----------|-------------------|
-| `systemAnnouncements` | ✅ | Visible, buttons disabled |
-| `churchAnnouncements` | ✅ | Visible, buttons disabled |
-| `churches` | ✅ | Always visible |
-| `admin` | ✅ | Always enabled |
-| `dailyVerse` | ✅ | Always shown |
-| `churchSelector` | ❌ | Hidden in demo |
-| `appointments` | ❌ | Hidden in demo |
-| `donations` | ❌ | Hidden in demo |
-| `calendar` | ❌ | Hidden in demo |
-| `quickLinks` | ❌ | Hidden in demo |
-| `socialAuth` | ✅ | Always enabled (Google sign in) |
+| Flag | Status in Code | Demo Mode Behavior |
+|------|----------------|-------------------|
+| `churches` | ✅ Always on | Visible |
+| `appointments` | ✅ Always on | Visible |
+| `donations` | ✅ Always on | Visible (verification flow complete) |
+| `admin` | ✅ Always on | Visible (User Management) |
+| `churchSelector` | ✅ Always on | Visible (Super Admin dropdown) |
+| `churchRecentAppointments` | ✅ Always on | Visible |
+| `userUpcomingAppointments` | ✅ Always on | Visible |
+| `dailyVerse` | ✅ Always on | Visible |
+| `socialAuth` | ✅ Always on | Visible (Google sign in) |
+| `systemAnnouncements` | 🟡 Restricted | Visible, action buttons disabled in demo |
+| `churchAnnouncements` | 🟡 Restricted | Visible, action buttons disabled in demo |
+| `userChurchSelector` | 🟡 Restricted | Visible, action buttons disabled in demo |
+| `parishionerChatbot` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
+| `churchAiSync` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
+| `calendar` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
+| `churchQuickLinks` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
+| `quickLinks` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
 
 ---
 
 ## 9. Database Schema Summary
 
-> **Full schema:** `supabase/migrations/Sacralink_database.sql`
-> **Latest migrations:** `023_fix_notifications_rls.sql`, `024_fix_profiles_rls_recursion.sql`
+> **Full schema:** `supabase/migrations/APPLY_ALL_MIGRATIONS.sql`
+> **Active migrations:** `supabase/migrations/` (migrations `000` through `025`)
+> **AI / Knowledge Store:** `church_knowledge_chunks` (pgvector 768-dim), `church_chat_logs` (see `AI_Feature_Context.md`)
 
 ### Enums
 ```typescript
@@ -166,6 +173,8 @@ type DonationStatus = 'pending' | 'verified' | 'rejected';
 | `donations` | Cashless donation records with `proof_url` and `status` |
 | `announcements` | Church and system-wide announcements |
 | `notifications` | In-app notification records (shown via `NotificationBell` in header) |
+| `church_knowledge_chunks` | Vector embeddings (768d) for parish AI assistant knowledge base |
+| `church_chat_logs` | Audit trail of parishioner AI chat questions and responses |
 | `activity_logs` | Audit trail |
 
 ### Key Relationships
@@ -307,6 +316,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - [x] System Announcements (Super Admin) — shown as banner
 - [x] Notifications (in-app bell with dropdown)
 - [x] Profile page — edit name, phone, avatar upload, change password
+- [x] AI Parishioner Assistant (Gemini 2.0 Flash / pgvector chatbot & admin knowledge sync — see `AI_Feature_Context.md`)
 - [x] Feature flags system with demo mode
 - [x] Responsive design (mobile-friendly cards on Churches, Users tabs)
 
