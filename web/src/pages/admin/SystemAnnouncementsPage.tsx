@@ -194,8 +194,9 @@ export default function SystemAnnouncementsPage() {
                         if (error) throw error;
                         refetch();
                         setDeleteConfirmation({ show: false, announcement: null });
-                    } catch (err: any) {
-                        alert('Failed to delete announcement: ' + err.message);
+                    } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        alert('Failed to delete announcement: ' + message);
                     } finally {
                         setDeletingAnnouncement(false);
                     }

@@ -15,19 +15,14 @@ import { featureFlags } from '../../config/featureFlags';
  */
 export default function SystemAnnouncementsBanner() {
     const { announcements, loading } = useSystemAnnouncements();
-    const [dismissedIds, setDismissedIds] = useState<string[]>([]);
-
-    // Load dismissed IDs from localStorage on mount
-    useEffect(() => {
-        const stored = localStorage.getItem('dismissedSystemAnnouncements');
-        if (stored) {
-            try {
-                setDismissedIds(JSON.parse(stored));
-            } catch {
-                setDismissedIds([]);
-            }
+    const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+        try {
+            const stored = localStorage.getItem('dismissedSystemAnnouncements');
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
         }
-    }, []);
+    });
 
     // Save to localStorage whenever dismissed IDs change
     useEffect(() => {

@@ -1,10 +1,16 @@
 import { Pin, Edit, Trash2, Building2, Calendar, Megaphone, Church, CalendarDays, AlertTriangle, Bell, Clock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ChurchAnnouncement, SystemAnnouncement } from '../../types/database';
+import type {
+    ChurchAnnouncement,
+    SystemAnnouncement,
+    UnifiedAnnouncement,
+    AnnouncementCategory,
+    SystemAnnouncementType,
+} from '../../lib/supabase/announcements';
 
 interface AnnouncementCardProps {
-    announcement: ChurchAnnouncement | SystemAnnouncement;
-    type: 'church' | 'system';
+    announcement: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement;
+    type?: 'church' | 'system' | 'all';
     onEdit?: () => void;
     onDelete?: () => void;
     onView?: () => void;
@@ -23,13 +29,19 @@ interface AnnouncementCardProps {
  */
 export default function AnnouncementCard({
     announcement,
-    type,
+    type = 'all',
     onEdit,
     onDelete,
     onView,
     showActions = false
 }: AnnouncementCardProps) {
-    const isChurchAnnouncement = type === 'church';
+    const isChurchAnnouncement =
+        'kind' in announcement
+            ? announcement.kind === 'church'
+            : 'church_id' in announcement && Boolean((announcement as ChurchAnnouncement).church_id)
+                ? true
+                : type === 'church';
+
     const churchAnn = announcement as ChurchAnnouncement;
     const systemAnn = announcement as SystemAnnouncement;
 
@@ -57,20 +69,18 @@ export default function AnnouncementCard({
         });
     };
 
-
     // Type badge colors for system announcements
     const getTypeBadge = () => {
-        if (type !== 'system' || !systemAnn.type) return null;
+        if (isChurchAnnouncement || !systemAnn.type) return null;
 
-        const badges: Record<string, { icon: string; class: string }> = {
+        const badges: Record<SystemAnnouncementType | string, { icon: string; class: string }> = {
             info: { icon: '📘', class: 'bg-blue-100 text-blue-800' },
             warning: { icon: '⚠️', class: 'bg-yellow-100 text-yellow-800' },
             maintenance: { icon: '🔧', class: 'bg-orange-100 text-orange-800' },
             success: { icon: '✅', class: 'bg-green-100 text-green-800' },
         };
 
-        const badge = badges[systemAnn.type];
-        if (!badge) return null;
+        const badge = badges[systemAnn.type] || { icon: '📢', class: 'bg-gray-100 text-gray-800' };
 
         return (
             <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${badge.class}`}>
@@ -80,15 +90,15 @@ export default function AnnouncementCard({
     };
 
     // Category badge for church announcements
-    const CATEGORY_STYLES: Record<string, { icon: LucideIcon; class: string; border: string }> = {
-        general:      { icon: Megaphone,     class: 'bg-gray-100 text-gray-700 border-gray-200',     border: 'border-gray-400' },
-        mass_schedule:{ icon: Church,        class: 'bg-blue-100 text-blue-700 border-blue-200',     border: 'border-blue-500' },
-        event:        { icon: CalendarDays,  class: 'bg-purple-100 text-purple-700 border-purple-200', border: 'border-purple-500' },
-        emergency:    { icon: AlertTriangle, class: 'bg-red-100 text-red-700 border-red-200',         border: 'border-red-500' },
-        reminder:     { icon: Bell,          class: 'bg-amber-100 text-amber-700 border-amber-200',   border: 'border-amber-500' },
+    const CATEGORY_STYLES: Record<AnnouncementCategory | string, { icon: LucideIcon; class: string; border: string }> = {
+        general:       { icon: Megaphone,     class: 'bg-gray-100 text-gray-700 border-gray-200',     border: 'border-gray-400' },
+        mass_schedule: { icon: Church,        class: 'bg-blue-100 text-blue-700 border-blue-200',     border: 'border-blue-500' },
+        event:         { icon: CalendarDays,  class: 'bg-purple-100 text-purple-700 border-purple-200', border: 'border-purple-500' },
+        emergency:     { icon: AlertTriangle, class: 'bg-red-100 text-red-700 border-red-200',         border: 'border-red-500' },
+        reminder:      { icon: Bell,          class: 'bg-amber-100 text-amber-700 border-amber-200',   border: 'border-amber-500' },
     };
 
-    const category = (churchAnn as any).category || 'general';
+    const category = (isChurchAnnouncement && churchAnn.category) ? churchAnn.category : 'general';
     const catStyle = CATEGORY_STYLES[category] || CATEGORY_STYLES.general;
     const CatIcon = catStyle.icon;
 
@@ -103,38 +113,41 @@ export default function AnnouncementCard({
     };
 
     return (
-        <div className={`card p-4 border-l-4 ${isChurchAnnouncement ? catStyle.border : 'border-blue-500'}`}>
+        <div className={`card p-4 border-l-4 transition-all duration-200 hover:shadow-md ${isChurchAnnouncement ? catStyle.border : 'border-blue-500'}`}>
             {/* Header */}
             <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {/* Category badge (church only) */}
                         {isChurchAnnouncement && getCategoryBadge()}
 
+                        {/* System announcement type badge */}
+                        {!isChurchAnnouncement && getTypeBadge()}
+
                         {/* Title */}
-                        <h3 className="text-lg font-semibold">{announcement.title}</h3>
+                        <h3 className="text-lg font-semibold text-foreground truncate">{announcement.title}</h3>
 
                         {/* Pinned indicator */}
-                        {isChurchAnnouncement && churchAnn.is_pinned && (
-                            <Pin className="w-4 h-4 text-primary" />
+                        {isChurchAnnouncement && Boolean(churchAnn.is_pinned) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                                <Pin className="w-3 h-3" />
+                                Pinned
+                            </span>
                         )}
-
-                        {/* System announcement type badge */}
-                        {type === 'system' && getTypeBadge()}
                     </div>
 
                     {/* Metadata */}
-                    <div className="flex items-center gap-3 text-sm text-muted">
+                    <div className="flex items-center gap-3 text-sm text-muted flex-wrap">
                         <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             Posted {formatDate(announcement.created_at || new Date().toISOString())}
                         </span>
 
                         {/* Church name for church announcements */}
-                        {isChurchAnnouncement && (churchAnn as any).church && (
-                            <span className="flex items-center gap-1">
-                                <Building2 className="w-3 h-3" />
-                                {(churchAnn as any).church.name}
+                        {isChurchAnnouncement && churchAnn.church?.name && (
+                            <span className="flex items-center gap-1 font-medium text-foreground/80">
+                                <Building2 className="w-3 h-3 text-primary" />
+                                {churchAnn.church.name}
                             </span>
                         )}
                     </div>
@@ -142,23 +155,23 @@ export default function AnnouncementCard({
 
                 {/* Actions */}
                 {showActions && (onEdit || onDelete) && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                         {onEdit && (
                             <button
                                 onClick={onEdit}
-                                className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+                                className="p-2 hover:bg-secondary-100 rounded-lg transition-colors text-muted hover:text-foreground"
                                 title="Edit announcement"
                             >
-                                <Edit className="w-4 h-4 text-muted" />
+                                <Edit className="w-4 h-4" />
                             </button>
                         )}
                         {onDelete && (
                             <button
                                 onClick={onDelete}
-                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-500 hover:text-red-700"
                                 title="Delete announcement"
                             >
-                                <Trash2 className="w-4 h-4 text-red-600" />
+                                <Trash2 className="w-4 h-4" />
                             </button>
                         )}
                     </div>
@@ -167,25 +180,25 @@ export default function AnnouncementCard({
 
             {/* Content — truncated, full text via modal */}
             <div className="prose prose-sm max-w-none">
-                <p className="text-foreground whitespace-pre-wrap line-clamp-3">{announcement.content}</p>
+                <p className="text-foreground/90 whitespace-pre-wrap line-clamp-3 text-sm leading-relaxed">{announcement.content}</p>
             </div>
 
             {/* Read more button */}
             {onView && (
                 <button
                     onClick={onView}
-                    className="mt-2 text-xs font-medium text-primary hover:underline"
+                    className="mt-2 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
                 >
-                    Read more →
+                    Read full announcement →
                 </button>
             )}
 
             {/* Scheduled notice */}
-            {isChurchAnnouncement && (churchAnn as any).scheduled_at && new Date((churchAnn as any).scheduled_at) > new Date() && (
+            {isChurchAnnouncement && churchAnn.scheduled_at && new Date(churchAnn.scheduled_at) > new Date() && (
                 <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <p className="text-xs text-amber-600 flex items-center gap-1 font-medium">
                         <Clock className="w-3 h-3" />
-                        Scheduled: {new Date((churchAnn as any).scheduled_at).toLocaleString('en-US', {
+                        Scheduled: {new Date(churchAnn.scheduled_at).toLocaleString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
                             hour: '2-digit', minute: '2-digit'
                         })}
@@ -194,9 +207,10 @@ export default function AnnouncementCard({
             )}
 
             {/* Expiration notice for system announcements */}
-            {type === 'system' && systemAnn.expires_at && (
+            {!isChurchAnnouncement && systemAnn.expires_at && (
                 <div className="mt-3 pt-3 border-t border-border">
-                    <p className="text-xs text-muted">
+                    <p className="text-xs text-muted flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
                         Expires: {new Date(systemAnn.expires_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric',
                             hour: '2-digit', minute: '2-digit'

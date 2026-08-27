@@ -1,21 +1,33 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock } from 'lucide-react';
+import { Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock, Building2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ChurchAnnouncement, SystemAnnouncement } from '../../types/database';
-import { notifyFollowersOfAnnouncement } from '../../lib/supabase/notifications';
+import {
+    createChurchAnnouncement,
+    updateChurchAnnouncement,
+    createSystemAnnouncement,
+    updateSystemAnnouncement,
+    type AnnouncementCategory,
+    type SystemAnnouncementType,
+    type ChurchAnnouncement,
+    type SystemAnnouncement,
+    type UnifiedAnnouncement,
+} from '../../lib/supabase/announcements';
 import Modal from '../ui/Modal';
+
+interface ChurchOption {
+    id: string;
+    name: string;
+}
 
 interface AnnouncementFormProps {
     type: 'church' | 'system';
-    churchId?: string; // Required for church announcements
+    churchId?: string; // Required for church announcements if churches not provided
     churchName?: string; // Used for follower notifications
-    announcement?: ChurchAnnouncement | SystemAnnouncement; // For editing
+    churches?: ChurchOption[]; // Optional list of churches for selection
+    announcement?: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement; // For editing
     onSuccess: () => void;
     onCancel: () => void;
 }
-
-type AnnouncementCategory = 'general' | 'mass_schedule' | 'event' | 'emergency' | 'reminder';
 
 const CATEGORIES: { value: AnnouncementCategory; label: string; icon: LucideIcon; color: string }[] = [
     { value: 'general',       label: 'General',       icon: Megaphone,     color: 'bg-gray-100 text-gray-700 border-gray-200' },
@@ -25,12 +37,12 @@ const CATEGORIES: { value: AnnouncementCategory; label: string; icon: LucideIcon
     { value: 'reminder',      label: 'Reminder',       icon: Bell,          color: 'bg-amber-100 text-amber-700 border-amber-200' },
 ];
 
-const SYSTEM_TYPES = [
-    { value: 'info', label: 'Info', icon: '📘' },
-    { value: 'warning', label: 'Warning', icon: '⚠️' },
+const SYSTEM_TYPES: { value: SystemAnnouncementType; label: string; icon: string }[] = [
+    { value: 'info',        label: 'Info',        icon: '📘' },
+    { value: 'warning',     label: 'Warning',     icon: '⚠️' },
     { value: 'maintenance', label: 'Maintenance', icon: '🔧' },
-    { value: 'success', label: 'Success', icon: '✅' },
-] as const;
+    { value: 'success',     label: 'Success',     icon: '✅' },
+];
 
 /**
  * AnnouncementForm - Create/Edit form for announcements
@@ -39,12 +51,22 @@ export default function AnnouncementForm({
     type,
     churchId,
     churchName,
+    churches = [],
     announcement,
     onSuccess,
     onCancel,
 }: AnnouncementFormProps) {
-    const isEditing = !!announcement;
+    const isEditing = Boolean(announcement);
     const isChurchAnnouncement = type === 'church';
+
+    const [selectedChurchId, setSelectedChurchId] = useState<string>(() => {
+        if (churchId) return churchId;
+        if (announcement && 'church_id' in announcement && announcement.church_id) {
+            return announcement.church_id;
+        }
+        if (churches.length === 1) return churches[0].id;
+        return '';
+    });
 
     const [formData, setFormData] = useState({
         title: '',
@@ -52,7 +74,7 @@ export default function AnnouncementForm({
         isPinned: false,
         category: 'general' as AnnouncementCategory,
         scheduledAt: '',
-        announcementType: 'info' as 'info' | 'warning' | 'maintenance' | 'success',
+        announcementType: 'info' as SystemAnnouncementType,
         expiresAt: '',
     });
 
@@ -65,23 +87,26 @@ export default function AnnouncementForm({
         if (announcement) {
             const churchAnn = announcement as ChurchAnnouncement;
             const sysAnn = announcement as SystemAnnouncement;
-            const hasScheduled = Boolean(isChurchAnnouncement && (churchAnn as any).scheduled_at);
+            const hasScheduled = Boolean(isChurchAnnouncement && churchAnn.scheduled_at);
             setIsScheduled(hasScheduled);
             setFormData({
-                title: announcement.title,
-                content: announcement.content,
-                isPinned: isChurchAnnouncement ? (churchAnn.is_pinned || false) : false,
-                category: isChurchAnnouncement ? ((churchAnn as any).category || 'general') : 'general',
-                scheduledAt: isChurchAnnouncement && (churchAnn as any).scheduled_at
-                    ? new Date((churchAnn as any).scheduled_at).toISOString().slice(0, 16)
+                title: announcement.title || '',
+                content: announcement.content || '',
+                isPinned: isChurchAnnouncement ? Boolean(churchAnn.is_pinned) : false,
+                category: isChurchAnnouncement ? (churchAnn.category || 'general') : 'general',
+                scheduledAt: isChurchAnnouncement && churchAnn.scheduled_at
+                    ? new Date(churchAnn.scheduled_at).toISOString().slice(0, 16)
                     : '',
-                announcementType: !isChurchAnnouncement ? ((sysAnn.type as any) || 'info') : 'info',
+                announcementType: !isChurchAnnouncement ? ((sysAnn.type as SystemAnnouncementType) || 'info') : 'info',
                 expiresAt: !isChurchAnnouncement && sysAnn.expires_at
                     ? new Date(sysAnn.expires_at).toISOString().slice(0, 16)
                     : '',
             });
+            if (isChurchAnnouncement && churchAnn.church_id) {
+                setSelectedChurchId(churchAnn.church_id);
+            }
         }
-    }, [announcement]);
+    }, [announcement, isChurchAnnouncement]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -90,72 +115,66 @@ export default function AnnouncementForm({
         if (!formData.title.trim()) { setError('Title is required'); return; }
         if (formData.title.length > 255) { setError('Title must be 255 characters or less'); return; }
         if (!formData.content.trim()) { setError('Content is required'); return; }
-        if (isChurchAnnouncement && !churchId) { setError('Church ID is required'); return; }
+
+        const effectiveTargetChurchId = selectedChurchId || churchId;
+        if (isChurchAnnouncement && !effectiveTargetChurchId) {
+            setError('Please select a parish for this announcement');
+            return;
+        }
 
         setLoading(true);
 
         try {
             if (isChurchAnnouncement) {
-                const churchData: any = {
-                    church_id: churchId!,
-                    title: formData.title.trim(),
-                    content: formData.content.trim(),
-                    is_pinned: formData.isPinned,
-                    category: formData.category,
-                    scheduled_at: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : null,
-                };
+                const targetChurch = churches.find(c => c.id === effectiveTargetChurchId);
+                const resolvedChurchName = churchName || targetChurch?.name || 'Your followed church';
 
-                if (isEditing) {
-                    const { error: updateError } = await supabase
-                        .from('church_announcements')
-                        .update(churchData)
-                        .eq('id', announcement.id);
+                if (isEditing && announcement) {
+                    const { error: updateError } = await updateChurchAnnouncement(announcement.id, {
+                        title: formData.title.trim(),
+                        content: formData.content.trim(),
+                        category: formData.category,
+                        isPinned: formData.isPinned,
+                        scheduledAt: isScheduled && formData.scheduledAt ? formData.scheduledAt : null,
+                    });
                     if (updateError) throw updateError;
                 } else {
-                    const { data: inserted, error: insertError } = await supabase
-                        .from('church_announcements')
-                        .insert([churchData])
-                        .select('id')
-                        .single();
-                    if (insertError) throw insertError;
-
-                    // Notify followers (fire-and-forget, non-blocking)
-                    if (inserted?.id && churchId) {
-                        notifyFollowersOfAnnouncement(
-                            churchId,
-                            churchName || 'Your followed church',
-                            inserted.id,
-                            formData.title.trim()
-                        );
-                    }
+                    const { error: createError } = await createChurchAnnouncement({
+                        churchId: effectiveTargetChurchId!,
+                        churchName: resolvedChurchName,
+                        title: formData.title.trim(),
+                        content: formData.content.trim(),
+                        category: formData.category,
+                        isPinned: formData.isPinned,
+                        scheduledAt: isScheduled && formData.scheduledAt ? formData.scheduledAt : null,
+                    });
+                    if (createError) throw createError;
                 }
             } else {
-                const systemData = {
-                    title: formData.title.trim(),
-                    content: formData.content.trim(),
-                    type: formData.announcementType,
-                    expires_at: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null,
-                    is_active: true,
-                };
-
-                if (isEditing) {
-                    const { error: updateError } = await supabase
-                        .from('system_announcements')
-                        .update(systemData)
-                        .eq('id', announcement.id);
+                if (isEditing && announcement) {
+                    const { error: updateError } = await updateSystemAnnouncement(announcement.id, {
+                        title: formData.title.trim(),
+                        content: formData.content.trim(),
+                        type: formData.announcementType,
+                        expiresAt: formData.expiresAt || null,
+                    });
                     if (updateError) throw updateError;
                 } else {
-                    const { error: insertError } = await supabase
-                        .from('system_announcements')
-                        .insert([systemData]);
-                    if (insertError) throw insertError;
+                    const { error: createError } = await createSystemAnnouncement({
+                        title: formData.title.trim(),
+                        content: formData.content.trim(),
+                        type: formData.announcementType,
+                        expiresAt: formData.expiresAt || null,
+                    });
+                    if (createError) throw createError;
                 }
             }
 
             onSuccess();
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const errMessage = err instanceof Error ? err.message : 'Failed to save announcement';
             console.error('Error saving announcement:', err);
-            setError(err.message || 'Failed to save announcement');
+            setError(errMessage);
         } finally {
             setLoading(false);
         }
@@ -176,13 +195,38 @@ export default function AnnouncementForm({
                 <div className="p-6 space-y-5">
                     {error && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                            <p className="text-sm text-red-600">{error}</p>
+                            <p className="text-sm text-red-600 font-medium">{error}</p>
+                        </div>
+                    )}
+
+                    {/* Parish selector (Church only, when churchId is not pre-fixed and churches are provided) */}
+                    {isChurchAnnouncement && !churchId && churches.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-foreground">
+                                Parish <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                                <select
+                                    value={selectedChurchId}
+                                    onChange={(e) => setSelectedChurchId(e.target.value)}
+                                    className="input w-full pl-9"
+                                    required
+                                >
+                                    <option value="">Select a parish...</option>
+                                    {churches.map((church) => (
+                                        <option key={church.id} value={church.id}>
+                                            {church.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     )}
 
                     {/* Title */}
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">
+                        <label className="block text-sm font-medium mb-1.5 text-foreground">
                             Title <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -199,7 +243,7 @@ export default function AnnouncementForm({
                     {/* Category (Church only) */}
                     {isChurchAnnouncement && (
                         <div>
-                            <label className="block text-sm font-medium mb-2">Category</label>
+                            <label className="block text-sm font-medium mb-2 text-foreground">Category</label>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {CATEGORIES.map((cat) => {
                                     const Icon = cat.icon;
@@ -226,22 +270,22 @@ export default function AnnouncementForm({
                     {/* System Type (System only) */}
                     {!isChurchAnnouncement && (
                         <div>
-                            <label className="block text-sm font-medium mb-2">Type</label>
+                            <label className="block text-sm font-medium mb-2 text-foreground">Type</label>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {SYSTEM_TYPES.map((type) => {
-                                    const isSelected = formData.announcementType === type.value;
+                                {SYSTEM_TYPES.map((typeOption) => {
+                                    const isSelected = formData.announcementType === typeOption.value;
                                     return (
                                         <button
-                                            key={type.value}
+                                            key={typeOption.value}
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, announcementType: type.value as any })}
+                                            onClick={() => setFormData({ ...formData, announcementType: typeOption.value })}
                                             className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-medium transition-all ${isSelected
                                                 ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
                                                 : 'border-border hover:bg-secondary-50 text-foreground'
                                                 }`}
                                         >
-                                            <span>{type.icon}</span>
-                                            <span>{type.label}</span>
+                                            <span>{typeOption.icon}</span>
+                                            <span>{typeOption.label}</span>
                                         </button>
                                     );
                                 })}
@@ -251,7 +295,7 @@ export default function AnnouncementForm({
 
                     {/* Content */}
                     <div>
-                        <label className="block text-sm font-medium mb-1.5">
+                        <label className="block text-sm font-medium mb-1.5 text-foreground">
                             Content <span className="text-red-500">*</span>
                         </label>
                         <textarea
@@ -276,7 +320,7 @@ export default function AnnouncementForm({
                                     className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                                 />
                                 <div>
-                                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                                    <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                                         <Pin className="w-3.5 h-3.5 text-primary" />
                                         Pin Announcement
                                     </div>
@@ -291,7 +335,7 @@ export default function AnnouncementForm({
                                         type="checkbox"
                                         checked={isScheduled}
                                         onChange={(e) => {
-                                            setIsScheduled(e.target.checked);
+                                             setIsScheduled(e.target.checked);
                                             if (!e.target.checked) {
                                                 setFormData({ ...formData, scheduledAt: '' });
                                             }
@@ -299,7 +343,7 @@ export default function AnnouncementForm({
                                         className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                                     />
                                     <div>
-                                        <div className="flex items-center gap-1.5 text-sm font-medium">
+                                        <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                                             <Clock className="w-3.5 h-3.5 text-muted" />
                                             Schedule for Later
                                         </div>
@@ -326,7 +370,7 @@ export default function AnnouncementForm({
                     {/* System-specific: Expiration date */}
                     {!isChurchAnnouncement && (
                         <div>
-                            <label className="block text-sm font-medium mb-1.5">Expiration Date (Optional)</label>
+                            <label className="block text-sm font-medium mb-1.5 text-foreground">Expiration Date (Optional)</label>
                             <input
                                 type="datetime-local"
                                 value={formData.expiresAt}
@@ -342,7 +386,7 @@ export default function AnnouncementForm({
                     {isChurchAnnouncement && (() => {
                         const SelIcon = selectedCategory.icon;
                         return (
-                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="p-3 bg-secondary-50 rounded-xl border border-border">
                                 <p className="text-xs text-muted mb-2 font-medium uppercase tracking-wide">Preview Badge</p>
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${selectedCategory.color}`}>
                                     <SelIcon className="w-3.5 h-3.5" /> {selectedCategory.label}
@@ -353,11 +397,11 @@ export default function AnnouncementForm({
                 </div>
 
                 {/* Sticky footer */}
-                <div className="flex gap-3 p-4 sm:p-6 border-t border-border bg-gray-50/50 shrink-0">
+                <div className="flex gap-3 p-4 sm:p-6 border-t border-border bg-secondary-50/50 shrink-0">
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-100 text-foreground font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
                         disabled={loading}
                     >
                         Cancel

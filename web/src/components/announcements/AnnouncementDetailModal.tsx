@@ -1,15 +1,21 @@
 import { Pin, Calendar, Building2, Clock, Megaphone, Church, CalendarDays, AlertTriangle, Bell } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ChurchAnnouncement, SystemAnnouncement } from '../../types/database';
+import type {
+    ChurchAnnouncement,
+    SystemAnnouncement,
+    UnifiedAnnouncement,
+    AnnouncementCategory,
+    SystemAnnouncementType,
+} from '../../lib/supabase/announcements';
 import Modal from '../ui/Modal';
 
 interface AnnouncementDetailModalProps {
-    announcement: ChurchAnnouncement | SystemAnnouncement;
-    type: 'church' | 'system';
+    announcement: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement;
+    type?: 'church' | 'system' | 'all';
     onClose: () => void;
 }
 
-const CATEGORY_META: Record<string, { icon: LucideIcon; class: string; label: string }> = {
+const CATEGORY_META: Record<AnnouncementCategory | string, { icon: LucideIcon; class: string; label: string }> = {
     general:       { icon: Megaphone,     class: 'bg-gray-100 text-gray-700 border-gray-200',     label: 'General' },
     mass_schedule: { icon: Church,        class: 'bg-blue-100 text-blue-700 border-blue-200',     label: 'Mass Schedule' },
     event:         { icon: CalendarDays,  class: 'bg-purple-100 text-purple-700 border-purple-200', label: 'Event' },
@@ -17,19 +23,25 @@ const CATEGORY_META: Record<string, { icon: LucideIcon; class: string; label: st
     reminder:      { icon: Bell,          class: 'bg-amber-100 text-amber-700 border-amber-200',   label: 'Reminder' },
 };
 
-const SYSTEM_TYPE_META: Record<string, { icon: string; class: string }> = {
+const SYSTEM_TYPE_META: Record<SystemAnnouncementType | string, { icon: string; class: string }> = {
     info:        { icon: '📘', class: 'bg-blue-100 text-blue-800' },
     warning:     { icon: '⚠️', class: 'bg-yellow-100 text-yellow-800' },
     maintenance: { icon: '🔧', class: 'bg-orange-100 text-orange-800' },
     success:     { icon: '✅', class: 'bg-green-100 text-green-800' },
 };
 
-export default function AnnouncementDetailModal({ announcement, type, onClose }: AnnouncementDetailModalProps) {
-    const isChurch = type === 'church';
+export default function AnnouncementDetailModal({ announcement, type = 'all', onClose }: AnnouncementDetailModalProps) {
+    const isChurch =
+        'kind' in announcement
+            ? announcement.kind === 'church'
+            : 'church_id' in announcement && Boolean((announcement as ChurchAnnouncement).church_id)
+                ? true
+                : type === 'church';
+
     const churchAnn = announcement as ChurchAnnouncement;
     const systemAnn = announcement as SystemAnnouncement;
 
-    const category = (churchAnn as any).category || 'general';
+    const category = (isChurch && churchAnn.category) ? churchAnn.category : 'general';
     const catMeta = CATEGORY_META[category] || CATEGORY_META.general;
     const CatIcon = catMeta.icon;
 
@@ -56,14 +68,14 @@ export default function AnnouncementDetailModal({ announcement, type, onClose }:
                                 </span>
                             )}
                             {!isChurch && systemAnn.type && (() => {
-                                const sm = SYSTEM_TYPE_META[systemAnn.type];
-                                return sm ? (
+                                const sm = SYSTEM_TYPE_META[systemAnn.type] || { icon: '📢', class: 'bg-gray-100 text-gray-800' };
+                                return (
                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sm.class}`}>
                                         {sm.icon} {systemAnn.type.charAt(0).toUpperCase() + systemAnn.type.slice(1)}
                                     </span>
-                                ) : null;
+                                );
                             })()}
-                            {isChurch && churchAnn.is_pinned && (
+                            {isChurch && Boolean(churchAnn.is_pinned) && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                                     <Pin className="w-3 h-3" /> Pinned
                                 </span>
@@ -79,10 +91,10 @@ export default function AnnouncementDetailModal({ announcement, type, onClose }:
                                 <Calendar className="w-3.5 h-3.5" />
                                 {formatDate(announcement.created_at || new Date().toISOString())}
                             </span>
-                            {isChurch && (churchAnn as any).church?.name && (
-                                <span className="flex items-center gap-1">
-                                    <Building2 className="w-3.5 h-3.5" />
-                                    {(churchAnn as any).church.name}
+                            {isChurch && churchAnn.church?.name && (
+                                <span className="flex items-center gap-1 font-medium text-foreground/80">
+                                    <Building2 className="w-3.5 h-3.5 text-primary" />
+                                    {churchAnn.church.name}
                                 </span>
                             )}
                         </div>
@@ -104,10 +116,10 @@ export default function AnnouncementDetailModal({ announcement, type, onClose }:
             </p>
 
             {/* Scheduled notice */}
-            {isChurch && (churchAnn as any).scheduled_at && new Date((churchAnn as any).scheduled_at) > new Date() && (
+            {isChurch && churchAnn.scheduled_at && new Date(churchAnn.scheduled_at) > new Date() && (
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-sm text-amber-700">
                     <Clock className="w-4 h-4 shrink-0" />
-                    Scheduled for: {new Date((churchAnn as any).scheduled_at).toLocaleString('en-US', {
+                    Scheduled for: {new Date(churchAnn.scheduled_at).toLocaleString('en-US', {
                         month: 'short', day: 'numeric', year: 'numeric',
                         hour: '2-digit', minute: '2-digit',
                     })}
@@ -116,7 +128,8 @@ export default function AnnouncementDetailModal({ announcement, type, onClose }:
 
             {/* Expiry notice */}
             {!isChurch && systemAnn.expires_at && (
-                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-muted">
+                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-muted flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
                     Expires: {new Date(systemAnn.expires_at).toLocaleDateString('en-US', {
                         month: 'short', day: 'numeric', year: 'numeric',
                         hour: '2-digit', minute: '2-digit',
