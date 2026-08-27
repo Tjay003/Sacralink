@@ -4,8 +4,11 @@ import { Plus, Megaphone, Info, AlertTriangle, Wrench, CheckCircle2 } from 'luci
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystemAnnouncements } from '../../hooks/useSystemAnnouncements';
 import { AnnouncementsList, AnnouncementForm } from '../../components/announcements';
-import { supabase } from '../../lib/supabase';
-import type { SystemAnnouncement, ChurchAnnouncement } from '../../types/database';
+import {
+    deleteSystemAnnouncement,
+    type SystemAnnouncement,
+    type ChurchAnnouncement,
+} from '../../lib/supabase/announcements';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 
 /**
@@ -20,7 +23,7 @@ import ConfirmationModal from '../../components/modals/ConfirmationModal';
 export default function SystemAnnouncementsPage() {
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const { announcements, loading, refetch } = useSystemAnnouncements();
+    const { announcements, loading, refetch } = useSystemAnnouncements({ includeInactive: true });
 
     const [showForm, setShowForm] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<SystemAnnouncement | null>(null);
@@ -186,13 +189,10 @@ export default function SystemAnnouncementsPage() {
                     if (!deleteConfirmation.announcement) return;
                     setDeletingAnnouncement(true);
                     try {
-                        const { error } = await supabase
-                            .from('system_announcements')
-                            .delete()
-                            .eq('id', deleteConfirmation.announcement.id);
+                        const { error } = await deleteSystemAnnouncement(deleteConfirmation.announcement.id);
 
                         if (error) throw error;
-                        refetch();
+                        await refetch();
                         setDeleteConfirmation({ show: false, announcement: null });
                     } catch (err: unknown) {
                         const message = err instanceof Error ? err.message : String(err);

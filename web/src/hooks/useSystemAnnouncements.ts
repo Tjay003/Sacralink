@@ -1,65 +1,64 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import type { SystemAnnouncement } from '../types/database';
+import { useState, useEffect, useCallback } from 'react';
+import {
+    getSystemAnnouncements,
+    subscribeToSystemAnnouncements,
+    type SystemAnnouncement,
+    type GetSystemAnnouncementsOptions,
+} from '../lib/supabase/announcements';
 
 /**
- * Custom hook to fetch active system announcements
+ * Custom hook to fetch system announcements
+ * Delegates directly to the deep announcements domain module.
+ *
+ * @param options - Optional search, limit, and includeInactive options
  * @returns System announcements data, loading state, error, and refetch function
  */
-export function useSystemAnnouncements() {
+export function useSystemAnnouncements(options?: GetSystemAnnouncementsOptions) {
     const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchAnnouncements = async () => {
+    const searchOption = options?.search;
+    const limitOption = options?.limit;
+    const includeInactiveOption = options?.includeInactive;
+
+    const fetchAnnouncements = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
 
-            const { data, error: fetchError } = await supabase
-                .from('system_announcements')
-                .select('*')
-                .eq('is_active', true)
-                .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-                .order('created_at', { ascending: false });
+            const { data, error: fetchError } = await getSystemAnnouncements({
+                search: searchOption,
+                limit: limitOption,
+                includeInactive: includeInactiveOption,
+            });
 
             if (fetchError) {
                 throw fetchError;
             }
 
-            setAnnouncements(data || []);
-        } catch (err: any) {
+            setAnnouncements(data);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to fetch system announcements';
             console.error('Error fetching system announcements:', err);
-            setError(err.message || 'Failed to fetch system announcements');
+            setError(message);
         } finally {
             setLoading(false);
         }
-    };
+    }, [searchOption, limitOption, includeInactiveOption]);
 
     useEffect(() => {
-        fetchAnnouncements();
+        void fetchAnnouncements();
 
-        // Subscribe to real-time updates
-        const channel = supabase
-            .channel('system_announcements_changes')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'system_announcements',
-                },
-                () => {
-                    // Refetch when changes occur
-                    fetchAnnouncements();
-                }
-            )
-            .subscribe();
+        // Subscribe to real-time updates via domain module
+        const unsubscribe = subscribeToSystemAnnouncements(() => {
+            void fetchAnnouncements();
+        });
 
         return () => {
-            supabase.removeChannel(channel);
+            unsubscribe();
         };
-    }, []);
+    }, [fetchAnnouncements]);
 
     return {
         announcements,
@@ -68,3 +67,4 @@ export function useSystemAnnouncements() {
         refetch: fetchAnnouncements,
     };
 }
+

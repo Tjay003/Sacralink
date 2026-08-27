@@ -3,8 +3,10 @@ import { Megaphone, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useSystemAnnouncements } from '../../hooks/useSystemAnnouncements';
 import AnnouncementForm from '../announcements/AnnouncementForm';
 import ConfirmationModal from '../modals/ConfirmationModal';
-import type { SystemAnnouncement } from '../../types/database';
-import { supabase } from '../../lib/supabase';
+import {
+    deleteSystemAnnouncement,
+    type SystemAnnouncement,
+} from '../../lib/supabase/announcements';
 import { isDemoMode } from '../../config/featureFlags';
 
 /**
@@ -17,7 +19,7 @@ import { isDemoMode } from '../../config/featureFlags';
  * - Latest 5 announcements displayed
  */
 export default function SystemAnnouncementsManagement() {
-    const { announcements, loading, refetch } = useSystemAnnouncements();
+    const { announcements, loading, refetch } = useSystemAnnouncements({ includeInactive: true });
     const [showForm, setShowForm] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<SystemAnnouncement | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; announcement: SystemAnnouncement | null }>({
@@ -39,18 +41,16 @@ export default function SystemAnnouncementsManagement() {
 
         try {
             setDeleting(true);
-            const { error } = await supabase
-                .from('system_announcements')
-                .delete()
-                .eq('id', deleteConfirmation.announcement.id);
+            const { error } = await deleteSystemAnnouncement(deleteConfirmation.announcement.id);
 
             if (error) throw error;
 
-            refetch();
+            await refetch();
             setDeleteConfirmation({ show: false, announcement: null });
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to delete announcement';
             console.error('Failed to delete announcement:', err);
-            alert('Failed to delete announcement: ' + err.message);
+            alert('Failed to delete announcement: ' + message);
         } finally {
             setDeleting(false);
         }
@@ -59,7 +59,7 @@ export default function SystemAnnouncementsManagement() {
     const handleFormClose = () => {
         setShowForm(false);
         setEditingAnnouncement(null);
-        refetch();
+        void refetch();
     };
 
     // Format date

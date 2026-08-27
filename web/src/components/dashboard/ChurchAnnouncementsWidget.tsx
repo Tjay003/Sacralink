@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Megaphone, ArrowRight, Calendar } from 'lucide-react';
 import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import AnnouncementDetailModal from '../announcements/AnnouncementDetailModal';
-import type { ChurchAnnouncement } from '../../types/database';
+import type { ChurchAnnouncement } from '../../lib/supabase/announcements';
 
 interface ChurchAnnouncementsWidgetProps {
     churchId: string | null;
@@ -20,7 +20,7 @@ interface ChurchAnnouncementsWidgetProps {
  */
 export default function ChurchAnnouncementsWidget({ churchId, churchName }: ChurchAnnouncementsWidgetProps) {
     const navigate = useNavigate();
-    const { announcements, loading } = useChurchAnnouncements(churchId || '');
+    const { announcements, loading } = useChurchAnnouncements(churchId || undefined);
     const [selectedAnnouncement, setSelectedAnnouncement] = useState<ChurchAnnouncement | null>(null);
 
     // Don't render if no church selected
@@ -125,7 +125,7 @@ export default function ChurchAnnouncementsWidget({ churchId, churchName }: Chur
                         {latestAnnouncements.map((announcement) => (
                             <button
                                 key={announcement.id}
-                                onClick={() => setSelectedAnnouncement(announcement as ChurchAnnouncement)}
+                                onClick={() => setSelectedAnnouncement(announcement)}
                                 className="w-full p-4 bg-background border rounded-lg hover:bg-orange-50 hover:border-orange-200 transition-colors text-left group"
                             >
                                 <div className="flex items-start justify-between gap-3">

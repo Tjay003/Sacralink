@@ -723,19 +723,25 @@ export function subscribeToSystemAnnouncements(
 }
 
 /**
- * Type guard for UnifiedChurchAnnouncement
+ * Type guard for ChurchAnnouncement and UnifiedChurchAnnouncement
  */
 export function isChurchAnnouncement(
-    announcement: UnifiedAnnouncement
-): announcement is UnifiedChurchAnnouncement {
-    return announcement.kind === 'church';
+    announcement: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement
+): announcement is ChurchAnnouncement | UnifiedChurchAnnouncement {
+    if ('kind' in announcement) {
+        return announcement.kind === 'church';
+    }
+    return 'church_id' in announcement && Boolean((announcement as ChurchAnnouncement).church_id);
 }
 
 /**
- * Type guard for UnifiedSystemAnnouncement
+ * Type guard for SystemAnnouncement and UnifiedSystemAnnouncement
  */
 export function isSystemAnnouncement(
-    announcement: UnifiedAnnouncement
-): announcement is UnifiedSystemAnnouncement {
-    return announcement.kind === 'system';
+    announcement: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement
+): announcement is SystemAnnouncement | UnifiedSystemAnnouncement {
+    if ('kind' in announcement) {
+        return announcement.kind === 'system';
+    }
+    return !('church_id' in announcement) || !(announcement as ChurchAnnouncement).church_id;
 }

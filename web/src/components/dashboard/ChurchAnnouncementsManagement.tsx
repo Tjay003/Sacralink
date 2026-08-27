@@ -4,9 +4,10 @@ import { Megaphone, Plus, Edit2, Trash2, ArrowRight } from 'lucide-react';
 import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import AnnouncementForm from '../announcements/AnnouncementForm';
 import ConfirmationModal from '../modals/ConfirmationModal';
-import type { ChurchAnnouncement } from '../../types/database';
-import { supabase } from '../../lib/supabase';
-
+import {
+    deleteChurchAnnouncement,
+    type ChurchAnnouncement,
+} from '../../lib/supabase/announcements';
 
 interface ChurchAnnouncementsManagementProps {
     churchId: string | null;
@@ -22,7 +23,7 @@ interface ChurchAnnouncementsManagementProps {
  */
 export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnouncementsManagementProps) {
     const navigate = useNavigate();
-    const { announcements, loading, refetch } = useChurchAnnouncements(churchId || '');
+    const { announcements, loading, refetch } = useChurchAnnouncements(churchId || undefined);
     const [showForm, setShowForm] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<ChurchAnnouncement | null>(null);
     const [deleteConfirmation, setDeleteConfirmation] = useState<{ show: boolean; announcement: ChurchAnnouncement | null }>({
@@ -44,18 +45,16 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
 
         try {
             setDeleting(true);
-            const { error } = await supabase
-                .from('church_announcements')
-                .delete()
-                .eq('id', deleteConfirmation.announcement.id);
+            const { error } = await deleteChurchAnnouncement(deleteConfirmation.announcement.id);
 
             if (error) throw error;
 
-            refetch();
+            await refetch();
             setDeleteConfirmation({ show: false, announcement: null });
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to delete announcement';
             console.error('Failed to delete announcement:', err);
-            alert('Failed to delete announcement: ' + err.message);
+            alert('Failed to delete announcement: ' + message);
         } finally {
             setDeleting(false);
         }
@@ -64,7 +63,7 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
     const handleFormClose = () => {
         setShowForm(false);
         setEditingAnnouncement(null);
-        refetch();
+        void refetch();
     };
 
     // Format relative time

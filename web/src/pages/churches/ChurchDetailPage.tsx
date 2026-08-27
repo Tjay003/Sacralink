@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
 import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck } from 'lucide-react';
-import { useChurch } from '../../hooks/useChurches';
+import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
@@ -11,7 +11,7 @@ import FacebookFeed from '../../components/social/FacebookFeed';
 import ImageLightbox from '../../components/churches/ImageLightbox';
 import { AnnouncementsList, AnnouncementForm } from '../../components/announcements';
 import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
-import type { ChurchAnnouncement } from '../../types/database';
+import { deleteChurchAnnouncement, type ChurchAnnouncement } from '../../lib/supabase/announcements';
 import { Megaphone } from 'lucide-react';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
@@ -20,6 +20,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
 import ChurchChatbot from '../../components/ai/ChurchChatbot';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
+
+interface SupporterRow {
+    user_id: string;
+    profiles: { id: string; full_name: string | null } | null;
+}
 
 /**
  * ChurchDetailPage - View details of a single church
@@ -37,7 +42,7 @@ export default function ChurchDetailPage() {
     const { church, loading, error, refetch } = useChurch(id || '');
 
     const [showAddModal, setShowAddModal] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState<any>(null);
+    const [editingSchedule, setEditingSchedule] = useState<MassSchedule | null>(null);
     const [activeTab, setActiveTab] = useState<'sunday' | 'weekday'>('sunday');
     const [galleryImages, setGalleryImages] = useState<string[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -76,12 +81,12 @@ export default function ChurchDetailPage() {
     // Fetch church announcements
     const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
 
-    const getFilteredSchedules = () => {
+    const getFilteredSchedules = (): MassSchedule[] => {
         if (!church?.mass_schedules) return [];
-        return church.mass_schedules.filter((s: any) => {
+        return church.mass_schedules.filter((s: MassSchedule) => {
             const isSunday = s.day_of_week === 'Sunday';
             return activeTab === 'sunday' ? isSunday : !isSunday;
-        }).sort((a: any, b: any) => {
+        }).sort((a: MassSchedule, b: MassSchedule) => {
             // Sort by time
             return a.time.localeCompare(b.time);
         });
@@ -132,7 +137,7 @@ export default function ChurchDetailPage() {
                     .order('display_order', { ascending: true });
 
                 if (data) {
-                    setGalleryImages(data.map((img: any) => img.image_url));
+                    setGalleryImages((data as { image_url: string }[]).map((img) => img.image_url));
                 }
             } catch (err) {
                 console.error('Error fetching gallery:', err);
@@ -156,9 +161,10 @@ export default function ChurchDetailPage() {
             if (data) {
                 // Deduplicate by user_id
                 const seen = new Set<string>();
-                const unique = data
-                    .filter((d: any) => d.profiles && !seen.has(d.user_id) && seen.add(d.user_id))
-                    .map((d: any) => ({ id: d.user_id, full_name: d.profiles?.full_name || 'Anonymous' }));
+                const rows = data as unknown as SupporterRow[];
+                const unique = rows
+                    .filter((d) => d.profiles && !seen.has(d.user_id) && seen.add(d.user_id))
+                    .map((d) => ({ id: d.user_id, full_name: d.profiles?.full_name || 'Anonymous' }));
                 setSupporters(unique);
             }
         };
@@ -517,7 +523,7 @@ export default function ChurchDetailPage() {
                                     <p>No masses scheduled for this day type yet.</p>
                                 </div>
                             ) : (
-                                getFilteredSchedules().map((schedule: any) => (
+                                getFilteredSchedules().map((schedule) => (
                                     <div
                                         key={schedule.id}
                                         className="group relative flex items-center justify-between p-4 rounded-xl border border-secondary-100 bg-secondary-50/50 hover:bg-white hover:border-primary-100 hover:shadow-md transition-all duration-200"
@@ -748,16 +754,14 @@ export default function ChurchDetailPage() {
                     if (!deleteConfirmation.announcement) return;
                     setDeletingAnnouncement(true);
                     try {
-                        const { error } = await supabase
-                            .from('church_announcements')
-                            .delete()
-                            .eq('id', deleteConfirmation.announcement.id);
+                        const { error } = await deleteChurchAnnouncement(deleteConfirmation.announcement.id);
 
                         if (error) throw error;
-                        refetchAnnouncements();
+                        await refetchAnnouncements();
                         setDeleteConfirmation({ show: false, announcement: null });
-                    } catch (err: any) {
-                        alert('Failed to delete announcement: ' + err.message);
+                    } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : 'Failed to delete announcement';
+                        alert('Failed to delete announcement: ' + message);
                     } finally {
                         setDeletingAnnouncement(false);
                     }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, AlertCircle, AlertTriangle, Wrench, CheckCircle } from 'lucide-react';
 import { useSystemAnnouncements } from '../../hooks/useSystemAnnouncements';
 import { featureFlags } from '../../config/featureFlags';
+import type { SystemAnnouncementType } from '../../lib/supabase/announcements';
 
 /**
  * SystemAnnouncementsBanner - Display active system announcements on dashboard
@@ -49,7 +50,13 @@ export default function SystemAnnouncementsBanner() {
     }
 
     // Type configurations
-    const typeConfig = {
+    const typeConfig: Record<SystemAnnouncementType, {
+        icon: typeof AlertCircle;
+        bgClass: string;
+        iconClass: string;
+        textClass: string;
+        titleClass: string;
+    }> = {
         info: {
             icon: AlertCircle,
             bgClass: 'bg-blue-50 border-blue-200',
@@ -83,7 +90,8 @@ export default function SystemAnnouncementsBanner() {
     return (
         <div className="space-y-3 mb-6">
             {visibleAnnouncements.map((announcement) => {
-                const config = typeConfig[(announcement.type || 'info') as 'info' | 'warning' | 'maintenance' | 'success'];
+                const normalizedType = (announcement.type as SystemAnnouncementType) || 'info';
+                const config = typeConfig[normalizedType] || typeConfig.info;
                 const Icon = config.icon;
 
                 return (
