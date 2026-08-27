@@ -1,8 +1,10 @@
+import type { PostgrestError, RealtimePostgresChangesFilter } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 import { notifyUserOfStatusChange, notifyAdminsOfNewAppointment } from './notifications';
 import { uploadDocument } from './documents';
+import type { Appointment as DatabaseAppointment } from '../../types/database';
 
-export type AppointmentStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
 
 export interface HydratedAppointment {
     id: string;
@@ -14,7 +16,7 @@ export interface HydratedAppointment {
     notes: string | null;
     status: AppointmentStatus;
     created_at: string;
-    updated_at?: string;
+    updated_at?: string | null;
     church?: {
         id?: string;
         name: string;
@@ -52,6 +54,28 @@ export interface CreateAppointmentInput {
     documents?: Map<string, File> | Array<{ requirementId: string; file: File }>;
 }
 
+interface RawAppointmentQueryResult {
+    id: string;
+    user_id: string;
+    church_id: string;
+    service_type: string;
+    appointment_date: string;
+    appointment_time: string;
+    notes: string | null;
+    status: AppointmentStatus;
+    created_at: string | null;
+    updated_at: string | null;
+    church: {
+        id: string;
+        name: string;
+    } | null;
+    profile: {
+        id: string;
+        full_name: string | null;
+        email: string | null;
+    } | null;
+}
+
 /**
  * Converts raw 24-hour time format (HH:MM:SS or HH:MM) into a standard 12-hour AM/PM string.
  */
@@ -71,7 +95,7 @@ export function formatAppointmentTime(time: string | null | undefined): string {
  */
 export async function getAppointments(
     filter: GetAppointmentsFilter = {}
-): Promise<{ data: HydratedAppointment[]; error: any }> {
+): Promise<{ data: HydratedAppointment[]; error: PostgrestError | Error | null }> {
     try {
         let query = supabase
             .from('appointments')
@@ -134,14 +158,14 @@ export async function getAppointments(
             query = query.limit(filter.limit);
         }
 
-        const { data, error } = await (query as any);
+        const { data, error } = await query.returns<RawAppointmentQueryResult[]>();
 
         if (error) {
             console.error('❌ Error fetching appointments:', error);
             return { data: [], error };
         }
 
-        let results: HydratedAppointment[] = (data || []).map((row: any) => ({
+        let results: HydratedAppointment[] = (data || []).map((row) => ({
             id: row.id,
             user_id: row.user_id,
             church_id: row.church_id,
@@ -150,7 +174,7 @@ export async function getAppointments(
             appointment_time: row.appointment_time,
             notes: row.notes,
             status: row.status,
-            created_at: row.created_at,
+            created_at: row.created_at ?? '',
             updated_at: row.updated_at,
             church: row.church ? { id: row.church.id, name: row.church.name } : null,
             profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, email: row.profile.email } : null,
@@ -168,18 +192,21 @@ export async function getAppointments(
         }
 
         return { data: results, error: null };
-    } catch (err: any) {
-        console.error('❌ Exception in getAppointments:', err);
-        return { data: [], error: err };
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error('❌ Exception in getAppointments:', error);
+        return { data: [], error };
     }
 }
 
 /**
  * Fetch a single appointment by ID.
  */
-export async function getAppointmentById(id: string): Promise<{ data: HydratedAppointment | null; error: any }> {
+export async function getAppointmentById(
+    id: string
+): Promise<{ data: HydratedAppointment | null; error: PostgrestError | Error | null }> {
     try {
-        const { data, error } = await (supabase
+        const { data, error } = await supabase
             .from('appointments')
             .select(`
                 *,
@@ -187,7 +214,8 @@ export async function getAppointmentById(id: string): Promise<{ data: HydratedAp
                 profile:profiles(id, full_name, email)
             `)
             .eq('id', id)
-            .single() as any);
+            .single()
+            .returns<RawAppointmentQueryResult>();
 
         if (error) return { data: null, error };
         if (!data) return { data: null, error: new Error('Appointment not found') };
@@ -201,15 +229,16 @@ export async function getAppointmentById(id: string): Promise<{ data: HydratedAp
             appointment_time: data.appointment_time,
             notes: data.notes,
             status: data.status,
-            created_at: data.created_at,
+            created_at: data.created_at ?? '',
             updated_at: data.updated_at,
             church: data.church ? { id: data.church.id, name: data.church.name } : null,
             profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, email: data.profile.email } : null,
         };
 
         return { data: appointment, error: null };
-    } catch (err: any) {
-        return { data: null, error: err };
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        return { data: null, error };
     }
 }
 
@@ -220,7 +249,7 @@ export async function updateAppointmentStatus(
     id: string,
     newStatus: AppointmentStatus,
     metadata?: { serviceType?: string; userId?: string }
-): Promise<{ success: boolean; error: any }> {
+): Promise<{ success: boolean; error: PostgrestError | Error | null }> {
     try {
         let userId = metadata?.userId;
         let serviceType = metadata?.serviceType;
@@ -234,8 +263,8 @@ export async function updateAppointmentStatus(
             }
         }
 
-        const { error } = await (supabase
-            .from('appointments') as any)
+        const { error } = await supabase
+            .from('appointments')
             .update({ status: newStatus })
             .eq('id', id);
 
@@ -251,9 +280,10 @@ export async function updateAppointmentStatus(
         }
 
         return { success: true, error: null };
-    } catch (err: any) {
-        console.error('❌ Error updating appointment status:', err);
-        return { success: false, error: err };
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error('❌ Error updating appointment status:', error);
+        return { success: false, error };
     }
 }
 
@@ -262,24 +292,25 @@ export async function updateAppointmentStatus(
  */
 export async function createAppointmentWithDocuments(
     input: CreateAppointmentInput
-): Promise<{ data: any; error: any }> {
+): Promise<{ data: DatabaseAppointment | null; error: PostgrestError | Error | null }> {
     try {
         // 1. Insert appointment record
-        const { data: appointment, error: insertError } = await (supabase
+        const { data: appointment, error: insertError } = await supabase
             .from('appointments')
-            .insert([{
+            .insert({
                 user_id: input.userId,
                 church_id: input.churchId,
                 service_type: input.serviceType,
                 appointment_date: input.appointmentDate,
                 appointment_time: input.appointmentTime,
                 notes: input.notes || null,
-                status: 'pending' as const,
-            }])
+                status: 'pending',
+            })
             .select()
-            .single() as any);
+            .single();
 
         if (insertError) throw insertError;
+        if (!appointment) throw new Error('Failed to create appointment');
 
         // 2. Upload documents if provided
         if (input.documents) {
@@ -307,9 +338,10 @@ export async function createAppointmentWithDocuments(
         }
 
         return { data: appointment, error: null };
-    } catch (err: any) {
-        console.error('❌ Error in createAppointmentWithDocuments:', err);
-        return { data: null, error: err };
+    } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        console.error('❌ Error in createAppointmentWithDocuments:', error);
+        return { data: null, error };
     }
 }
 
@@ -362,17 +394,19 @@ export function subscribeToAppointments(
 ): () => void {
     const channelName = `appointments-realtime-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-    let channelConfig: any = {
+    let filterClause: string | undefined;
+    if (filter?.churchId && filter.churchId !== 'all') {
+        filterClause = `church_id=eq.${filter.churchId}`;
+    } else if (filter?.userId) {
+        filterClause = `user_id=eq.${filter.userId}`;
+    }
+
+    const channelConfig: RealtimePostgresChangesFilter<'*'> = {
         event: '*',
         schema: 'public',
         table: 'appointments',
+        ...(filterClause ? { filter: filterClause } : {}),
     };
-
-    if (filter?.churchId && filter.churchId !== 'all') {
-        channelConfig.filter = `church_id=eq.${filter.churchId}`;
-    } else if (filter?.userId) {
-        channelConfig.filter = `user_id=eq.${filter.userId}`;
-    }
 
     const channel = supabase
         .channel(channelName)

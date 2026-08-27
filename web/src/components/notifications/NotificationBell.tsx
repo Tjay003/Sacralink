@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../lib/supabase/notifications';
@@ -25,20 +25,22 @@ export default function NotificationBell() {
     const navigate = useNavigate();
 
     // Fetch notifications and unread count
-    const fetchNotifications = async () => {
-        setLoading(true);
-        const { data } = await getNotifications(10);
-        if (data) {
-            setNotifications(data as Notification[]);
-        }
+    const fetchNotifications = useCallback(async () => {
+        try {
+            const { data } = await getNotifications(10);
+            if (data) {
+                setNotifications(data as Notification[]);
+            }
 
-        const { count } = await getUnreadCount();
-        setUnreadCount(count);
-        setLoading(false);
-    };
+            const { count } = await getUnreadCount();
+            setUnreadCount(count);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        fetchNotifications();
+        void fetchNotifications();
 
         if (!user) return;
 
@@ -54,7 +56,7 @@ export default function NotificationBell() {
                     filter: `user_id=eq.${user.id}`,
                 },
                 () => {
-                    fetchNotifications();
+                    void fetchNotifications();
                 }
             )
             .subscribe();
@@ -62,7 +64,7 @@ export default function NotificationBell() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user?.id]);
+    }, [fetchNotifications, user]);
 
     // Close dropdown when clicking outside
     useEffect(() => {

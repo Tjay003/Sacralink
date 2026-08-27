@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { seedDefaultRequirements } from '../../lib/supabase/requirements';
 import { Building2, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 /**
  * AddChurchPage - Form to create a new church
@@ -14,22 +15,12 @@ import { Building2, ArrowLeft } from 'lucide-react';
  * - Success/error feedback
  * - Navigate back after save
  */
-import { useAuth } from '../../contexts/AuthContext';
-// ... rest of imports
-
 export default function AddChurchPage() {
     const navigate = useNavigate();
     const { profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-
-    // Redirect if not admin
-    if (profile && profile.role !== 'admin' && profile.role !== 'super_admin') {
-        navigate('/churches');
-        return null;
-    }
-
     const [formData, setFormData] = useState({
         name: '',
         address: '',
@@ -40,8 +31,12 @@ export default function AddChurchPage() {
         livestream_url: '',
         facebook_url: '',
     });
-
     const [uploading, setUploading] = useState(false);
+
+    // Redirect if not admin
+    if (profile && profile.role !== 'admin' && profile.role !== 'super_admin') {
+        return <Navigate to="/churches" replace />;
+    }
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) {
@@ -57,8 +52,8 @@ export default function AddChurchPage() {
         setError('');
 
         try {
-            const { error: uploadError } = await (supabase.storage
-                .from('church-images') as any) // Type assertion due to outdated types
+            const { error: uploadError } = await supabase.storage
+                .from('church-images')
                 .upload(filePath, file);
 
             if (uploadError) {
@@ -72,9 +67,10 @@ export default function AddChurchPage() {
 
             setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
             console.log('✅ Image uploaded:', data.publicUrl);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('❌ Error uploading image:', err);
-            setError('Failed to upload image: ' + err.message);
+            const message = err instanceof Error ? err.message : 'Failed to upload image';
+            setError('Failed to upload image: ' + message);
         } finally {
             setUploading(false);
         }
@@ -110,8 +106,8 @@ export default function AddChurchPage() {
 
         try {
             // Insert into database
-            const { data, error: insertError } = await (supabase
-                .from('churches') as any)
+            const { data, error: insertError } = await supabase
+                .from('churches')
                 .insert([{
                     name: formData.name.trim(),
                     address: formData.address.trim(),
@@ -134,22 +130,23 @@ export default function AddChurchPage() {
 
             console.log('✅ Church created:', data);
 
-            // Seed default sacrament requirements for the new church
-            // (non-fatal — log warning if it fails)
-            try {
-                await seedDefaultRequirements((data as any).id);
-                console.log('✅ Default requirements seeded for new church');
-            } catch (seedErr) {
-                console.warn('⚠️ Could not seed default requirements:', seedErr);
+            if (data?.id) {
+                // Seed default sacrament requirements for the new church
+                // (non-fatal — log warning if it fails)
+                try {
+                    await seedDefaultRequirements(data.id);
+                    console.log('✅ Default requirements seeded for new church');
+                } catch (seedErr) {
+                    console.warn('⚠️ Could not seed default requirements:', seedErr);
+                }
+
+                setSuccess('Church created successfully!');
+
+                // Navigate to church detail page after 1 second
+                setTimeout(() => {
+                    navigate(`/churches/${data.id}`);
+                }, 1000);
             }
-
-            setSuccess('Church created successfully!');
-
-            // Navigate to church detail page after 1 second
-            setTimeout(() => {
-                navigate(`/churches/${(data as any).id}`);
-            }, 1000);
-
         } catch (err) {
             console.error('❌ Unexpected error:', err);
             setError('Failed to create church');

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
 import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode, Star } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import { useAuth } from '../../contexts/AuthContext';
+import type { Tables } from '../../types/database';
 
 /**
  * EditChurchPage - Form to edit an existing church
@@ -22,29 +23,6 @@ export default function EditChurchPage() {
     const { church, loading: loadingChurch } = useChurch(id);
 
     const [loading, setLoading] = useState(false);
-
-    // Redirect if not authorized
-    // Super Admin: All access
-    // Admin: Access if church_id matches
-    // Church Admin / Volunteer: Access if assigned_church_id matches
-    const canAccess = () => {
-        if (!profile) return false;
-        if (profile.role === 'super_admin') return true;
-
-        // For admin, church_admin, volunteer -> check if they are editing THEIR church
-        if (id) {
-            if (profile.role === 'admin' && profile.assigned_church_id === id) return true;
-            if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === id) return true;
-        }
-
-        return false;
-    };
-
-    if (profile && !canAccess()) {
-        navigate('/churches');
-        return null;
-    }
-
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -67,10 +45,25 @@ export default function EditChurchPage() {
     });
 
     const [uploadingQr, setUploadingQr] = useState(false);
-
     const [uploading, setUploading] = useState(false);
-    const [galleryImages, setGalleryImages] = useState<any[]>([]);
-    const [_loadingGallery, setLoadingGallery] = useState(false);
+    const [galleryImages, setGalleryImages] = useState<Tables<'church_images'>[]>([]);
+
+    // Fetch gallery images
+    const fetchGallery = useCallback(async () => {
+        if (!id) return;
+        try {
+            const { data, error: galleryError } = await supabase
+                .from('church_images')
+                .select('*')
+                .eq('church_id', id)
+                .order('display_order', { ascending: true });
+
+            if (galleryError) throw galleryError;
+            setGalleryImages(data || []);
+        } catch (err) {
+            console.error('Error fetching gallery:', err);
+        }
+    }, [id]);
 
     // Pre-fill form when church data loads
     useEffect(() => {
@@ -87,36 +80,37 @@ export default function EditChurchPage() {
                 facebook_url: church.facebook_url || '',
                 gcash_number: church.gcash_number || '',
                 maya_number: church.maya_number || '',
-                gcash_qr_url: (church as any).gcash_qr_url || '',
-                maya_qr_url: (church as any).maya_qr_url || '',
+                gcash_qr_url: church.gcash_qr_url || '',
+                maya_qr_url: church.maya_qr_url || '',
                 featured_image_url: church.featured_image_url || '',
             });
         }
     }, [church]);
 
-    // Fetch gallery images
-    const fetchGallery = async () => {
-        if (!id) return;
-        setLoadingGallery(true);
-        try {
-            const { data, error } = await supabase
-                .from('church_images')
-                .select('*')
-                .eq('church_id', id)
-                .order('display_order', { ascending: true });
+    useEffect(() => {
+        void fetchGallery();
+    }, [fetchGallery]);
 
-            if (error) throw error;
-            setGalleryImages(data || []);
-        } catch (err) {
-            console.error('Error fetching gallery:', err);
-        } finally {
-            setLoadingGallery(false);
+    // Redirect if not authorized
+    // Super Admin: All access
+    // Admin: Access if church_id matches
+    // Church Admin / Volunteer: Access if assigned_church_id matches
+    const canAccess = () => {
+        if (!profile) return false;
+        if (profile.role === 'super_admin') return true;
+
+        // For admin, church_admin, volunteer -> check if they are editing THEIR church
+        if (id) {
+            if (profile.role === 'admin' && profile.assigned_church_id === id) return true;
+            if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === id) return true;
         }
+
+        return false;
     };
 
-    useEffect(() => {
-        fetchGallery();
-    }, [id]);
+    if (profile && !canAccess()) {
+        return <Navigate to="/churches" replace />;
+    }
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -127,14 +121,15 @@ export default function EditChurchPage() {
         setUploading(true);
         setError('');
         try {
-            const { error: uploadError } = await (supabase.storage
-                .from('church-images') as any)
+            const { error: uploadError } = await supabase.storage
+                .from('church-images')
                 .upload(filePath, file);
             if (uploadError) throw uploadError;
             const { data } = supabase.storage.from('church-images').getPublicUrl(filePath);
             setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
-        } catch (err: any) {
-            setError('Failed to upload image: ' + err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to upload image';
+            setError('Failed to upload image: ' + message);
         } finally {
             setUploading(false);
         }
@@ -148,14 +143,15 @@ export default function EditChurchPage() {
         setUploadingQr(true);
         setError('');
         try {
-            const { error: uploadError } = await (supabase.storage
-                .from('church-images') as any)
+            const { error: uploadError } = await supabase.storage
+                .from('church-images')
                 .upload(fileName, file, { upsert: true });
             if (uploadError) throw uploadError;
             const { data } = supabase.storage.from('church-images').getPublicUrl(fileName);
             setFormData(prev => ({ ...prev, [field]: data.publicUrl }));
-        } catch (err: any) {
-            setError('Failed to upload QR image: ' + err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to upload QR image';
+            setError('Failed to upload QR image: ' + message);
         } finally {
             setUploadingQr(false);
         }
@@ -193,8 +189,8 @@ export default function EditChurchPage() {
 
         try {
             // Update in database
-            const { error: updateError } = await (supabase
-                .from('churches') as any)
+            const { error: updateError } = await supabase
+                .from('churches')
                 .update({
                     name: formData.name.trim(),
                     address: formData.address.trim(),
@@ -577,7 +573,7 @@ export default function EditChurchPage() {
                             <div className="mb-6">
                                 <h4 className="text-sm font-medium mb-3">Current Images ({galleryImages.length})</h4>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {galleryImages.map((img: any) => {
+                                    {galleryImages.map((img) => {
                                         const isFeatured = formData.featured_image_url === img.image_url;
                                         return (
                                             <div key={img.id} className={`relative group rounded-lg overflow-hidden border-2 transition-all ${isFeatured ? 'border-amber-400 shadow-md ring-2 ring-amber-400/20' : 'border-transparent hover:border-border'}`}>

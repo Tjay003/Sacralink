@@ -18,8 +18,8 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
     const [error, setError] = useState('');
     const [fullImage, setFullImage] = useState(false);
 
-    const donorName = (donation.donor as any)?.full_name || 'Anonymous';
-    const donorEmail = (donation.donor as any)?.email || '';
+    const donorName = donation.donor?.full_name || 'Anonymous';
+    const donorEmail = donation.donor?.email || '';
 
     const handleVerify = async () => {
         setLoading(true);
@@ -31,7 +31,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
             return;
         }
         // Send thank-you notification to the donor
-        const churchName = (donation.church as any)?.name || 'the church';
+        const churchName = donation.church?.name || 'the church';
         await createNotification({
             userId: donation.user_id,
             type: 'donation_verified',
@@ -111,16 +111,18 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                             Submitted
                         </div>
                         <p className="text-sm font-semibold text-foreground">
-                            {formatDistanceToNow(new Date(donation.created_at || Date.now()), { addSuffix: true })}
+                            {donation.created_at
+                                ? formatDistanceToNow(new Date(donation.created_at), { addSuffix: true })
+                                : 'Recently'}
                         </p>
                     </div>
                 </div>
 
                 {/* Church info */}
-                {(donation.church as any)?.name && (
+                {donation.church?.name && (
                     <div className="space-y-1">
                         <p className="text-xs text-muted">Church</p>
-                        <p className="text-sm font-medium text-foreground">{(donation.church as any).name}</p>
+                        <p className="text-sm font-medium text-foreground">{donation.church.name}</p>
                     </div>
                 )}
 
@@ -138,9 +140,9 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                             <Hash className="w-3.5 h-3.5 text-muted" />
                             {donation.reference_number || 'N/A'}
                         </p>
-                        {(donation as any).payment_method && (
+                        {donation.payment_method && (
                             <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs uppercase font-medium">
-                                {(donation as any).payment_method}
+                                {donation.payment_method}
                             </span>
                         )}
                     </div>
@@ -209,10 +211,10 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                 )}
 
                 {/* Rejection Note Display */}
-                {donation.status === 'rejected' && ((donation as any).rejection_reason || donation.notes) && (
+                {donation.status === 'rejected' && (donation.rejection_reason || donation.notes) && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm">
                         <p className="font-medium text-red-800 mb-1">Rejection Reason:</p>
-                        <p className="text-red-700">{(donation as any).rejection_reason || donation.notes}</p>
+                        <p className="text-red-700">{donation.rejection_reason || donation.notes}</p>
                     </div>
                 )}
 

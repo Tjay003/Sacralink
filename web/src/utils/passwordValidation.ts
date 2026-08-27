@@ -39,7 +39,7 @@ export const PASSWORD_REQUIREMENTS: PasswordRequirement[] = [
     },
     {
         label: 'Contains special character (!@#$%^&*)',
-        test: (password: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        test: (password: string) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
     }
 ];
 

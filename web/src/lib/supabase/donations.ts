@@ -14,10 +14,16 @@ export interface Donation {
     verified_at: string | null;
     notes: string | null;
     created_at: string | null;
+    payment_method?: string | null;
+    rejection_reason?: string | null;
     // Joined fields
     church?: { name: string };
     donor?: { full_name: string | null; email: string | null };
     verifier?: { full_name: string | null };
+}
+
+function toError(err: unknown): Error {
+    return err instanceof Error ? err : new Error(String(err));
 }
 
 /**
@@ -74,9 +80,9 @@ export async function submitDonation({
 
         if (error) throw error;
         return { data, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error submitting donation:', err);
-        return { data: null, error: err };
+        return { data: null, error: toError(err) };
     }
 }
 
@@ -104,9 +110,9 @@ export async function getUserDonations() {
             .reduce((sum, d) => sum + Number(d.amount), 0);
 
         return { data: data as Donation[], totalDonated, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error fetching user donations:', err);
-        return { data: [], totalDonated: 0, error: err };
+        return { data: [], totalDonated: 0, error: toError(err) };
     }
 }
 
@@ -133,9 +139,9 @@ export async function getChurchDonations(churchId: string, status?: 'pending' | 
         const { data, error } = await query;
         if (error) throw error;
         return { data: data as Donation[], error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error fetching church donations:', err);
-        return { data: [], error: err };
+        return { data: [], error: toError(err) };
     }
 }
 
@@ -161,9 +167,9 @@ export async function getAllDonations(status?: 'pending' | 'verified' | 'rejecte
         const { data, error } = await query;
         if (error) throw error;
         return { data: data as Donation[], error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error fetching all donations:', err);
-        return { data: [], error: err };
+        return { data: [], error: toError(err) };
     }
 }
 
@@ -190,13 +196,13 @@ export async function verifyDonation(donationId: string) {
         if (error) throw error;
 
         // Notify the donor
-        const churchName = (data.church as any)?.name || 'the church';
+        const churchName = (data as unknown as Donation).church?.name || 'the church';
         await notifyDonorOfDonationStatus(data.user_id, churchName, data.amount, 'verified');
 
         return { data, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error verifying donation:', err);
-        return { data: null, error: err };
+        return { data: null, error: toError(err) };
     }
 }
 
@@ -223,13 +229,13 @@ export async function rejectDonation(donationId: string, notes: string) {
         if (error) throw error;
 
         // Notify the donor
-        const churchName = (data.church as any)?.name || 'the church';
+        const churchName = (data as unknown as Donation).church?.name || 'the church';
         await notifyDonorOfDonationStatus(data.user_id, churchName, data.amount, 'rejected', notes);
 
         return { data, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error rejecting donation:', err);
-        return { data: null, error: err };
+        return { data: null, error: toError(err) };
     }
 }
 
@@ -253,8 +259,9 @@ export async function getRecentDonors(churchId: string, limit = 5) {
 
         if (error) throw error;
 
-        const masked = (data || []).map((d: any) => {
-            const name: string = d.donor?.full_name || 'Anonymous';
+        const masked = (data || []).map((d) => {
+            const donor = d.donor as unknown as { full_name: string | null } | null;
+            const name: string = donor?.full_name || 'Anonymous';
             const parts = name.trim().split(' ');
             const maskedName = parts.length >= 2
                 ? `${parts[0][0]}. ${parts[parts.length - 1]}`
@@ -267,9 +274,9 @@ export async function getRecentDonors(churchId: string, limit = 5) {
         });
 
         return { data: masked, error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
         console.error('Error fetching recent donors:', err);
-        return { data: [], error: err };
+        return { data: [], error: toError(err) };
     }
 }
 

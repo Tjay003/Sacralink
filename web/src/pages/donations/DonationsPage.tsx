@@ -12,11 +12,6 @@ type StatusTab = 'pending' | 'verified' | 'rejected' | 'all';
 
 export default function DonationsPage() {
     const { profile } = useAuth();
-
-    // Regular users are not allowed here — redirect to Profile (which has My Donations)
-    if (profile && profile.role === 'user') {
-        return <Navigate to="/profile" replace />;
-    }
     const [donations, setDonations] = useState<Donation[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<StatusTab>('pending');
@@ -34,24 +29,44 @@ export default function DonationsPage() {
         ? (profile?.assigned_church_id || null)
         : selectedChurchId === 'all' ? null : selectedChurchId;
 
-    const fetchDonations = useCallback(async () => {
-        setLoading(true);
-        let result;
-        if (effectiveChurchId) {
-            result = await getChurchDonations(effectiveChurchId);
-        } else if (isSuperAdmin) {
-            result = await getAllDonations();
-        } else {
-            setDonations([]);
+    const fetchDonations = useCallback(async (showLoading = false) => {
+        if (showLoading) setLoading(true);
+        try {
+            let result;
+            if (effectiveChurchId) {
+                result = await getChurchDonations(effectiveChurchId);
+            } else if (isSuperAdmin) {
+                result = await getAllDonations();
+            } else {
+                setDonations([]);
+                return;
+            }
+            setDonations(result.data || []);
+        } finally {
             setLoading(false);
-            return;
         }
-        setDonations(result.data || []);
-        setLoading(false);
     }, [effectiveChurchId, isSuperAdmin]);
 
     useEffect(() => {
-        fetchDonations();
+        let isMounted = true;
+        (async () => {
+            let result;
+            if (effectiveChurchId) {
+                result = await getChurchDonations(effectiveChurchId);
+            } else if (isSuperAdmin) {
+                result = await getAllDonations();
+            } else {
+                if (isMounted) {
+                    setDonations([]);
+                    setLoading(false);
+                }
+                return;
+            }
+            if (isMounted) {
+                setDonations(result.data || []);
+                setLoading(false);
+            }
+        })();
 
         // Realtime — re-fetch when any donation row changes
         const channel = supabase
@@ -59,12 +74,15 @@ export default function DonationsPage() {
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'donations' },
-                () => { fetchDonations(); }
+                () => { void fetchDonations(); }
             )
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
-    }, [fetchDonations]);
+        return () => {
+            isMounted = false;
+            supabase.removeChannel(channel);
+        };
+    }, [effectiveChurchId, isSuperAdmin, fetchDonations]);
 
     // Active church name for display
     const activeChurchName = isChurchStaff
@@ -76,7 +94,7 @@ export default function DonationsPage() {
     // Filter by tab + search
     const filtered = donations.filter(d => {
         const matchesTab = activeTab === 'all' || d.status === activeTab;
-        const donorName = (d.donor as any)?.full_name?.toLowerCase() || '';
+        const donorName = d.donor?.full_name?.toLowerCase() || '';
         const ref = d.reference_number?.toLowerCase() || '';
         const matchesSearch = !search || donorName.includes(search.toLowerCase()) || ref.includes(search.toLowerCase());
         return matchesTab && matchesSearch;
@@ -113,6 +131,11 @@ export default function DonationsPage() {
         );
     };
 
+    // Regular users are not allowed here — redirect to Profile (which has My Donations)
+    if (profile && profile.role === 'user') {
+        return <Navigate to="/profile" replace />;
+    }
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -121,7 +144,7 @@ export default function DonationsPage() {
                     <h1 className="text-2xl font-bold text-foreground">Donations</h1>
                     <p className="text-muted">Verify and manage cashless donations</p>
                 </div>
-                <button onClick={fetchDonations} className="flex items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors shadow-sm">
+                <button onClick={() => { void fetchDonations(true); }} className="flex items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors shadow-sm">
                     <RefreshCw className="w-4 h-4" />
                     Refresh
                 </button>
@@ -249,8 +272,8 @@ export default function DonationsPage() {
                 ) : (
                     <div className="divide-y divide-border">
                         {filtered.map(donation => {
-                            const donorName = (donation.donor as any)?.full_name || 'Anonymous';
-                            const churchName = (donation.church as any)?.name || 'Unknown Church';
+                            const donorName = donation.donor?.full_name || 'Anonymous';
+                            const churchName = donation.church?.name || 'Unknown Church';
                             return (
                                 <div
                                     key={donation.id}
@@ -297,7 +320,7 @@ export default function DonationsPage() {
                 <DonationDetailModal
                     donation={selectedDonation}
                     onClose={() => setSelectedDonation(null)}
-                    onUpdated={() => { fetchDonations(); setSelectedDonation(null); }}
+                    onUpdated={() => { void fetchDonations(true); setSelectedDonation(null); }}
                 />
             )}
         </div>

@@ -71,7 +71,7 @@ export default function AppointmentsPage() {
             const { data, error: fetchErr } = await getAppointments();
             if (fetchErr) throw fetchErr;
             setAppointments(data || []);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error fetching appointments:', err);
             setError('Failed to load appointments.');
         } finally {
@@ -105,7 +105,7 @@ export default function AppointmentsPage() {
             setAppointments(prev => prev.map(app =>
                 app.id === id ? { ...app, status: newStatus } : app
             ));
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error updating status:', err);
             alert('Failed to update status');
         }
@@ -113,7 +113,7 @@ export default function AppointmentsPage() {
 
     const filteredAppointments = appointments.filter(app => {
         // Church filter (admin/super_admin only — church staff already scoped by RLS)
-        if (isAdminRole && selectedChurchId !== 'all' && (app as any).church_id !== selectedChurchId) return false;
+        if (isAdminRole && selectedChurchId !== 'all' && app.church_id !== selectedChurchId) return false;
         // Status filter
         if (filterStatus !== 'all' && app.status !== filterStatus) return false;
         // Sacrament type filter
@@ -443,7 +443,7 @@ export default function AppointmentsPage() {
                             const maxVisible = 5;
 
                             let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-                            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                            const endPage = Math.min(totalPages, startPage + maxVisible - 1);
 
                             if (endPage - startPage < maxVisible - 1) {
                                 startPage = Math.max(1, endPage - maxVisible + 1);

@@ -6,16 +6,9 @@ import { supabase } from '../../lib/supabase';
 import { getRequirements } from '../../lib/supabase/requirements';
 import { createAppointmentWithDocuments } from '../../lib/supabase/appointments';
 import DocumentUploader from '../../components/documents/DocumentUploader';
-import type { Church } from '../../types/database';
+import type { Church, Database } from '../../types/database';
 
-type SacramentRequirement = {
-    id: string;
-    requirement_name: string;
-    description: string | null;
-    is_required: boolean;
-    allowed_file_types: string[];
-    display_order: number;
-};
+type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
 
 export default function BookAppointmentPage() {
     const { id } = useParams<{ id: string }>();
@@ -65,7 +58,7 @@ export default function BookAppointmentPage() {
 
                 if (error) throw error;
                 setChurch(data);
-            } catch (err: any) {
+            } catch (err) {
                 console.error('Error fetching church:', err);
                 setError('Failed to load church details.');
             } finally {
@@ -86,11 +79,11 @@ export default function BookAppointmentPage() {
                 console.log('Fetching requirements for:', { churchId: id, serviceType: formData.service_type });
                 const reqs = await getRequirements(id, formData.service_type.toLowerCase());
                 console.log('Requirements fetched:', reqs);
-                setRequirements(reqs as any);
+                setRequirements(reqs);
                 // Clear documents when service type changes
                 setDocuments(new Map());
                 setUploadedDocumentIds(new Map());
-            } catch (err: any) {
+            } catch (err) {
                 console.error('Error fetching requirements:', err);
             } finally {
                 setLoadingRequirements(false);
@@ -160,9 +153,10 @@ export default function BookAppointmentPage() {
                 navigate(`/churches/${id}`);
             }, 2000);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error('Error booking appointment:', err);
-            setError(err.message || 'Failed to submit appointment request.');
+            const message = err instanceof Error ? err.message : 'Failed to submit appointment request.';
+            setError(message);
             setSubmitting(false);
         }
     };
@@ -319,8 +313,8 @@ export default function BookAppointmentPage() {
                                         key={req.id}
                                         requirementId={req.id}
                                         requirementName={req.requirement_name}
-                                        isRequired={req.is_required}
-                                        allowedFileTypes={req.allowed_file_types}
+                                        isRequired={Boolean(req.is_required)}
+                                        allowedFileTypes={req.allowed_file_types || undefined}
                                         onFileSelect={(file) => handleFileSelect(req.id, file)}
                                         onFileRemove={() => handleFileRemove(req.id)}
                                         uploadedFile={documents.get(req.id)}

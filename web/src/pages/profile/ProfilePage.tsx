@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { directUpdateProfile } from '../../lib/directApi';
 
@@ -18,21 +18,16 @@ export default function ProfilePage() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Form state
-    const [formData, setFormData] = useState({
+    // Form state (null when untouched, holding draft edits when user modifies)
+    const [formData, setFormData] = useState<{
+        full_name: string;
+        church_id: string | null;
+    } | null>(null);
+
+    const activeFormData = formData ?? {
         full_name: profile?.full_name || '',
         church_id: profile?.church_id || null,
-    });
-
-    // Update form when profile changes
-    useEffect(() => {
-        if (profile) {
-            setFormData({
-                full_name: profile.full_name || '',
-                church_id: profile.church_id || null,
-            });
-        }
-    }, [profile]);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,12 +51,13 @@ export default function ProfilePage() {
 
         const result = await directUpdateProfile(
             profile.id,
-            formData,
+            activeFormData,
             session.access_token
         );
 
         if (result.success) {
             setSuccess('Profile updated successfully!');
+            setFormData(null);
             setEditing(false);
             // Refresh profile to show updated data
             await refreshProfile();
@@ -73,13 +69,7 @@ export default function ProfilePage() {
     };
 
     const handleCancel = () => {
-        // Reset form to current profile data
-        if (profile) {
-            setFormData({
-                full_name: profile.full_name || '',
-                church_id: profile.church_id || null,
-            });
-        }
+        setFormData(null);
         setEditing(false);
         setError('');
         setSuccess('');
@@ -132,8 +122,8 @@ export default function ProfilePage() {
                         </label>
                         <input
                             type="text"
-                            value={formData.full_name}
-                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                            value={activeFormData.full_name}
+                            onChange={(e) => setFormData({ ...activeFormData, full_name: e.target.value })}
                             disabled={!editing || loading}
                             className={`input w-full ${!editing ? 'bg-secondary-50 cursor-not-allowed' : ''}`}
                             placeholder="Enter your full name"
@@ -185,7 +175,7 @@ export default function ProfilePage() {
                         </label>
                         <input
                             type="text"
-                            value={formData.church_id || 'Not assigned'}
+                            value={activeFormData.church_id || 'Not assigned'}
                             disabled
                             className="input w-full bg-secondary-50 cursor-not-allowed"
                         />

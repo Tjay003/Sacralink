@@ -1,6 +1,6 @@
 # 01 - Fix DonationsPage React Hook Violations & Types
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -14,3 +14,11 @@ In `web/src/pages/donations/DonationsPage.tsx`:
 - Zero `react-hooks/rules-of-hooks` errors.
 - Zero `as any` casts in `DonationsPage.tsx`.
 - `npm --prefix web run build` passes with 0 errors.
+
+## Resolution
+- Eliminated conditional hook execution by moving the role redirect gate after all hook calls in `DonationsPage.tsx`.
+- Refactored `fetchDonations` and `useEffect` lifecycle to eliminate synchronous setState warnings during effect runs.
+- Enhanced `Donation` interface in `web/src/lib/supabase/donations.ts` with `payment_method` and `rejection_reason` properties and typed `toError` conversion.
+- Removed all `as any` casts across `DonationsPage.tsx`, `DonationDetailModal.tsx`, and `donations.ts`.
+- Replaced impure `Date.now()` during render with deterministic conditional formatting in `DonationDetailModal.tsx`.
+- Verified `npx eslint src/pages/donations/ src/components/donations/ src/lib/supabase/donations.ts` passes with 0 errors and `npm run build` passes with 0 errors.
