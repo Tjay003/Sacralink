@@ -1,33 +1,17 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X, ChevronDown } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { notifyUserOfStatusChange } from '../../lib/supabase/notifications';
+import {
+    getAppointments,
+    updateAppointmentStatus,
+    subscribeToAppointments,
+    formatAppointmentTime as formatTime,
+    type HydratedAppointment as Appointment,
+    type AppointmentStatus,
+} from '../../lib/supabase/appointments';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import Modal from '../../components/ui/Modal';
-
-import type { Appointment as BaseAppointment } from '../../types/database';
-
-interface Appointment extends BaseAppointment {
-    church: {
-        name: string;
-    } | null;
-    profile: {
-        full_name: string | null;
-    } | null;
-}
-
-/** Converts a raw HH:MM:SS / HH:MM string to 12‑hour AM/PM format */
-const formatTime = (time: string | null | undefined): string => {
-    if (!time) return '—';
-    const [hourStr, minuteStr] = time.split(':');
-    let hour = parseInt(hourStr, 10);
-    const minute = minuteStr || '00';
-    const period = hour >= 12 ? 'PM' : 'AM';
-    hour = hour % 12 || 12;
-    return `${hour}:${minute} ${period}`;
-};
 
 export default function AppointmentsPage() {
     const { profile } = useAuth();
@@ -84,23 +68,8 @@ export default function AppointmentsPage() {
     const fetchAppointments = async () => {
         try {
             setLoading(true);
-
-            // Note: RLS policies handle the filtering.
-            // Admins see all. Users see their own.
-
-            const { data, error } = await (supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    church:churches(name),
-                    profile:profiles(full_name)
-                `)
-                // Explicitly cast the query builder to any to avoid TypeScript inference issues with join
-                .order('created_at', { ascending: false }) as any);
-
-            if (error) throw error;
-
-            console.log('Appointments data:', data);
+            const { data, error: fetchErr } = await getAppointments();
+            if (fetchErr) throw fetchErr;
             setAppointments(data || []);
         } catch (err: any) {
             console.error('Error fetching appointments:', err);
@@ -112,48 +81,29 @@ export default function AppointmentsPage() {
 
     useEffect(() => {
         fetchAppointments();
-
-        // Realtime subscription — re-fetch whenever any appointment row changes
-        const channel = supabase
-            .channel('appointments-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'appointments' },
-                () => {
-                    fetchAppointments();
-                }
-            )
-            .subscribe();
-
+        const unsubscribe = subscribeToAppointments(undefined, () => {
+            fetchAppointments();
+        });
         return () => {
-            supabase.removeChannel(channel);
+            unsubscribe();
         };
     }, [profile?.assigned_church_id]);
 
-    const handleStatusUpdate = async (id: string, newStatus: string) => {
+    const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus) => {
         try {
-            // Find the appointment to get user info
             const appointment = appointments.find(app => app.id === id);
             if (!appointment) return;
 
-            const { error } = await (supabase
-                .from('appointments') as any)
-                .update({ status: newStatus })
-                .eq('id', id);
+            const { success, error: updateErr } = await updateAppointmentStatus(id, newStatus, {
+                serviceType: appointment.service_type,
+                userId: appointment.user_id,
+            });
 
-            if (error) throw error;
+            if (!success || updateErr) throw updateErr;
 
-            // Send notification to user
-            await notifyUserOfStatusChange(
-                appointment.user_id,
-                appointment.service_type,
-                newStatus as 'approved' | 'rejected',
-                id
-            );
-
-            // Optimistic update
+            // Optimistic local state update
             setAppointments(prev => prev.map(app =>
-                app.id === id ? { ...app, status: newStatus as any } : app
+                app.id === id ? { ...app, status: newStatus } : app
             ));
         } catch (err: any) {
             console.error('Error updating status:', err);

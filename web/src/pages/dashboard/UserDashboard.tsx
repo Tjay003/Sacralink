@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import StatCard from '../../components/dashboard/StatCard';
 import ChurchSelector from '../../components/dashboard/ChurchSelector';
@@ -11,17 +10,11 @@ import { Calendar, Clock, MapPin, PlusCircle, BarChart3, Church } from 'lucide-r
 import { format } from 'date-fns';
 import { dashboardConfig, isFeatureEnabled } from '../../config/featureFlags';
 import { useChurches } from '../../hooks/useChurches';
-
-interface Appointment {
-    id: string;
-    service_type: string;
-    appointment_date: string;
-    appointment_time: string;
-    status: string;
-    church: {
-        name: string;
-    };
-}
+import {
+    getAppointments,
+    subscribeToAppointments,
+    type HydratedAppointment as Appointment,
+} from '../../lib/supabase/appointments';
 
 /**
  * UserDashboard - Dashboard for normal users (non-admin)
@@ -57,45 +50,18 @@ export default function UserDashboard() {
         }
     }, [selectedChurchId]);
 
-    useEffect(() => {
-        fetchAppointments();
-
-        if (!profile) return;
-
-        // Realtime — re-fetch user's appointments when any change occurs
-        const channel = supabase
-            .channel('user-appointments-realtime')
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'appointments',
-                    filter: `user_id=eq.${profile.id}`,
-                },
-                () => { fetchAppointments(); }
-            )
-            .subscribe();
-
-        return () => { supabase.removeChannel(channel); };
-    }, [profile]);
-
     const fetchAppointments = async () => {
         if (!profile) return;
 
         try {
-            // Fetch user's appointments (RLS filters by user_id automatically)
-            const { data, error } = await supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    church:churches(name)
-                `)
-                .neq('status', 'rejected')
-                .gte('appointment_date', new Date().toISOString().split('T')[0]) // Future/Today
-                .order('appointment_date', { ascending: true })
-                .order('appointment_time', { ascending: true })
-                .limit(5);
+            const { data, error } = await getAppointments({
+                userId: profile.id,
+                upcomingOnly: true,
+                excludeRejected: true,
+                orderBy: 'appointment_date',
+                ascending: true,
+                limit: 5,
+            });
 
             if (error) throw error;
             setAppointments(data || []);
@@ -105,6 +71,20 @@ export default function UserDashboard() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchAppointments();
+
+        if (!profile) return;
+
+        const unsubscribe = subscribeToAppointments({ userId: profile.id }, () => {
+            fetchAppointments();
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [profile]);
 
     const upcomingCount = appointments.filter(a => a.status === 'approved').length;
     const pendingCount = appointments.filter(a => a.status === 'pending').length;

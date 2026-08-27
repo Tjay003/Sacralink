@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import { format, isSameDay, parseISO } from 'date-fns';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Calendar as CalendarIcon, Clock, User } from 'lucide-react';
 import 'react-calendar/dist/Calendar.css'; // Import default styles
+import {
+    getAppointments,
+    subscribeToAppointments,
+    formatAppointmentTime,
+    type HydratedAppointment as Appointment,
+} from '../../lib/supabase/appointments';
 
 // Custom styles to override default calendar appearance to match theme
 const calendarStyles = `
@@ -49,56 +54,42 @@ const calendarStyles = `
   }
 `;
 
-interface Appointment {
-    id: string;
-    service_type: string;
-    appointment_date: string;
-    appointment_time: string;
-    status: string;
-    profile?: {
-        full_name: string;
-    };
-    church?: {
-        name: string;
-    };
-}
-
 export default function DashboardCalendar() {
     const { profile } = useAuth();
     const [date, setDate] = useState<Date>(new Date());
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [_loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchAppointments();
-    }, [profile]);
-
     const fetchAppointments = async () => {
         if (!profile) return;
         setLoading(true);
 
         try {
-            // Note: RLS policies automatically filter this query
-            // Admins/Volunteers see their church's appointments
-            // Super Admins see all
-            const { data, error } = await supabase
-                .from('appointments')
-                .select(`
-                    *,
-                    profile:profiles(full_name),
-                    church:churches(name)
-                `)
-                .neq('status', 'rejected') // Don't show rejected
-                .gte('appointment_date', new Date().toISOString().split('T')[0]); // Only future/today
+            const { data, error } = await getAppointments({
+                upcomingOnly: true,
+                excludeRejected: true,
+            });
 
             if (error) throw error;
-            setAppointments((data || []) as any);
+            setAppointments(data || []);
         } catch (err) {
             console.error('Error fetching calendar appointments:', err);
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchAppointments();
+
+        const unsubscribe = subscribeToAppointments(undefined, () => {
+            fetchAppointments();
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [profile]);
 
     // Get appointments for selected date
     const selectedDateAppointments = appointments.filter(app =>
@@ -157,7 +148,7 @@ export default function DashboardCalendar() {
                                     </span>
                                     <div className="flex items-center text-xs text-muted">
                                         <Clock className="w-3 h-3 mr-1" />
-                                        {app.appointment_time}
+                                        {formatAppointmentTime(app.appointment_time)}
                                     </div>
                                 </div>
                                 <h4 className="font-semibold text-primary">{app.service_type}</h4>

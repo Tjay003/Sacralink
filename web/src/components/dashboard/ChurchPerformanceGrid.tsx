@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Users, Calendar, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 
 interface ChurchPerformance {
     id: string;
@@ -49,20 +50,15 @@ export default function ChurchPerformanceGrid() {
                         .select('*', { count: 'exact', head: true })
                         .eq('assigned_church_id', church.id);
 
-                    // Count approved future events
-                    const { count: eventCount } = await supabase
-                        .from('appointments')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('church_id', church.id)
-                        .eq('status', 'approved')
-                        .gte('appointment_date', new Date().toISOString().split('T')[0]);
+                    // Count approved future events via appointments domain module
+                    const { upcomingApprovedCount } = await getDashboardAppointmentCounts(church.id);
 
                     return {
                         id: church.id,
                         name: church.name,
                         status: church.is_active ? 'active' : 'inactive' as 'active' | 'inactive',
                         memberCount: memberCount || 0,
-                        eventCount: eventCount || 0,
+                        eventCount: upcomingApprovedCount,
                     };
                 })
             );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Calendar, TrendingUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 import StatCard from './StatCard';
 
 interface ChurchStatsCardsProps {
@@ -41,25 +42,13 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 .select('*', { count: 'exact', head: true })
                 .eq('assigned_church_id', churchId);
 
-            // 2. Pending Appointments
-            const { count: pendingCount } = await supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .eq('church_id', churchId)
-                .eq('status', 'pending');
-
-            // 3. Upcoming Events (approved + future)
-            const { count: upcomingCount } = await supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .eq('church_id', churchId)
-                .eq('status', 'approved')
-                .gte('appointment_date', new Date().toISOString().split('T')[0]);
+            // 2 & 3. Pending & Upcoming Appointments via deep module
+            const { pendingCount, upcomingApprovedCount } = await getDashboardAppointmentCounts(churchId);
 
             setStats({
                 members: memberCount || 0,
-                pending: pendingCount || 0,
-                upcoming: upcomingCount || 0
+                pending: pendingCount,
+                upcoming: upcomingApprovedCount
             });
         } catch (err) {
             console.error('Error fetching church stats:', err);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, Users, Calendar } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 import StatCard from './StatCard';
 
 /**
@@ -57,19 +58,9 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
             const { count: totalMembers, error: membersError } = await membersQuery;
             if (membersError) throw membersError;
 
-            // 3. Active Events — filtered by church if one is selected
-            let eventsQuery = supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'approved')
-                .gte('appointment_date', new Date().toISOString().split('T')[0]);
-
-            if (selectedChurchId) {
-                eventsQuery = eventsQuery.eq('church_id', selectedChurchId);
-            }
-
-            const { count: activeEvents, error: eventsError } = await eventsQuery;
-            if (eventsError) throw eventsError;
+            // 3. Active Events — via appointments domain module
+            const { upcomingApprovedCount } = await getDashboardAppointmentCounts(selectedChurchId);
+            const activeEvents = upcomingApprovedCount;
 
             // 4. New Members (last 30 days) — filtered by church if one is selected
             const thirtyDaysAgo = new Date();

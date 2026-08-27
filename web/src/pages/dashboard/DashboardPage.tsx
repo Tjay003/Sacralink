@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
+import { getDashboardAppointmentCounts, subscribeToAppointments } from '../../lib/supabase/appointments';
 import UserDashboard from './UserDashboard';
 import ChurchAdminDashboard from './ChurchAdminDashboard';
 import SuperAdminDashboard from './SuperAdminDashboard';
@@ -37,17 +38,13 @@ export default function DashboardPage() {
         }
         fetchDashboardStats();
 
-        // Realtime — refresh stats when any appointment changes
-        const channel = supabase
-            .channel('dashboard-appointments-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'appointments' },
-                () => { fetchDashboardStats(); }
-            )
-            .subscribe();
+        const unsubscribe = subscribeToAppointments(undefined, () => {
+            fetchDashboardStats();
+        });
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            unsubscribe();
+        };
     }, [profile]);
 
     const fetchUserCount = async () => {
@@ -76,29 +73,12 @@ export default function DashboardPage() {
                 return;
             }
 
-            // Fetch real data from Supabase
-            // 1. Pending Appointments (RLS filtered)
-            const { count: pendingCount } = await supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'pending');
-
-            // 2. Active Events (Mass Schedules count for now, or events if we had them)
-            // For now, let's just count total mass schedules across accessible churches
-            // Since mass_schedules doesn't have RLS that filters by church assignment deeply in a simple count query without join
-            // We'll trust the RLS policies on a joined query or simplistic approach
-            // Actually, we can just query mass_schedules directly if policies allow, but let's be safe
-            // and act as if "Active Events" = "Upcoming Approved Appointments" + "Regular Masses"
-            // For simplicity in this iteration: Count of "Approved" appointments in future
-            const { count: activeCount } = await supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'approved')
-                .gte('appointment_date', new Date().toISOString());
+            // Fetch real stats via appointments domain module
+            const { pendingCount, upcomingApprovedCount } = await getDashboardAppointmentCounts();
 
             setStats({
-                pendingAppointments: pendingCount || 0,
-                activeEvents: activeCount || 0
+                pendingAppointments: pendingCount,
+                activeEvents: upcomingApprovedCount
             });
 
         } catch (err) {

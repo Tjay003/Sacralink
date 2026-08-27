@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowRight } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
-
-interface Appointment {
-    id: string;
-    service_type: string;
-    appointment_date: string;
-    appointment_time: string;
-    status: string;
-    profiles: {
-        full_name: string;
-    };
-}
+import {
+    getAppointments,
+    subscribeToAppointments,
+    formatAppointmentTime,
+    type HydratedAppointment as Appointment,
+} from '../../lib/supabase/appointments';
 
 interface RecentAppointmentsWidgetProps {
     churchId: string | null;
@@ -28,51 +22,38 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (churchId) {
-            fetchAppointments();
-        }
-    }, [churchId, limit]);
-
     const fetchAppointments = async () => {
         if (!churchId) return;
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('appointments')
-                .select(`
-                    id,
-                    service_type,
-                    appointment_date,
-                    appointment_time,
-                    status,
-                    profiles:user_id (
-                        full_name
-                    )
-                `)
-                .eq('church_id', churchId)
-                .order('created_at', { ascending: false })
-                .limit(limit);
+            const { data, error } = await getAppointments({
+                churchId,
+                limit,
+                orderBy: 'created_at',
+                ascending: false,
+            });
 
             if (error) throw error;
-            setAppointments((data || []) as any);
+            setAppointments(data || []);
         } catch (err) {
-            console.error('Error fetching appointments:', err);
+            console.error('Error fetching recent appointments:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    // Format time to 12h AM/PM
-    const formatTime = (time: string) => {
-        if (!time) return '';
-        const [hours, minutes] = time.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
-    };
+    useEffect(() => {
+        if (churchId) {
+            fetchAppointments();
+            const unsubscribe = subscribeToAppointments({ churchId }, () => {
+                fetchAppointments();
+            });
+            return () => {
+                unsubscribe();
+            };
+        }
+    }, [churchId, limit]);
 
     // Status config: colors and left-border accent
     const statusConfig: Record<string, { badge: string; border: string }> = {
@@ -145,7 +126,7 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                                         <span className="text-xs text-gray-500 truncate">
-                                            {appointment.profiles?.full_name || 'Unknown User'}
+                                            {appointment.profile?.full_name || 'Unknown User'}
                                         </span>
                                     </div>
                                     {/* Service type */}
@@ -160,7 +141,7 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Clock className="w-3 h-3" />
-                                            {formatTime(appointment.appointment_time)}
+                                            {formatAppointmentTime(appointment.appointment_time)}
                                         </div>
                                     </div>
                                 </div>

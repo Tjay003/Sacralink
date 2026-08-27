@@ -4,8 +4,7 @@ import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getRequirements } from '../../lib/supabase/requirements';
-import { uploadDocument } from '../../lib/supabase/documents';
-import { notifyAdminsOfNewAppointment } from '../../lib/supabase/notifications';
+import { createAppointmentWithDocuments } from '../../lib/supabase/appointments';
 import DocumentUploader from '../../components/documents/DocumentUploader';
 import type { Church } from '../../types/database';
 
@@ -141,40 +140,18 @@ export default function BookAppointmentPage() {
         setError('');
 
         try {
-            // 1. Create the appointment
-            const { data: appointment, error: insertError } = await (supabase
-                .from('appointments')
-                // @ts-ignore - Supabase type inference issue
-                .insert([{
-                    user_id: user.id,
-                    church_id: id,
-                    service_type: formData.service_type,
-                    appointment_date: formData.appointment_date,
-                    appointment_time: formData.appointment_time,
-                    notes: formData.notes || null,
-                    status: 'pending'
-                }])
-                .select()
-                .single() as any);
+            const { error: bookingError } = await createAppointmentWithDocuments({
+                userId: user.id,
+                churchId: id,
+                serviceType: formData.service_type,
+                appointmentDate: formData.appointment_date,
+                appointmentTime: formData.appointment_time,
+                notes: formData.notes,
+                userName: user.user_metadata?.full_name || 'A user',
+                documents,
+            });
 
-            if (insertError) throw insertError;
-
-            // 2. Upload all documents
-            const uploadPromises = Array.from(documents.entries()).map(([requirementId, file]) =>
-                uploadDocument(appointment.id, requirementId, file)
-            );
-
-            await Promise.all(uploadPromises);
-
-            // 3. Notify admins of new appointment
-            if (church && user) {
-                await notifyAdminsOfNewAppointment(
-                    id,
-                    user.user_metadata?.full_name || 'A user',
-                    formData.service_type,
-                    appointment.id
-                );
-            }
+            if (bookingError) throw bookingError;
 
             setSuccess('Appointment request submitted successfully!');
 
