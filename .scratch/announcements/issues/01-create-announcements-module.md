@@ -1,6 +1,6 @@
 # 01 - Create Deep Announcements Domain Module
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Blocked by: none
 
@@ -20,3 +20,13 @@ Create `web/src/lib/supabase/announcements.ts` containing:
 - Pinned announcements ranked first, followed by newest `created_at`.
 - Active system announcement filtering (`expires_at.is.null` or `expires_at > now`).
 - Self-contained Supabase Realtime channel subscription with teardown.
+
+## Resolution
+Implemented `web/src/lib/supabase/announcements.ts` with:
+- Full TypeScript domain definitions for `ChurchAnnouncement`, `SystemAnnouncement`, `UnifiedAnnouncement`, `AnnouncementCategory`, and `SystemAnnouncementType`.
+- Type guards: `isChurchAnnouncement`, `isSystemAnnouncement`.
+- Query functions: `getChurchAnnouncements`, `getSystemAnnouncements`, and `getAllAnnouncements` with search, limit, and active/expiration filtering.
+- Ranking algorithm: `rankAnnouncements` ranking pinned announcements first, followed by newest `created_at` descending.
+- Mutation functions: `deleteChurchAnnouncement`, `deleteSystemAnnouncement`, `createChurchAnnouncement`, `updateChurchAnnouncement`, `createSystemAnnouncement`, `updateSystemAnnouncement`.
+- Realtime channels: `subscribeToAnnouncements`, `subscribeToChurchAnnouncements`, `subscribeToSystemAnnouncements` with teardown functions.
+- Verified TypeScript compilation and zero ESLint issues.
