@@ -67,6 +67,35 @@ export async function directFetchProfiles(accessToken: string) {
 }
 
 /**
+ * Fetch all churches (direct REST query)
+ */
+export async function directFetchChurches() {
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/churches?select=*&order=name.asc`,
+            {
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        if (!response.ok) {
+            console.error('Direct API fetch churches error:', response.status, response.statusText);
+            return [];
+        }
+
+        const data = await response.json();
+        return data || [];
+    } catch (error) {
+        console.error('Direct API fetch churches error:', error);
+        return [];
+    }
+}
+
+/**
  * Update a user's role
  */
 export async function directUpdateUserRole(
