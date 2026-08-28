@@ -223,14 +223,13 @@ export default function AppointmentsPage() {
                         <div>
                             <label className="block text-sm font-medium mb-2">Search Parishioner</label>
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Search by name..."
                                     value={searchQuery}
                                     onChange={(e) => { setSearchQuery(e.target.value); resetToPage1(); }}
-                                    className="input w-full"
-                                    style={{ paddingLeft: '2.25rem' }}
+                                    className="input w-full !pl-10"
                                 />
                             </div>
                         </div>

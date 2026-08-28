@@ -73,13 +73,13 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                     {/* Search Input */}
                     <div className="p-3 border-b bg-background">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                             <input
                                 type="text"
                                 placeholder="Search churches..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 bg-background border rounded-lg text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full !pl-10 pr-3 py-2 bg-background border rounded-lg text-sm text-foreground placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 autoFocus
                             />
                         </div>

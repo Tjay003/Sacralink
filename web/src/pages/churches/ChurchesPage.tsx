@@ -91,7 +91,7 @@ export default function ChurchesPage() {
             {/* Search and Toggle */}
             <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                     <input
                         type="text"
                         placeholder="Search churches..."

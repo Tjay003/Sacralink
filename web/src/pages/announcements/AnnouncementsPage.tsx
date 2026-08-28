@@ -521,7 +521,7 @@ export default function AnnouncementsPage() {
                 <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
                     {/* Real-time Search Input */}
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                         <input
                             type="text"
                             value={searchQuery}
@@ -533,7 +533,7 @@ export default function AnnouncementsPage() {
                                         ? 'Search parish announcements...'
                                         : 'Search all announcements...'
                             }
-                            className="input w-full pl-9 pr-8 text-sm"
+                            className="input w-full !pl-10 pr-8 text-sm"
                         />
                         {searchQuery && (
                             <button

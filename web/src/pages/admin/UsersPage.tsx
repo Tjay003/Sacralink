@@ -350,13 +350,13 @@ export default function UsersPage() {
                             Search Users
                         </label>
                         <div className="relative">
-                            <Search className="w-4 h-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                             <input
                                 type="text"
                                 placeholder="Search by name or email..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="input pl-9 w-full text-sm"
+                                className="input !pl-10 w-full text-sm"
                             />
                         </div>
                     </div>
