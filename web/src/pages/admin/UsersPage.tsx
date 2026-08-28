@@ -52,7 +52,6 @@ export default function UsersPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
-    const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
     const [collapsedChurchIds, setCollapsedChurchIds] = useState<Set<string>>(new Set());
 
     const fetchData = useCallback(async () => {
@@ -533,7 +532,7 @@ export default function UsersPage() {
                                                 <div className="divide-y divide-border">
                                                     {group.users.map((user) => (
                                                         <div key={user.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary-50/40 dark:hover:bg-secondary-900/20 transition-colors">
-                                                            <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
                                                                 {user.avatar_url ? (
                                                                     <img
                                                                         src={user.avatar_url}
@@ -541,13 +540,13 @@ export default function UsersPage() {
                                                                         className="h-10 w-10 rounded-full object-cover flex-shrink-0"
                                                                     />
                                                                 ) : (
-                                                                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0">
+                                                                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0 text-sm">
                                                                         {user.full_name?.charAt(0).toUpperCase() || 'U'}
                                                                     </div>
                                                                 )}
-                                                                <div className="min-w-0">
+                                                                <div className="min-w-0 flex-1">
                                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                                        <span className="text-sm font-semibold text-foreground truncate">
+                                                                        <span className="text-sm font-semibold text-foreground truncate" title={user.full_name || 'No name'}>
                                                                             {user.full_name || 'No name set'}
                                                                         </span>
                                                                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
@@ -555,24 +554,24 @@ export default function UsersPage() {
                                                                         </span>
                                                                     </div>
                                                                     <div className="flex items-center gap-3 text-xs text-muted mt-0.5 flex-wrap">
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Mail className="w-3 h-3 text-muted/70" />
-                                                                            {user.email}
+                                                                        <span className="flex items-center gap-1 min-w-0 max-w-full">
+                                                                            <Mail className="w-3 h-3 text-muted/70 flex-shrink-0" />
+                                                                            <span className="truncate" title={user.email || undefined}>{user.email}</span>
                                                                         </span>
-                                                                        <span className="flex items-center gap-1">
-                                                                            <Calendar className="w-3 h-3 text-muted/70" />
+                                                                        <span className="flex items-center gap-1 whitespace-nowrap">
+                                                                            <Calendar className="w-3 h-3 text-muted/70 flex-shrink-0" />
                                                                             Joined {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                                                         </span>
                                                                     </div>
                                                                 </div>
                                                             </div>
 
-                                                            <div className="self-end sm:self-auto">
+                                                            <div className="self-end sm:self-auto flex-shrink-0">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleEditRole(user)}
                                                                     disabled={user.id === currentUser?.id}
-                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
                                                                 >
                                                                     Edit Role
                                                                 </button>
@@ -595,116 +594,131 @@ export default function UsersPage() {
             {/* ═══════════════════════════════════════════════════════════════ */}
             {viewMode === 'table' && (
                 <>
-                    {/* Mobile Card List (< md) */}
-                    <div className="md:hidden space-y-3">
+                    {/* Mobile & Tablet Responsive Card Grid (< xl) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 xl:hidden">
                         {filteredUsers.length === 0 ? (
-                            <div className="card p-6 text-center text-muted">No users found</div>
+                            <div className="col-span-full card p-8 text-center text-muted">
+                                No users found matching current filters.
+                            </div>
                         ) : (
                             filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
-                                const isExpanded = expandedUserId === user.id;
                                 const churchName = getChurchName(user.assigned_church_id);
                                 return (
-                                    <div key={user.id} className="card overflow-hidden border border-border/80">
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary-50 dark:hover:bg-secondary-900/30 transition-colors"
-                                            onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
-                                        >
-                                            {user.avatar_url ? (
-                                                <img src={user.avatar_url} alt={user.full_name || 'User'} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
-                                            ) : (
-                                                <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold flex-shrink-0">
-                                                    {user.full_name?.charAt(0).toUpperCase() || 'U'}
-                                                </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold text-foreground truncate">{user.full_name || 'No name'}</p>
-                                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                                    <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
-                                                        {formatRole(user.role || 'user')}
-                                                    </span>
-                                                    {user.assigned_church_id && (
-                                                        <span className="px-2 py-0.5 inline-flex text-xs font-medium rounded-md bg-secondary-100 dark:bg-secondary-800 text-foreground border border-border truncate max-w-[140px]">
-                                                            {churchName}
+                                    <div
+                                        key={user.id}
+                                        className="card p-4 sm:p-5 border border-border/80 flex flex-col justify-between gap-3.5 shadow-sm hover:border-primary/30 transition-all"
+                                    >
+                                        <div className="space-y-3">
+                                            {/* Top: Avatar, Name & Role Badge */}
+                                            <div className="flex items-start gap-3 min-w-0">
+                                                {user.avatar_url ? (
+                                                    <img
+                                                        src={user.avatar_url}
+                                                        alt={user.full_name || 'User'}
+                                                        className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0 text-sm">
+                                                        {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <h4 className="text-sm font-bold text-foreground truncate" title={user.full_name || 'No name'}>
+                                                        {user.full_name || 'No name set'}
+                                                    </h4>
+                                                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                                        <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                            {formatRole(user.role || 'user')}
                                                         </span>
-                                                    )}
+                                                        {user.assigned_church_id && (
+                                                            <span className="px-2 py-0.5 inline-flex text-xs font-medium rounded-md bg-secondary-100 dark:bg-secondary-800 text-foreground border border-border truncate max-w-[150px]">
+                                                                {churchName}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted flex-shrink-0" />}
-                                        </button>
 
-                                        {isExpanded && (
-                                            <div className="px-4 pb-4 pt-2 border-t border-border space-y-2.5 text-xs">
-                                                <div>
-                                                    <span className="text-muted uppercase font-semibold tracking-wider">Email</span>
-                                                    <p className="text-foreground break-all text-sm mt-0.5">{user.email}</p>
+                                            {/* Details: Email, Assigned Parish, Registered */}
+                                            <div className="space-y-2 pt-2.5 border-t border-border/60 text-xs">
+                                                <div className="flex items-center gap-2 text-muted min-w-0">
+                                                    <Mail className="w-3.5 h-3.5 flex-shrink-0 text-muted/70" />
+                                                    <span className="text-foreground truncate" title={user.email || undefined}>
+                                                        {user.email}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <span className="text-muted uppercase font-semibold tracking-wider">Assigned Parish</span>
-                                                    <p className="text-foreground text-sm mt-0.5 flex items-center gap-1.5">
-                                                        <Building2 className="w-3.5 h-3.5 text-primary" />
-                                                        {churchName}
-                                                    </p>
+                                                <div className="flex items-center gap-2 text-muted min-w-0">
+                                                    <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
+                                                    <span className="text-foreground truncate" title={churchName}>
+                                                        {user.assigned_church_id ? (
+                                                            <span className="font-medium text-foreground">{churchName}</span>
+                                                        ) : (
+                                                            <span className="text-muted italic">Unassigned</span>
+                                                        )}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <span className="text-muted uppercase font-semibold tracking-wider">Registered</span>
-                                                    <p className="text-foreground text-sm mt-0.5">
-                                                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                                                    </p>
+                                                <div className="flex items-center gap-2 text-muted">
+                                                    <Calendar className="w-3.5 h-3.5 flex-shrink-0 text-muted/70" />
+                                                    <span>Joined {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</span>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleEditRole(user)}
-                                                    disabled={user.id === currentUser?.id}
-                                                    className="mt-3 w-full btn-primary text-white px-3 py-2 text-xs rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
-                                                >
-                                                    Edit Role & Parish Access
-                                                </button>
                                             </div>
-                                        )}
+                                        </div>
+
+                                        {/* Bottom Action Button */}
+                                        <div className="pt-2 border-t border-border/60">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEditRole(user)}
+                                                disabled={user.id === currentUser?.id}
+                                                className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                            >
+                                                Edit Role & Parish Access
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })
                         )}
                     </div>
 
-                    {/* Desktop Table (>= md) */}
-                    <div className="hidden md:block card overflow-hidden border border-border/80">
+                    {/* Desktop Table (>= xl) */}
+                    <div className="hidden xl:block card overflow-hidden border border-border/80">
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-secondary-50 dark:bg-secondary-900/60 border-b border-border text-left text-xs font-semibold text-muted uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-6 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('name')}>
+                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('name')}>
                                             <div className="flex items-center gap-1.5">
                                                 <span>User</span>
                                                 {sortField === 'name' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-6 py-3.5">Email</th>
-                                        <th className="px-6 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('role')}>
+                                        <th className="px-5 py-3.5">Email</th>
+                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('role')}>
                                             <div className="flex items-center gap-1.5">
                                                 <span>Role</span>
                                                 {sortField === 'role' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-6 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('church')}>
+                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('church')}>
                                             <div className="flex items-center gap-1.5">
                                                 <span>Assigned Parish</span>
                                                 {sortField === 'church' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-6 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('created_at')}>
+                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('created_at')}>
                                             <div className="flex items-center gap-1.5">
                                                 <span>Registered</span>
                                                 {sortField === 'created_at' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-6 py-3.5 text-right">Actions</th>
+                                        <th className="px-5 py-3.5 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border bg-white dark:bg-card">
                                     {filteredUsers.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-10 text-center text-muted">
+                                            <td colSpan={6} className="px-5 py-10 text-center text-muted">
                                                 No users found matching current filters.
                                             </td>
                                         </tr>
@@ -714,16 +728,16 @@ export default function UsersPage() {
                                             return (
                                                 <tr key={user.id} className="hover:bg-secondary-50/60 dark:hover:bg-secondary-900/30 transition-colors">
                                                     {/* User & Avatar */}
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
                                                             {user.avatar_url ? (
                                                                 <img
                                                                     src={user.avatar_url}
                                                                     alt={user.full_name || 'User'}
-                                                                    className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                                                                    className="h-9 w-9 rounded-full object-cover flex-shrink-0"
                                                                 />
                                                             ) : (
-                                                                <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0">
+                                                                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0 text-xs">
                                                                     {user.full_name?.charAt(0).toUpperCase() || 'U'}
                                                                 </div>
                                                             )}
@@ -734,19 +748,19 @@ export default function UsersPage() {
                                                     </td>
 
                                                     {/* Email */}
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm text-foreground">
                                                         {user.email}
                                                     </td>
 
                                                     {/* Role */}
-                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap">
                                                         <span className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
                                                             {formatRole(user.role || 'user')}
                                                         </span>
                                                     </td>
 
                                                     {/* Assigned Church */}
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm">
                                                         {user.assigned_church_id ? (
                                                             <div className="flex items-center gap-1.5 text-foreground font-medium">
                                                                 <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
@@ -760,12 +774,12 @@ export default function UsersPage() {
                                                     </td>
 
                                                     {/* Registered Date */}
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm text-muted">
                                                         {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <td className="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                                         <button
                                                             onClick={() => handleEditRole(user)}
                                                             disabled={user.id === currentUser?.id}
