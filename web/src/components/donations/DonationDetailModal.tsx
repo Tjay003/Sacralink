@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Modal from '../ui/Modal';
 import { CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
-import { createNotification } from '../../lib/supabase/notifications';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DonationDetailModalProps {
@@ -30,15 +29,6 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
             setLoading(false);
             return;
         }
-        // Send thank-you notification to the donor
-        const churchName = donation.church?.name || 'the church';
-        await createNotification({
-            userId: donation.user_id,
-            type: 'donation_verified',
-            title: 'Thank you for your donation! 🙏',
-            message: `Your donation to ${churchName} has been received and verified. God bless you!`,
-            link: '/profile',
-        });
         onUpdated();
         onClose();
     };

@@ -212,8 +212,8 @@ export async function notifyUserOfStatusChange(
     console.log('🔔 Notifying user of status change:', { userId, serviceType, status });
 
     const title = status === 'approved'
-        ? '✅ Appointment Approved'
-        : '❌ Appointment Rejected';
+        ? 'Appointment Approved'
+        : 'Appointment Rejected';
 
     const message = status === 'approved'
         ? `Your ${serviceType} appointment has been approved!`
@@ -247,8 +247,8 @@ export async function notifyDonorOfDonationStatus(
     const formattedAmount = `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
 
     const title = status === 'verified'
-        ? '✅ Donation Verified'
-        : '❌ Donation Rejected';
+        ? 'Donation Verified'
+        : 'Donation Rejected';
 
     const message = status === 'verified'
         ? `Your ${formattedAmount} donation to ${churchName} has been verified. Thank you! 🙏`
