@@ -448,3 +448,43 @@ h6 {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* ================================
+   LEAFLET MAP STYLES & OVERRIDES
+   ================================ */
+
+.leaflet-container {
+  font-family: var(--font-sans);
+  z-index: 10 !important;
+  border-radius: inherit;
+}
+
+.leaflet-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 15 !important;
+}
+
+.custom-church-marker {
+  background: transparent;
+  border: none;
+}
+
+.custom-church-pin-pulse {
+  animation: markerPulse 2s infinite;
+}
+
+@keyframes markerPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
