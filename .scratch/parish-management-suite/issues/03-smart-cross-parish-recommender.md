@@ -5,7 +5,7 @@ Proactive slot availability detection and an in-memory Haversine distance recomm
 
 **Blocked by:** 02 - Interactive Parish Map & Coordinate Storage.
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 ## Acceptance Criteria
 - [ ] Real-time availability validator evaluates selected date, sacrament type, and church schedule.
