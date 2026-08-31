@@ -382,10 +382,11 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
       const newChurch = Array.isArray(body)
         ? { ...body[0], id: 'church-new-created', created_at: '2026-01-01T00:00:00.000Z' }
         : { ...body, id: 'church-new-created', created_at: '2026-01-01T00:00:00.000Z' };
+      const isSingle = (route.request().headers()['accept'] || '').includes('vnd.pgrst.object+json');
       return route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify([newChurch]),
+        body: JSON.stringify(isSingle ? newChurch : [newChurch]),
       });
     }
 
@@ -400,10 +401,18 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
 
     for (const c of MOCK_CHURCHES) {
       if (url.includes(`id=eq.${c.id}`)) {
+        const headers = route.request().headers();
+        if (headers['accept']?.includes('application/vnd.pgrst.object+json')) {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ ...c, mass_schedules: [] }),
+          });
+        }
         return route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify({ ...c, mass_schedules: [] }),
+          body: JSON.stringify([{ ...c, mass_schedules: [] }]),
         });
       }
     }
@@ -412,6 +421,41 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_CHURCHES),
+    });
+  });
+
+  // 4b. Nominatim OpenStreetMap geocoding route
+  await page.route('**/*nominatim.openstreetmap.org/search*', async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          place_id: 101,
+          display_name: 'San Jose del Monte City Hall, Bulacan, Central Luzon, Philippines',
+          lat: '14.814000',
+          lon: '121.046000',
+          type: 'city_hall',
+        },
+        {
+          place_id: 102,
+          display_name: 'St. Joseph the Worker Parish, CSJDM, Bulacan, Philippines',
+          lat: '14.815500',
+          lon: '121.047500',
+          type: 'church',
+        },
+      ]),
+    });
+  });
+
+  await page.route('**/*nominatim.openstreetmap.org/reverse*', async (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        place_id: 201,
+        display_name: 'CSJDM Parish Center, San Jose del Monte, Bulacan, Philippines',
+      }),
     });
   });
 

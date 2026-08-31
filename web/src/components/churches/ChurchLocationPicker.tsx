@@ -401,8 +401,8 @@ export default function ChurchLocationPicker({
   };
 
   // Apply manual fine-tune inputs
-  const handleApplyCoordinates = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApplyCoordinates = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setCoordError(null);
     const lat = parseFloat(inputLat);
     const lng = parseFloat(inputLng);
@@ -455,7 +455,7 @@ export default function ChurchLocationPicker({
 
       {/* Address Geocoding Search Box */}
       <div className="relative">
-        <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
             <input
@@ -464,6 +464,12 @@ export default function ChurchLocationPicker({
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setSearchError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleSearch();
+                }
               }}
               onFocus={() => {
                 if (searchResults.length > 0) setShowDropdown(true);
@@ -487,14 +493,15 @@ export default function ChurchLocationPicker({
             )}
           </div>
           <button
-            type="submit"
+            type="button"
+            onClick={() => void handleSearch()}
             disabled={disabled || isSearching || !searchQuery.trim()}
             className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5 shrink-0 cursor-pointer"
           >
             {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             <span>{isSearching ? 'Searching...' : 'Search Location'}</span>
           </button>
-        </form>
+        </div>
 
         {/* Search Results Dropdown */}
         {showDropdown && searchResults.length > 0 && (
@@ -600,7 +607,7 @@ export default function ChurchLocationPicker({
       )}
 
       {/* Coordinate Fine-Tuning Inputs */}
-      <form onSubmit={handleApplyCoordinates} className="p-4 bg-secondary-50 dark:bg-slate-800/60 rounded-xl border border-border space-y-3">
+      <div className="p-4 bg-secondary-50 dark:bg-slate-800/60 rounded-xl border border-border space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
             Coordinates Fine-Tuning (WGS84)
@@ -622,10 +629,15 @@ export default function ChurchLocationPicker({
               step="any"
               value={inputLat}
               onChange={(e) => setInputLat(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyCoordinates();
+                }
+              }}
               disabled={disabled}
               placeholder="e.g., 14.813500"
               className="input w-full font-mono text-xs"
-              required
             />
           </div>
           <div>
@@ -637,10 +649,15 @@ export default function ChurchLocationPicker({
               step="any"
               value={inputLng}
               onChange={(e) => setInputLng(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyCoordinates();
+                }
+              }}
               disabled={disabled}
               placeholder="e.g., 121.045300"
               className="input w-full font-mono text-xs"
-              required
             />
           </div>
         </div>
@@ -659,14 +676,15 @@ export default function ChurchLocationPicker({
               : 'Default center: CSJDM, Bulacan (14.813500, 121.045300)'}
           </p>
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleApplyCoordinates()}
             disabled={disabled}
             className="px-3 py-1.5 bg-secondary-200 hover:bg-secondary-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-secondary-900 dark:text-slate-100 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
           >
             Apply Coordinates
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

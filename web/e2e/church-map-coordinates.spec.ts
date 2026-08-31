@@ -3,8 +3,10 @@ import { authenticateAs, setupSupabaseMocks, MOCK_CHURCHES } from './helpers/moc
 
 test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
   test.beforeEach(async ({ page }) => {
-    // Intercept Nominatim geocoding API to ensure deterministic and fast tests
-    await page.route('https://nominatim.openstreetmap.org/search*', async (route) => {
+    await authenticateAs(page, 'super_admin');
+
+    // Intercept Nominatim geocoding API with glob pattern
+    await page.route('**/*nominatim.openstreetmap.org/search*', async (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -27,7 +29,7 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
       });
     });
 
-    await page.route('https://nominatim.openstreetmap.org/reverse*', async (route) => {
+    await page.route('**/*nominatim.openstreetmap.org/reverse*', async (route) => {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -40,7 +42,6 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
   });
 
   test('should render the Leaflet map and coordinate inputs in AddChurchPage', async ({ page }) => {
-    await authenticateAs(page, 'super_admin');
     await page.goto('/churches/add');
 
     // Heading
@@ -60,7 +61,6 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
   });
 
   test('should geocode address queries and update coordinates', async ({ page }) => {
-    await authenticateAs(page, 'super_admin');
     await page.goto('/churches/add');
 
     const searchInput = page.locator('input[placeholder*="Search church address"]');
@@ -70,11 +70,12 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
     await searchInput.fill('St. Joseph the Worker');
     await page.getByRole('button', { name: /Search Location/i }).click();
 
-    // Dropdown results
-    await expect(page.getByText('St. Joseph the Worker Parish, CSJDM')).toBeVisible();
+    // Wait for dropdown item
+    const parishItem = page.getByRole('button', { name: /St. Joseph the Worker Parish/i }).first();
+    await expect(parishItem).toBeVisible();
 
     // Select result
-    await page.getByText('St. Joseph the Worker Parish, CSJDM').click();
+    await parishItem.click();
 
     // Verify coordinate inputs updated to the geocoded location
     const latInput = page.locator('input[placeholder="e.g., 14.813500"]');
@@ -87,7 +88,6 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
   });
 
   test('should allow manual coordinate entry and fine-tuning', async ({ page }) => {
-    await authenticateAs(page, 'super_admin');
     await page.goto('/churches/add');
 
     const latInput = page.locator('input[placeholder="e.g., 14.813500"]');
@@ -97,12 +97,11 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
     await lngInput.fill('121.060000');
     await page.getByRole('button', { name: /Apply Coordinates/i }).click();
 
-    // Verify stored coordinate display
-    await expect(page.getByText(/Stored: 14.825000°, 121.060000°/i)).toBeVisible();
+    // Verify pin badge updated with applied coordinates
+    await expect(page.getByText(/PIN SET: 14.8250, 121.0600/i)).toBeVisible();
   });
 
   test('should pre-load existing coordinates when editing a church', async ({ page }) => {
-    await authenticateAs(page, 'super_admin');
     await page.goto('/churches/church-1/edit');
 
     await expect(page.getByRole('heading', { name: 'Edit Church' })).toBeVisible();
@@ -119,25 +118,25 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
   test('should submit church form with floating-point coordinates payload', async ({ page }) => {
     let capturedPayload: any = null;
 
-    await setupSupabaseMocks(page);
+    await authenticateAs(page, 'super_admin');
 
-    // Capture POST payload for churches
+    // Capture POST payload for churches (registered AFTER authenticateAs so it takes priority)
     await page.route('**/rest/v1/churches*', async (route) => {
       if (route.request().method() === 'POST') {
         capturedPayload = route.request().postDataJSON();
+        const newChurchObj = {
+          id: 'new-church-id',
+          name: 'Our Lady of Lourdes',
+          address: 'Tungkong Mangga, CSJDM',
+          latitude: 14.8135,
+          longitude: 121.0453,
+          created_at: '2026-01-01T00:00:00Z',
+        };
+        const isSingle = (route.request().headers()['accept'] || '').includes('vnd.pgrst.object+json');
         return route.fulfill({
           status: 201,
           contentType: 'application/json',
-          body: JSON.stringify([
-            {
-              id: 'new-church-id',
-              name: 'Our Lady of Lourdes',
-              address: 'Tungkong Mangga, CSJDM',
-              latitude: 14.8135,
-              longitude: 121.0453,
-              created_at: '2026-01-01T00:00:00Z',
-            },
-          ]),
+          body: JSON.stringify(isSingle ? newChurchObj : [newChurchObj]),
         });
       }
       return route.fulfill({
@@ -147,7 +146,6 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
       });
     });
 
-    await authenticateAs(page, 'super_admin');
     await page.goto('/churches/add');
 
     // Fill form
@@ -161,10 +159,13 @@ test.describe('Ticket 02: Interactive Parish Map & Coordinate Storage', () => {
     await lngInput.fill('121.045300');
     await page.getByRole('button', { name: /Apply Coordinates/i }).click();
 
-    // Submit form
-    await page.getByRole('button', { name: /Create Church/i }).click();
+    // Submit form and await response
+    const [response] = await Promise.all([
+      page.waitForResponse((res) => res.url().includes('/rest/v1/churches') && res.request().method() === 'POST'),
+      page.getByRole('button', { name: /Create Church/i }).click(),
+    ]);
 
-    // Verify coordinates were included in the database payload
+    expect(response.status()).toBe(201);
     expect(capturedPayload).toBeDefined();
     const insertedRecord = Array.isArray(capturedPayload) ? capturedPayload[0] : capturedPayload;
     expect(insertedRecord.latitude).toBe(14.8135);

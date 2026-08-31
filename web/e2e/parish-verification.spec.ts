@@ -53,16 +53,6 @@ test.describe('Parish Verification & Donation Gate', () => {
   test('2. Cashless donations are strictly locked on unverified churches', async ({ page }) => {
     await authenticateAs(page, 'parishioner');
 
-    // Mock specific unverified church route response
-    await page.route('**/rest/v1/churches*id=eq.church-unverified-1*', async (route) => {
-      const unverifiedChurch = MOCK_CHURCHES.find((c) => c.id === 'church-unverified-1');
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([unverifiedChurch]),
-      });
-    });
-
     await page.goto('/churches/church-unverified-1');
     await page.waitForLoadState('networkidle');
 
@@ -97,8 +87,8 @@ test.describe('Parish Verification & Donation Gate', () => {
 
     // Verify modal content & document links
     await expect(page.getByRole('heading', { name: /Verification Review: St. Vincent Ferrer Parish/i })).toBeVisible();
-    await expect(page.getByText('CBCP Clergy ID / Celebret')).toBeVisible();
-    await expect(page.getByText('Chancery Appointment Decree')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'CBCP Clergy ID / Celebret' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Chancery Appointment Decree/i })).toBeVisible();
 
     // Verify and check all 3 anti-fraud checklist items
     const rectoryCheck = page.getByLabel(/Rectory Phone Call Confirmed with Chancery/i);
