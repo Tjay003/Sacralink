@@ -5,7 +5,7 @@ A secure parish onboarding application workflow where prospective parish admins/
 
 **Blocked by:** 01 - Admin Church Categorization & Multi-Column Sorting.
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 ## Acceptance Criteria
 - [ ] Public / Admin parish application submission form with secure file upload for CBCP Clergy ID / Celebret and Chancery decree.
