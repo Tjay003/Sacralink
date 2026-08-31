@@ -10,7 +10,7 @@
 - [x] **02**: [Interactive Parish Map & Coordinate Storage](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/.scratch/parish-management-suite/issues/02-interactive-parish-map-and-coordinates.md) (Blocked by: none)
 - [x] **03**: [Smart Cross-Parish Availability & Nearby Recommender](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/.scratch/parish-management-suite/issues/03-smart-cross-parish-recommender.md) (Blocked by: 02)
 - [x] **04**: [Strict Manual Parish Verification & Donation Gate](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/.scratch/parish-management-suite/issues/04-strict-manual-parish-verification-and-donation-gate.md) (Blocked by: 01)
-- [ ] **05**: [Real-Time Messaging & Embedded Video/Audio Conferencing](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/.scratch/parish-management-suite/issues/05-realtime-messaging-and-video-conference.md) (Blocked by: 01)
+- [x] **05**: [Real-Time Messaging & Embedded Video/Audio Conferencing](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/.scratch/parish-management-suite/issues/05-realtime-messaging-and-video-conference.md) (Blocked by: 01)
 
 ## Decisions-so-far
 - Fixed donation notification duplicate dispatch and removed square checkmark emojis from title generators.
@@ -20,3 +20,4 @@
 - Implemented Ticket 02: Interactive OpenStreetMap & Leaflet ChurchLocationPicker with Nominatim geocoding, draggable marker, geolocation, and coordinate persistence in Add/EditChurchPage.
 - Implemented Ticket 03: Haversine distance engine and proactive cross-parish slot availability recommender with 1-click alternative selection in BookAppointmentPage.
 - Implemented Ticket 04: Public/Admin parish application workflow, Super Admin review queue with 3-point anti-fraud checklist modal, and strict donation gate on unverified churches.
+- Implemented Ticket 05: Real-time direct & parish channel messaging with Supabase Realtime and embedded zero-cost Jitsi Meet audio/video conferencing modal in MessagingPage.

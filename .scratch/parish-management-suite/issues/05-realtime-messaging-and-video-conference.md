@@ -5,7 +5,7 @@ A comprehensive real-time chat interface connecting Admins, Priests, Volunteers,
 
 **Blocked by:** 01 - Admin Church Categorization & Multi-Column Sorting.
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 ## Acceptance Criteria
 - [ ] Database schema for `conversations`, `conversation_participants`, and `messages` with RLS policies.
