@@ -21,8 +21,8 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
 
     // 3. Verify Active Chat Header & Messages
     await expect(page.getByRole('heading', { name: 'Father Church Admin' }).first()).toBeVisible();
-    await expect(page.getByText('Good day! Please check the new baptism schedules.')).toBeVisible();
-    await expect(page.getByText('Sure Father, I have reviewed and verified the schedule.')).toBeVisible();
+    await expect(page.getByText('Good day! Please check the new baptism schedules.').first()).toBeVisible();
+    await expect(page.getByText('Sure Father, I have reviewed and verified the schedule.').first()).toBeVisible();
 
     // 4. Verify Message Composer
     await expect(

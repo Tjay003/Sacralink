@@ -242,7 +242,13 @@ export async function findNearestAlternativeParish(
   requestedTime: string
 ): Promise<SlotRecommendation | null> {
   const otherChurches = allChurches.filter(
-    (c) => c.id !== currentChurch.id && c.status !== 'inactive' && c.is_active !== false
+    (c) =>
+      c.id !== currentChurch.id &&
+      (c.status === 'verified_active' || c.status === 'active' || !c.status) &&
+      c.status !== 'unverified' &&
+      c.status !== 'pending' &&
+      c.status !== 'inactive' &&
+      c.is_active !== false
   );
 
   if (otherChurches.length === 0) {

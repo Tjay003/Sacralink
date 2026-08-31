@@ -60,6 +60,59 @@ export const MOCK_CHURCHES = [
     featured_image_url: 'https://images.unsplash.com/photo-1548625361-ec85301ff7a6?auto=format&fit=crop&q=80&w=800',
     created_at: '2026-01-01T00:00:00.000Z',
   },
+  {
+    id: 'church-unverified-1',
+    name: 'Our Lady of Lourdes Mission Station',
+    address: 'Graceville, City of San Jose del Monte',
+    contact_number: '+63 44 999 8888',
+    email: 'lourdes@diocese.ph',
+    status: 'unverified',
+    latitude: 14.819,
+    longitude: 121.042,
+    gcash_number: '09170001111',
+    maya_number: '09180002222',
+    description: 'New mission station under diocese onboarding.',
+    featured_image_url: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+  },
+];
+
+export const MOCK_PARISH_APPLICATIONS = [
+  {
+    id: 'app-1',
+    applicant_id: 'user-id-churchadmin-2',
+    parish_name: 'St. Vincent Ferrer Parish',
+    address: 'Brgy. San Manuel, City of San Jose del Monte, Bulacan',
+    contact_number: '+63 44 123 4567',
+    email: 'stvincent@diocese.ph',
+    description: 'Vibrant parish serving Catholic faithful in SJDM.',
+    latitude: 14.815,
+    longitude: 121.048,
+    gcash_number: '09171234567',
+    maya_number: '09181234567',
+    celebret_url: 'https://example.com/mock-celebret.pdf',
+    decree_url: 'https://example.com/mock-decree.pdf',
+    status: 'pending',
+    checklist: {
+      rectory_call: false,
+      celebret_verified: false,
+      merchant_entity_verified: false,
+      notes: '',
+    },
+    reviewed_by: null,
+    reviewed_at: null,
+    rejection_reason: null,
+    church_id: null,
+    created_at: '2026-01-01T00:00:00Z',
+    applicant: {
+      id: 'user-id-churchadmin-2',
+      full_name: 'Father Church Admin',
+      email: 'user2@gmail.com',
+      phone_number: '+63 917 123 4567',
+    },
+    reviewer: null,
+    church: null,
+  },
 ];
 
 export const MOCK_SYSTEM_ANNOUNCEMENTS = [
@@ -619,6 +672,80 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
           sender: activeUser || MOCK_USERS.super_admin,
         },
       ]),
+    });
+  });
+
+  // 13. Storage Upload REST route
+  await page.route('**/storage/v1/object/**', async (route) => {
+    const method = route.request().method();
+    if (method === 'POST' || method === 'PUT') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          Key: 'mock-storage-key',
+          Id: 'mock-id',
+        }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'ok' }),
+    });
+  });
+
+  // 14. Parish Applications REST route
+  await page.route('**/rest/v1/parish_applications*', async (route) => {
+    const method = route.request().method();
+    const url = route.request().url();
+
+    if (method === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      const newApp = {
+        id: `app-new-${Date.now()}`,
+        applicant_id: activeUser ? activeUser.id : 'user-id-superadmin-1',
+        status: 'pending',
+        checklist: {
+          rectory_call: false,
+          celebret_verified: false,
+          merchant_entity_verified: false,
+          notes: '',
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        reviewed_by: null,
+        reviewed_at: null,
+        rejection_reason: null,
+        church_id: null,
+        ...body,
+      };
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(newApp),
+      });
+    }
+
+    if (method === 'PATCH') {
+      const body = route.request().postDataJSON() || {};
+      const updated = {
+        ...MOCK_PARISH_APPLICATIONS[0],
+        ...body,
+        updated_at: new Date().toISOString(),
+      };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([updated]),
+      });
+    }
+
+    // GET / SELECT
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_PARISH_APPLICATIONS),
     });
   });
 }
