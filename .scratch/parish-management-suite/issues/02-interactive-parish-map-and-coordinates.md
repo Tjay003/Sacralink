@@ -5,7 +5,7 @@ An embedded, lightweight OpenStreetMap & Leaflet map component inside `AddChurch
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 ## Acceptance Criteria
 - [ ] Interactive map rendered in `AddChurchPage.tsx` and `EditChurchPage.tsx`.
