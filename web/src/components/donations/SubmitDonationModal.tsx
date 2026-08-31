@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Heart, Upload, ImageIcon, CheckCircle, QrCode, AlertCircle, X } from 'lucide-react';
+import { Heart, Upload, ImageIcon, CheckCircle, QrCode, AlertCircle, ShieldAlert, X } from 'lucide-react';
 import { submitDonation } from '../../lib/supabase/donations';
 import qrSample from '../../assets/qrPh/qr Sample.png';
 import Modal from '../ui/Modal';
@@ -7,6 +7,7 @@ import Modal from '../ui/Modal';
 interface Church {
     id: string;
     name: string;
+    status?: string | null;
     gcash_number?: string | null;
     maya_number?: string | null;
     gcash_qr_url?: string | null;
@@ -70,8 +71,9 @@ function QrDisplay({ qrUrl, label, color }: QrDisplayProps) {
 }
 
 export default function SubmitDonationModal({ church, onClose, onSuccess }: SubmitDonationModalProps) {
-    const hasGcash = !!(church.gcash_number || church.gcash_qr_url);
-    const hasMaya = !!(church.maya_number || church.maya_qr_url);
+    const isUnverified = church.status === 'unverified' || (church.status && church.status !== 'verified_active' && church.status !== 'active');
+    const hasGcash = !isUnverified && !!(church.gcash_number || church.gcash_qr_url);
+    const hasMaya = !isUnverified && !!(church.maya_number || church.maya_qr_url);
 
     const defaultTab: PaymentTab = hasGcash ? 'gcash' : 'maya';
     const [activeTab, setActiveTab] = useState<PaymentTab>(defaultTab);
@@ -144,6 +146,11 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitError('');
+
+        if (isUnverified) {
+            setSubmitError('Donations are locked. This parish is pending diocese verification.');
+            return;
+        }
 
         // Run all validations
         const aErr = validateAmount(amount);
@@ -222,6 +229,18 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
             size="md"
         >
             <div className="space-y-6">
+                {/* Verification Pending Gate Banner */}
+                {isUnverified && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-3 text-amber-800 dark:text-amber-200">
+                        <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-sm">Verification Pending</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+                                This parish is currently undergoing Diocese anti-fraud and clergy credentials verification. Cashless donations (GCash/Maya) are strictly locked until verified by the Diocese Chancery.
+                            </p>
+                        </div>
+                    </div>
+                )}
                 {/* Step 1 — Choose method */}
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">

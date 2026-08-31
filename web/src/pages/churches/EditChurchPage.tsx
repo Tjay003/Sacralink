@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
 import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode, Star } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
+import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
 
@@ -11,7 +12,7 @@ import type { Tables } from '../../types/database';
  * EditChurchPage - Form to edit an existing church
  * 
  * Features:
- * - Pre-fill form with current church data
+ * - Pre-fill form with current church data including map coordinates
  * - Same validation as add form
  * - Update database on save
  * - Navigate back to detail page after save
@@ -34,6 +35,8 @@ export default function EditChurchPage() {
         email: '',
         description: '',
         status: 'active' as 'active' | 'inactive',
+        latitude: null as number | null,
+        longitude: null as number | null,
         panorama_url: '',
         livestream_url: '',
         facebook_url: '',
@@ -75,6 +78,8 @@ export default function EditChurchPage() {
                 email: church.email || '',
                 description: church.description || '',
                 status: (church.status || 'active') as 'active' | 'inactive',
+                latitude: church.latitude ?? null,
+                longitude: church.longitude ?? null,
                 panorama_url: church.panorama_url || '',
                 livestream_url: church.livestream_url || '',
                 facebook_url: church.facebook_url || '',
@@ -198,6 +203,8 @@ export default function EditChurchPage() {
                     email: formData.email.trim() || null,
                     description: formData.description.trim() || null,
                     status: formData.status,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
                     facebook_url: formData.facebook_url.trim() || null,
@@ -337,6 +344,30 @@ export default function EditChurchPage() {
                             placeholder="Full address of the church"
                             rows={3}
                             required
+                        />
+                    </div>
+
+                    {/* Interactive Parish Map & Coordinate Storage */}
+                    <div className="p-4 bg-secondary-50/50 rounded-2xl border border-border/80">
+                        <ChurchLocationPicker
+                            latitude={formData.latitude}
+                            longitude={formData.longitude}
+                            initialAddress={formData.address}
+                            disabled={loading}
+                            onChange={({ latitude, longitude, address }) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    latitude,
+                                    longitude,
+                                    address: !prev.address.trim() && address ? address : prev.address
+                                }));
+                            }}
+                            onAddressSelect={(address) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    address
+                                }));
+                            }}
                         />
                     </div>
 

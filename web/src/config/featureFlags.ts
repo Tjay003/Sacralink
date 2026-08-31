@@ -33,6 +33,7 @@ interface FeatureFlags {
     // === SHARED FEATURES (All Roles) ===
     churches: FeatureFlag;
     appointments: FeatureFlag;
+    messages: FeatureFlag;
     donations: FeatureFlag;
     calendar: FeatureFlag;
 
@@ -121,6 +122,13 @@ export const featureFlags: FeatureFlags = {
         enabled: true,
         label: 'Appointments',
         description: 'Sacrament booking and management',
+    },
+
+    // Real-Time Messaging & Conferencing (Phase 6 - Ticket 05)
+    messages: {
+        enabled: true,
+        label: 'Messages',
+        description: 'Real-time messaging and embedded video conferencing',
     },
 
     // Donations feature (Phase 5 - completed)

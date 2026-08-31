@@ -4,12 +4,14 @@ import { supabase } from '../../lib/supabase';
 import { seedDefaultRequirements } from '../../lib/supabase/requirements';
 import { Building2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
 
 /**
  * AddChurchPage - Form to create a new church
  * 
  * Features:
  * - Form with all church fields
+ * - Interactive Leaflet map & coordinate picker
  * - Validation (required fields)
  * - Insert into database
  * - Success/error feedback
@@ -27,6 +29,8 @@ export default function AddChurchPage() {
         contact_number: '',
         email: '',
         description: '',
+        latitude: null as number | null,
+        longitude: null as number | null,
         panorama_url: '',
         livestream_url: '',
         facebook_url: '',
@@ -114,6 +118,8 @@ export default function AddChurchPage() {
                     contact_number: formData.contact_number.trim() || null,
                     email: formData.email.trim() || null,
                     description: formData.description.trim() || null,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
                     facebook_url: formData.facebook_url.trim() || null,
@@ -226,6 +232,30 @@ export default function AddChurchPage() {
                             placeholder="Full address of the church"
                             rows={3}
                             required
+                        />
+                    </div>
+
+                    {/* Interactive Parish Map & Coordinate Storage */}
+                    <div className="p-4 bg-secondary-50/50 rounded-2xl border border-border/80">
+                        <ChurchLocationPicker
+                            latitude={formData.latitude}
+                            longitude={formData.longitude}
+                            initialAddress={formData.address}
+                            disabled={loading}
+                            onChange={({ latitude, longitude, address }) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    latitude,
+                                    longitude,
+                                    address: !prev.address.trim() && address ? address : prev.address
+                                }));
+                            }}
+                            onAddressSelect={(address) => {
+                                setFormData(prev => ({
+                                    ...prev,
+                                    address
+                                }));
+                            }}
                         />
                     </div>
 

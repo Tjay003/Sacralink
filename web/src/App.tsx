@@ -18,6 +18,9 @@ import SystemAnnouncementsPage from './pages/admin/SystemAnnouncementsPage.tsx';
 import ProfilePage from './pages/ProfilePage.tsx';
 import PrivacyPage from './pages/PrivacyPage.tsx';
 import KnowledgeBasePage from './pages/admin/KnowledgeBasePage.tsx';
+import ApplyParishPage from './pages/churches/ApplyParishPage.tsx';
+import ParishApplicationsPage from './pages/admin/ParishApplicationsPage.tsx';
+import MessagingPage from './pages/messages/MessagingPage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -100,14 +103,21 @@ function AppRoutes() {
         {/* Church routes - always enabled */}
         <Route path="churches">
           <Route index element={<ChurchesPage />} />
+          <Route path="apply" element={<ApplyParishPage />} />
           <Route path="add" element={<AddChurchPage />} />
           <Route path=":id" element={<ChurchDetailPage />} />
           <Route path=":id/edit" element={<EditChurchPage />} />
           <Route path=":id/book" element={<BookAppointmentPage />} />
         </Route>
 
+        {/* Parish Applications - Super Admin only */}
+        <Route path="admin/applications" element={<ParishApplicationsPage />} />
+
         {/* Appointments - always enabled */}
         <Route path="appointments" element={<AppointmentsPage />} />
+
+        {/* Real-Time Messaging - Ticket 05 */}
+        <Route path="messages" element={<MessagingPage />} />
 
         {/* Donations - feature flagged */}
         {featureFlags.donations.enabled && (

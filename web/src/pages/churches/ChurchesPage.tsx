@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Search, MapPin, Phone, Mail, ChevronDown, ChevronUp, LayoutGrid, List } from 'lucide-react';
+import { Building2, Plus, Search, MapPin, Phone, Mail, ChevronDown, ChevronUp, LayoutGrid, List, ShieldCheck, Clock } from 'lucide-react';
 import { useChurches } from '../../hooks/useChurches';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -77,15 +77,24 @@ export default function ChurchesPage() {
                     <h1 className="text-2xl font-bold">Churches</h1>
                     <p className="text-muted">Manage parishes in your diocese</p>
                 </div>
-                {canAddChurch && (
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => navigate('/churches/add')}
-                        className="btn-primary flex items-center justify-center gap-2 rounded-lg px-4 py-2"
+                        onClick={() => navigate('/churches/apply')}
+                        className="btn-secondary flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
                     >
-                        <Plus className="w-4 h-4" />
-                        Add Church
+                        <ShieldCheck className="w-4 h-4 text-primary" />
+                        Onboard Parish
                     </button>
-                )}
+                    {canAddChurch && (
+                        <button
+                            onClick={() => navigate('/churches/add')}
+                            className="btn-primary flex items-center justify-center gap-2 rounded-lg px-4 py-2"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Church
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Search and Toggle */}
@@ -181,14 +190,26 @@ export default function ChurchesPage() {
                                         {/* Gradient Overlay */}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
                                         
-                                        {/* Top Badge — Inactive only */}
-                                        {church.status === 'inactive' && (
-                                            <div className="absolute top-6 right-6 z-10">
+                                        {/* Top Badges */}
+                                        <div className="absolute top-6 right-6 z-10 flex flex-col gap-1.5 items-end">
+                                            {church.status === 'inactive' && (
                                                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/90 text-white shadow-sm backdrop-blur-md">
                                                     Inactive
                                                 </span>
-                                            </div>
-                                        )}
+                                            )}
+                                            {church.status === 'unverified' && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/90 text-white shadow-sm backdrop-blur-md">
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    Pending Verification
+                                                </span>
+                                            )}
+                                            {(church.status === 'verified_active' || church.status === 'active') && (
+                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/90 text-white shadow-sm backdrop-blur-md">
+                                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                                    Verified Parish
+                                                </span>
+                                            )}
+                                        </div>
                                         
                                         {/* Bottom Content */}
                                         <div className="relative z-10 mt-auto p-6 text-white flex flex-col justify-end">
@@ -255,6 +276,16 @@ export default function ChurchesPage() {
                                                     {church.status === 'inactive' && (
                                                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800 flex-shrink-0">
                                                             🔒 Inactive
+                                                        </span>
+                                                    )}
+                                                    {church.status === 'unverified' && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 flex-shrink-0">
+                                                            Pending Verification
+                                                        </span>
+                                                    )}
+                                                    {(church.status === 'verified_active' || church.status === 'active') && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 flex-shrink-0">
+                                                            Verified
                                                         </span>
                                                     )}
                                                 </div>
@@ -363,6 +394,17 @@ export default function ChurchesPage() {
                                                                 {church.status === 'inactive' && (
                                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                                                                         🔒 Inactive
+                                                                    </span>
+                                                                )}
+                                                                {church.status === 'unverified' && (
+                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                                                        Pending Verification
+                                                                    </span>
+                                                                )}
+                                                                {(church.status === 'verified_active' || church.status === 'active') && (
+                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                                                        Verified
                                                                     </span>
                                                                 )}
                                                             </div>

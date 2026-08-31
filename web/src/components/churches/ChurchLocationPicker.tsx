@@ -105,6 +105,7 @@ export default function ChurchLocationPicker({
   );
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [coordError, setCoordError] = useState<string | null>(null);
 
   // Update input text when props change
   useEffect(() => {
@@ -402,15 +403,16 @@ export default function ChurchLocationPicker({
   // Apply manual fine-tune inputs
   const handleApplyCoordinates = (e: React.FormEvent) => {
     e.preventDefault();
+    setCoordError(null);
     const lat = parseFloat(inputLat);
     const lng = parseFloat(inputLng);
 
     if (isNaN(lat) || lat < -90 || lat > 90) {
-      alert('Please enter a valid latitude between -90 and 90.');
+      setCoordError('Please enter a valid latitude between -90 and 90.');
       return;
     }
     if (isNaN(lng) || lng < -180 || lng > 180) {
-      alert('Please enter a valid longitude between -180 and 180.');
+      setCoordError('Please enter a valid longitude between -180 and 180.');
       return;
     }
 
@@ -642,6 +644,13 @@ export default function ChurchLocationPicker({
             />
           </div>
         </div>
+
+        {coordError && (
+          <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{coordError}</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between pt-1">
           <p className="text-[11px] text-muted">

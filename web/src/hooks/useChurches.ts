@@ -18,9 +18,9 @@ import type { Church as DbChurch, MassSchedule } from '../types/database';
 
 export type { MassSchedule };
 
-export type Church = DbChurch & {
+export type Church = Omit<DbChurch, 'status'> & {
     mass_schedules?: MassSchedule[];
-    status?: 'active' | 'inactive' | null;
+    status?: 'active' | 'inactive' | 'verified_active' | 'unverified' | string | null;
 };
 
 export function useChurches() {

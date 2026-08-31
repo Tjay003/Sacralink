@@ -5,13 +5,15 @@
  * to bypass the AbortError issue with the Supabase JS client.
  */
 
+import type { Church, Profile } from '../types/database';
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 /**
  * Fetch a single user profile by ID
  */
-export async function directFetchProfile(userId: string, accessToken: string) {
+export async function directFetchProfile(userId: string, accessToken: string): Promise<Profile | null> {
     try {
         const response = await fetch(
             `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
@@ -29,7 +31,7 @@ export async function directFetchProfile(userId: string, accessToken: string) {
             return null;
         }
 
-        const data = await response.json();
+        const data: Profile[] = await response.json();
         return data[0] || null;
     } catch (error) {
         console.error('Direct API fetch error:', error);
@@ -40,7 +42,7 @@ export async function directFetchProfile(userId: string, accessToken: string) {
 /**
  * Fetch all user profiles (for admin user management)
  */
-export async function directFetchProfiles(accessToken: string) {
+export async function directFetchProfiles(accessToken: string): Promise<Profile[] | null> {
     try {
         const response = await fetch(
             `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`,
@@ -58,7 +60,7 @@ export async function directFetchProfiles(accessToken: string) {
             return null;
         }
 
-        const data = await response.json();
+        const data: Profile[] = await response.json();
         return data;
     } catch (error) {
         console.error('Direct API fetch error:', error);
@@ -69,7 +71,7 @@ export async function directFetchProfiles(accessToken: string) {
 /**
  * Fetch all churches (direct REST query)
  */
-export async function directFetchChurches() {
+export async function directFetchChurches(): Promise<Church[]> {
     try {
         const response = await fetch(
             `${SUPABASE_URL}/rest/v1/churches?select=*&order=name.asc`,
@@ -87,7 +89,7 @@ export async function directFetchChurches() {
             return [];
         }
 
-        const data = await response.json();
+        const data: Church[] = await response.json();
         return data || [];
     } catch (error) {
         console.error('Direct API fetch churches error:', error);

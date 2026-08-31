@@ -619,6 +619,100 @@ export type Database = {
           },
         ]
       }
+      parish_applications: {
+        Row: {
+          address: string
+          applicant_id: string | null
+          celebret_url: string
+          checklist: Json | null
+          church_id: string | null
+          contact_number: string | null
+          created_at: string | null
+          decree_url: string
+          description: string | null
+          email: string | null
+          gcash_number: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          maya_number: string | null
+          parish_name: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          address: string
+          applicant_id?: string | null
+          celebret_url: string
+          checklist?: Json | null
+          church_id?: string | null
+          contact_number?: string | null
+          created_at?: string | null
+          decree_url: string
+          description?: string | null
+          email?: string | null
+          gcash_number?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          maya_number?: string | null
+          parish_name: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string
+          applicant_id?: string | null
+          celebret_url?: string
+          checklist?: Json | null
+          church_id?: string | null
+          contact_number?: string | null
+          created_at?: string | null
+          decree_url?: string
+          description?: string | null
+          email?: string | null
+          gcash_number?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          maya_number?: string | null
+          parish_name?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parish_applications_applicant_id_fkey"
+            columns: ["applicant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parish_applications_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parish_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       priest_availability: {
         Row: {
           available_date: string
@@ -885,6 +979,135 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          church_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          church_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          church_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_participants: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          message_type: string
+          metadata: Json
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          metadata?: Json
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          metadata?: Json
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       church_stats: {
@@ -1098,3 +1321,8 @@ export type Church = Tables<"churches">
 export type Appointment = Tables<"appointments">
 export type Donation = Tables<"donations">
 export type MassSchedule = Tables<"mass_schedules">
+export type Conversation = Tables<"conversations">
+export type ConversationParticipant = Tables<"conversation_participants">
+export type Message = Tables<"messages">
+export type UserRole = Enums<"user_role">
+

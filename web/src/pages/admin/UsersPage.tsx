@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Profile, Church } from '../../types/database';
+import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import { 
     Building2, 
@@ -22,7 +22,7 @@ import {
  */
 
 // Role hierarchy for sorting (lower number = higher priority)
-const ROLE_PRIORITY: Record<string, number> = {
+const ROLE_PRIORITY: Record<UserRole, number> = {
     'super_admin': 1,
     'admin': 2,
     'church_admin': 3,
@@ -30,6 +30,15 @@ const ROLE_PRIORITY: Record<string, number> = {
     'volunteer': 5,
     'user': 6
 };
+
+function calculateRoleStats(userList: Profile[]) {
+    return {
+        admins: userList.filter(u => u.role === 'church_admin' || u.role === 'admin' || u.role === 'super_admin').length,
+        volunteers: userList.filter(u => u.role === 'volunteer').length,
+        priests: userList.filter(u => u.role === 'priest').length,
+        users: userList.filter(u => !u.role || u.role === 'user').length,
+    };
+}
 
 type SortField = 'role' | 'church' | 'name' | 'created_at';
 type SortOrder = 'asc' | 'desc';
@@ -67,7 +76,7 @@ export default function UsersPage() {
                 setUsers(profilesRes);
             }
             if (churchesRes) {
-                setChurches(churchesRes as Church[]);
+                setChurches(churchesRes);
             }
         } catch (error) {
             console.error('Error fetching users and churches:', error);
@@ -100,9 +109,7 @@ export default function UsersPage() {
         if (currentUser?.role === 'church_admin') {
             filtered = filtered.filter(user => {
                 if (user.role === 'super_admin' || user.role === 'admin') return false;
-                const isAssignedToMyChurch = user.assigned_church_id === currentUser.assigned_church_id;
-                const isRegularUser = !user.role || user.role === 'user';
-                return isAssignedToMyChurch || isRegularUser;
+                return user.assigned_church_id === currentUser.assigned_church_id;
             });
         }
 
@@ -196,18 +203,12 @@ export default function UsersPage() {
             
             // Only show churches with users matching the filter or if explicitly filtered
             if (churchUsers.length > 0 || churchFilter === church.id) {
-                const stats = {
-                    admins: churchUsers.filter(u => u.role === 'church_admin' || u.role === 'admin' || u.role === 'super_admin').length,
-                    volunteers: churchUsers.filter(u => u.role === 'volunteer').length,
-                    priests: churchUsers.filter(u => u.role === 'priest').length,
-                    users: churchUsers.filter(u => !u.role || u.role === 'user').length,
-                };
                 groups.push({
                     churchId: church.id,
                     churchName: church.name,
                     address: church.address,
                     users: churchUsers,
-                    stats,
+                    stats: calculateRoleStats(churchUsers),
                 });
             }
         });
@@ -216,18 +217,12 @@ export default function UsersPage() {
         if (churchFilter === 'all' || churchFilter === 'unassigned') {
             const unassignedUsers = filteredUsers.filter(u => !u.assigned_church_id);
             if (unassignedUsers.length > 0) {
-                const stats = {
-                    admins: unassignedUsers.filter(u => u.role === 'super_admin' || u.role === 'admin').length,
-                    volunteers: unassignedUsers.filter(u => u.role === 'volunteer').length,
-                    priests: unassignedUsers.filter(u => u.role === 'priest').length,
-                    users: unassignedUsers.filter(u => !u.role || u.role === 'user').length,
-                };
                 groups.push({
                     churchId: 'unassigned',
                     churchName: 'General / Unassigned Users',
                     address: 'Not currently assigned to a specific parish',
                     users: unassignedUsers,
-                    stats,
+                    stats: calculateRoleStats(unassignedUsers),
                 });
             }
         }

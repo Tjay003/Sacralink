@@ -12,6 +12,8 @@ import {
     ChevronDown,
     User,
     Users,
+    ShieldCheck,
+    MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
@@ -23,7 +25,9 @@ const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' as const },
     { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' as const },
+    { name: 'Parish Applications', href: '/admin/applications', icon: ShieldCheck, superAdminOnly: true },
     { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' as const },
+    { name: 'Messages', href: '/messages', icon: MessageSquare, featureKey: 'messages' as const },
     { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const, staffOnly: true },
     { name: 'System Announcements', href: '/admin/system-announcements', icon: Megaphone, superAdminOnly: true, featureKey: 'systemAnnouncements' as const },
 ];
