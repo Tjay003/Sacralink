@@ -56,21 +56,35 @@ export async function fetchUserConversations(userId: string): Promise<{
             return { data: [], error: null };
         }
 
-        // 3. Fetch all participants with their profiles for these conversations
+        // 3. Fetch all participants for these conversations
         const { data: allParticipants, error: allPartError } = await supabase
             .from('conversation_participants')
-            .select('*, profile:profiles(*)')
-            .in('id', conversationIds.length > 0 ? conversationIds : [''])
-            // Wait, we query by conversation_id
+            .select('*')
             .in('conversation_id', conversationIds);
 
         if (allPartError) throw allPartError;
+
+        // 3b. Fetch profiles for all participant user_ids
+        const participantUserIds = Array.from(new Set((allParticipants || []).map((p: any) => p.user_id).filter(Boolean)));
+        const profileMap = new Map<string, Profile>();
+        if (participantUserIds.length > 0) {
+            const { data: profilesData } = await supabase
+                .from('profiles')
+                .select('*')
+                .in('id', participantUserIds);
+            (profilesData || []).forEach((prof: any) => {
+                profileMap.set(prof.id, prof);
+            });
+        }
 
         // Group participants by conversation_id
         const participantsByConv = new Map<string, ParticipantWithProfile[]>();
         (allParticipants || []).forEach((part: any) => {
             const list = participantsByConv.get(part.conversation_id) || [];
-            list.push(part);
+            list.push({
+                ...part,
+                profile: profileMap.get(part.user_id) || null,
+            });
             participantsByConv.set(part.conversation_id, list);
         });
 
@@ -83,12 +97,19 @@ export async function fetchUserConversations(userId: string): Promise<{
                 // Fetch latest message
                 const { data: latestMessages } = await supabase
                     .from('messages')
-                    .select('*, sender:profiles(*)')
+                    .select('*')
                     .eq('conversation_id', conv.id)
                     .order('created_at', { ascending: false })
                     .limit(1);
 
-                const lastMsg = latestMessages && latestMessages.length > 0 ? (latestMessages[0] as any) : null;
+                let lastMsg: MessageWithSender | null = null;
+                if (latestMessages && latestMessages.length > 0) {
+                    const rawMsg = latestMessages[0] as any;
+                    lastMsg = {
+                        ...rawMsg,
+                        sender: profileMap.get(rawMsg.sender_id) || null,
+                    };
+                }
 
                 // Count unread messages (newer than last_read_at and not sent by current user)
                 let unreadCount = 0;
@@ -143,14 +164,33 @@ export async function fetchMessages(conversationId: string): Promise<{
     error: Error | null;
 }> {
     try {
-        const { data, error } = await supabase
+        const { data: rawMessages, error } = await supabase
             .from('messages')
-            .select('*, sender:profiles(*)')
+            .select('*')
             .eq('conversation_id', conversationId)
             .order('created_at', { ascending: true });
 
         if (error) throw error;
-        return { data: (data as any) || [], error: null };
+        if (!rawMessages || rawMessages.length === 0) {
+            return { data: [], error: null };
+        }
+
+        const senderIds = Array.from(new Set(rawMessages.map((m: any) => m.sender_id).filter(Boolean)));
+        const profileMap = new Map<string, Profile>();
+        if (senderIds.length > 0) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('*')
+                .in('id', senderIds);
+            (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
+        }
+
+        const enrichedMessages: MessageWithSender[] = rawMessages.map((m: any) => ({
+            ...m,
+            sender: profileMap.get(m.sender_id) || null,
+        }));
+
+        return { data: enrichedMessages, error: null };
     } catch (err: any) {
         console.error('❌ Error fetching messages:', err);
         return { data: null, error: err };
