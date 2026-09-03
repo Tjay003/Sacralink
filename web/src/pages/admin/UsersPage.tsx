@@ -13,7 +13,8 @@ import {
     ChevronUp, 
     Search,
     Calendar,
-    Mail
+    Mail,
+    MapPin
 } from 'lucide-react';
 
 /**
@@ -93,6 +94,12 @@ export default function UsersPage() {
     const churchMap = useMemo(() => {
         const map = new Map<string, string>();
         churches.forEach(c => map.set(c.id, c.name));
+        return map;
+    }, [churches]);
+
+    const churchObjectMap = useMemo(() => {
+        const map = new Map<string, Church>();
+        churches.forEach(c => map.set(c.id, c));
         return map;
     }, [churches]);
 
@@ -754,14 +761,37 @@ export default function UsersPage() {
                                                         </span>
                                                     </td>
 
-                                                    {/* Assigned Church */}
+                                                    {/* Assigned Church with Interactive Hover Tooltip */}
                                                     <td className="px-5 py-3.5 whitespace-nowrap text-sm">
                                                         {user.assigned_church_id ? (
-                                                            <div className="flex items-center gap-1.5 text-foreground font-medium">
-                                                                <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                                                                <span className="truncate max-w-[200px]" title={churchName}>
-                                                                    {churchName}
-                                                                </span>
+                                                            <div className="relative group/church inline-block">
+                                                                <div className="flex items-center gap-1.5 text-foreground font-medium cursor-help">
+                                                                    <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                                                                    <span className="truncate max-w-[240px] border-b border-dotted border-border/80 group-hover/church:border-primary group-hover/church:text-primary transition-colors">
+                                                                        {churchName}
+                                                                    </span>
+                                                                </div>
+                                                                {/* Tooltip Card on Hover */}
+                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover/church:flex flex-col z-40 w-72 p-3 bg-white text-foreground rounded-xl shadow-xl border border-border animate-in fade-in zoom-in-95 pointer-events-none">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                                                            <Building2 className="w-3.5 h-3.5" />
+                                                                        </div>
+                                                                        <p className="font-bold text-xs text-foreground leading-tight">{churchName}</p>
+                                                                    </div>
+                                                                    {churchObjectMap.get(user.assigned_church_id)?.address && (
+                                                                        <p className="text-[11px] text-muted flex items-start gap-1 mt-1 leading-relaxed">
+                                                                            <MapPin className="w-3 h-3 text-muted/70 shrink-0 mt-0.5" />
+                                                                            <span>{churchObjectMap.get(user.assigned_church_id)?.address}</span>
+                                                                        </p>
+                                                                    )}
+                                                                    <div className="mt-2 pt-1.5 border-t border-border flex items-center justify-between text-[10px] text-muted">
+                                                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                                                            Verified Parish
+                                                                        </span>
+                                                                        <span>Diocese of Malolos</span>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         ) : (
                                                             <span className="text-muted/60 text-xs italic">Unassigned</span>

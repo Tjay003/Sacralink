@@ -27,7 +27,8 @@ import {
 } from '../../lib/supabase/messaging';
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
-import type { Profile } from '../../types/database';
+import { directFetchChurches } from '../../lib/directApi';
+import type { Profile, Church } from '../../types/database';
 
 export default function MessagingPage() {
     const { user, profile } = useAuth();
@@ -51,6 +52,11 @@ export default function MessagingPage() {
     const [contactSearch, setContactSearch] = useState('');
     const [contactRoleFilter, setContactRoleFilter] = useState<string>('all');
 
+    // Super Admin Parish Staff Channel picker
+    const [allChurches, setAllChurches] = useState<Church[]>([]);
+    const [showParishPickerModal, setShowParishPickerModal] = useState(false);
+    const [parishSearch, setParishSearch] = useState('');
+
     // Video Conference Modal
     const [videoModalOpen, setVideoModalOpen] = useState(false);
     const [activeMeetingRoom, setActiveMeetingRoom] = useState<string>('');
@@ -65,6 +71,15 @@ export default function MessagingPage() {
     const activeConversation = useMemo(() => {
         return conversations.find((c) => c.id === activeConversationId) || null;
     }, [conversations, activeConversationId]);
+
+    // Fetch all churches for Super Admin channel browsing
+    useEffect(() => {
+        const loadChurches = async () => {
+            const list = await directFetchChurches();
+            setAllChurches(list || []);
+        };
+        loadChurches();
+    }, []);
 
     // Load conversations for the user
     const loadConversations = useCallback(async (selectFirst = false) => {
@@ -278,17 +293,27 @@ export default function MessagingPage() {
         }
     };
 
+    const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
+    const userChurchId = profile?.assigned_church_id || profile?.church_id;
+
     // Open or create Parish Staff Channel
-    const handleOpenChurchStaffChannel = async () => {
+    const handleOpenChurchStaffChannel = async (targetChurchId?: string, targetChurchName?: string) => {
         if (!user) return;
-        const churchId = profile?.assigned_church_id || profile?.church_id;
-        if (!churchId) return;
+        const churchId = targetChurchId || userChurchId;
+        if (!churchId) {
+            if (isSuperAdmin) {
+                setShowParishPickerModal(true);
+            }
+            return;
+        }
 
         try {
             setLoadingConversations(true);
+            setShowParishPickerModal(false);
             const { conversationId, error } = await getOrCreateChurchStaffChannel(
                 churchId,
-                user.id
+                user.id,
+                targetChurchName ? `${targetChurchName} Staff Channel` : undefined
             );
             if (error) throw error;
             if (conversationId) {
@@ -303,13 +328,32 @@ export default function MessagingPage() {
         }
     };
 
+    // Helper to get participant profile with guaranteed fallback
+    const getParticipantProfile = (conv: ConversationWithDetails) => {
+        if (conv.otherParticipant) return conv.otherParticipant;
+        const fallback = conv.participants?.find((p) => p.user_id !== user?.id)?.profile;
+        return fallback || null;
+    };
+
+    // Helper to get conversation display name
+    const getDisplayName = (conv: ConversationWithDetails) => {
+        if (conv.type === 'channel') {
+            return conv.title || (conv.church?.name ? `${conv.church.name} Staff Channel` : 'Parish Staff Channel');
+        }
+        const other = getParticipantProfile(conv);
+        if (other?.full_name?.trim()) return other.full_name.trim();
+        if (other?.email?.trim()) return other.email.trim();
+        return 'Parish Member';
+    };
+
     // Filter conversations by search term
     const filteredConversations = useMemo(() => {
         if (!searchQuery.trim()) return conversations;
         const q = searchQuery.toLowerCase();
         return conversations.filter((c) => {
-            const title = c.type === 'channel' ? c.title : c.otherParticipant?.full_name;
-            const email = c.otherParticipant?.email;
+            const title = getDisplayName(c);
+            const other = getParticipantProfile(c);
+            const email = other?.email;
             const churchName = c.church?.name;
             const lastMsg = c.lastMessage?.content;
             return (
@@ -337,6 +381,15 @@ export default function MessagingPage() {
         }
         return result;
     }, [contacts, contactRoleFilter, contactSearch]);
+
+    // Filtered parishes for Super Admin modal
+    const filteredParishes = useMemo(() => {
+        if (!parishSearch.trim()) return allChurches;
+        const q = parishSearch.toLowerCase();
+        return allChurches.filter(
+            (c) => c.name.toLowerCase().includes(q) || (c.address && c.address.toLowerCase().includes(q))
+        );
+    }, [allChurches, parishSearch]);
 
     // Format role badge styling helper
     const getRoleBadge = (role?: string | null) => {
@@ -398,8 +451,6 @@ export default function MessagingPage() {
         return conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
     }, [conversations]);
 
-    const hasChurchAffiliation = Boolean(profile?.assigned_church_id || profile?.church_id);
-
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] max-w-7xl mx-auto space-y-4">
             {/* Top Bar Header */}
@@ -427,11 +478,11 @@ export default function MessagingPage() {
 
                 <div className="flex items-center gap-2">
                     {/* Quick Staff Channel Button */}
-                    {hasChurchAffiliation && (
+                    {(userChurchId || isSuperAdmin) && (
                         <button
                             type="button"
-                            onClick={handleOpenChurchStaffChannel}
-                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors"
+                            onClick={() => handleOpenChurchStaffChannel()}
+                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
                         >
                             <Building2 className="w-4 h-4 text-primary" />
                             <span>Staff Channel</span>
@@ -473,17 +524,22 @@ export default function MessagingPage() {
                             />
                         </div>
 
-                        {hasChurchAffiliation && (
+                        {(userChurchId || isSuperAdmin) && (
                             <button
                                 type="button"
-                                onClick={handleOpenChurchStaffChannel}
-                                className="w-full flex items-center justify-between p-2 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left"
+                                onClick={() => handleOpenChurchStaffChannel()}
+                                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left"
                             >
                                 <div className="flex items-center gap-2 min-w-0">
                                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                                         <Building2 className="w-4 h-4" />
                                     </div>
-                                    <span className="truncate">Parish Staff Channel</span>
+                                    <div className="min-w-0 flex-1">
+                                        <span className="truncate block font-bold">Parish Staff Channel</span>
+                                        {isSuperAdmin && !userChurchId && (
+                                            <span className="text-[10px] text-muted block font-normal">Select Diocese Parish</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <ChevronRight className="w-4 h-4 opacity-70" />
                             </button>
@@ -521,10 +577,9 @@ export default function MessagingPage() {
                             filteredConversations.map((conv) => {
                                 const isSelected = conv.id === activeConversationId;
                                 const isChannel = conv.type === 'channel';
-                                const displayName = isChannel
-                                    ? conv.title || 'Parish Staff Channel'
-                                    : conv.otherParticipant?.full_name || 'Direct Conversation';
-                                const roleInfo = getRoleBadge(conv.otherParticipant?.role);
+                                const displayName = getDisplayName(conv);
+                                const otherProf = getParticipantProfile(conv);
+                                const roleInfo = getRoleBadge(otherProf?.role);
                                 const lastMsg = conv.lastMessage;
                                 const isCallInvite = lastMsg?.message_type === 'call_invite';
 
@@ -537,8 +592,8 @@ export default function MessagingPage() {
                                         }}
                                         className={`p-3.5 flex items-start gap-3 cursor-pointer transition-all ${
                                             isSelected
-                                                ? 'bg-primary/10 border-l-4 border-primary dark:bg-primary/20'
-                                                : 'hover:bg-secondary-50 dark:hover:bg-secondary-900/40'
+                                                ? 'bg-primary/10 border-l-4 border-primary'
+                                                : 'hover:bg-secondary-50'
                                         }`}
                                     >
                                         {/* Avatar */}
@@ -547,15 +602,15 @@ export default function MessagingPage() {
                                                 <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm">
                                                     <Building2 className="w-5 h-5" />
                                                 </div>
-                                            ) : conv.otherParticipant?.avatar_url ? (
+                                            ) : otherProf?.avatar_url ? (
                                                 <img
-                                                    src={conv.otherParticipant.avatar_url}
+                                                    src={otherProf.avatar_url}
                                                     alt={displayName}
                                                     className="w-11 h-11 rounded-xl object-cover"
                                                 />
                                             ) : (
                                                 <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-sm">
-                                                    {displayName.charAt(0).toUpperCase()}
+                                                    {(displayName.charAt(0) || 'P').toUpperCase()}
                                                 </div>
                                             )}
                                         </div>
@@ -641,60 +696,55 @@ export default function MessagingPage() {
                                         <ArrowLeft className="w-5 h-5" />
                                     </button>
 
-                                    {/* Active Chat Avatar */}
-                                    {activeConversation.type === 'channel' ? (
-                                        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold flex-shrink-0">
-                                            <Building2 className="w-5 h-5" />
-                                        </div>
-                                    ) : activeConversation.otherParticipant?.avatar_url ? (
-                                        <img
-                                            src={activeConversation.otherParticipant.avatar_url}
-                                            alt={activeConversation.otherParticipant.full_name || ''}
-                                            className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
-                                        />
-                                    ) : (
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm flex-shrink-0">
-                                            {(
-                                                activeConversation.otherParticipant?.full_name || 'U'
-                                            )
-                                                .charAt(0)
-                                                .toUpperCase()}
-                                        </div>
-                                    )}
+                                    {/* Active Chat Header Details */}
+                                    {(() => {
+                                        const isChannel = activeConversation.type === 'channel';
+                                        const otherProf = getParticipantProfile(activeConversation);
+                                        const headerTitle = getDisplayName(activeConversation);
+                                        const roleInfo = getRoleBadge(otherProf?.role);
 
-                                    {/* Name and Meta */}
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="text-sm sm:text-base font-bold text-foreground truncate">
-                                                {activeConversation.type === 'channel'
-                                                    ? activeConversation.title
-                                                    : activeConversation.otherParticipant?.full_name ||
-                                                      'Conversation'}
-                                            </h2>
-                                            {activeConversation.type !== 'channel' && (
-                                                <span
-                                                    className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                                                        getRoleBadge(
-                                                            activeConversation.otherParticipant?.role
-                                                        ).className
-                                                    }`}
-                                                >
-                                                    {
-                                                        getRoleBadge(
-                                                            activeConversation.otherParticipant?.role
-                                                        ).label
-                                                    }
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-muted truncate">
-                                            {activeConversation.type === 'channel'
-                                                ? `${activeConversation.participants.length} staff participants`
-                                                : activeConversation.church?.name ||
-                                                  activeConversation.otherParticipant?.email ||
-                                                  'Direct Chat'}
-                                        </p>
-                                    </div>
+                                        return (
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                {isChannel ? (
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold flex-shrink-0">
+                                                        <Building2 className="w-5 h-5" />
+                                                    </div>
+                                                ) : otherProf?.avatar_url ? (
+                                                    <img
+                                                        src={otherProf.avatar_url}
+                                                        alt={headerTitle}
+                                                        className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm flex-shrink-0">
+                                                        {(headerTitle.charAt(0) || 'P').toUpperCase()}
+                                                    </div>
+                                                )}
+
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <h2 className="text-sm sm:text-base font-bold text-foreground truncate">
+                                                            {headerTitle}
+                                                        </h2>
+                                                        {!isChannel && (
+                                                            <span
+                                                                className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${roleInfo.className}`}
+                                                            >
+                                                                {roleInfo.label}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-muted truncate">
+                                                        {isChannel
+                                                            ? `${activeConversation.participants.length} staff participants`
+                                                            : (activeConversation.church?.name
+                                                                ? `Parish: ${activeConversation.church.name}`
+                                                                : otherProf?.email || 'Direct Conversation')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Header Action: Instant Video Call Button */}
@@ -798,27 +848,35 @@ export default function MessagingPage() {
                                                             className={`p-3.5 rounded-xl border flex flex-col gap-2.5 ${
                                                                 isCurrentUser
                                                                     ? 'bg-white/10 border-white/20 text-white'
-                                                                    : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-900 dark:text-emerald-200'
+                                                                    : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                                                             }`}
                                                         >
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
-                                                                    <Video className="w-4 h-4" />
+                                                            <div className="flex items-center justify-between gap-2 border-b pb-2 border-current/10">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                                                                        <Video className="w-4 h-4" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs font-bold truncate">
+                                                                            Parish Video Conference
+                                                                        </p>
+                                                                        <p
+                                                                            className={`text-[11px] truncate ${
+                                                                                isCurrentUser
+                                                                                    ? 'text-white/80'
+                                                                                    : 'text-emerald-700'
+                                                                            }`}
+                                                                        >
+                                                                            Room: {meta.roomName || 'sacralink-room'}
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="text-xs font-bold truncate">
-                                                                        Parish Video Conference
-                                                                    </p>
-                                                                    <p
-                                                                        className={`text-[11px] truncate ${
-                                                                            isCurrentUser
-                                                                                ? 'text-white/80'
-                                                                                : 'text-emerald-700 dark:text-emerald-300'
-                                                                        }`}
-                                                                    >
-                                                                        Room: {meta.roomName || 'Active Room'}
-                                                                    </p>
-                                                                </div>
+                                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                                    isCurrentUser ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                                                                }`}>
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                    Live Room
+                                                                </span>
                                                             </div>
 
                                                             <button
@@ -829,7 +887,7 @@ export default function MessagingPage() {
                                                                         meta.meetingTitle
                                                                     )
                                                                 }
-                                                                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all"
+                                                                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
                                                             >
                                                                 <Video className="w-4 h-4" />
                                                                 <span>Join Video Conference</span>
@@ -1042,6 +1100,74 @@ export default function MessagingPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* SUPER ADMIN PARISH STAFF CHANNEL PICKER MODAL                   */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {showParishPickerModal && (
+                <Modal
+                    isOpen={showParishPickerModal}
+                    onClose={() => setShowParishPickerModal(false)}
+                    title="Select Parish Staff Channel"
+                    className="max-w-md"
+                >
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Search parish by name or address..."
+                                value={parishSearch}
+                                onChange={(e) => setParishSearch(e.target.value)}
+                                className="input !pl-9 w-full text-xs py-2"
+                            />
+                        </div>
+
+                        <div className="max-h-72 overflow-y-auto divide-y divide-border border rounded-xl">
+                            {filteredParishes.length === 0 ? (
+                                <div className="p-8 text-center text-xs text-muted">
+                                    No parishes found.
+                                </div>
+                            ) : (
+                                filteredParishes.map((church) => (
+                                    <div
+                                        key={church.id}
+                                        onClick={() => handleOpenChurchStaffChannel(church.id, church.name)}
+                                        className="p-3 flex items-center justify-between hover:bg-secondary-50 cursor-pointer transition-colors"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                                <Building2 className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                                                    {church.name}
+                                                </p>
+                                                {church.address && (
+                                                    <p className="text-[11px] text-muted truncate">
+                                                        {church.address}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-muted flex-shrink-0" />
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-border">
+                            <button
+                                type="button"
+                                onClick={() => setShowParishPickerModal(false)}
+                                className="btn-secondary text-xs px-4 py-2 rounded-xl"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* EMBEDDED JITSI VIDEO CONFERENCING MODAL                         */}

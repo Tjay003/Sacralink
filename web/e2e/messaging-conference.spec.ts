@@ -55,7 +55,7 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
     await startCallBtn.click();
 
     // VideoConferenceModal should open
-    await expect(page.getByText('Live Room')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('Live Room')).toBeVisible();
     await expect(page.getByText('End-to-End Encrypted Peer Audio/Video')).toBeVisible();
     await expect(page.getByText('Zero Server Data Storage')).toBeVisible();
 
@@ -86,7 +86,7 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
     await joinBtn.click();
 
     // Video modal should re-open
-    await expect(page.getByText('Live Room')).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('Live Room')).toBeVisible();
     await page.getByRole('button', { name: 'Close Meeting Window' }).click();
   });
 

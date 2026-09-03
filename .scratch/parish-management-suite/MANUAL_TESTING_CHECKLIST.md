@@ -7,9 +7,10 @@ This manual testing guide provides end-to-end user journeys, role-based testing 
 ## 📋 Test Environment Setup & User Credentials
 
 Before starting manual tests, ensure the local web server and database backend are running:
+
 - **Dev Server:** Run `npm --prefix web run dev` (starts on `http://localhost:5173`)
 - **Default Database Accounts (Personas):**
-  - **Super Admin:** `user1@gmail.com` / `Password123!` (Diocese Chancery administrator)
+  - **Super Admin:** `user1@gmail.com` / `Lolgamers_123` (Diocese Chancery administrator)
   - **Church Admin (Parish A):** `user2@gmail.com` / `Password123!` (Assigned to San Sebastian Cathedral)
   - **Church Admin (Parish B):** `user3@gmail.com` / `Password123!` (Assigned to Queen of Peace Parish)
   - **Parish Priest:** `user4@gmail.com` / `Password123!`
@@ -26,10 +27,11 @@ Before starting manual tests, ensure the local web server and database backend a
 
 #### Scenario 1.1: Super Admin Global View & Multi-Column Sorting
 1. Log in as Super Admin (`user1@gmail.com`).
-2. Navigate to **Users** in the sidebar.
-3. Observe the user table.
+2. Navigate to **Users** in the sidebar (`/users`).
+3. Observe the user table:
    - [ ] Church names appear as readable text (e.g., "San Sebastian Cathedral") instead of raw UUID strings.
    - [ ] Users without an assigned church display "Unassigned".
+   - [ ] **Hover Tooltip Card:** Hover cursor over any assigned parish name in the table. A floating card smoothly appears showing the full parish name, address, and diocese verification badge.
 4. Test column headers sorting by clicking each header:
    - [ ] **Role priority sorting:** Click the Role column to sort hierarchy (`Super Admin` -> `Admin` -> `Church Admin` -> `Priest` -> `Volunteer` -> `Parishioner`).
    - [ ] **Assigned Church sorting:** Click Church column to sort alphabetically by parish name.
@@ -195,7 +197,9 @@ Before starting manual tests, ensure the local web server and database backend a
    - [ ] [ ] CBCP Clergy ID / Celebret Verified with Diocese Roster
    - [ ] [ ] Merchant Name / GCash / Maya Matches Legal Parish Entity
 5. Attempt to click **Approve & Activate Parish** without checking all 3 items:
-   - [ ] Button is disabled or requires all 3 items to be checked.
+   - [ ] A clean **Incomplete Verification Checklist Modal** pops up (zero native browser alert popup), clearly showing which criteria are still pending.
+   - [ ] Clicking **Cancel & Review** dismisses the warning modal to allow further inspection.
+   - [ ] Clicking **Activate Anyway** proceeds with overriding activation.
 6. Check all 3 checkboxes, type review remarks in Chancery Notes, and click **Approve & Activate Parish**:
    - [ ] Application status updates to `Verified Active`.
    - [ ] Church is marked `verified_active` in database.
@@ -209,10 +213,10 @@ Before starting manual tests, ensure the local web server and database backend a
 
 ### User Journeys & Scenarios
 
-#### Scenario 5.1: Real-Time Messaging Interface
-1. Log in as Super Admin (`user1@gmail.com`).
+#### Scenario 5.1: Real-Time Messaging Interface & Participant Resolution
+1. Log in as Super Admin (`user1@gmail.com`) or Church Admin.
 2. Click **Messages** in the navigation bar or sidebar (`/messages`).
-   - [ ] Left pane displays conversation list with search filter and role badges (`Super Admin`, `Admin`, `Priest`, `Volunteer`, `Parishioner`).
+   - [ ] Left pane displays conversation list with search filter, avatars, full names (or email fallback, never generic `"Direct Conversation"`), role badges (`Super Admin`, `Admin`, `Priest`, `Volunteer`, `Parishioner`), and parish name sub-tags.
    - [ ] Right pane displays active conversation thread.
 3. Click on a conversation (e.g., "Father Church Admin"):
    - [ ] Active chat header displays participant name, role badge, and parish info.
@@ -228,10 +232,12 @@ Before starting manual tests, ensure the local web server and database backend a
 2. Select a contact:
    - [ ] Modal closes and opens the 1-on-1 direct conversation with that user.
 
-#### Scenario 5.3: Parish Staff Channel
-1. Click the **Parish Staff Channel** quick-action button in the sidebar:
-   - [ ] Opens group channel for the assigned parish staff (`San Sebastian Staff Channel`).
-   - [ ] Header indicates staff channel participant count.
+#### Scenario 5.3: Parish Staff Channel Access
+1. **As Church Admin / Priest / Volunteer (`user2@gmail.com`):**
+   - [ ] Click **Parish Staff Channel** in the sidebar: directly opens their assigned parish staff group channel.
+2. **As Super Admin (`user1@gmail.com`):**
+   - [ ] Click **Parish Staff Channel** in the sidebar: opens a **Select Parish Staff Channel Modal** listing all diocese parishes with search.
+   - [ ] Clicking any parish (e.g., "San Sebastian Cathedral") opens that parish's staff channel.
 
 #### Scenario 5.4: Instant Audio/Video Call & Jitsi Meet Modal
 1. As a Church Admin / Priest / Super Admin, open any active conversation.
@@ -244,26 +250,26 @@ Before starting manual tests, ensure the local web server and database backend a
    - [ ] Click **Fullscreen** toggle: Modal expands to full viewport.
    - [ ] Click **Leave / Hangup** (red button): Modal closes cleanly.
 4. Observe the chat thread after starting a call:
-   - [ ] An interactive **Parish Video Conference** call banner is posted in the conversation.
+   - [ ] An interactive **Parish Video Conference** call banner is posted in the conversation with a pulsing **Live Room** indicator.
    - [ ] Both participants can click **Join Video Conference** to open the meeting room.
 
 ---
 
-## 📱 Mobile Responsiveness & UI Polish Check
+## 📱 Mobile Responsiveness & Layout Polish Check
 
 Test on both desktop (1920x1080) and mobile viewport (375x812 iPhone / 412x915 Android):
 - [ ] **Navigation Bar / Mobile Drawer:** Nav items and badge counts collapse cleanly without clipping.
 - [ ] **Leaflet Map:** Touch dragging and pinch-to-zoom work on mobile screens.
 - [ ] **Messaging Dual Pane:** On mobile, conversation list takes full screen; tapping a chat transitions smoothly into thread; back button returns to list.
-- [ ] **Dark Mode:** Toggle dark mode (`Theme Toggle` in navbar) across all pages; text contrast, card borders, and modals remain legible and styled.
+- [ ] **Consistent Light Theme:** All cards, sidebars, modals, and tables have clean white/slate backgrounds with high contrast and zero dark-mode leakage.
 
 ---
 
 ## ✅ Master Sign-Off Checklist
 
-- [ ] **Ticket 01:** Church Categorization & Multi-Column Sorting verified
+- [ ] **Ticket 01:** Church Categorization, Hover Tooltip Card & Multi-Column Sorting verified
 - [ ] **Ticket 02:** Leaflet Map, Geocoding & Coordinate Storage verified
 - [ ] **Ticket 03:** Smart Cross-Parish Availability & Dual Recommendation Cards verified
-- [ ] **Ticket 04:** Parish Application Submission, Anti-Fraud Checklist & Donation Gating verified
-- [ ] **Ticket 05:** Real-Time Messaging & Embedded Jitsi Video Conference verified
-- [ ] **Responsive & Dark Mode:** UI transitions and layouts verified on all breakpoints
+- [ ] **Ticket 04:** Parish Application Submission, Warning Modal & Donation Gating verified
+- [ ] **Ticket 05:** Real-Time Messaging, Super Admin Parish Selector & Video Conference verified
+- [ ] **Mobile Responsiveness:** Touch controls, drawers, and layouts verified on all breakpoints

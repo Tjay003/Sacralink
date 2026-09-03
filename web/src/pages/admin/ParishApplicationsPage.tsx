@@ -25,7 +25,6 @@ import {
   updateApplicationChecklist,
   type ParishApplicationWithRelations,
   type ApplicationChecklist,
-  type ParishApplicationStatus,
 } from '../../lib/supabase/parishApplications';
 
 export default function ParishApplicationsPage() {
@@ -46,6 +45,7 @@ export default function ParishApplicationsPage() {
   });
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [showIncompleteConfirmModal, setShowIncompleteConfirmModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -66,15 +66,16 @@ export default function ParishApplicationsPage() {
   }, []);
 
   const openReviewModal = (app: ParishApplicationWithRelations) => {
-    const rawChecklist = app.checklist as any;
-    setModalChecklist({
-      rectory_call: !!rawChecklist?.rectory_call,
-      celebret_verified: !!rawChecklist?.celebret_verified,
-      merchant_entity_verified: !!rawChecklist?.merchant_entity_verified,
-      notes: rawChecklist?.notes || '',
-    });
     setSelectedApp(app);
+    const rawChecklist = (app.checklist as unknown as ApplicationChecklist) || {};
+    setModalChecklist({
+      rectory_call: Boolean(rawChecklist.rectory_call),
+      celebret_verified: Boolean(rawChecklist.celebret_verified),
+      merchant_entity_verified: Boolean(rawChecklist.merchant_entity_verified),
+      notes: rawChecklist.notes || '',
+    });
     setShowRejectForm(false);
+    setShowIncompleteConfirmModal(false);
     setRejectionReason('');
     setActionError(null);
   };
@@ -82,6 +83,7 @@ export default function ParishApplicationsPage() {
   const closeReviewModal = () => {
     setSelectedApp(null);
     setShowRejectForm(false);
+    setShowIncompleteConfirmModal(false);
     setRejectionReason('');
     setActionError(null);
   };
@@ -91,11 +93,7 @@ export default function ParishApplicationsPage() {
     setActionLoading(true);
     setActionError(null);
 
-    const { error: updateErr } = await updateApplicationChecklist(
-      selectedApp.id,
-      modalChecklist,
-      selectedApp.status === 'pending' ? 'under_review' : (selectedApp.status as ParishApplicationStatus)
-    );
+    const { error: updateErr } = await updateApplicationChecklist(selectedApp.id, modalChecklist);
 
     setActionLoading(false);
     if (updateErr) {
@@ -106,20 +104,9 @@ export default function ParishApplicationsPage() {
     }
   };
 
-  const handleApprove = async () => {
+  const executeApprove = async () => {
     if (!selectedApp) return;
-    const allChecked =
-      modalChecklist.rectory_call &&
-      modalChecklist.celebret_verified &&
-      modalChecklist.merchant_entity_verified;
-
-    if (!allChecked) {
-      const proceed = confirm(
-        'Warning: Not all anti-fraud checklist items are checked. Are you sure you want to verify and activate this parish?'
-      );
-      if (!proceed) return;
-    }
-
+    setShowIncompleteConfirmModal(false);
     setActionLoading(true);
     setActionError(null);
 
@@ -132,6 +119,21 @@ export default function ParishApplicationsPage() {
       await fetchApplications();
       closeReviewModal();
     }
+  };
+
+  const handleApprove = () => {
+    if (!selectedApp) return;
+    const allChecked =
+      modalChecklist.rectory_call &&
+      modalChecklist.celebret_verified &&
+      modalChecklist.merchant_entity_verified;
+
+    if (!allChecked) {
+      setShowIncompleteConfirmModal(true);
+      return;
+    }
+
+    executeApprove();
   };
 
   const handleReject = async () => {
@@ -697,6 +699,77 @@ export default function ParishApplicationsPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Custom Confirmation Modal: Incomplete Anti-Fraud Checklist */}
+      {showIncompleteConfirmModal && selectedApp && (
+        <Modal
+          isOpen={showIncompleteConfirmModal}
+          onClose={() => setShowIncompleteConfirmModal(false)}
+          title="Incomplete Verification Checklist"
+          className="max-w-md"
+        >
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-amber-900">
+                  Anti-Fraud Criteria Incomplete
+                </p>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  One or more mandatory Chancery verification checks have not been marked as verified for <strong>{selectedApp.parish_name}</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-secondary-50 rounded-xl space-y-2 text-xs border border-border">
+              <p className="font-semibold text-foreground">Current Checklist Status:</p>
+              <div className="space-y-1 text-muted">
+                <div className="flex items-center gap-2">
+                  <span className={modalChecklist.rectory_call ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
+                    {modalChecklist.rectory_call ? "✓ Confirmed" : "✗ Pending"}
+                  </span>
+                  <span>Rectory Phone Call</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={modalChecklist.celebret_verified ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
+                    {modalChecklist.celebret_verified ? "✓ Verified" : "✗ Pending"}
+                  </span>
+                  <span>CBCP Clergy ID / Celebret</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={modalChecklist.merchant_entity_verified ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
+                    {modalChecklist.merchant_entity_verified ? "✓ Matches" : "✗ Pending"}
+                  </span>
+                  <span>Merchant Legal Entity</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted">
+              Are you sure you want to proceed with activation without completing all anti-fraud items?
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowIncompleteConfirmModal(false)}
+                className="btn-secondary text-xs px-3.5 py-2 rounded-xl"
+                disabled={actionLoading}
+              >
+                Cancel & Review
+              </button>
+              <button
+                type="button"
+                onClick={executeApprove}
+                className="btn-primary text-xs font-semibold px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-sm flex items-center gap-1.5"
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Activating...' : 'Activate Anyway'}
+              </button>
             </div>
           </div>
         </Modal>

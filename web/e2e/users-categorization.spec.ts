@@ -11,7 +11,7 @@ test.describe('Admin User Management: Church Categorization & Multi-Column Sorti
     await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible();
     
     // Check that Father Church Admin has the resolved church name badge
-    await expect(page.locator('table').getByText('San Sebastian Cathedral')).toBeVisible();
+    await expect(page.locator('table').getByText('San Sebastian Cathedral').first()).toBeVisible();
   });
 
   test('should filter users by church using the church filter dropdown', async ({ page }) => {
