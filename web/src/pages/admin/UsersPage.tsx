@@ -772,24 +772,28 @@ export default function UsersPage() {
                                                                     </span>
                                                                 </div>
                                                                 {/* Tooltip Card on Hover */}
-                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover/church:flex flex-col z-40 w-72 p-3 bg-white text-foreground rounded-xl shadow-xl border border-border animate-in fade-in zoom-in-95 pointer-events-none">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                                                                            <Building2 className="w-3.5 h-3.5" />
+                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover/church:flex flex-col z-50 w-72 sm:w-80 p-3 bg-white text-foreground rounded-xl shadow-2xl border border-border whitespace-normal break-words pointer-events-none animate-in fade-in zoom-in-95">
+                                                                    <div className="flex items-start gap-2 mb-1.5">
+                                                                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                                                                            <Building2 className="w-4 h-4" />
                                                                         </div>
-                                                                        <p className="font-bold text-xs text-foreground leading-tight">{churchName}</p>
+                                                                        <p className="font-bold text-xs text-foreground leading-snug break-words">
+                                                                            {churchName}
+                                                                        </p>
                                                                     </div>
                                                                     {churchObjectMap.get(user.assigned_church_id)?.address && (
-                                                                        <p className="text-[11px] text-muted flex items-start gap-1 mt-1 leading-relaxed">
-                                                                            <MapPin className="w-3 h-3 text-muted/70 shrink-0 mt-0.5" />
-                                                                            <span>{churchObjectMap.get(user.assigned_church_id)?.address}</span>
-                                                                        </p>
+                                                                        <div className="flex items-start gap-1.5 mt-1 text-[11px] text-muted leading-normal break-words">
+                                                                            <MapPin className="w-3.5 h-3.5 text-muted/70 shrink-0 mt-0.5" />
+                                                                            <span className="break-words">
+                                                                                {churchObjectMap.get(user.assigned_church_id)?.address}
+                                                                            </span>
+                                                                        </div>
                                                                     )}
-                                                                    <div className="mt-2 pt-1.5 border-t border-border flex items-center justify-between text-[10px] text-muted">
-                                                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                                                    <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between text-[10px] text-muted">
+                                                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                                                                             Verified Parish
                                                                         </span>
-                                                                        <span>Diocese of Malolos</span>
+                                                                        <span className="font-medium text-muted">Diocese of Malolos</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
