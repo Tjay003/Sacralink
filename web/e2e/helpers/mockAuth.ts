@@ -572,6 +572,14 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
       });
     }
 
+    if (method === 'DELETE') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    }
+
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -620,6 +628,14 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([{ id: 'cp-1', last_read_at: new Date().toISOString() }]),
+      });
+    }
+
+    if (method === 'DELETE') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([]),
       });
     }
 

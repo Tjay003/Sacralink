@@ -10,6 +10,9 @@ import {
     CheckCheck,
     Sparkles,
     ChevronRight,
+    Trash2,
+    UserX,
+    AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -22,6 +25,9 @@ import {
     fetchAvailableContacts,
     generateMeetingRoomName,
     subscribeToMessages,
+    subscribeToUserConversations,
+    deleteConversationForMe,
+    deleteConversationForEveryone,
     type ConversationWithDetails,
     type MessageWithSender,
 } from '../../lib/supabase/messaging';
@@ -51,6 +57,12 @@ export default function MessagingPage() {
     const [loadingContacts, setLoadingContacts] = useState(false);
     const [contactSearch, setContactSearch] = useState('');
     const [contactRoleFilter, setContactRoleFilter] = useState<string>('all');
+
+    // Delete Conversation Modal
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [conversationToDelete, setConversationToDelete] = useState<ConversationWithDetails | null>(null);
+    const [deletingType, setDeletingType] = useState<'me' | 'everyone' | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // Super Admin Parish Staff Channel picker
     const [allChurches, setAllChurches] = useState<Church[]>([]);
@@ -106,6 +118,63 @@ export default function MessagingPage() {
         loadConversations(true);
     }, [user]);
 
+    // Global user-level listener for incoming messages across all user conversations
+    useEffect(() => {
+        if (!user) return;
+
+        const unsubscribe = subscribeToUserConversations(user.id, (incomingMsg) => {
+            const isForActiveChat = incomingMsg.conversation_id === activeConversationId;
+
+            if (isForActiveChat) {
+                // Append message to active chat if not already present
+                setMessages((prev) => {
+                    if (prev.some((m) => m.id === incomingMsg.id)) return prev;
+                    return [...prev, incomingMsg];
+                });
+
+                // If not sent by current user, mark read immediately
+                if (incomingMsg.sender_id !== user.id) {
+                    markConversationAsRead(incomingMsg.conversation_id, user.id);
+                }
+            }
+
+            // Update conversations list in real-time
+            setConversations((prev) => {
+                const convIndex = prev.findIndex((c) => c.id === incomingMsg.conversation_id);
+                if (convIndex === -1) {
+                    // If conversation is brand new, reload conversations list to show it
+                    loadConversations();
+                    return prev;
+                }
+
+                const targetConv = prev[convIndex];
+                const isFromOther = incomingMsg.sender_id !== user.id;
+                const newUnreadCount = isForActiveChat
+                    ? 0
+                    : isFromOther
+                    ? (targetConv.unreadCount || 0) + 1
+                    : targetConv.unreadCount || 0;
+
+                const updatedConv: ConversationWithDetails = {
+                    ...targetConv,
+                    lastMessage: incomingMsg,
+                    updated_at: incomingMsg.created_at,
+                    unreadCount: newUnreadCount,
+                };
+
+                // Move updated conversation to top of list
+                return [
+                    updatedConv,
+                    ...prev.filter((c) => c.id !== incomingMsg.conversation_id),
+                ];
+            });
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [user, activeConversationId, loadConversations]);
+
     // Load messages when activeConversationId changes
     useEffect(() => {
         if (!activeConversationId || !user) return;
@@ -133,29 +202,29 @@ export default function MessagingPage() {
 
         loadActiveMessages();
 
-        // Subscribe to real-time incoming messages
+        // Also subscribe specifically to active conversation messages
         const unsubscribe = subscribeToMessages(activeConversationId, (incomingMsg) => {
             setMessages((prev) => {
-                // Avoid duplicate append if already present
                 if (prev.some((m) => m.id === incomingMsg.id)) return prev;
                 return [...prev, incomingMsg];
             });
 
-            // Update conversations list preview
-            setConversations((prev) =>
-                prev.map((c) => {
-                    if (c.id === activeConversationId) {
-                        return {
-                            ...c,
-                            lastMessage: incomingMsg,
-                            updated_at: incomingMsg.created_at,
-                        };
-                    }
-                    return c;
-                })
-            );
+            setConversations((prev) => {
+                const convIndex = prev.findIndex((c) => c.id === activeConversationId);
+                if (convIndex === -1) return prev;
+                const targetConv = prev[convIndex];
+                const updatedConv: ConversationWithDetails = {
+                    ...targetConv,
+                    lastMessage: incomingMsg,
+                    updated_at: incomingMsg.created_at,
+                    unreadCount: 0,
+                };
+                return [
+                    updatedConv,
+                    ...prev.filter((c) => c.id !== activeConversationId),
+                ];
+            });
 
-            // Mark as read immediately if current user is looking at this chat
             if (incomingMsg.sender_id !== user.id) {
                 markConversationAsRead(activeConversationId, user.id);
             }
@@ -166,6 +235,60 @@ export default function MessagingPage() {
             unsubscribe();
         };
     }, [activeConversationId, user]);
+
+    // Handle "Delete for Me"
+    const handleDeleteForMe = async () => {
+        const targetConv = conversationToDelete || activeConversation;
+        if (!targetConv || !user) return;
+
+        try {
+            setDeletingType('me');
+            setDeleteError(null);
+            const { error } = await deleteConversationForMe(targetConv.id, user.id);
+            if (error) throw error;
+
+            setConversations((prev) => prev.filter((c) => c.id !== targetConv.id));
+            if (activeConversationId === targetConv.id) {
+                setActiveConversationId(null);
+                setMessages([]);
+                setMobileChatOpen(false);
+            }
+            setShowDeleteModal(false);
+            setConversationToDelete(null);
+        } catch (err: any) {
+            console.error('Error deleting conversation for me:', err);
+            setDeleteError(err?.message || 'Failed to remove conversation.');
+        } finally {
+            setDeletingType(null);
+        }
+    };
+
+    // Handle "Delete for Everyone"
+    const handleDeleteForEveryone = async () => {
+        const targetConv = conversationToDelete || activeConversation;
+        if (!targetConv) return;
+
+        try {
+            setDeletingType('everyone');
+            setDeleteError(null);
+            const { error } = await deleteConversationForEveryone(targetConv.id);
+            if (error) throw error;
+
+            setConversations((prev) => prev.filter((c) => c.id !== targetConv.id));
+            if (activeConversationId === targetConv.id) {
+                setActiveConversationId(null);
+                setMessages([]);
+                setMobileChatOpen(false);
+            }
+            setShowDeleteModal(false);
+            setConversationToDelete(null);
+        } catch (err: any) {
+            console.error('Error deleting conversation for everyone:', err);
+            setDeleteError(err?.message || 'Failed to delete conversation for everyone.');
+        } finally {
+            setDeletingType(null);
+        }
+    };
 
     // Auto-scroll messages viewport to bottom
     const scrollToBottom = () => {
@@ -368,7 +491,11 @@ export default function MessagingPage() {
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
         let result = [...contacts];
-        if (contactRoleFilter !== 'all') {
+        if (contactRoleFilter === 'church_admin') {
+            result = result.filter(
+                (c) => c.role === 'admin' || c.role === 'church_admin' || c.role === 'super_admin'
+            );
+        } else if (contactRoleFilter !== 'all') {
             result = result.filter((c) => (c.role || 'user') === contactRoleFilter);
         }
         if (contactSearch.trim()) {
@@ -747,24 +874,40 @@ export default function MessagingPage() {
                                     })()}
                                 </div>
 
-                                {/* Header Action: Instant Video Call Button */}
-                                {(profile?.role === 'super_admin' ||
-                                    profile?.role === 'admin' ||
-                                    profile?.role === 'church_admin' ||
-                                    profile?.role === 'priest' ||
-                                    profile?.role === 'volunteer') && (
-                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                {/* Header Actions */}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {/* Instant Video Call Button */}
+                                    {(profile?.role === 'super_admin' ||
+                                        profile?.role === 'admin' ||
+                                        profile?.role === 'church_admin' ||
+                                        profile?.role === 'priest' ||
+                                        profile?.role === 'volunteer') && (
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
                                             title="Start instant video/audio conference"
                                         >
                                             <Video className="w-4 h-4" />
                                             <span className="hidden sm:inline">Start Video Call</span>
                                         </button>
-                                    </div>
-                                )}
+                                    )}
+
+                                    {/* Delete Conversation Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setConversationToDelete(activeConversation);
+                                            setShowDeleteModal(true);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 shadow-sm transition-all cursor-pointer"
+                                        title="Delete Conversation"
+                                        aria-label="Delete Conversation"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        <span className="hidden sm:inline">Delete</span>
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Message Thread Scroll Viewport */}
@@ -1024,7 +1167,6 @@ export default function MessagingPage() {
                         <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
                             {[
                                 { id: 'all', label: 'All Contacts' },
-                                { id: 'priest', label: 'Priests' },
                                 { id: 'church_admin', label: 'Church Admins' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
@@ -1100,6 +1242,121 @@ export default function MessagingPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* DELETE CONVERSATION CONFIRMATION MODAL                          */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {showDeleteModal && (
+                <Modal
+                    isOpen={showDeleteModal}
+                    onClose={() => {
+                        if (!deletingType) {
+                            setShowDeleteModal(false);
+                            setConversationToDelete(null);
+                            setDeleteError(null);
+                        }
+                    }}
+                    title="Delete Conversation"
+                    description={`Delete conversation with "${
+                        conversationToDelete
+                            ? getDisplayName(conversationToDelete)
+                            : activeConversation
+                            ? getDisplayName(activeConversation)
+                            : 'recipient'
+                    }"`}
+                    size="md"
+                >
+                    <div className="space-y-4">
+                        {deleteError && (
+                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-600" />
+                                <span>{deleteError}</span>
+                            </div>
+                        )}
+
+                        <p className="text-xs sm:text-sm text-muted">
+                            Please choose how you want to delete this conversation:
+                        </p>
+
+                        <div className="space-y-3">
+                            {/* Option 1: Delete for Me */}
+                            <div className="p-3.5 rounded-xl border border-border hover:border-primary/40 bg-card hover:bg-secondary-50/50 transition-all flex items-start gap-3.5">
+                                <div className="w-9 h-9 rounded-xl bg-secondary-100 text-secondary-700 dark:bg-secondary-800 dark:text-secondary-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <UserX className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                                        Delete for Me
+                                    </h4>
+                                    <p className="text-[11px] sm:text-xs text-muted mt-0.5 leading-relaxed">
+                                        Removes this conversation from your list only. Other participants will retain access to the chat history.
+                                    </p>
+                                    <div className="mt-2.5">
+                                        <button
+                                            type="button"
+                                            disabled={!!deletingType}
+                                            onClick={handleDeleteForMe}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 dark:bg-secondary-800 dark:hover:bg-secondary-700 dark:text-secondary-200 border border-border transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center gap-1.5"
+                                        >
+                                            {deletingType === 'me' ? (
+                                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-current border-t-transparent" />
+                                            ) : (
+                                                <UserX className="w-3.5 h-3.5" />
+                                            )}
+                                            <span>{deletingType === 'me' ? 'Removing...' : 'Delete for Me'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Option 2: Delete for Everyone */}
+                            <div className="p-3.5 rounded-xl border border-red-200 dark:border-red-950/60 bg-red-50/40 dark:bg-red-950/20 hover:border-red-300 transition-all flex items-start gap-3.5">
+                                <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <Trash2 className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-xs sm:text-sm font-bold text-red-700 dark:text-red-400">
+                                        Delete for Both of Us (Everyone)
+                                    </h4>
+                                    <p className="text-[11px] sm:text-xs text-red-600/80 dark:text-red-400/80 mt-0.5 leading-relaxed">
+                                        Permanently deletes this conversation and its entire history for all participants.
+                                    </p>
+                                    <div className="mt-2.5">
+                                        <button
+                                            type="button"
+                                            disabled={!!deletingType}
+                                            onClick={handleDeleteForEveryone}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors disabled:opacity-50 cursor-pointer inline-flex items-center gap-1.5"
+                                        >
+                                            {deletingType === 'everyone' ? (
+                                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                                            ) : (
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            )}
+                                            <span>{deletingType === 'everyone' ? 'Deleting...' : 'Delete for Everyone'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-border">
+                            <button
+                                type="button"
+                                disabled={!!deletingType}
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setConversationToDelete(null);
+                                    setDeleteError(null);
+                                }}
+                                className="btn-secondary text-xs px-4 py-2 rounded-xl"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* SUPER ADMIN PARISH STAFF CHANNEL PICKER MODAL                   */}

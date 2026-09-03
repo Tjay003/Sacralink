@@ -546,3 +546,99 @@ export function subscribeToMessages(
         supabase.removeChannel(channel);
     };
 }
+
+/**
+ * Subscribe to all real-time message stream for user conversations
+ */
+export function subscribeToUserConversations(
+    userId: string,
+    onNewMessage: (message: MessageWithSender) => void
+) {
+    const channelName = `realtime:user_conversations:${userId}`;
+
+    const channel = supabase
+        .channel(channelName)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+            },
+            async (payload) => {
+                const rawMessage = payload.new as Message;
+                if (!rawMessage || !rawMessage.id) return;
+
+                // Fetch sender profile details to provide complete MessageWithSender object
+                let senderProfile: Profile | null = null;
+                if (rawMessage.sender_id) {
+                    const { data } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', rawMessage.sender_id)
+                        .maybeSingle();
+                    senderProfile = data as Profile | null;
+                }
+
+                const enrichedMessage: MessageWithSender = {
+                    ...rawMessage,
+                    sender: senderProfile,
+                };
+
+                onNewMessage(enrichedMessage);
+            }
+        )
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`📡 Realtime connected to user conversations stream: ${userId}`);
+            }
+        });
+
+    return () => {
+        supabase.removeChannel(channel);
+    };
+}
+
+/**
+ * Delete a conversation for the current user only ("Delete for Me")
+ * Removes the user from conversation_participants
+ */
+export async function deleteConversationForMe(
+    conversationId: string,
+    userId: string
+): Promise<{ error: Error | null }> {
+    try {
+        const { error } = await supabase
+            .from('conversation_participants')
+            .delete()
+            .match({ conversation_id: conversationId, user_id: userId });
+
+        if (error) throw error;
+        return { error: null };
+    } catch (err: any) {
+        console.error('❌ Error deleting conversation for user:', err);
+        return { error: err };
+    }
+}
+
+/**
+ * Delete a conversation completely for everyone ("Delete for Everyone")
+ * Deletes the conversation row from conversations table (cascades to messages & participants)
+ */
+export async function deleteConversationForEveryone(
+    conversationId: string
+): Promise<{ error: Error | null }> {
+    try {
+        const { error } = await supabase
+            .from('conversations')
+            .delete()
+            .eq('id', conversationId);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (err: any) {
+        console.error('❌ Error deleting conversation for everyone:', err);
+        return { error: err };
+    }
+}
+

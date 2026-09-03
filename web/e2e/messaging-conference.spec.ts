@@ -90,7 +90,7 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
     await page.getByRole('button', { name: 'Close Meeting Window' }).click();
   });
 
-  test('should open New Message modal, filter directory, and select a contact', async ({ page }) => {
+  test('should open New Message modal, verify removed priest role, filter directory, and select a contact', async ({ page }) => {
     // Click "New Message" button
     await page.getByRole('button', { name: 'New Message' }).click();
 
@@ -98,9 +98,19 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
     await expect(page.getByRole('heading', { name: 'New Direct Conversation' })).toBeVisible();
     await expect(page.getByPlaceholder('Search by name or email...')).toBeVisible();
 
-    // Filter by role tab (e.g. Parishioners)
+    // Verify tabs: All Contacts, Church Admins, Volunteers, Parishioners (Priests should NOT exist)
+    await expect(page.getByRole('button', { name: 'All Contacts' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Church Admins' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Volunteers' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Parishioners' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Priests' })).not.toBeVisible();
+
+    // Filter by Church Admins
+    await page.getByRole('button', { name: 'Church Admins' }).click();
+    await expect(page.getByText('Father Church Admin').first()).toBeVisible();
+
+    // Filter by Parishioners
     const parishionersTab = page.getByRole('button', { name: 'Parishioners' });
-    await expect(parishionersTab).toBeVisible();
     await parishionersTab.click();
 
     // Select Parishioner User
@@ -110,6 +120,31 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
 
     // Modal closes and opens active direct chat
     await expect(page.getByRole('heading', { name: 'New Direct Conversation' })).not.toBeVisible();
+  });
+
+  test('should open Delete Conversation modal and support Delete for Me and Delete for Everyone', async ({ page }) => {
+    // Verify Delete button in active chat header
+    const deleteBtn = page.getByTitle('Delete Conversation');
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+
+    // Verify Delete modal and options
+    await expect(page.getByRole('heading', { name: 'Delete Conversation' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Delete for Me' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Delete for Both of Us (Everyone)' })).toBeVisible();
+
+    // Cancel modal
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByRole('heading', { name: 'Delete Conversation' })).not.toBeVisible();
+
+    // Open again and click Delete for Me
+    await deleteBtn.click();
+    const deleteForMeBtn = page.getByRole('button', { name: 'Delete for Me' });
+    await expect(deleteForMeBtn).toBeVisible();
+    await deleteForMeBtn.click();
+
+    // Modal should close and active conversation cleared or reset
+    await expect(page.getByRole('heading', { name: 'Delete Conversation' })).not.toBeVisible();
   });
 
   test('should open Parish Staff Channel from quick button', async ({ page }) => {
