@@ -308,6 +308,18 @@ Before starting manual tests, ensure the local web server and database backend a
   
      [ ] Both participants can click **Join Video Conference** to open the meeting room.
 
+#### Scenario 5.5: Delete Conversation & Permanent Parish Staff Channel Protection
+
+1. **Delete Direct Conversation ("Delete for Me" / "Delete for Everyone"):**
+   - [ ] Open a direct conversation with any user.
+   - [ ] Click the red **Trash / Delete** button in the chat header.
+   - [ ] Modal opens offering "Delete for Me" and "Delete for Both of Us (Everyone)".
+   - [ ] "Delete for Me" leaves the conversation intact for the other user; "Delete for Everyone" purges for both.
+2. **Permanent Parish Staff Channel Protection:**
+   - [ ] Open any Parish Staff Channel (`type = 'channel'`).
+   - [ ] Verify that the red **Trash / Delete** button is completely **hidden** in the header.
+   - [ ] Database RLS policy and API guards reject any deletion attempt on channels with explicit error: *"Parish staff channels are permanent and cannot be deleted."*
+
 ---
 
 ## 📱 Mobile Responsiveness &amp; Layout Polish Check
@@ -327,6 +339,6 @@ Test on both desktop (1920x1080) and mobile viewport (375x812 iPhone / 412x915 A
 - [x] **Ticket 02:** Leaflet Map, Geocoding &amp; Coordinate Storage verified
 - [x] **Ticket 03:** Smart Cross-Parish Availability &amp; Dual Recommendation Cards verified
 - [ ] **Ticket 04:** Parish Application Submission, Warning Modal &amp; Donation Gating verified
-- [x] **Ticket 05:** Real-Time Messaging, Super Admin Parish Selector &amp; Video Conference verified
+- [x] **Ticket 05:** Real-Time Messaging, Permanent Staff Channel Protection, Super Admin Parish Selector &amp; Video Conference verified
 - [x] **Mobile Responsiveness:** Touch controls, drawers, and layouts verified on all breakpoints
 

@@ -608,6 +608,18 @@ export async function deleteConversationForMe(
     userId: string
 ): Promise<{ error: Error | null }> {
     try {
+        // Verify conversation type is not channel
+        const { data: conv, error: convError } = await supabase
+            .from('conversations')
+            .select('type')
+            .eq('id', conversationId)
+            .single();
+
+        if (convError) throw convError;
+        if (conv?.type === 'channel') {
+            throw new Error('Parish staff channels are permanent and cannot be deleted.');
+        }
+
         const { error } = await supabase
             .from('conversation_participants')
             .delete()
@@ -629,6 +641,18 @@ export async function deleteConversationForEveryone(
     conversationId: string
 ): Promise<{ error: Error | null }> {
     try {
+        // Verify conversation type is not channel
+        const { data: conv, error: convError } = await supabase
+            .from('conversations')
+            .select('type')
+            .eq('id', conversationId)
+            .single();
+
+        if (convError) throw convError;
+        if (conv?.type === 'channel') {
+            throw new Error('Parish staff channels are permanent and cannot be deleted.');
+        }
+
         const { error } = await supabase
             .from('conversations')
             .delete()

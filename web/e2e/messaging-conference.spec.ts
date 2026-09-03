@@ -154,4 +154,17 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
       await expect(page.getByText('San Sebastian Staff Channel').first()).toBeVisible();
     }
   });
+
+  test('should verify parish staff channels are permanent and do not display delete button', async ({ page }) => {
+    // 1. In direct chat (default selected: Father Church Admin), delete button IS visible
+    await expect(page.getByRole('heading', { name: 'Father Church Admin' }).first()).toBeVisible();
+    await expect(page.getByTitle('Delete Conversation')).toBeVisible();
+
+    // 2. Click on Parish Staff Channel in the conversation sidebar
+    await page.getByText('San Sebastian Staff Channel').first().click();
+    await expect(page.getByRole('heading', { name: 'San Sebastian Staff Channel' }).first()).toBeVisible();
+
+    // 3. Verify Delete button is NOT present in parish staff channel header
+    await expect(page.getByTitle('Delete Conversation')).not.toBeVisible();
+  });
 });

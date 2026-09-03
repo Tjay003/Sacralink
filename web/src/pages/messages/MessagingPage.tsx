@@ -241,6 +241,11 @@ export default function MessagingPage() {
         const targetConv = conversationToDelete || activeConversation;
         if (!targetConv || !user) return;
 
+        if (targetConv.type === 'channel') {
+            setDeleteError('Parish staff channels are permanent and cannot be deleted.');
+            return;
+        }
+
         try {
             setDeletingType('me');
             setDeleteError(null);
@@ -267,6 +272,11 @@ export default function MessagingPage() {
     const handleDeleteForEveryone = async () => {
         const targetConv = conversationToDelete || activeConversation;
         if (!targetConv) return;
+
+        if (targetConv.type === 'channel') {
+            setDeleteError('Parish staff channels are permanent and cannot be deleted.');
+            return;
+        }
 
         try {
             setDeletingType('everyone');
@@ -893,20 +903,22 @@ export default function MessagingPage() {
                                         </button>
                                     )}
 
-                                    {/* Delete Conversation Button */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setConversationToDelete(activeConversation);
-                                            setShowDeleteModal(true);
-                                        }}
-                                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 shadow-sm transition-all cursor-pointer"
-                                        title="Delete Conversation"
-                                        aria-label="Delete Conversation"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Delete</span>
-                                    </button>
+                                    {/* Delete Conversation Button (Direct Chats Only - Staff Channels are Permanent) */}
+                                    {activeConversation.type !== 'channel' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setConversationToDelete(activeConversation);
+                                                setShowDeleteModal(true);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 shadow-sm transition-all cursor-pointer"
+                                            title="Delete Conversation"
+                                            aria-label="Delete Conversation"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            <span className="hidden sm:inline">Delete</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 

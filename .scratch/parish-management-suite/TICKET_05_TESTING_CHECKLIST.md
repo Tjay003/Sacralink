@@ -79,9 +79,9 @@
 
 ---
 
-### 4. Delete Conversation ("Delete for Me" vs "Delete for Everyone")
-- [ ] **4.1 Open Delete Modal:**
-  - [ ] In any active conversation, click the red **Trash / Delete** button in the top-right chat header.
+### 4. Delete Conversation ("Delete for Me" vs "Delete for Everyone" & Parish Channel Protection)
+- [ ] **4.1 Open Delete Modal (Direct Chats Only):**
+  - [ ] In any active 1-on-1 direct conversation, click the red **Trash / Delete** button in the top-right chat header.
   - [ ] A custom confirmation modal opens displaying two choices:
     - 1. **Delete for Me:** Removes the conversation from your inbox only.
     - 2. **Delete for Both of Us (Everyone):** Permanently deletes the conversation and all messages for all participants.
@@ -92,6 +92,11 @@
 - [ ] **4.3 Test "Delete for Everyone":**
   - [ ] Open a conversation with test messages, click Delete -> **Delete for Everyone**.
   - [ ] Conversation and entire message history are permanently purged from both users' accounts.
+- [ ] **4.4 Permanent Parish Staff Channel Protection:**
+  - [ ] Switch to any Parish Staff Channel (`type = 'channel'`).
+  - [ ] Verify that the red **Trash / Delete** button is **hidden / NOT rendered** in the chat header.
+  - [ ] Verify database RLS (`public.conversations` DELETE policy) restricts deletion strictly to `type = 'direct'`.
+  - [ ] Verify API helpers (`deleteConversationForMe`, `deleteConversationForEveryone`) reject channel deletions with error: *"Parish staff channels are permanent and cannot be deleted."*
 
 ---
 
@@ -101,6 +106,7 @@
   - [ ] Click **Parish Staff Channel** in the sidebar.
   - [ ] Opens the group channel for their assigned church (e.g., *"San Sebastian Cathedral Staff Channel"*).
   - [ ] Header shows church icon and participant count.
+  - [ ] Verify the chat header has **no Delete button** (permanent channel protection).
 - [ ] **5.2 Super Admin Parish Staff Channel Picker Modal:**
   - [ ] Log in as Super Admin (`user1@gmail.com`).
   - [ ] Click **Parish Staff Channel** in the sidebar.
@@ -141,7 +147,7 @@
 - [ ] **1. Direct Chat Identity:** Full names, real avatars, role badges, and parish tags display properly (never "Parish Member")
 - [ ] **2. Directory & Role Tabs:** `priest` removed; tabs for Church Admins, Volunteers, Parishioners verified
 - [ ] **3. Real-Time Chat & Badges:** Incoming unread badge increments live without page refresh; active messages mark read
-- [ ] **4. Delete Conversation:** "Delete for Me" and "Delete for Everyone" options verified
+- [ ] **4. Delete Conversation & Staff Channel Protection:** "Delete for Me" and "Delete for Everyone" verified for direct chats; Parish Staff Channels permanently protected from deletion (UI hidden, API guard, and DB RLS)
 - [ ] **5. Staff Channels:** Parish staff channel routing & Super Admin picker modal verified
 - [ ] **6. Video Conferencing:** Embedded Jitsi modal, controls, and "Live Room" chat card verified
 - [ ] **7. Mobile Responsiveness:** Mobile dual-pane navigation verified
