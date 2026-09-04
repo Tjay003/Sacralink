@@ -1,7 +1,7 @@
 import '../global.css';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Slot, Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -12,11 +12,10 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
-SplashScreen.preventAutoHideAsync().catch(() => {
-  // Splash screen might already be hidden or not supported in environment
-});
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +25,53 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function RootNavigation() {
+  const { session, profile, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!session) {
+      if (!inAuthGroup) {
+        router.replace('/(auth)/login');
+      }
+    } else {
+      if (inAuthGroup || (segments as string[]).length === 0 || segments[0] === 'index') {
+        const role = profile?.role || 'user';
+        if (role === 'priest') {
+          router.replace('/(tabs)/priest');
+        } else if (role === 'admin' || (role as string) === 'church_admin') {
+          router.replace('/(tabs)/admin');
+        } else if (role === 'super_admin') {
+          router.replace('/(tabs)/super-admin');
+        } else {
+          router.replace('/(tabs)/explore');
+        }
+      }
+    }
+  }, [session, profile?.role, loading, segments, router]);
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-slate-900">
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -52,9 +98,9 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-        </Stack>
+        <AuthProvider>
+          <RootNavigation />
+        </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
