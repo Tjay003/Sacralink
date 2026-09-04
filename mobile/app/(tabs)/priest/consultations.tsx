@@ -12,8 +12,18 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleBadge } from '@/components/RoleBadge';
 
+import * as Linking from 'expo-linking';
+import { getJitsiMeetUrl } from '@/lib/supabase/messaging';
+
 export default function PriestConsultationsScreen() {
   const { profile } = useAuth();
+
+  const handleLaunchConsultation = () => {
+    const consultationUrl = getJitsiMeetUrl(profile?.id ? `priest-${profile.id.slice(0, 8)}` : 'pastoral-session');
+    Linking.openURL(consultationUrl).catch((err) => {
+      console.error('Failed to open video consultation:', err);
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
@@ -86,7 +96,10 @@ export default function PriestConsultationsScreen() {
             </View>
           </View>
 
-          <TouchableOpacity className="bg-blue-600 active:bg-blue-700 py-2.5 px-4 rounded-xl flex-row items-center justify-center space-x-2 mt-1">
+          <TouchableOpacity
+            onPress={handleLaunchConsultation}
+            className="bg-blue-600 active:bg-blue-700 py-2.5 px-4 rounded-xl flex-row items-center justify-center space-x-2 mt-1"
+          >
             <Video size={15} color="#FFFFFF" />
             <Text className="text-xs font-bold text-white font-sans">
               Launch Video Consultation Room

@@ -71,6 +71,7 @@ function RootNavigation() {
       <Stack.Screen name="church/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="appointments/book" options={{ headerShown: false }} />
       <Stack.Screen name="donations/give" options={{ headerShown: false }} />
+      <Stack.Screen name="messages/[conversationId]" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
     </Stack>
   );
