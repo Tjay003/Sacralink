@@ -1,24 +1,35 @@
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// Configure foreground notification presentation handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+const isAndroidExpoGo = Platform.OS === 'android' && isRunningInExpoGo();
+
+// expo-notifications throws an uncaught error on module load in Expo Go on Android starting with SDK 53.
+// We dynamically require it only when NOT running inside Android Expo Go.
+let Notifications: typeof import('expo-notifications') | null = null;
+if (!isAndroidExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+    Notifications?.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  } catch (err) {
+    console.warn('[Notifications] Failed to initialize expo-notifications:', err);
+  }
+}
 
 /**
  * Configure Android notification channels for distinct SacraLink event streams.
  */
 export async function setupAndroidNotificationChannels(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || isAndroidExpoGo || !Notifications) return;
 
   try {
     // appointments: High priority, vibration, sound
@@ -64,7 +75,7 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
 /**
  * Requests notification permissions, generates Expo push token, and saves it
  * to profiles.push_token in Supabase.
- * Skips gracefully if running on Android emulator or web.
+ * Skips gracefully if running on Android emulator, Expo Go, or web.
  */
 export async function registerForPushNotificationsAsync(
   userId?: string
@@ -72,6 +83,11 @@ export async function registerForPushNotificationsAsync(
   try {
     if (Platform.OS === 'web') {
       console.log('[Push] Push notifications are not supported on web.');
+      return null;
+    }
+
+    if (isAndroidExpoGo || !Notifications) {
+      console.log('[Push] Push notifications in Expo Go on Android require a development build.');
       return null;
     }
 
@@ -141,7 +157,12 @@ export async function scheduleLocalNotification({
   body: string;
   channelId?: 'appointments' | 'donations' | 'messages' | 'announcements';
   data?: Record<string, unknown>;
-}): Promise<string> {
+}): Promise<string | null> {
+  if (isAndroidExpoGo || !Notifications) {
+    console.log('[Notifications] Local notifications are disabled in Expo Go Android.');
+    return null;
+  }
+
   return await Notifications.scheduleNotificationAsync({
     content: {
       title,
