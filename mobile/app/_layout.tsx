@@ -68,6 +68,9 @@ function RootNavigation() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="church/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="appointments/book" options={{ headerShown: false }} />
+      <Stack.Screen name="donations/give" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ headerShown: false }} />
     </Stack>
   );

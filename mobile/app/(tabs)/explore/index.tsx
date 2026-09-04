@@ -1,131 +1,290 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  Church,
+  Church as ChurchIcon,
   MapPin,
   Search,
-  Navigation,
-  Sparkles,
-  Clock,
+  Map as MapIcon,
+  List as ListIcon,
+  X,
   Compass,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleBadge } from '@/components/RoleBadge';
+import { useChurches, type Church } from '@/lib/supabase/churches';
+import { ParishCard } from '@/components/churches/ParishCard';
+import { ParishMapWebView } from '@/components/maps/ParishMapWebView';
 
 export default function ExploreScreen() {
   const { profile } = useAuth();
+  const { data: churches = [], isLoading, isError, error, refetch, isRefetching } = useChurches();
+
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCity, setSelectedCity] = useState<string>('all');
+
+  // Distinct cities from fetched churches
+  const cities = useMemo(() => {
+    const set = new Set<string>();
+    churches.forEach((c) => {
+      if (c.city) set.add(c.city);
+    });
+    return Array.from(set).sort();
+  }, [churches]);
+
+  // Filtered churches based on search & city
+  const filteredChurches = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return churches.filter((church) => {
+      const matchesSearch =
+        !query ||
+        church.name.toLowerCase().includes(query) ||
+        church.address.toLowerCase().includes(query) ||
+        church.city.toLowerCase().includes(query);
+
+      const matchesCity =
+        selectedCity === 'all' ||
+        church.city.toLowerCase() === selectedCity.toLowerCase();
+
+      return matchesSearch && matchesCity;
+    });
+  }, [churches, searchQuery, selectedCity]);
+
+  const onRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top App Header */}
-        <View className="flex-row items-center justify-between mb-4">
+    <SafeAreaView edges={['top']} className="flex-1 bg-slate-50">
+      {/* Top Header */}
+      <View className="px-5 pt-3 pb-2 bg-white border-b border-slate-200/80">
+        <View className="flex-row items-center justify-between mb-3">
           <View>
-            <Text className="text-xs font-semibold uppercase tracking-wider text-blue-600 font-sans">
-              SacraLink Parishes
-            </Text>
-            <Text className="text-2xl font-bold text-slate-900 font-heading">
+            <View className="flex-row items-center gap-1.5">
+              <Sparkles size={13} color="#2563EB" />
+              <Text className="text-[11px] font-bold uppercase tracking-wider text-blue-600 font-sans">
+                SacraLink Diocese
+              </Text>
+            </View>
+            <Text className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
               Explore Churches
             </Text>
           </View>
           <RoleBadge role={profile?.role} />
         </View>
 
-        {/* Search & Location Bar */}
-        <View className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex-row items-center space-x-2.5 mb-5">
-          <Search size={18} color="#64748B" />
-          <Text className="flex-1 text-sm text-slate-400 font-sans">
-            Search diocese, parish, or municipality...
-          </Text>
-          <TouchableOpacity className="bg-blue-50 p-2 rounded-xl">
-            <Compass size={16} color="#2563EB" />
+        {/* View Mode Switcher Pill */}
+        <View className="flex-row bg-slate-100 p-1 rounded-2xl mb-2">
+          <TouchableOpacity
+            onPress={() => setViewMode('list')}
+            className={`flex-1 flex-row items-center justify-center py-2 rounded-xl ${
+              viewMode === 'list'
+                ? 'bg-blue-600 shadow-sm shadow-blue-600/30'
+                : 'bg-transparent'
+            }`}
+          >
+            <ListIcon
+              size={16}
+              color={viewMode === 'list' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text
+              className={`text-xs font-bold ml-1.5 font-sans ${
+                viewMode === 'list' ? 'text-white' : 'text-slate-600'
+              }`}
+            >
+              List View ({filteredChurches.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setViewMode('map')}
+            className={`flex-1 flex-row items-center justify-center py-2 rounded-xl ${
+              viewMode === 'map'
+                ? 'bg-blue-600 shadow-sm shadow-blue-600/30'
+                : 'bg-transparent'
+            }`}
+          >
+            <MapIcon
+              size={16}
+              color={viewMode === 'map' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text
+              className={`text-xs font-bold ml-1.5 font-sans ${
+                viewMode === 'map' ? 'text-white' : 'text-slate-600'
+              }`}
+            >
+              Interactive Map
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Interactive Map Banner Preview */}
-        <View className="bg-blue-600 rounded-3xl p-5 mb-5 overflow-hidden relative shadow-md shadow-blue-600/30">
-          <View className="flex-row items-center space-x-2 mb-2">
-            <View className="bg-white/20 p-2 rounded-xl">
-              <Navigation size={18} color="#FFFFFF" />
-            </View>
-            <Text className="text-xs font-bold text-blue-100 uppercase tracking-wider">
-              Interactive Parish Map
-            </Text>
-          </View>
-          <Text className="text-lg font-bold text-white font-heading mb-1">
-            Discover Parishes Near You
-          </Text>
-          <Text className="text-xs text-blue-100 font-sans leading-relaxed mb-4">
-            Locate Catholic churches across the diocese with real-time GPS distance and 360° virtual interior photo spheres.
-          </Text>
-          <View className="bg-white/10 self-start px-3 py-1.5 rounded-full border border-white/20">
-            <Text className="text-xs font-semibold text-white">OpenStreetMap Powered</Text>
-          </View>
+        {/* Search Bar */}
+        <View className="flex-row items-center bg-slate-100 rounded-2xl px-3.5 py-2.5 border border-slate-200/60 mb-2">
+          <Search size={16} color="#64748B" />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search parish name or city..."
+            placeholderTextColor="#94A3B8"
+            className="flex-1 text-sm text-slate-800 font-sans ml-2.5 py-0"
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')} className="p-1">
+              <X size={15} color="#94A3B8" />
+            </TouchableOpacity>
+          ) : (
+            <Compass size={16} color="#2563EB" />
+          )}
         </View>
 
-        {/* Featured Parishes Section */}
-        <Text className="text-base font-bold text-slate-900 font-heading mb-3">
-          Diocese Parishes
-        </Text>
+        {/* City Filter Pills */}
+        {cities.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="flex-row pt-1 pb-2"
+            contentContainerStyle={{ gap: 6 }}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedCity('all')}
+              className={`px-3 py-1.5 rounded-full border ${
+                selectedCity === 'all'
+                  ? 'bg-blue-50 border-blue-300'
+                  : 'bg-white border-slate-200'
+              }`}
+            >
+              <Text
+                className={`text-xs font-semibold font-sans ${
+                  selectedCity === 'all' ? 'text-blue-700' : 'text-slate-600'
+                }`}
+              >
+                All Regions ({churches.length})
+              </Text>
+            </TouchableOpacity>
 
-        <View className="space-y-3">
-          <View className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-1">
-                <Text className="text-base font-bold text-slate-900 font-heading">
-                  San Pedro Cathedral
+            {cities.map((city) => (
+              <TouchableOpacity
+                key={city}
+                onPress={() => setSelectedCity(city)}
+                className={`px-3 py-1.5 rounded-full border ${
+                  selectedCity === city
+                    ? 'bg-blue-50 border-blue-300'
+                    : 'bg-white border-slate-200'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-semibold font-sans ${
+                    selectedCity === city ? 'text-blue-700' : 'text-slate-600'
+                  }`}
+                >
+                  {city}
                 </Text>
-                <View className="flex-row items-center space-x-1 mt-1">
-                  <MapPin size={13} color="#64748B" />
-                  <Text className="text-xs text-slate-500 font-sans">
-                    San Pedro St., Davao City
-                  </Text>
-                </View>
-              </View>
-              <View className="bg-blue-50 px-2 py-1 rounded-lg">
-                <Text className="text-xs font-bold text-blue-700">Cathedral</Text>
-              </View>
-            </View>
-            <View className="flex-row items-center justify-between pt-3 border-t border-slate-100">
-              <View className="flex-row items-center space-x-1">
-                <Clock size={13} color="#64748B" />
-                <Text className="text-xs text-slate-500 font-sans">Daily: 6:00 AM - 6:30 PM</Text>
-              </View>
-              <Text className="text-xs font-semibold text-blue-600">View Schedule & Virtual Tour →</Text>
-            </View>
-          </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
 
-          <View className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <View className="flex-row items-start justify-between mb-2">
-              <View className="flex-1">
-                <Text className="text-base font-bold text-slate-900 font-heading">
-                  Santa Ana Shrine Parish
-                </Text>
-                <View className="flex-row items-center space-x-1 mt-1">
-                  <MapPin size={13} color="#64748B" />
-                  <Text className="text-xs text-slate-500 font-sans">
-                    Santa Ana Ave., Davao City
-                  </Text>
-                </View>
-              </View>
-              <View className="bg-amber-50 px-2 py-1 rounded-lg">
-                <Text className="text-xs font-bold text-amber-700">Shrine</Text>
-              </View>
-            </View>
-            <View className="flex-row items-center justify-between pt-3 border-t border-slate-100">
-              <View className="flex-row items-center space-x-1">
-                <Clock size={13} color="#64748B" />
-                <Text className="text-xs text-slate-500 font-sans">Daily: 6:00 AM - 7:00 PM</Text>
-              </View>
-              <Text className="text-xs font-semibold text-blue-600">View Schedule & Virtual Tour →</Text>
-            </View>
-          </View>
+      {/* Main Content Area */}
+      {viewMode === 'map' ? (
+        <View className="flex-1 w-full h-full">
+          <ParishMapWebView churches={filteredChurches} />
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          className="flex-1 px-4 pt-4"
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={onRefresh}
+              tintColor="#2563EB"
+              colors={['#2563EB']}
+            />
+          }
+        >
+          {/* Loading State */}
+          {isLoading && !isRefetching && (
+            <View className="items-center justify-center py-20">
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text className="text-xs font-semibold text-slate-500 mt-3 font-sans">
+                Fetching Diocese Churches...
+              </Text>
+            </View>
+          )}
+
+          {/* Error State */}
+          {isError && (
+            <View className="bg-rose-50 border border-rose-200 rounded-3xl p-5 items-center my-6">
+              <AlertCircle size={28} color="#E11D48" />
+              <Text className="text-sm font-bold text-rose-800 mt-2 font-sans">
+                Failed to load churches
+              </Text>
+              <Text className="text-xs text-rose-600 text-center mt-1 font-sans">
+                {(error as Error)?.message || 'Please check your internet connection'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => refetch()}
+                className="mt-3 bg-rose-600 px-4 py-2 rounded-xl"
+              >
+                <Text className="text-xs font-semibold text-white font-sans">
+                  Try Again
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Empty Results State */}
+          {!isLoading && !isError && filteredChurches.length === 0 && (
+            <View className="bg-white rounded-3xl p-8 border border-slate-200 items-center justify-center my-6">
+              <View className="w-14 h-14 rounded-2xl bg-blue-50 items-center justify-center mb-3">
+                <ChurchIcon size={26} color="#2563EB" />
+              </View>
+              <Text className="text-base font-bold text-slate-800 font-sans text-center">
+                No Parishes Found
+              </Text>
+              <Text className="text-xs text-slate-500 text-center mt-1 font-sans max-w-[240px]">
+                {searchQuery
+                  ? `No churches matching "${searchQuery}". Try clearing search keywords.`
+                  : 'There are no active churches listed at the moment.'}
+              </Text>
+              {searchQuery ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchQuery('');
+                    setSelectedCity('all');
+                  }}
+                  className="mt-4 px-4 py-2 rounded-xl bg-blue-50 border border-blue-200"
+                >
+                  <Text className="text-xs font-semibold text-blue-700 font-sans">
+                    Clear Filters
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )}
+
+          {/* Churches List */}
+          {!isLoading &&
+            filteredChurches.map((church) => (
+              <ParishCard key={church.id} church={church} />
+            ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

@@ -22,7 +22,7 @@
 |---|:---|:---|:---:|:---|
 | **01** | [`01-scaffold-expo-mobile-foundation.md`](./issues/01-scaffold-expo-mobile-foundation.md) | `task` | `resolved` | — |
 | **02** | [`02-auth-and-role-navigation.md`](./issues/02-auth-and-role-navigation.md) | `task` | `resolved` | 01 |
-| **03** | [`03-churches-directory-and-interactive-map.md`](./issues/03-churches-directory-and-interactive-map.md) | `task` | `ready-for-agent` | 02 |
+| **03** | [`03-churches-directory-and-interactive-map.md`](./issues/03-churches-directory-and-interactive-map.md) | `task` | `resolved` | 02 |
 | **04** | [`04-sacrament-appointment-and-booking-engine.md`](./issues/04-sacrament-appointment-and-booking-engine.md) | `task` | `ready-for-agent` | 02 |
 | **05** | [`05-cashless-donations-and-qr-verification.md`](./issues/05-cashless-donations-and-qr-verification.md) | `task` | `ready-for-agent` | 02 |
 | **06** | [`06-realtime-messaging-and-video-consultation.md`](./issues/06-realtime-messaging-and-video-consultation.md) | `task` | `ready-for-agent` | 02 |
