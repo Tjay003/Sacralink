@@ -86,13 +86,23 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  const [isReady, setIsReady] = React.useState(false);
+
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+
     if (fontsLoaded || fontError) {
+      setIsReady(true);
       SplashScreen.hideAsync().catch(() => {});
     }
+
+    return () => clearTimeout(timer);
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!fontsLoaded && !fontError && !isReady) {
     return (
       <View className="flex-1 items-center justify-center bg-slate-900">
         <ActivityIndicator size="large" color="#2563EB" />
