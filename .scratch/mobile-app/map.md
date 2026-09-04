@@ -20,7 +20,7 @@
 
 | # | Ticket | Type | Status | Blocked By |
 |---|:---|:---|:---:|:---|
-| **01** | [`01-scaffold-expo-mobile-foundation.md`](./issues/01-scaffold-expo-mobile-foundation.md) | `task` | `ready-for-agent` | — |
+| **01** | [`01-scaffold-expo-mobile-foundation.md`](./issues/01-scaffold-expo-mobile-foundation.md) | `task` | `resolved` | — |
 | **02** | [`02-auth-and-role-navigation.md`](./issues/02-auth-and-role-navigation.md) | `task` | `ready-for-agent` | 01 |
 | **03** | [`03-churches-directory-and-interactive-map.md`](./issues/03-churches-directory-and-interactive-map.md) | `task` | `ready-for-agent` | 02 |
 | **04** | [`04-sacrament-appointment-and-booking-engine.md`](./issues/04-sacrament-appointment-and-booking-engine.md) | `task` | `ready-for-agent` | 02 |
