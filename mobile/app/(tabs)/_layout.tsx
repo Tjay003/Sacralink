@@ -32,7 +32,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
+        tabBarActiveTintColor: isSuperAdmin ? '#7C3AED' : '#2563EB',
         tabBarInactiveTintColor: '#64748B',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
