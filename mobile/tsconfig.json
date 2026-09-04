@@ -5,9 +5,16 @@
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@/*": ["./src/*", "./*"],
-      "@/shared/*": ["../shared/*"],
-      "@/shared": ["../shared/types"]
+      "@/*": [
+        "./src/*",
+        "./*"
+      ],
+      "@/shared/*": [
+        "../shared/*"
+      ],
+      "@/shared": [
+        "../shared/types"
+      ]
     }
   },
   "include": [
