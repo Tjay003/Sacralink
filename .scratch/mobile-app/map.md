@@ -27,6 +27,6 @@
 | **05** | [`05-cashless-donations-and-qr-verification.md`](./issues/05-cashless-donations-and-qr-verification.md) | `task` | `resolved` | 02 |
 | **06** | [`06-realtime-messaging-and-video-consultation.md`](./issues/06-realtime-messaging-and-video-consultation.md) | `task` | `resolved` | 02 |
 | **07** | [`07-parish-ai-chatbot-and-knowledge-assistant.md`](./issues/07-parish-ai-chatbot-and-knowledge-assistant.md) | `task` | `resolved` | 02 |
-| **08** | [`08-announcements-notifications-and-push.md`](./issues/08-announcements-notifications-and-push.md) | `task` | `ready-for-agent` | 02 |
+| **08** | [`08-announcements-notifications-and-push.md`](./issues/08-announcements-notifications-and-push.md) | `task` | `resolved` | 02 |
 | **09** | [`09-admin-and-priest-mobile-workflows.md`](./issues/09-admin-and-priest-mobile-workflows.md) | `task` | `ready-for-agent` | 04, 05 |
 | **10** | [`10-super-admin-mobile-system-overview.md`](./issues/10-super-admin-mobile-system-overview.md) | `task` | `ready-for-agent` | 02, 08 |

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleBadge } from '@/components/RoleBadge';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useChurches, type Church } from '@/lib/supabase/churches';
 import { ParishCard } from '@/components/churches/ParishCard';
 import { ParishMapWebView } from '@/components/maps/ParishMapWebView';
@@ -82,7 +83,10 @@ export default function ExploreScreen() {
               Explore Churches
             </Text>
           </View>
-          <RoleBadge role={profile?.role} />
+          <View className="flex-row items-center space-x-2">
+            <NotificationBell />
+            <RoleBadge role={profile?.role} />
+          </View>
         </View>
 
         {/* View Mode Switcher Pill */}

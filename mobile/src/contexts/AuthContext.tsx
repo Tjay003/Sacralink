@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import type { Profile } from '@/shared/types';
+import { registerForPushNotificationsAsync } from '../lib/notifications';
 
 export interface AuthContextType {
   user: User | null;
@@ -146,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (isMounted) {
               setProfile(profileData);
             }
+            void registerForPushNotificationsAsync(initialSession.user.id);
           }
         }
       } catch (err) {
@@ -171,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isMounted) {
             setProfile(profileData);
           }
+          void registerForPushNotificationsAsync(currentSession.user.id);
         } else {
           setProfile(null);
         }
