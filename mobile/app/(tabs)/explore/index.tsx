@@ -25,6 +25,7 @@ import { RoleBadge } from '@/components/RoleBadge';
 import { useChurches, type Church } from '@/lib/supabase/churches';
 import { ParishCard } from '@/components/churches/ParishCard';
 import { ParishMapWebView } from '@/components/maps/ParishMapWebView';
+import { AIAssistantFAB } from '@/components/ai/AIAssistantFAB';
 
 export default function ExploreScreen() {
   const { profile } = useAuth();
@@ -285,6 +286,9 @@ export default function ExploreScreen() {
             ))}
         </ScrollView>
       )}
+
+      {/* Floating Parish AI Knowledge Assistant */}
+      <AIAssistantFAB bottomOffset={82} />
     </SafeAreaView>
   );
 }

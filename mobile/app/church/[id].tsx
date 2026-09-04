@@ -33,6 +33,8 @@ import {
 } from 'lucide-react-native';
 import { useChurch, type MassSchedule } from '@/lib/supabase/churches';
 import { PanoramaViewerWebView } from '@/components/churches/PanoramaViewerWebView';
+import { AIAssistantFAB } from '@/components/ai/AIAssistantFAB';
+import { ParishionerChatbotModal } from '@/components/ai/ParishionerChatbotModal';
 
 const DAYS_OF_WEEK = [
   'Sunday',
@@ -67,6 +69,7 @@ export default function ChurchDetailScreen() {
   const [selectedDay, setSelectedDay] = useState<string>('Sunday');
   const [showTourModal, setShowTourModal] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
 
   // Group mass schedules by day of the week
   const groupedSchedules = useMemo(() => {
@@ -345,6 +348,28 @@ export default function ChurchDetailScreen() {
             Parish Services & Giving
           </Text>
 
+          {/* Ask Parish AI Assistant Action Card */}
+          <TouchableOpacity
+            onPress={() => setIsAiModalOpen(true)}
+            activeOpacity={0.88}
+            className="w-full bg-slate-900 active:bg-slate-800 border border-amber-500/40 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm mb-3"
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 items-center justify-center">
+                <Sparkles size={18} color="#F59E0B" />
+              </View>
+              <View>
+                <Text className="text-sm font-bold text-amber-400 font-sans">
+                  Ask Parish AI Assistant
+                </Text>
+                <Text className="text-[11px] text-slate-400 font-sans">
+                  Instant answers on mass times & sacrament guides
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#F59E0B" />
+          </TouchableOpacity>
+
           {/* Book Sacrament Button */}
           <TouchableOpacity
             onPress={handleBookSacrament}
@@ -586,6 +611,25 @@ export default function ChurchDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Floating Parish AI Knowledge Assistant FAB */}
+      {church && (
+        <AIAssistantFAB
+          churchId={church.id}
+          churchName={church.name}
+          bottomOffset={Platform.OS === 'ios' ? 36 : 24}
+        />
+      )}
+
+      {/* Controlled Parishioner AI Chatbot Modal for in-page action card */}
+      {church && (
+        <ParishionerChatbotModal
+          visible={isAiModalOpen}
+          onClose={() => setIsAiModalOpen(false)}
+          initialChurchId={church.id}
+          initialChurchName={church.name}
+        />
+      )}
     </View>
   );
 }
