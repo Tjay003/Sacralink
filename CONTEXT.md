@@ -24,7 +24,7 @@
 - `web/`: React 19 + TypeScript + Vite 7 + Tailwind CSS v4 web application.
 - `supabase/`: Database schema migrations (`supabase/migrations/`) and Edge Functions (`supabase/functions/`).
 - `shared/`: Shared TypeScript types and constants across platforms.
-- `mobile/`: React Native (Expo) mobile application (reserved for future phase).
+- `mobile/`: React Native (Expo SDK 52+) + TypeScript + NativeWind v4 mobile application (Active).
 - `docs/agents/`: Configuration and guidelines for engineering skills.
 - `.agents/skills/`: Custom and Matt Pocock engineering skills suite.
 
