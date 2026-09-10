@@ -33,6 +33,9 @@ export default function AddChurchPage() {
         longitude: null as number | null,
         panorama_url: '',
         livestream_url: '',
+        livestream_title: '',
+        livestream_platform: 'youtube',
+        is_live: false,
         facebook_url: '',
     });
     const [uploading, setUploading] = useState(false);
@@ -58,32 +61,37 @@ export default function AddChurchPage() {
         try {
             const { error: uploadError } = await supabase.storage
                 .from('church-images')
-                .upload(filePath, file);
+                .upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false,
+                });
 
             if (uploadError) {
-                throw uploadError;
+                console.error('❌ Upload error:', uploadError);
+                setError(uploadError.message);
+                setUploading(false);
+                return;
             }
 
             // Get public URL
-            const { data } = supabase.storage
+            const { data: { publicUrl } } = supabase.storage
                 .from('church-images')
                 .getPublicUrl(filePath);
 
-            setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
-            console.log('✅ Image uploaded:', data.publicUrl);
-        } catch (err: unknown) {
-            console.error('❌ Error uploading image:', err);
-            const message = err instanceof Error ? err.message : 'Failed to upload image';
-            setError('Failed to upload image: ' + message);
-        } finally {
+            console.log('✅ Image uploaded:', publicUrl);
+            setFormData({ ...formData, panorama_url: publicUrl });
+            setUploading(false);
+        } catch (err) {
+            console.error('❌ Unexpected upload error:', err);
+            setError('Failed to upload image');
             setUploading(false);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        console.log('📝 Submitting church form...');
+        setError('');
+        setSuccess('');
 
         // Validation
         if (!formData.name.trim()) {
@@ -97,8 +105,6 @@ export default function AddChurchPage() {
         }
 
         setLoading(true);
-        setError('');
-        setSuccess('');
 
         // Validate PH contact number if provided
         const contact = formData.contact_number.trim();
@@ -122,6 +128,9 @@ export default function AddChurchPage() {
                     longitude: formData.longitude,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
+                    livestream_title: formData.livestream_title.trim() || null,
+                    livestream_platform: formData.livestream_platform,
+                    is_live: formData.is_live,
                     facebook_url: formData.facebook_url.trim() || null,
                 }])
                 .select()
@@ -327,22 +336,76 @@ export default function AddChurchPage() {
                         />
                     </div>
 
-                    {/* Livestream URL */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Livestream URL
-                        </label>
-                        <input
-                            type="url"
-                            value={formData.livestream_url}
-                            onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
-                            disabled={loading}
-                            className="input w-full"
-                            placeholder="e.g., https://youtube.com/..."
-                        />
-                        <p className="text-xs text-muted mt-1">
-                            Link to live mass stream (optional)
-                        </p>
+                    {/* Livestream Section */}
+                    <div className="p-4 rounded-xl border border-secondary-200 bg-secondary-50/40 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-sm font-semibold">
+                                    Livestream Virtual Sanctuary
+                                </label>
+                                <p className="text-xs text-muted">
+                                    Stream YouTube or Facebook Live Mass to parishioners with in-app liturgy and offertory.
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.is_live}
+                                    onChange={(e) => setFormData({ ...formData, is_live: e.target.checked })}
+                                    disabled={loading}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                <span className="ml-2 text-xs font-bold text-foreground">
+                                    {formData.is_live ? '🔴 LIVE' : 'Offline'}
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium mb-1">
+                                    Stream Platform
+                                </label>
+                                <select
+                                    value={formData.livestream_platform}
+                                    onChange={(e) => setFormData({ ...formData, livestream_platform: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full text-xs"
+                                >
+                                    <option value="youtube">YouTube Live</option>
+                                    <option value="facebook">Facebook Live</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium mb-1">
+                                    Stream / Broadcast Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.livestream_title}
+                                    onChange={(e) => setFormData({ ...formData, livestream_title: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full text-xs"
+                                    placeholder="e.g., Sunday 8:00 AM Solemn Mass"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium mb-1">
+                                Livestream Video URL
+                            </label>
+                            <input
+                                type="url"
+                                value={formData.livestream_url}
+                                onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
+                                disabled={loading}
+                                className="input w-full text-xs font-mono"
+                                placeholder="e.g., https://youtube.com/watch?v=... or https://facebook.com/..."
+                            />
+                        </div>
                     </div>
 
                     {/* 360° Panorama Image Upload */}

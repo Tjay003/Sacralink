@@ -5,6 +5,7 @@ import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
 import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
 import ChurchAnnouncementsManagement from '../../components/dashboard/ChurchAnnouncementsManagement';
+import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
 import RecentAppointmentsWidget from '../../components/dashboard/RecentAppointmentsWidget';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import { isFeatureEnabled } from '../../config/featureFlags';
@@ -77,6 +78,7 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-6">
+                    <LiveBroadcastManager churchId={churchId} />
                     <ChurchAnnouncementsManagement churchId={churchId} />
                     {isFeatureEnabled('churchRecentAppointments') && (
                         <RecentAppointmentsWidget churchId={churchId} limit={5} />

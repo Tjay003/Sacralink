@@ -80,6 +80,7 @@ export function ParishMapWebView({
         city: c.city,
         lat: c.latitude,
         lng: c.longitude,
+        isLive: Boolean(c.is_live),
         hasPanorama: Boolean(c.panorama_url),
         hasLivestream: Boolean(c.livestream_url),
         imageUrl: c.cover_image_url || c.featured_image_url,
@@ -116,6 +117,23 @@ export function ParishMapWebView({
       justify-content: center;
       box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
       cursor: pointer;
+      position: relative;
+    }
+    .custom-parish-pin.live-pin {
+      background: #DC2626;
+      border: 3px solid #FEF08A;
+      box-shadow: 0 0 16px rgba(220, 38, 38, 0.7);
+    }
+    .live-badge-dot {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 12px;
+      height: 12px;
+      background: #EF4444;
+      border: 2px solid #FFFFFF;
+      border-radius: 50%;
+      transform: rotate(45deg);
     }
     .custom-parish-pin-inner {
       transform: rotate(45deg);
@@ -159,6 +177,9 @@ export function ParishMapWebView({
       border: none;
       cursor: pointer;
     }
+    .popup-btn.live-btn {
+      background: #DC2626;
+    }
   </style>
 </head>
 <body>
@@ -182,33 +203,37 @@ export function ParishMapWebView({
         subdomains: 'abcd'
       }).addTo(map);
 
-      // SVG Church Cross Icon for Pin
-      var pinHtml = '<div class="custom-parish-pin"><div class="custom-parish-pin-inner">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
-          '<path d="M12 2v6m-4-3h8"></path>' +
-          '<path d="M4 10l8-6 8 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path>' +
-        '</svg>' +
-      '</div></div>';
-
-      var churchIcon = L.divIcon({
-        className: 'parish-marker',
-        html: pinHtml,
-        iconSize: [38, 38],
-        iconAnchor: [19, 38],
-        popupAnchor: [0, -38]
-      });
-
       var markers = [];
 
       churches.forEach(function(c) {
+        var pinClass = c.isLive ? 'custom-parish-pin live-pin' : 'custom-parish-pin';
+        var pinHtml = '<div class="' + pinClass + '">' +
+          (c.isLive ? '<div class="live-badge-dot"></div>' : '') +
+          '<div class="custom-parish-pin-inner">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M12 2v6m-4-3h8"></path>' +
+            '<path d="M4 10l8-6 8 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path>' +
+          '</svg>' +
+        '</div></div>';
+
+        var churchIcon = L.divIcon({
+          className: 'parish-marker',
+          html: pinHtml,
+          iconSize: [38, 38],
+          iconAnchor: [19, 38],
+          popupAnchor: [0, -38]
+        });
+
         var marker = L.marker([c.lat, c.lng], { icon: churchIcon }).addTo(map);
         markers.push(marker);
 
+        var liveBadge = c.isLive ? '<span style="display:inline-block; background:#DC2626; color:white; font-size:9px; font-weight:bold; padding:2px 6px; border-radius:4px; margin-bottom:4px; text-transform:uppercase;">🔴 LIVE NOW</span><br/>' : '';
         var popupContent = document.createElement('div');
         popupContent.innerHTML =
+          liveBadge +
           '<div class="popup-title">' + c.name + '</div>' +
           '<div class="popup-address">' + c.address + '</div>' +
-          '<button class="popup-btn" id="btn-' + c.id + '">View Details & Schedule</button>';
+          '<button class="popup-btn' + (c.isLive ? ' live-btn' : '') + '" id="btn-' + c.id + '">' + (c.isLive ? 'Watch Live Stream' : 'View Details & Schedule') + '</button>';
 
         marker.bindPopup(popupContent);
 
@@ -368,19 +393,26 @@ export function ParishMapWebView({
 
                 {/* Badges */}
                 <View className="flex-row items-center gap-1.5">
+                  {selectedChurch.is_live ? (
+                    <View className="flex-row items-center bg-red-600 px-2 py-0.5 rounded-md border border-red-400/50">
+                      <View className="w-1.5 h-1.5 rounded-full bg-white mr-1 animate-ping" />
+                      <Text className="text-[9px] font-black text-white uppercase tracking-wider">
+                        LIVE NOW
+                      </Text>
+                    </View>
+                  ) : selectedChurch.livestream_url ? (
+                    <View className="flex-row items-center bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60">
+                      <Video size={10} color="#E11D48" />
+                      <Text className="text-[9px] font-bold text-rose-700 ml-1">
+                        STREAM
+                      </Text>
+                    </View>
+                  ) : null}
                   {selectedChurch.panorama_url && (
                     <View className="flex-row items-center bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60">
                       <Eye size={10} color="#2563EB" />
                       <Text className="text-[9px] font-bold text-blue-700 ml-1">
                         360° TOUR
-                      </Text>
-                    </View>
-                  )}
-                  {selectedChurch.livestream_url && (
-                    <View className="flex-row items-center bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60">
-                      <Video size={10} color="#E11D48" />
-                      <Text className="text-[9px] font-bold text-rose-700 ml-1">
-                        LIVE
                       </Text>
                     </View>
                   )}

@@ -390,6 +390,7 @@ export type Database = {
       churches: {
         Row: {
           address: string
+          candle_count: number | null
           contact_number: string | null
           created_at: string | null
           description: string | null
@@ -401,7 +402,11 @@ export type Database = {
           gcash_qr_url: string | null
           id: string
           is_active: boolean | null
+          is_live: boolean | null
           latitude: number | null
+          livestream_platform: string | null
+          livestream_started_at: string | null
+          livestream_title: string | null
           livestream_url: string | null
           longitude: number | null
           maya_number: string | null
@@ -414,6 +419,7 @@ export type Database = {
         }
         Insert: {
           address: string
+          candle_count?: number | null
           contact_number?: string | null
           created_at?: string | null
           description?: string | null
@@ -425,7 +431,11 @@ export type Database = {
           gcash_qr_url?: string | null
           id?: string
           is_active?: boolean | null
+          is_live?: boolean | null
           latitude?: number | null
+          livestream_platform?: string | null
+          livestream_started_at?: string | null
+          livestream_title?: string | null
           livestream_url?: string | null
           longitude?: number | null
           maya_number?: string | null
@@ -438,6 +448,7 @@ export type Database = {
         }
         Update: {
           address?: string
+          candle_count?: number | null
           contact_number?: string | null
           created_at?: string | null
           description?: string | null
@@ -449,7 +460,11 @@ export type Database = {
           gcash_qr_url?: string | null
           id?: string
           is_active?: boolean | null
+          is_live?: boolean | null
           latitude?: number | null
+          livestream_platform?: string | null
+          livestream_started_at?: string | null
+          livestream_title?: string | null
           livestream_url?: string | null
           longitude?: number | null
           maya_number?: string | null
@@ -461,6 +476,45 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      church_candle_prayers: {
+        Row: {
+          church_id: string
+          created_at: string | null
+          id: string
+          intention_text: string | null
+          user_id: string | null
+        }
+        Insert: {
+          church_id: string
+          created_at?: string | null
+          id?: string
+          intention_text?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          church_id?: string
+          created_at?: string | null
+          id?: string
+          intention_text?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_candle_prayers_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "church_candle_prayers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       donations: {
         Row: {
@@ -1128,7 +1182,15 @@ export type Database = {
       }
     }
     Functions: {
+      light_church_candle: {
+        Args: { target_church_id: string; user_intention?: string | null }
+        Returns: number
+      }
       refresh_church_stats: { Args: never; Returns: undefined }
+      transfer_super_admin: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       appt_status:
@@ -1318,6 +1380,7 @@ export type ChurchAnnouncement = Tables<"church_announcements">
 export type SystemAnnouncement = Tables<"system_announcements">
 export type Profile = Tables<"profiles">
 export type Church = Tables<"churches">
+export type ChurchCandlePrayer = Tables<"church_candle_prayers">
 export type Appointment = Tables<"appointments">
 export type Donation = Tables<"donations">
 export type MassSchedule = Tables<"mass_schedules">

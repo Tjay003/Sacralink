@@ -450,6 +450,17 @@ h6 {
   background: #94a3b8;
 }
 
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* ================================
    LEAFLET MAP STYLES & OVERRIDES
    ================================ */

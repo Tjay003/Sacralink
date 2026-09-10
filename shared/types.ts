@@ -51,6 +51,11 @@ export interface Church {
     latitude: number | null;
     longitude: number | null;
     livestream_url: string | null;
+    livestream_title?: string | null;
+    livestream_platform?: string | null;
+    is_live?: boolean;
+    candle_count?: number;
+    livestream_started_at?: string | null;
     donation_qr_url: string | null;
     panorama_url: string | null;
     gcash_number: string | null;
@@ -59,6 +64,14 @@ export interface Church {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+}
+
+export interface ChurchCandlePrayer {
+    id: string;
+    church_id: string;
+    user_id: string | null;
+    intention_text: string | null;
+    created_at: string;
 }
 
 export interface OperatingHours {

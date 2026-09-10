@@ -36,6 +36,11 @@ export interface Church {
   featured_image_url?: string | null;
   panorama_url: string | null;
   livestream_url: string | null;
+  livestream_title?: string | null;
+  livestream_platform?: string | null;
+  is_live?: boolean | null;
+  candle_count?: number | null;
+  livestream_started_at?: string | null;
   contact_number: string | null;
   email: string | null;
   description?: string | null;
@@ -110,6 +115,11 @@ function normalizeChurch(raw: Record<string, any>): Church {
     featured_image_url: raw.featured_image_url || cover_image_url,
     panorama_url: raw.panorama_url || null,
     livestream_url: raw.livestream_url || null,
+    livestream_title: raw.livestream_title || null,
+    livestream_platform: raw.livestream_platform || 'youtube',
+    is_live: Boolean(raw.is_live),
+    candle_count: typeof raw.candle_count === 'number' ? raw.candle_count : 0,
+    livestream_started_at: raw.livestream_started_at || null,
     contact_number: raw.contact_number || null,
     email: raw.email || null,
     description: raw.description || null,
@@ -232,3 +242,24 @@ export function useChurch(id?: string) {
     staleTime: 1000 * 60 * 5,
   });
 }
+
+/**
+ * Light a virtual candle and record intention for a parish.
+ */
+export async function lightChurchCandle(
+  churchId: string,
+  userIntention?: string | null
+): Promise<{ success: boolean; candle_count: number }> {
+  const { data, error } = await supabase.rpc('light_church_candle', {
+    target_church_id: churchId,
+    user_intention: userIntention?.trim() || null,
+  });
+
+  if (error) {
+    console.error('Error lighting candle:', error);
+    throw error;
+  }
+
+  return data;
+}
+

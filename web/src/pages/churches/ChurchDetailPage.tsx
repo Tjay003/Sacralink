@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
 import ChurchChatbot from '../../components/ai/ChurchChatbot';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
+import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
 
 interface SupporterRow {
     user_id: string;
@@ -199,9 +200,9 @@ export default function ChurchDetailPage() {
             <div className="max-w-2xl mx-auto">
                 <button
                     onClick={() => navigate('/churches')}
-                    className="flex items-center text-muted hover:text-foreground mb-4"
+                    className="group flex items-center text-muted hover:text-foreground mb-4 transition-colors cursor-pointer"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
                     Back to Churches
                 </button>
                 <div className="card p-6">
@@ -217,49 +218,49 @@ export default function ChurchDetailPage() {
     // const massSchedules = church?.mass_schedules || [];
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
             {/* Header */}
             <div>
                 <button
                     onClick={() => navigate('/churches')}
-                    className="flex items-center text-muted hover:text-foreground mb-4"
+                    className="group flex items-center text-muted hover:text-foreground mb-4 transition-colors cursor-pointer"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
                     Back to Churches
                 </button>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 w-full">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center shrink-0">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1 w-full lg:w-auto">
+                        <div className="group/avatar relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-primary-100 dark:bg-primary-950/40 flex items-center justify-center shrink-0 border border-border hover:border-primary/50 transition-all duration-300 hover:scale-105 shadow-xs hover:shadow-sm">
                             {church.featured_image_url
-                                ? <img src={church.featured_image_url} alt={church.name} className="w-full h-full object-cover" />
-                                : <Building2 className="w-8 h-8 text-primary" />}
+                                ? <img src={church.featured_image_url} alt={church.name} className="w-full h-full object-cover transition-transform duration-300 group-hover/avatar:scale-105" />
+                                : <Building2 className="w-8 h-8 text-primary transition-transform duration-300 group-hover/avatar:scale-110" />}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                                <h1 className="text-2xl font-bold truncate">{church.name}</h1>
+                                <h1 className="text-xl sm:text-2xl font-bold truncate text-foreground">{church.name}</h1>
                                 {church.status === 'unverified' && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 shrink-0">
                                         <Clock className="w-3.5 h-3.5" />
                                         Verification Pending
                                     </span>
                                 )}
                                 {(church.status === 'verified_active' || church.status === 'active') && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 shrink-0">
                                         <ShieldCheck className="w-3.5 h-3.5" />
                                         Verified Parish
                                     </span>
                                 )}
                             </div>
-                            <p className="text-muted truncate">Church Details</p>
+                            <p className="text-muted truncate text-xs sm:text-sm">Church Details</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-row gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar py-0.5 shrink-0">
                         {/* Book Appointment */}
                         {isFeatureEnabled('appointments') && (
                             <button
                                 onClick={() => navigate(`/churches/${id}/book`)}
-                                className="btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2"
+                                className="btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
                             >
                                 <Calendar className="w-4 h-4 shrink-0 mb-1" />
                                 <span className="text-xs truncate">Book Appointment</span>
@@ -276,10 +277,10 @@ export default function ChurchDetailPage() {
                                 }}
                                 disabled={Boolean(isUnverified)}
                                 title={isUnverified ? 'Donations locked until Diocese verification' : 'Donate to this church'}
-                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 shrink-0 ${
                                     isUnverified
                                         ? 'bg-secondary-200 dark:bg-secondary-800 text-muted cursor-not-allowed opacity-60'
-                                        : 'bg-red-500 hover:bg-red-600 text-white'
+                                        : 'bg-red-500 hover:bg-red-600 text-white cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md'
                                 }`}
                             >
                                 <Heart className="w-4 h-4 shrink-0" />
@@ -293,10 +294,10 @@ export default function ChurchDetailPage() {
                                 onClick={handleFollowToggle}
                                 disabled={followLoading}
                                 title={isFollowing ? 'Unfollow this church' : 'Follow to get notified of announcements'}
-                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all border ${
+                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 border shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md ${
                                     isFollowing
                                         ? 'bg-primary text-white border-primary hover:bg-primary/90'
-                                        : 'bg-white text-gray-600 border-gray-300 hover:border-primary hover:text-primary'
+                                        : 'bg-white dark:bg-card text-foreground border-border hover:border-primary hover:text-primary'
                                 } disabled:opacity-60`}
                             >
                                 {isFollowing
@@ -310,7 +311,7 @@ export default function ChurchDetailPage() {
                         {canManage() && (
                             <button
                                 onClick={() => navigate(`/churches/${id}/edit`)}
-                                className="btn-secondary flex flex-col items-center justify-center rounded-lg px-3 py-1.5"
+                                className="btn-secondary flex flex-col items-center justify-center rounded-lg px-3 py-1.5 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
                             >
                                 <Edit className="w-4 h-4 shrink-0 mb-1" />
                                 <span className="text-xs">Edit</span>
@@ -345,7 +346,7 @@ export default function ChurchDetailPage() {
                                         }
                                     }
                                 }}
-                                className="btn-secondary text-red-600 hover:bg-red-50 flex flex-col items-center justify-center"
+                                className="btn-secondary text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex flex-col items-center justify-center px-3 py-1.5 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
                             >
                                 <Trash2 className="w-4 h-4 shrink-0 mb-1" />
                                 <span className="text-xs">Delete</span>
@@ -441,27 +442,10 @@ export default function ChurchDetailPage() {
                         </div>
                     </div>
                 )}
-
-                {/* External Links Card */}
-                {(church.livestream_url || (church.facebook_url && !church.facebook_url)) && (
-                    <div className="card p-6 md:col-span-2">
-                        <h2 className="text-lg font-semibold mb-4">Connect Online</h2>
-                        <div className="flex flex-wrap gap-4">
-                            {church.livestream_url && (
-                                <a
-                                    href={church.livestream_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                                >
-                                    <ExternalLink className="w-5 h-5 mr-2" />
-                                    Watch Live Mass
-                                </a>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Virtual Sanctuary (Universal Stream Player & Sacramental Companion) */}
+            <VirtualSanctuarySection church={church} />
 
             {/* Donate / Recent Donors or Verification Pending Banner */}
             {isUnverified ? (

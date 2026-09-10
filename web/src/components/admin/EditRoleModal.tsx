@@ -3,22 +3,25 @@ import Modal from '../ui/Modal';
 import { directUpdateProfile } from '../../lib/directApi';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
-import type { Profile } from '../../types/database';
+import type { Profile, UserRole } from '../../types/database';
+import { ShieldAlert, Lock, AlertCircle, Crown, ArrowRightLeft } from 'lucide-react';
 
 interface EditRoleModalProps {
     user: Profile;
     onClose: () => void;
     onSuccess: () => void;
+    onOpenTransferModal?: (user: Profile) => void;
 }
 
 /**
  * EditRoleModal - Modal to change a user's role and assigned church
  * 
- * Permissions:
- * - Super Admin: Can set any role and any church.
- * - Church Admin: Can set limited roles (user, volunteer, church_admin) but ONLY for their church.
+ * Permissions & Invariants:
+ * - Super Admin: Can set standard roles ('admin', 'church_admin', 'volunteer', 'user') across any church.
+ * - Church Admin: Can set limited roles ('user', 'volunteer', 'church_admin') ONLY for their assigned church.
+ * - Super Admin role is immutable via standard role pickers and can ONLY be transferred via TransferOwnershipModal.
  */
-export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModalProps) {
+export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransferModal }: EditRoleModalProps) {
     const { session, profile: currentProfile } = useAuth();
     const isSuperAdmin = useIsSuperAdmin();
     const isChurchAdmin = useIsChurchAdmin();
@@ -29,28 +32,44 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Check if user being edited is a super_admin
+    // Check if user being edited is currently a super_admin
     const isEditingSuperAdmin = user.role === 'super_admin';
-    // Only super_admins can edit other super_admins
-    const canEditThisUser = !isEditingSuperAdmin || isSuperAdmin;
+    const isSelf = user.id === currentProfile?.id;
+    // Super Admin accounts cannot have their role modified via standard edit role forms
+    const canEditThisUser = !isEditingSuperAdmin;
 
-    // Determine available roles based on current user's role
+    // Platform ownership transfer is available if current user is Super Admin, target is not super admin, and target is not self
+    const canTransferOwnership = isSuperAdmin && !isEditingSuperAdmin && !isSelf && !!onOpenTransferModal;
+
+    // Available roles: super_admin is strictly excluded for all callers
     const availableRoles = isSuperAdmin
-        ? ['user', 'volunteer', 'church_admin', 'admin', 'super_admin']
-        : ['user', 'volunteer', 'church_admin']; // Church Admins can only creating regular users or co-admins
+        ? ['user', 'volunteer', 'church_admin', 'admin']
+        : ['user', 'volunteer', 'church_admin'];
 
     // Determine if church selection is allowed
     // Super Admin can select any church.
     // Church Admin is locked to their own church.
-    const canSelectChurch = isSuperAdmin;
+    const canSelectChurch = isSuperAdmin && !isEditingSuperAdmin;
 
     // Function to get display name for church
     const getChurchName = (id: string) => {
         return churches.find(c => c.id === id)?.name || 'Unknown Church';
     };
 
+    const handleTransferClick = () => {
+        onClose();
+        if (onOpenTransferModal) {
+            onOpenTransferModal(user);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (isEditingSuperAdmin) {
+            setError('Super Admin role cannot be modified via standard role editing. Use Transfer Ownership.');
+            return;
+        }
 
         if (!session) {
             setError('No active session');
@@ -61,11 +80,6 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
         let finalChurchId = selectedChurchId;
         if (isChurchAdmin) {
             finalChurchId = currentProfile?.assigned_church_id || '';
-        }
-
-        // If explicitly clearing church (e.g. for super_admin role)
-        if (selectedRole === 'super_admin') {
-            finalChurchId = ''; // Super Admins don't belong to a specific church usually
         }
 
         setLoading(true);
@@ -95,32 +109,40 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
             title="Edit User Access"
             size="md"
         >
-            {/* Super Admin Protection Warning */}
-            {isEditingSuperAdmin && !isSuperAdmin && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-sm text-red-600 font-medium">🔒 This user is a Super Admin</p>
-                    <p className="text-xs text-red-500 mt-1">Only Super Admins can modify Super Admin roles.</p>
+            {/* Super Admin Protection Banner */}
+            {isEditingSuperAdmin && (
+                <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl space-y-1.5">
+                    <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-sm">
+                        <Lock className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                        <span>Platform Owner (Sole Super Admin)</span>
+                    </div>
+                    <p className="text-xs text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+                        This user holds the sole Super Admin role. Super Admin privileges cannot be modified or reassigned through standard role editing. To assign a new Super Admin, use the dedicated <strong>Transfer Ownership</strong> action.
+                    </p>
                 </div>
             )}
 
-            <div className="mb-5 p-4 bg-secondary-50 rounded-xl">
-                <p className="text-xs font-medium text-muted uppercase tracking-wider mb-1">User Account</p>
-                <p className="font-semibold text-foreground">{user.full_name}</p>
-                <p className="text-sm text-muted">{user.email}</p>
+            <div className="mb-5 p-4 bg-secondary-50 dark:bg-secondary-900/40 rounded-xl border border-border">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">User Account</p>
+                <p className="font-bold text-foreground text-base">{user.full_name || 'Unnamed User'}</p>
+                <p className="text-xs text-muted mt-0.5">{user.email}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Role Selection */}
                 <div>
-                    <label className="block text-sm font-medium mb-1.5">
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
                         Role
                     </label>
                     <select
                         value={selectedRole || 'user'}
-                        onChange={(e) => setSelectedRole(e.target.value as any)}
-                        className="input w-full"
+                        onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                        className="input w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                         disabled={loading || !canEditThisUser}
                     >
+                        {isEditingSuperAdmin && (
+                            <option value="super_admin">Super Admin (Platform Owner)</option>
+                        )}
                         {availableRoles.map((role) => (
                             <option key={role} value={role}>
                                 {role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -131,16 +153,16 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
 
                 {/* Church Selection */}
                 <div>
-                    <label className="block text-sm font-medium mb-1.5">
-                        Assigned Church
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
+                        Assigned Parish
                     </label>
 
                     {canSelectChurch ? (
                         <select
                             value={selectedChurchId}
                             onChange={(e) => setSelectedChurchId(e.target.value)}
-                            className="input w-full"
-                            disabled={loading || selectedRole === 'super_admin' || !canEditThisUser}
+                            className="input w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                            disabled={loading || !canEditThisUser}
                         >
                             <option value="">-- No Church Assigned --</option>
                             {churches.map((church) => (
@@ -150,43 +172,75 @@ export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModa
                             ))}
                         </select>
                     ) : (
-                        <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm">
-                            {isChurchAdmin ? (
-                                <span>Locked to: <strong>{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
+                        <div className="p-3 bg-secondary-50 dark:bg-secondary-900/40 rounded-xl border border-border text-xs">
+                            {isEditingSuperAdmin ? (
+                                <span className="text-muted">Super Admins manage all parishes globally across the platform.</span>
+                            ) : isChurchAdmin ? (
+                                <span>Locked to: <strong className="text-foreground">{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
                             ) : (
-                                <span className="text-muted">No church assignment available</span>
+                                <span className="text-muted">No parish assignment available</span>
                             )}
                         </div>
                     )}
 
                     {selectedRole === 'church_admin' && !selectedChurchId && canSelectChurch && (
-                        <p className="text-xs text-amber-600 mt-1">
-                            ⚠️ Warning: Church Admins should have an assigned church.
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>Warning: Church Admins should have an assigned parish.</span>
                         </p>
                     )}
                 </div>
 
-                {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-600">{error}</p>
+                {/* Platform Ownership Transfer Card */}
+                {canTransferOwnership && (
+                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 space-y-3">
+                        <div className="flex items-start gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
+                                <Crown className="w-4 h-4" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                                <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+                                    Platform Ownership Transfer
+                                </h4>
+                                <p className="text-xs text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
+                                    The Super Admin role is unique and cannot be selected from the role dropdown above. However, platform ownership can be transferred to this user.
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleTransferClick}
+                            className="w-full py-2 px-3.5 rounded-lg border border-amber-300 dark:border-amber-700/80 bg-white dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 hover:bg-amber-100/80 dark:hover:bg-amber-900/80 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow"
+                        >
+                            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                            <span>Transfer Ownership to this User</span>
+                        </button>
                     </div>
                 )}
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                {error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-2">
+                        <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-700 dark:text-red-300 font-medium">{error}</p>
+                    </div>
+                )}
+
+                <div className="flex gap-3 pt-4 border-t border-border">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-gray-700 font-medium text-sm transition-colors disabled:opacity-50 shadow-sm"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white dark:bg-secondary-800 hover:bg-secondary-100 dark:hover:bg-secondary-700 text-foreground font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
                         disabled={loading}
                     >
-                        Cancel
+                        {isEditingSuperAdmin ? 'Close' : 'Cancel'}
                     </button>
                     <button
                         type="submit"
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         disabled={loading || !canEditThisUser}
                     >
-                        {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Cannot Edit Super Admin'}
+                        {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Super Admin Locked'}
                     </button>
                 </div>
             </form>

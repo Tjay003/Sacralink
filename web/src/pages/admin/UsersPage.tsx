@@ -3,6 +3,7 @@ import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
+import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
 import { 
     Building2, 
     Layers, 
@@ -14,12 +15,15 @@ import {
     Search,
     Calendar,
     Mail,
-    MapPin
+    MapPin,
+    Crown,
+    ShieldCheck,
+    X
 } from 'lucide-react';
 
 /**
  * UsersPage - Admin page for managing all users with Church Categorization,
- * Multi-Column Sorting, and Group by Parish Accordion Mode.
+ * Multi-Column Sorting, Group by Parish Accordion Mode, and Sole Super Admin Ownership Transfer.
  */
 
 // Role hierarchy for sorting (lower number = higher priority)
@@ -60,6 +64,11 @@ export default function UsersPage() {
 
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+
+    const [transferTargetUser, setTransferTargetUser] = useState<Profile | null>(null);
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [transferSuccessMessage, setTransferSuccessMessage] = useState<string | null>(null);
+
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
     const [collapsedChurchIds, setCollapsedChurchIds] = useState<Set<string>>(new Set());
@@ -269,6 +278,19 @@ export default function UsersPage() {
         setSelectedUser(null);
     };
 
+    const handleTransferOwnership = (user: Profile) => {
+        setTransferTargetUser(user);
+        setShowTransferModal(true);
+    };
+
+    const handleTransferSuccess = () => {
+        const recipientName = transferTargetUser?.full_name || transferTargetUser?.email || 'the selected user';
+        setShowTransferModal(false);
+        setTransferTargetUser(null);
+        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account has been updated to Diocese Admin.`);
+        fetchData();
+    };
+
     const getRoleBadgeClass = (role: string) => {
         switch (role) {
             case 'super_admin':
@@ -342,6 +364,26 @@ export default function UsersPage() {
                 </div>
             </div>
 
+            {/* Success Alert Banner for Transfer Ownership */}
+            {transferSuccessMessage && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                        <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 font-semibold truncate">
+                            {transferSuccessMessage}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setTransferSuccessMessage(null)}
+                        className="p-1 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex-shrink-0"
+                        aria-label="Dismiss message"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
             {/* Filters Bar */}
             <div className="card p-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -373,7 +415,7 @@ export default function UsersPage() {
                             className="input w-full text-sm"
                         >
                             <option value="all">All Roles</option>
-                            <option value="super_admin">Super Admin</option>
+                            <option value="super_admin">Super Admin (Platform Owner)</option>
                             <option value="admin">Diocese Admin</option>
                             <option value="church_admin">Church Admin</option>
                             <option value="priest">Priest</option>
@@ -532,54 +574,76 @@ export default function UsersPage() {
                                                 </div>
                                             ) : (
                                                 <div className="divide-y divide-border">
-                                                    {group.users.map((user) => (
-                                                        <div key={user.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary-50/40 dark:hover:bg-secondary-900/20 transition-colors">
-                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                                {user.avatar_url ? (
-                                                                    <img
-                                                                        src={user.avatar_url}
-                                                                        alt={user.full_name || 'User'}
-                                                                        className="h-10 w-10 rounded-full object-cover flex-shrink-0"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0 text-sm">
-                                                                        {user.full_name?.charAt(0).toUpperCase() || 'U'}
-                                                                    </div>
-                                                                )}
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                                        <span className="text-sm font-semibold text-foreground truncate" title={user.full_name || 'No name'}>
-                                                                            {user.full_name || 'No name set'}
-                                                                        </span>
-                                                                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
-                                                                            {formatRole(user.role || 'user')}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3 text-xs text-muted mt-0.5 flex-wrap">
-                                                                        <span className="flex items-center gap-1 min-w-0 max-w-full">
-                                                                            <Mail className="w-3 h-3 text-muted/70 flex-shrink-0" />
-                                                                            <span className="truncate" title={user.email || undefined}>{user.email}</span>
-                                                                        </span>
-                                                                        <span className="flex items-center gap-1 whitespace-nowrap">
-                                                                            <Calendar className="w-3 h-3 text-muted/70 flex-shrink-0" />
-                                                                            Joined {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                                                                        </span>
+                                                    {group.users.map((user) => {
+                                                        const isUserSuperAdmin = user.role === 'super_admin';
+                                                        const isSelf = user.id === currentUser?.id;
+                                                        return (
+                                                            <div key={user.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary-50/40 dark:hover:bg-secondary-900/20 transition-colors">
+                                                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                    {user.avatar_url ? (
+                                                                        <img
+                                                                            src={user.avatar_url}
+                                                                            alt={user.full_name || 'User'}
+                                                                            className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0 text-sm">
+                                                                            {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            <span className="text-sm font-semibold text-foreground truncate" title={user.full_name || 'No name'}>
+                                                                                {user.full_name || 'No name set'}
+                                                                            </span>
+                                                                            {isUserSuperAdmin ? (
+                                                                                <span className="px-2.5 py-0.5 inline-flex items-center gap-1 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                                                    <Crown className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                                                                    <span>Platform Owner</span>
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                                                    {formatRole(user.role || 'user')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-3 text-xs text-muted mt-0.5 flex-wrap">
+                                                                            <span className="flex items-center gap-1 min-w-0 max-w-full">
+                                                                                <Mail className="w-3 h-3 text-muted/70 flex-shrink-0" />
+                                                                                <span className="truncate" title={user.email || undefined}>{user.email}</span>
+                                                                            </span>
+                                                                            <span className="flex items-center gap-1 whitespace-nowrap">
+                                                                                <Calendar className="w-3 h-3 text-muted/70 flex-shrink-0" />
+                                                                                Joined {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
 
-                                                            <div className="self-end sm:self-auto flex-shrink-0">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleEditRole(user)}
-                                                                    disabled={user.id === currentUser?.id}
-                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
-                                                                >
-                                                                    Edit Role
-                                                                </button>
+                                                                <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+                                                                    {isUserSuperAdmin ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled
+                                                                            title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
+                                                                            className="px-3 py-1.5 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
+                                                                        >
+                                                                            Owner Locked
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleEditRole(user)}
+                                                                            disabled={isSelf}
+                                                                            className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
+                                                                        >
+                                                                            Edit Role
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -605,6 +669,8 @@ export default function UsersPage() {
                         ) : (
                             filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
                                 const churchName = getChurchName(user.assigned_church_id);
+                                const isUserSuperAdmin = user.role === 'super_admin';
+                                const isSelf = user.id === currentUser?.id;
                                 return (
                                     <div
                                         key={user.id}
@@ -629,9 +695,16 @@ export default function UsersPage() {
                                                         {user.full_name || 'No name set'}
                                                     </h4>
                                                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                                        <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
-                                                            {formatRole(user.role || 'user')}
-                                                        </span>
+                                                        {isUserSuperAdmin ? (
+                                                            <span className="px-2.5 py-0.5 inline-flex items-center gap-1 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                                <Crown className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                                                <span>Platform Owner</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                                {formatRole(user.role || 'user')}
+                                                            </span>
+                                                        )}
                                                         {user.assigned_church_id && (
                                                             <span className="px-2 py-0.5 inline-flex text-xs font-medium rounded-md bg-secondary-100 dark:bg-secondary-800 text-foreground border border-border truncate max-w-[150px]">
                                                                 {churchName}
@@ -666,16 +739,26 @@ export default function UsersPage() {
                                             </div>
                                         </div>
 
-                                        {/* Bottom Action Button */}
-                                        <div className="pt-2 border-t border-border/60">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEditRole(user)}
-                                                disabled={user.id === currentUser?.id}
-                                                className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
-                                            >
-                                                Edit Role & Parish Access
-                                            </button>
+                                        {/* Bottom Action Buttons */}
+                                        <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
+                                            {isUserSuperAdmin ? (
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    className="w-full py-2 px-3 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
+                                                >
+                                                    Platform Owner (Locked)
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditRole(user)}
+                                                    disabled={isSelf}
+                                                    className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                                >
+                                                    Edit Role & Parish Access
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -727,6 +810,8 @@ export default function UsersPage() {
                                     ) : (
                                         filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
                                             const churchName = getChurchName(user.assigned_church_id);
+                                            const isUserSuperAdmin = user.role === 'super_admin';
+                                            const isSelf = user.id === currentUser?.id;
                                             return (
                                                 <tr key={user.id} className="hover:bg-secondary-50/60 dark:hover:bg-secondary-900/30 transition-colors">
                                                     {/* User & Avatar */}
@@ -756,9 +841,16 @@ export default function UsersPage() {
 
                                                     {/* Role */}
                                                     <td className="px-5 py-3.5 whitespace-nowrap">
-                                                        <span className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
-                                                            {formatRole(user.role || 'user')}
-                                                        </span>
+                                                        {isUserSuperAdmin ? (
+                                                            <span className="px-2.5 py-1 inline-flex items-center gap-1.5 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                                <Crown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                                <span>Platform Owner</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                                {formatRole(user.role || 'user')}
+                                                            </span>
+                                                        )}
                                                     </td>
 
                                                     {/* Assigned Church with Interactive Hover Tooltip */}
@@ -809,13 +901,27 @@ export default function UsersPage() {
 
                                                     {/* Actions */}
                                                     <td className="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
-                                                        <button
-                                                            onClick={() => handleEditRole(user)}
-                                                            disabled={user.id === currentUser?.id}
-                                                            className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
-                                                        >
-                                                            Edit Role
-                                                        </button>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            {isUserSuperAdmin ? (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled
+                                                                    title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
+                                                                    className="px-3 py-1.5 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
+                                                                >
+                                                                    Owner Locked
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditRole(user)}
+                                                                    disabled={isSelf}
+                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
+                                                                >
+                                                                    Edit Role
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -896,6 +1002,20 @@ export default function UsersPage() {
                         setSelectedUser(null);
                     }}
                     onSuccess={handleRoleUpdated}
+                    onOpenTransferModal={handleTransferOwnership}
+                />
+            )}
+
+            {/* Transfer Ownership Modal */}
+            {showTransferModal && transferTargetUser && (
+                <TransferOwnershipModal
+                    isOpen={showTransferModal}
+                    user={transferTargetUser}
+                    onClose={() => {
+                        setShowTransferModal(false);
+                        setTransferTargetUser(null);
+                    }}
+                    onSuccess={handleTransferSuccess}
                 />
             )}
         </div>

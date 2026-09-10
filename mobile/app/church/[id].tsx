@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,14 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  Modal,
+  TextInput,
+  Vibration,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
   MapPin,
@@ -30,9 +35,18 @@ import {
   ChevronRight,
   ShieldCheck,
   Globe,
+  Flame,
+  Radio,
+  Copy,
+  Check,
+  X,
+  HeartHandshake,
+  QrCode,
 } from 'lucide-react-native';
-import { useChurch, type MassSchedule } from '@/lib/supabase/churches';
+import { useChurch, lightChurchCandle, type MassSchedule } from '@/lib/supabase/churches';
+import { supabase } from '@/lib/supabase';
 import { PanoramaViewerWebView } from '@/components/churches/PanoramaViewerWebView';
+import { MobileLivestreamPlayer } from '@/components/livestream/MobileLivestreamPlayer';
 import { AIAssistantFAB } from '@/components/ai/AIAssistantFAB';
 import { ParishionerChatbotModal } from '@/components/ai/ParishionerChatbotModal';
 
@@ -70,6 +84,90 @@ export default function ChurchDetailScreen() {
   const [showTourModal, setShowTourModal] = useState<boolean>(false);
   const [imageError, setImageError] = useState<boolean>(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
+
+  // Livestream & Virtual Sanctuary states
+  const [isCandleModalOpen, setIsCandleModalOpen] = useState<boolean>(false);
+  const [intentionText, setIntentionText] = useState<string>('');
+  const [isLightingCandle, setIsLightingCandle] = useState<boolean>(false);
+  const [candleSuccess, setCandleSuccess] = useState<boolean>(false);
+  const [candleCount, setCandleCount] = useState<number>(0);
+
+  const [isOffertoryModalOpen, setIsOffertoryModalOpen] = useState<boolean>(false);
+  const [copiedGcash, setCopiedGcash] = useState<boolean>(false);
+  const [copiedMaya, setCopiedMaya] = useState<boolean>(false);
+
+  // Sync candle count with church data
+  useEffect(() => {
+    if (church && typeof church.candle_count === 'number') {
+      setCandleCount(church.candle_count);
+    }
+  }, [church?.candle_count]);
+
+  // Subscribe to realtime updates for church candle count and live status
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`church-detail-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'churches',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new.candle_count === 'number') {
+            setCandleCount(payload.new.candle_count);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
+  const handleLightCandleSubmit = async () => {
+    if (!church) return;
+    setIsLightingCandle(true);
+    try {
+      try {
+        Vibration.vibrate(50);
+      } catch {
+        // Ignored on unsupported platforms
+      }
+      setCandleCount((prev) => prev + 1);
+      await lightChurchCandle(church.id, intentionText);
+      setCandleSuccess(true);
+      setTimeout(() => {
+        setIntentionText('');
+        setCandleSuccess(false);
+        setIsCandleModalOpen(false);
+      }, 1400);
+    } catch (err: any) {
+      Alert.alert('Unable to Light Candle', err?.message || 'Please check your connection and try again.');
+    } finally {
+      setIsLightingCandle(false);
+    }
+  };
+
+  const handleCopyGcash = async () => {
+    if (church?.gcash_number) {
+      await Clipboard.setStringAsync(church.gcash_number);
+      setCopiedGcash(true);
+      setTimeout(() => setCopiedGcash(false), 2000);
+    }
+  };
+
+  const handleCopyMaya = async () => {
+    if (church?.maya_number) {
+      await Clipboard.setStringAsync(church.maya_number);
+      setCopiedMaya(true);
+      setTimeout(() => setCopiedMaya(false), 2000);
+    }
+  };
 
   // Group mass schedules by day of the week
   const groupedSchedules = useMemo(() => {
@@ -468,38 +566,42 @@ export default function ChurchDetailScreen() {
           </Text>
         </View>
 
-        {/* Livestream Section (if available) */}
-        {church.livestream_url && (
-          <View className="px-5 pt-4 pb-2">
-            <View className="bg-rose-50 border border-rose-200 rounded-3xl p-4 flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3 flex-1">
-                <View className="w-10 h-10 rounded-2xl bg-rose-600 items-center justify-center">
-                  <Video size={18} color="#FFFFFF" />
-                </View>
-                <View className="flex-1 pr-2">
-                  <Text className="text-xs font-bold text-rose-900 font-sans">
-                    Holy Mass Livestream
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    className="text-[11px] text-rose-700 font-sans"
-                  >
-                    Watch regular broadcast and Sunday masses online
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={handleLivestream}
-                className="bg-rose-600 px-3 py-1.5 rounded-xl flex-row items-center gap-1"
-              >
-                <Text className="text-xs font-bold text-white font-sans">
-                  Watch Live
-                </Text>
-                <ExternalLink size={12} color="#FFFFFF" />
-              </TouchableOpacity>
+        {/* Virtual Sanctuary & Livestream Section */}
+        <View className="px-5 pt-5 pb-2">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-1.5">
+              <Radio size={16} color={church.is_live ? '#DC2626' : '#2563EB'} />
+              <Text className="text-sm font-bold text-slate-900 font-sans">
+                {church.is_live ? 'Live Sanctuary Broadcast' : 'Virtual Sanctuary & Mass Stream'}
+              </Text>
             </View>
+            {church.is_live ? (
+              <View className="bg-red-600 px-2.5 py-0.5 rounded-full flex-row items-center gap-1 shadow-xs shadow-red-500/40">
+                <View className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                <Text className="text-[10px] font-black text-white uppercase tracking-wider font-sans">
+                  LIVE MASS
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setIsCandleModalOpen(true)}
+                className="flex-row items-center bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200"
+              >
+                <Flame size={12} color="#D97706" />
+                <Text className="text-[10px] font-bold text-amber-800 ml-1 font-sans">
+                  {candleCount} Candles
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+
+          <MobileLivestreamPlayer
+            church={church}
+            candleCount={candleCount}
+            onLightCandle={() => setIsCandleModalOpen(true)}
+            onOpenOffertory={() => setIsOffertoryModalOpen(true)}
+          />
+        </View>
 
         {/* Weekly Mass Schedules Section */}
         <View className="px-5 pt-5 pb-2">
@@ -629,6 +731,232 @@ export default function ChurchDetailScreen() {
           initialChurchId={church.id}
           initialChurchName={church.name}
         />
+      )}
+
+      {/* Virtual Candle Lighting Modal */}
+      {church && (
+        <Modal
+          visible={isCandleModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsCandleModalOpen(false)}
+        >
+          <View className="flex-1 bg-black/70 items-center justify-center p-4">
+            <View className="w-full max-w-sm bg-slate-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl">
+              {/* Header */}
+              <View className="flex-row items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <View className="flex-row items-center gap-2.5">
+                  <View className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 items-center justify-center">
+                    <Flame size={20} color="#F59E0B" />
+                  </View>
+                  <View>
+                    <Text className="text-base font-bold text-white font-sans">
+                      Light a Virtual Candle
+                    </Text>
+                    <Text className="text-[11px] text-amber-300 font-sans">
+                      {candleCount} Candles Lit for {church.name}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsCandleModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
+                >
+                  <X size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              {candleSuccess ? (
+                <View className="py-8 items-center justify-center">
+                  <View className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 items-center justify-center mb-3">
+                    <Sparkles size={32} color="#F59E0B" />
+                  </View>
+                  <Text className="text-lg font-bold text-white font-sans text-center">
+                    Candle Lit & Intention Offered
+                  </Text>
+                  <Text className="text-xs text-amber-200/80 font-sans text-center mt-1">
+                    May your prayers and intentions be heard. Amen.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text className="text-xs text-slate-300 font-sans mb-2">
+                    Leave your prayer petition or special intention (optional):
+                  </Text>
+
+                  <TextInput
+                    value={intentionText}
+                    onChangeText={setIntentionText}
+                    placeholder="e.g., Thanksgiving for family blessings, healing for our loved ones..."
+                    placeholderTextColor="#64748B"
+                    multiline
+                    numberOfLines={3}
+                    className="w-full bg-slate-800/90 border border-slate-700 rounded-2xl p-3.5 text-xs text-white font-sans mb-4 text-left align-top"
+                    style={{ minHeight: 80, textAlignVertical: 'top' }}
+                  />
+
+                  <View className="flex-row items-center gap-2.5">
+                    <TouchableOpacity
+                      onPress={() => setIsCandleModalOpen(false)}
+                      className="flex-1 py-3 rounded-xl bg-slate-800 border border-slate-700 items-center justify-center"
+                    >
+                      <Text className="text-xs font-semibold text-slate-300 font-sans">
+                        Cancel
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleLightCandleSubmit}
+                      disabled={isLightingCandle}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r bg-amber-500 active:bg-amber-600 flex-row items-center justify-center gap-1.5 shadow-md shadow-amber-500/25"
+                    >
+                      {isLightingCandle ? (
+                        <ActivityIndicator size="small" color="#0F172A" />
+                      ) : (
+                        <>
+                          <Flame size={15} color="#0F172A" />
+                          <Text className="text-xs font-bold text-slate-950 font-sans">
+                            Light Candle
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Cashless Offertory / Love Offering Modal */}
+      {church && (
+        <Modal
+          visible={isOffertoryModalOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsOffertoryModalOpen(false)}
+        >
+          <View className="flex-1 bg-black/70 justify-end">
+            <View className="bg-slate-900 border-t border-rose-500/30 rounded-t-3xl p-5 max-h-[85%]">
+              {/* Header */}
+              <View className="flex-row items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <View className="flex-row items-center gap-2.5">
+                  <View className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 items-center justify-center">
+                    <HeartHandshake size={20} color="#F43F5E" />
+                  </View>
+                  <View>
+                    <Text className="text-base font-bold text-white font-sans">
+                      Love Offering & Tithes
+                    </Text>
+                    <Text className="text-[11px] text-rose-300 font-sans" numberOfLines={1}>
+                      {church.name}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsOffertoryModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
+                >
+                  <X size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} className="space-y-4">
+                {/* QR Code if present */}
+                {church.donation_qr_url && (
+                  <View className="bg-white rounded-2xl p-4 items-center justify-center border border-slate-700">
+                    <Image
+                      source={{ uri: church.donation_qr_url }}
+                      className="w-48 h-48"
+                      resizeMode="contain"
+                    />
+                    <Text className="text-[11px] font-semibold text-slate-700 mt-2 font-sans">
+                      Scan QR with GCash / Maya app
+                    </Text>
+                  </View>
+                )}
+
+                {/* GCash Box */}
+                {church.gcash_number && (
+                  <View className="bg-blue-950/60 border border-blue-600/40 rounded-2xl p-3.5 flex-row items-center justify-between">
+                    <View className="flex-1 mr-2">
+                      <Text className="text-[10px] font-bold text-blue-400 uppercase font-sans">
+                        GCash Mobile Account
+                      </Text>
+                      <Text className="text-sm font-bold text-white font-sans mt-0.5">
+                        {church.gcash_number}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleCopyGcash}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 flex-row items-center gap-1"
+                    >
+                      {copiedGcash ? (
+                        <>
+                          <Check size={12} color="#FFFFFF" />
+                          <Text className="text-[11px] font-bold text-white font-sans">Copied</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} color="#FFFFFF" />
+                          <Text className="text-[11px] font-bold text-white font-sans">Copy</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Maya Box */}
+                {church.maya_number && (
+                  <View className="bg-emerald-950/60 border border-emerald-600/40 rounded-2xl p-3.5 flex-row items-center justify-between">
+                    <View className="flex-1 mr-2">
+                      <Text className="text-[10px] font-bold text-emerald-400 uppercase font-sans">
+                        Maya Account
+                      </Text>
+                      <Text className="text-sm font-bold text-white font-sans mt-0.5">
+                        {church.maya_number}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={handleCopyMaya}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 flex-row items-center gap-1"
+                    >
+                      {copiedMaya ? (
+                        <>
+                          <Check size={12} color="#FFFFFF" />
+                          <Text className="text-[11px] font-bold text-white font-sans">Copied</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={12} color="#FFFFFF" />
+                          <Text className="text-[11px] font-bold text-white font-sans">Copy</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Submit Proof of Offering button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsOffertoryModalOpen(false);
+                    router.push({
+                      pathname: '/donations/give',
+                      params: { churchId: church.id, churchName: church.name },
+                    } as any);
+                  }}
+                  className="w-full bg-rose-600 active:bg-rose-700 py-3.5 rounded-2xl items-center justify-center flex-row gap-1.5 shadow-md shadow-rose-600/25 mt-2 mb-4"
+                >
+                  <Text className="text-xs font-bold text-white font-sans">
+                    Submit Offering Slip / Receipt
+                  </Text>
+                  <ChevronRight size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );

@@ -39,6 +39,9 @@ export default function EditChurchPage() {
         longitude: null as number | null,
         panorama_url: '',
         livestream_url: '',
+        livestream_title: '',
+        livestream_platform: 'youtube',
+        is_live: false,
         facebook_url: '',
         gcash_number: '',
         maya_number: '',
@@ -82,6 +85,9 @@ export default function EditChurchPage() {
                 longitude: church.longitude ?? null,
                 panorama_url: church.panorama_url || '',
                 livestream_url: church.livestream_url || '',
+                livestream_title: church.livestream_title || '',
+                livestream_platform: church.livestream_platform || 'youtube',
+                is_live: Boolean(church.is_live),
                 facebook_url: church.facebook_url || '',
                 gcash_number: church.gcash_number || '',
                 maya_number: church.maya_number || '',
@@ -207,6 +213,9 @@ export default function EditChurchPage() {
                     longitude: formData.longitude,
                     panorama_url: formData.panorama_url.trim() || null,
                     livestream_url: formData.livestream_url.trim() || null,
+                    livestream_title: formData.livestream_title.trim() || null,
+                    livestream_platform: formData.livestream_platform,
+                    is_live: formData.is_live,
                     facebook_url: formData.facebook_url.trim() || null,
                     gcash_number: formData.gcash_number.trim() || null,
                     maya_number: formData.maya_number.trim() || null,
@@ -460,22 +469,76 @@ export default function EditChurchPage() {
                         />
                     </div>
 
-                    {/* Livestream URL */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Livestream URL
-                        </label>
-                        <input
-                            type="url"
-                            value={formData.livestream_url}
-                            onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
-                            disabled={loading}
-                            className="input w-full"
-                            placeholder="e.g., https://youtube.com/..."
-                        />
-                        <p className="text-xs text-muted mt-1">
-                            Link to live mass stream (optional)
-                        </p>
+                    {/* Livestream Section */}
+                    <div className="p-4 rounded-xl border border-secondary-200 bg-secondary-50/40 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label className="block text-sm font-semibold">
+                                    Livestream Virtual Sanctuary
+                                </label>
+                                <p className="text-xs text-muted">
+                                    Stream YouTube or Facebook Live Mass to parishioners with in-app liturgy and offertory.
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.is_live}
+                                    onChange={(e) => setFormData({ ...formData, is_live: e.target.checked })}
+                                    disabled={loading}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                <span className="ml-2 text-xs font-bold text-foreground">
+                                    {formData.is_live ? '🔴 LIVE' : 'Offline'}
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium mb-1">
+                                    Stream Platform
+                                </label>
+                                <select
+                                    value={formData.livestream_platform}
+                                    onChange={(e) => setFormData({ ...formData, livestream_platform: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full text-xs"
+                                >
+                                    <option value="youtube">YouTube Live</option>
+                                    <option value="facebook">Facebook Live</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium mb-1">
+                                    Stream / Broadcast Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.livestream_title}
+                                    onChange={(e) => setFormData({ ...formData, livestream_title: e.target.value })}
+                                    disabled={loading}
+                                    className="input w-full text-xs"
+                                    placeholder="e.g., Sunday 8:00 AM Solemn Mass"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium mb-1">
+                                Livestream Video URL
+                            </label>
+                            <input
+                                type="url"
+                                value={formData.livestream_url}
+                                onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
+                                disabled={loading}
+                                className="input w-full text-xs font-mono"
+                                placeholder="e.g., https://youtube.com/watch?v=... or https://facebook.com/..."
+                            />
+                        </div>
                     </div>
 
                     {/* 360° Panorama Image Upload */}

@@ -61,19 +61,26 @@ export function ParishCard({ church, onPress }: ParishCardProps) {
 
         {/* Feature Badges Overlay */}
         <View className="absolute top-3 right-3 flex-row items-center gap-1.5">
+          {church.is_live ? (
+            <View className="flex-row items-center bg-red-600 px-2.5 py-1 rounded-full border border-red-400/50 shadow-sm shadow-red-600/50">
+              <View className="w-1.5 h-1.5 rounded-full bg-white mr-1.5 animate-ping" />
+              <Text className="text-[10px] font-black text-white font-sans uppercase tracking-wider">
+                LIVE MASS
+              </Text>
+            </View>
+          ) : hasLivestream ? (
+            <View className="flex-row items-center bg-rose-600/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-rose-400/30">
+              <Video size={12} color="#FFFFFF" />
+              <Text className="text-[10px] font-bold text-white ml-1 font-sans uppercase">
+                Livestream
+              </Text>
+            </View>
+          ) : null}
           {hasPanorama && (
             <View className="flex-row items-center bg-blue-600/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-blue-400/30">
               <Eye size={12} color="#FFFFFF" />
               <Text className="text-[10px] font-bold text-white ml-1 font-sans uppercase">
                 360° Tour
-              </Text>
-            </View>
-          )}
-          {hasLivestream && (
-            <View className="flex-row items-center bg-rose-600/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-rose-400/30">
-              <Video size={12} color="#FFFFFF" />
-              <Text className="text-[10px] font-bold text-white ml-1 font-sans uppercase">
-                Live
               </Text>
             </View>
           )}
