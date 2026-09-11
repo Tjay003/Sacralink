@@ -87,7 +87,7 @@ export const featureFlags: FeatureFlags = {
 
     // Church Quick Links (Church Admin Dashboard)
     churchQuickLinks: {
-        enabled: !isDemoMode, // Hidden in demo mode
+        enabled: true, // Always enabled
         label: 'Church Quick Links',
         description: 'Quick action links for church admin',
     },
@@ -99,9 +99,9 @@ export const featureFlags: FeatureFlags = {
         description: 'Recent appointment bookings for the church',
     },
 
-    // AI Parish Assistant Sync (Church Admin Dashboard) — hidden in demo mode
+    // AI Parish Assistant Sync (Church Admin Dashboard)
     churchAiSync: {
-        enabled: !isDemoMode,
+        enabled: true, // Always enabled
         label: 'AI Parish Assistant Sync',
         description: 'AI knowledge base sync widget on church admin dashboard',
     },
@@ -112,7 +112,7 @@ export const featureFlags: FeatureFlags = {
 
     // Churches feature (Phase 3 - completed)
     churches: {
-        enabled: true, // Always visible in demo mode
+        enabled: true, // Always visible
         label: 'Churches',
         description: 'Church directory and management',
     },
@@ -138,9 +138,9 @@ export const featureFlags: FeatureFlags = {
         description: 'Cashless donation verification system',
     },
 
-    // Calendar view (Phase 4.8 bonus - incomplete)
+    // Calendar view (Phase 4.8 bonus)
     calendar: {
-        enabled: !isDemoMode,
+        enabled: true, // Always enabled
         label: 'Calendar View',
         description: 'Visual calendar for appointments',
     },
@@ -158,14 +158,14 @@ export const featureFlags: FeatureFlags = {
 
     // Quick Links (Regular User Dashboard)
     quickLinks: {
-        enabled: !isDemoMode,
+        enabled: true, // Always enabled
         label: 'Quick Links',
         description: 'Quick action links on user dashboard',
     },
 
     // Church Selector (User Dashboard)
     userChurchSelector: {
-        enabled: true, // Always visible, but disabled in demo mode
+        enabled: true, // Always visible
         label: 'Church Selector',
         description: 'Dropdown to select church for viewing announcements',
     },
@@ -179,14 +179,14 @@ export const featureFlags: FeatureFlags = {
 
     // Social Authentication (Login/Register)
     socialAuth: {
-        enabled: true, // Always visible, even in demo mode
+        enabled: true, // Always visible
         label: 'Social Authentication',
         description: 'Google login button',
     },
 
     // AI Parishioner Chatbot (Church Detail Page)
     parishionerChatbot: {
-        enabled: !isDemoMode,
+        enabled: true, // Always enabled
         label: 'AI Parishioner Assistant',
         description: 'AI chatbot on church pages that answers parishioner questions using church data',
     },
@@ -200,15 +200,13 @@ export const isFeatureEnabled = (feature: keyof FeatureFlags): boolean => {
 // Dashboard Configuration - Controls mock data and UI elements
 export const dashboardConfig = {
     // Toggle between real database data and mock data for demos.
-    // NOTE: This only affects the Super Admin / Admin dashboards.
-    // The User Dashboard always fetches real data from Supabase regardless of this flag.
-    useMockData: isDemoMode,  // true = use mock data (admin dashboards only), false = real data
+    // NOTE: Always uses real Supabase data so live churches, stats, and appointments appear.
+    useMockData: false,  // Always real data
 
     // Show/hide quick actions section on user dashboard
-    showQuickActions: !isDemoMode,   // true when demo mode OFF, false when demo mode ON
+    showQuickActions: true,   // Always show quick actions
 
-    // Mock data values (only used by admin dashboards when useMockData = true)
-    // Customize these values for your demo presentations
+    // Mock data values (only used as fallback when useMockData = true)
     mockData: {
         totalUsers: 150,
         totalChurches: 12,
@@ -218,8 +216,4 @@ export const dashboardConfig = {
 };
 
 // Log current mode for debugging
-if (isDemoMode) {
-    console.log('🎭 Demo Mode: ON - Incomplete features hidden');
-} else {
-    console.log('🔧 Dev Mode: ON - All features visible');
-}
+console.log('✨ All features enabled (Demo mode overrides inactive - full platform exposed)');

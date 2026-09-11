@@ -18,19 +18,16 @@ This project supports a **Demo Mode** feature flag system that allows you to hid
 
 All flags are configured in [`web/src/config/featureFlags.ts`](file:///C:/Users/Tyrone%20James%20Bacolod/OneDrive/Desktop/All%20Apps/Bacolod%20FIles/PROJECTS/DARWIN/Sacralink/web/src/config/featureFlags.ts).
 
-### 🚫 Hidden / Disabled in Demo Mode (`!isDemoMode`)
-- ❌ **AI Parishioner Assistant** (`parishionerChatbot`) - Floating AI chatbot on church detail pages
-- ❌ **AI Knowledge Base Sync** (`churchAiSync`) - Admin dashboard AI sync button & widget
-- ❌ **Calendar View** (`calendar`) - Visual appointments calendar widget
-- ❌ **Church Quick Links** (`churchQuickLinks`) - Church admin quick actions
-- ❌ **User Quick Links** (`quickLinks`) - Parishioner dashboard quick action buttons
-
-### 🟡 Visible with Demo Mode Restrictions
-- 🟡 **System Announcements** (`systemAnnouncements`) - Always visible; action buttons disabled in demo mode
-- 🟡 **Church Announcements** (`churchAnnouncements`) - Always visible; action buttons disabled in demo mode
-- 🟡 **User Church Selector** (`userChurchSelector`) - Always visible; action buttons disabled in demo mode
-
-### ✅ Always Visible Features (`enabled: true`)
+### ✅ Fully Exposed & Active Across All Environments (`enabled: true`)
+- ✅ **AI Parishioner Assistant** (`parishionerChatbot`) - Floating AI chatbot on church detail pages
+- ✅ **AI Knowledge Base Sync** (`churchAiSync`) - Admin dashboard AI sync button & widget
+- ✅ **Calendar View** (`calendar`) - Visual appointments calendar widget
+- ✅ **Church Quick Links** (`churchQuickLinks`) - Church admin quick actions
+- ✅ **User Quick Links** (`quickLinks`) - Parishioner dashboard quick action buttons
+- ✅ **System Announcements** (`systemAnnouncements`) - Full creation, editing, and deletion enabled
+- ✅ **Church Announcements** (`churchAnnouncements`) - Full creation, editing, and deletion enabled
+- ✅ **User Church Selector** (`userChurchSelector`) - Interactive parish selector
+- ✅ **Live Database Data** - Real Supabase stats, appointments, and counts (`useMockData: false`)
 - ✅ **Dashboard** - Role-based dashboard (Super Admin, Church Admin, Parishioner)
 - ✅ **Churches** (`churches`) - Full CRUD operations & 360° virtual tour
 - ✅ **Appointments** (`appointments`) - Book and manage sacrament appointments
