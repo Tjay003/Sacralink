@@ -261,20 +261,20 @@ export default function SpiritualReactionsBar({
                 showCloseButton={false}
             >
                 <div className="space-y-4">
-                    <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-center">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-center shrink-0">
                                 <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
                             </div>
-                            <div>
-                                <h3 className="font-bold text-base text-foreground">Light a Sanctuary Candle</h3>
-                                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">{church.name}</p>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-base text-foreground break-words">Light a Sanctuary Candle</h3>
+                                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium truncate">{church.name}</p>
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={() => setShowIntentionModal(false)}
-                            className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors cursor-pointer shrink-0"
                         >
                             <X className="w-5 h-5" />
                         </button>

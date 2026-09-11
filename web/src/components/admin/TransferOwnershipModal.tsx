@@ -94,9 +94,9 @@ export default function TransferOwnershipModal({
             isOpen={isOpen}
             onClose={loading ? () => {} : onClose}
             title={
-                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                    <ShieldAlert className="w-6 h-6 flex-shrink-0" />
-                    <span>Transfer Platform Ownership</span>
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 min-w-0 flex-1">
+                    <ShieldAlert className="w-6 h-6 shrink-0" />
+                    <span className="text-base sm:text-lg font-bold break-words min-w-0">Transfer Platform Ownership</span>
                 </div>
             }
             size="lg"

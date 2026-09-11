@@ -71,11 +71,11 @@ export default function DocumentViewerModal({ appointmentId, isOpen, onClose }: 
             isOpen={isOpen}
             onClose={onClose}
             title={
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                         <FileText className="w-5 h-5 text-primary" />
                     </div>
-                    <h2 className="text-xl font-bold text-foreground">Submitted Documents</h2>
+                    <h2 className="text-base sm:text-xl font-bold text-foreground break-words min-w-0">Submitted Documents</h2>
                 </div>
             }
             size="3xl"

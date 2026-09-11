@@ -222,7 +222,7 @@ export default function LivestreamPlayer({
     return (
         <div className={`flex flex-col transition-all duration-300 ${effectiveTheater ? 'w-full' : ''} ${className}`}>
             {/* Main Video Frame */}
-            <div className="relative w-full aspect-video rounded-3xl overflow-hidden bg-black border border-border shadow-md group select-none">
+            <div className={`relative w-full flex flex-col ${isLive && parsedStream ? 'aspect-video bg-black' : 'bg-secondary-50/50 dark:bg-card min-h-[420px]'} rounded-3xl overflow-hidden border border-border shadow-md group select-none`}>
                 {isLive && parsedStream ? (
                     <>
                         {/* Live Video Iframe */}
@@ -298,7 +298,7 @@ export default function LivestreamPlayer({
                     </>
                 ) : (
                     /* Offline / Standby Ecclesiastical Screen */
-                    <div className="relative w-full h-full flex flex-col justify-between p-6 sm:p-8 text-foreground overflow-hidden bg-secondary-50/50 dark:bg-card">
+                    <div className="flex-1 w-full flex flex-col justify-between p-4 sm:p-6 md:p-8 text-foreground bg-secondary-50/50 dark:bg-card relative">
                         {/* Background with Ambient Image & Subtle Light/Dark Tint */}
                         <div className="absolute inset-0 z-0">
                             <img
@@ -314,15 +314,15 @@ export default function LivestreamPlayer({
                         </div>
 
                         {/* Top Header inside Standby Screen */}
-                        <div className="relative z-10 flex items-center justify-between">
+                        <div className="relative z-10 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 dark:bg-secondary-900/90 border border-border text-xs text-muted font-medium shadow-xs backdrop-blur-md">
+                                <span className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/95 dark:bg-secondary-900/90 border border-border text-xs text-muted font-medium shadow-xs backdrop-blur-md">
                                     <Radio className="w-3.5 h-3.5 text-muted" />
                                     <span>Broadcast Offline</span>
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 <button
                                     onClick={() => {
                                         if (onToggleSidebar) {
@@ -340,7 +340,7 @@ export default function LivestreamPlayer({
 
                                 <button
                                     onClick={handleShare}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-white dark:bg-secondary-900/90 dark:hover:bg-secondary-800 text-xs text-foreground font-medium transition-all duration-200 border border-border shadow-xs backdrop-blur-md cursor-pointer hover:-translate-y-0.5 active:scale-95"
+                                    className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-white dark:bg-secondary-900/90 dark:hover:bg-secondary-800 text-xs text-foreground font-medium transition-all duration-200 border border-border shadow-xs backdrop-blur-md cursor-pointer hover:-translate-y-0.5 active:scale-95"
                                 >
                                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-muted" />}
                                     <span>{copied ? 'Link Copied!' : 'Share'}</span>
@@ -355,31 +355,31 @@ export default function LivestreamPlayer({
                                 <span>Sacralink Virtual Sanctuary</span>
                             </div>
 
-                            <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-snug mb-2">
+                            <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground tracking-tight leading-snug mb-2 break-words">
                                 {church.name}
                             </h2>
 
-                            <p className="text-xs sm:text-sm text-muted line-clamp-2 leading-relaxed mb-5">
+                            <p className="text-xs sm:text-sm text-muted line-clamp-2 leading-relaxed mb-4 sm:mb-5">
                                 {church.description || 'Welcome to the digital sanctuary. Join our parish community in prayer, follow along with daily liturgical readings, or light a blessed candle.'}
                             </p>
 
                             {/* Next Mass Timetable Card */}
                             {nextMass ? (
-                                <div className="bg-white/95 dark:bg-card/95 border border-border rounded-2xl p-4 sm:p-5 shadow-sm backdrop-blur-md max-w-lg">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center shrink-0">
-                                                <Calendar className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                                <div className="bg-white/95 dark:bg-card/95 border border-border rounded-2xl p-3.5 sm:p-5 shadow-sm backdrop-blur-md max-w-lg">
+                                    <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                                        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 flex items-center justify-center shrink-0">
+                                                <Calendar className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-500" />
                                             </div>
-                                            <div>
-                                                <p className="text-[11px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-500">
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] sm:text-[11px] uppercase tracking-wider font-bold text-amber-600 dark:text-amber-500 truncate">
                                                     Next Scheduled Holy Mass
                                                 </p>
-                                                <p className="text-base sm:text-lg font-bold text-foreground">
+                                                <p className="text-sm sm:text-base md:text-lg font-bold text-foreground truncate">
                                                     {nextMass.dayLabel} at {formatTime12(nextMass.schedule.time)}
                                                 </p>
                                                 {nextMass.schedule.language && (
-                                                    <p className="text-xs text-muted">
+                                                    <p className="text-xs text-muted truncate">
                                                         Language: <span className="text-foreground font-medium">{nextMass.schedule.language}</span>
                                                     </p>
                                                 )}
@@ -387,7 +387,7 @@ export default function LivestreamPlayer({
                                         </div>
 
                                         <div className="text-right shrink-0">
-                                            <span className="inline-block px-2.5 py-1 rounded-lg bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 text-[11px] font-semibold border border-border">
+                                            <span className="inline-block px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 text-[10px] sm:text-[11px] font-semibold border border-border whitespace-nowrap">
                                                 {nextMass.dayDiff === 0
                                                     ? `In ${Math.floor(nextMass.minutesUntil / 60)}h ${nextMass.minutesUntil % 60}m`
                                                     : nextMass.dayDiff === 1
@@ -398,7 +398,7 @@ export default function LivestreamPlayer({
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-white/95 dark:bg-card/95 border border-border rounded-2xl p-4 text-xs text-muted max-w-lg shadow-xs">
+                                <div className="bg-white/95 dark:bg-card/95 border border-border rounded-2xl p-3.5 sm:p-4 text-xs text-muted max-w-lg shadow-xs">
                                     <Clock className="w-4 h-4 text-muted inline mr-1.5" />
                                     Regular Mass schedule is updated weekly by parish administrators.
                                 </div>
@@ -406,11 +406,11 @@ export default function LivestreamPlayer({
                         </div>
 
                         {/* Bottom Actions Row */}
-                        <div className="relative z-10 flex flex-wrap items-center gap-3 pt-2">
+                        <div className="relative z-10 flex flex-wrap items-center gap-2 sm:gap-3 pt-2">
                             {onLightCandle && (
                                 <button
                                     onClick={onLightCandle}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all duration-200 shadow-xs hover:shadow-md hover:shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all duration-200 shadow-xs hover:shadow-md hover:shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
                                 >
                                     <Flame className="w-4 h-4 fill-white text-white" />
                                     <span>Light a Virtual Candle</span>
@@ -420,7 +420,7 @@ export default function LivestreamPlayer({
                             {onOpenLiturgyTab && (
                                 <button
                                     onClick={onOpenLiturgyTab}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
                                 >
                                     <span>📖 Read Today's Gospel</span>
                                 </button>
@@ -429,7 +429,7 @@ export default function LivestreamPlayer({
                             {onOpenIntentionsTab && (
                                 <button
                                     onClick={onOpenIntentionsTab}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
                                 >
                                     <span>📜 Mass Intentions</span>
                                 </button>
@@ -438,7 +438,7 @@ export default function LivestreamPlayer({
                             {onOpenDonationTab && (church.gcash_number || church.maya_number || church.donation_qr_url) && (
                                 <button
                                     onClick={onOpenDonationTab}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs border border-primary/20 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer hover:shadow-xs"
+                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs border border-primary/20 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer hover:shadow-xs shrink-0"
                                 >
                                     <span>🪙 Digital Offertory</span>
                                 </button>

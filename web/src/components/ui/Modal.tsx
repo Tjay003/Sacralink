@@ -91,15 +91,15 @@ export default function Modal({
                 {header ? (
                     header
                 ) : (title || showCloseButton) ? (
-                    <div className={`flex items-start justify-between p-6 border-b border-border flex-shrink-0 ${headerClassName}`}>
-                        <div className="min-w-0 flex-1 pr-4">
+                    <div className={`flex items-start justify-between p-4 sm:p-6 border-b border-border flex-shrink-0 ${headerClassName}`}>
+                        <div className="min-w-0 flex-1 pr-3 sm:pr-4">
                             {typeof title === 'string' ? (
-                                <h2 className="text-xl font-bold text-foreground truncate">{title}</h2>
+                                <h2 className="text-lg sm:text-xl font-bold text-foreground break-words">{title}</h2>
                             ) : (
                                 title
                             )}
                             {description && (
-                                <p className="text-sm text-muted mt-1">{description}</p>
+                                <p className="text-xs sm:text-sm text-muted mt-1 break-words">{description}</p>
                             )}
                         </div>
                         {showCloseButton && (
@@ -116,7 +116,7 @@ export default function Modal({
                 ) : null}
 
                 {/* Body Content */}
-                <div className={`overflow-y-auto p-6 flex-1 scrollbar-thin ${bodyClassName}`}>
+                <div className={`overflow-y-auto p-4 sm:p-6 flex-1 scrollbar-thin ${bodyClassName}`}>
                     {children}
                 </div>
 

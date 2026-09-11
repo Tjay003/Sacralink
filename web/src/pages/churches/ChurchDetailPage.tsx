@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert, X } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,7 @@ import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import { deleteChurchAnnouncement, type ChurchAnnouncement } from '../../lib/supabase/announcements';
 import { Megaphone } from 'lucide-react';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import Modal from '../../components/ui/Modal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
@@ -40,7 +41,7 @@ export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { profile } = useAuth(); // Added call to useAuth
-    const { church, loading, error, refetch } = useChurch(id || '');
+    const { church, setChurch, loading, error, refetch } = useChurch(id || '');
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<MassSchedule | null>(null);
@@ -56,6 +57,11 @@ export default function ChurchDetailPage() {
     const [supporters, setSupporters] = useState<{ id: string; full_name: string | null }[]>([]);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
+    const [showRevokeModal, setShowRevokeModal] = useState(false);
+    const [revokeReason, setRevokeReason] = useState('');
+    const [revoking, setRevoking] = useState(false);
+    const [verifying, setVerifying] = useState(false);
+    const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [searchParams] = useSearchParams();
     const deepLinkAnnouncementId = searchParams.get('announcement');
 
@@ -126,6 +132,82 @@ export default function ChurchDetailPage() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     const isUnverified = Boolean(church && (church.status === 'unverified' || (Boolean(church.status) && church.status !== 'verified_active' && church.status !== 'active')));
+
+    const handleRevokeVerification = async () => {
+        if (!id || !church) return;
+        setRevoking(true);
+        try {
+            const { error: updateError } = await supabase
+                .from('churches')
+                .update({ status: 'unverified' })
+                .eq('id', id);
+
+            if (updateError) throw updateError;
+
+            if (profile?.id) {
+                await supabase.from('activity_logs').insert({
+                    user_id: profile.id,
+                    action: 'revoke_parish_verification',
+                    entity_type: 'churches',
+                    entity_id: id,
+                    metadata: { reason: revokeReason.trim() || 'No reason specified' },
+                });
+            }
+
+            setChurch(prev => (prev ? { ...prev, status: 'unverified' } : prev));
+            setShowRevokeModal(false);
+            setRevokeReason('');
+            setActionFeedback({
+                type: 'success',
+                message: `Cashless donations suspended and parish marked as Unverified for ${church.name}.`,
+            });
+        } catch (err: unknown) {
+            console.error('❌ Error suspending parish verification:', err);
+            setActionFeedback({
+                type: 'error',
+                message: 'Failed to suspend cashless donations. Please try again.',
+            });
+        } finally {
+            setRevoking(false);
+        }
+    };
+
+    const handleVerifyChurch = async () => {
+        if (!id || !church) return;
+        setVerifying(true);
+        try {
+            const { error: updateError } = await supabase
+                .from('churches')
+                .update({ status: 'verified_active' })
+                .eq('id', id);
+
+            if (updateError) throw updateError;
+
+            if (profile?.id) {
+                await supabase.from('activity_logs').insert({
+                    user_id: profile.id,
+                    action: 'verify_parish',
+                    entity_type: 'churches',
+                    entity_id: id,
+                    metadata: { previous_status: church.status },
+                });
+            }
+
+            setChurch(prev => (prev ? { ...prev, status: 'verified_active' } : prev));
+            setActionFeedback({
+                type: 'success',
+                message: `Parish successfully verified! Cashless donations and sacramental features are now unlocked for ${church.name}.`,
+            });
+        } catch (err: unknown) {
+            console.error('❌ Error verifying parish:', err);
+            setActionFeedback({
+                type: 'error',
+                message: 'Failed to verify parish. Please try again.',
+            });
+        } finally {
+            setVerifying(false);
+        }
+    };
 
     // Fetch gallery images
     useEffect(() => {
@@ -255,7 +337,7 @@ export default function ChurchDetailPage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto no-scrollbar py-0.5 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto py-0.5 shrink-0">
                         {/* Book Appointment */}
                         {isFeatureEnabled('appointments') && (
                             <button
@@ -307,6 +389,28 @@ export default function ChurchDetailPage() {
                             </button>
                         )}
 
+                        {/* Super Admin Parish Verification Security Controls */}
+                        {isSuperAdmin && (
+                            (church.status === 'verified_active' || church.status === 'active') ? (
+                                <button
+                                    onClick={() => setShowRevokeModal(true)}
+                                    className="flex flex-col items-center justify-center gap-1 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all duration-200 bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-md cursor-pointer active:scale-95 shrink-0"
+                                >
+                                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                                    <span>Suspend Donations</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleVerifyChurch}
+                                    disabled={verifying}
+                                    className="flex flex-col items-center justify-center gap-1 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-md cursor-pointer active:scale-95 shrink-0 disabled:opacity-60"
+                                >
+                                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                                    <span>{verifying ? 'Verifying...' : 'Verify Parish'}</span>
+                                </button>
+                            )
+                        )}
+
                         {/* Admin Action Buttons */}
                         {canManage() && (
                             <button
@@ -355,6 +459,33 @@ export default function ChurchDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Action Feedback Banner */}
+            {actionFeedback && (
+                <div
+                    className={`p-4 rounded-xl border flex items-center justify-between gap-3 shadow-xs ${
+                        actionFeedback.type === 'success'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+                            : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-900 dark:text-red-100'
+                    }`}
+                >
+                    <div className="flex items-center gap-3">
+                        {actionFeedback.type === 'success' ? (
+                            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                        ) : (
+                            <ShieldAlert className="w-5 h-5 text-red-600 shrink-0" />
+                        )}
+                        <p className="text-sm font-medium">{actionFeedback.message}</p>
+                    </div>
+                    <button
+                        onClick={() => setActionFeedback(null)}
+                        className="p-1 rounded-lg hover:bg-black/5 transition-colors cursor-pointer text-current opacity-70 hover:opacity-100"
+                        aria-label="Dismiss banner"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
 
             {/* Church Information */}
             <div className="card p-6">
@@ -834,6 +965,75 @@ export default function ChurchDetailPage() {
                         getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
                     }}
                 />
+            )}
+
+            {/* Modal for Revoking Parish Verification */}
+            {church && (
+                <Modal
+                    isOpen={showRevokeModal}
+                    onClose={() => {
+                        if (!revoking) {
+                            setShowRevokeModal(false);
+                            setRevokeReason('');
+                        }
+                    }}
+                    title={
+                        <div className="flex items-center gap-2 text-amber-600">
+                            <ShieldAlert className="w-5 h-5 shrink-0" />
+                            <span className="text-base sm:text-lg font-bold text-foreground">
+                                Suspend Cashless Donations for {church.name}?
+                            </span>
+                        </div>
+                    }
+                    size="md"
+                    footer={
+                        <div className="flex items-center justify-end gap-3 w-full">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowRevokeModal(false);
+                                    setRevokeReason('');
+                                }}
+                                disabled={revoking}
+                                className="px-4 py-2.5 rounded-xl border border-border bg-white dark:bg-card hover:bg-secondary-50 text-foreground text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRevokeVerification}
+                                disabled={revoking}
+                                className="px-4 py-2.5 rounded-xl font-semibold text-sm bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer shadow-xs hover:shadow-md disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <ShieldAlert className="w-4 h-4 shrink-0" />
+                                <span>{revoking ? 'Suspending...' : 'Suspend Cashless Donations'}</span>
+                            </button>
+                        </div>
+                    }
+                >
+                    <div className="space-y-4">
+                        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 text-xs sm:text-sm leading-relaxed">
+                            This will immediately mark the church as Unverified and lock GCash and Maya cashless donation gates across web and mobile. Use this if the church admin account is compromised, under diocesan inquiry, or undergoing chancery credential audits.
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-foreground mb-1.5">
+                                Reason for Suspension <span className="text-muted font-normal">(Optional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={revokeReason}
+                                onChange={(e) => setRevokeReason(e.target.value)}
+                                placeholder="e.g. Security inquiry, Credential audit"
+                                disabled={revoking}
+                                className="input w-full text-sm"
+                            />
+                            <p className="text-[11px] text-muted mt-1">
+                                This reason will be recorded in audit activity logs for chancery compliance.
+                            </p>
+                        </div>
+                    </div>
+                </Modal>
             )}
 
             {/* AI Parish Assistant Chatbot - floating widget */}

@@ -128,6 +128,7 @@ export function useChurch(id: string | undefined) {
 
     return {
         church,
+        setChurch,
         loading,
         error,
         refetch: fetchChurch,

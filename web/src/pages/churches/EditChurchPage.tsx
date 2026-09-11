@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
-import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode, Star } from 'lucide-react';
+import { Building2, ArrowLeft, ImageIcon, X, Heart, QrCode, Star, ShieldCheck, ShieldAlert, EyeOff } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
+
+type ChurchStatus = 'verified_active' | 'unverified' | 'inactive' | 'active';
 
 /**
  * EditChurchPage - Form to edit an existing church
@@ -34,7 +36,7 @@ export default function EditChurchPage() {
         contact_number: '',
         email: '',
         description: '',
-        status: 'active' as 'active' | 'inactive',
+        status: 'active' as ChurchStatus,
         latitude: null as number | null,
         longitude: null as number | null,
         panorama_url: '',
@@ -80,7 +82,7 @@ export default function EditChurchPage() {
                 contact_number: church.contact_number || '',
                 email: church.email || '',
                 description: church.description || '',
-                status: (church.status || 'active') as 'active' | 'inactive',
+                status: ((church.status as ChurchStatus) || 'active'),
                 latitude: church.latitude ?? null,
                 longitude: church.longitude ?? null,
                 panorama_url: church.panorama_url || '',
@@ -433,24 +435,147 @@ export default function EditChurchPage() {
                         />
                     </div>
 
-                    {/* Church Status - Only for Super Admin and Admin */}
-                    {(profile?.role === 'super_admin' || profile?.role === 'admin') && (
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Church Status
-                            </label>
-                            <select
-                                value={formData.status}
-                                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-                                disabled={loading}
-                                className="input w-full"
-                            >
-                                <option value="active">✅ Active - Visible to all users</option>
-                                <option value="inactive">🔒 Inactive - Hidden from regular users</option>
-                            </select>
-                            <p className="text-xs text-muted mt-1">
-                                Inactive churches are hidden from public view and cannot accept appointments.
-                            </p>
+                    {/* Parish Verification & Security Status */}
+                    {profile?.role === 'super_admin' ? (
+                        <div className="p-5 rounded-2xl border border-border bg-white dark:bg-card space-y-4 shadow-xs">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="w-5 h-5 text-primary" />
+                                    <h3 className="font-semibold text-base text-foreground">
+                                        Parish Verification & Security Status (Super Admin Only)
+                                    </h3>
+                                </div>
+                                <p className="text-xs text-muted mt-1">
+                                    Govern diocese anti-fraud gates, appointment authorizations, and parish directory visibility.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3">
+                                {/* Verified Active */}
+                                <label
+                                    className={`relative flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                                        (formData.status === 'verified_active' || formData.status === 'active')
+                                            ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs'
+                                            : 'border-border hover:border-emerald-200 hover:bg-secondary-50/50 bg-white dark:bg-card'
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="parish_status"
+                                        value="verified_active"
+                                        checked={formData.status === 'verified_active' || formData.status === 'active'}
+                                        onChange={() => setFormData({ ...formData, status: 'verified_active' })}
+                                        disabled={loading}
+                                        className="mt-1 text-emerald-600 focus:ring-emerald-500 h-4 w-4 shrink-0"
+                                    />
+                                    <div className="ml-3.5 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                            <span className="text-sm font-bold text-foreground">Verified Parish</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                                                Active
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted mt-1 leading-relaxed">
+                                            Cashless GCash/Maya donations and sacrament appointments active
+                                        </p>
+                                    </div>
+                                </label>
+
+                                {/* Unverified / Under Audit */}
+                                <label
+                                    className={`relative flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                                        formData.status === 'unverified'
+                                            ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs'
+                                            : 'border-border hover:border-amber-200 hover:bg-secondary-50/50 bg-white dark:bg-card'
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="parish_status"
+                                        value="unverified"
+                                        checked={formData.status === 'unverified'}
+                                        onChange={() => setFormData({ ...formData, status: 'unverified' })}
+                                        disabled={loading}
+                                        className="mt-1 text-amber-600 focus:ring-amber-500 h-4 w-4 shrink-0"
+                                    />
+                                    <div className="ml-3.5 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldAlert className="w-4 h-4 text-amber-600" />
+                                            <span className="text-sm font-bold text-foreground">Unverified / Under Audit</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                                                Anti-Fraud Locked
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted mt-1 leading-relaxed">
+                                            Cashless donations frozen by Anti-Fraud Gate
+                                        </p>
+                                    </div>
+                                </label>
+
+                                {/* Inactive */}
+                                <label
+                                    className={`relative flex items-start p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                                        formData.status === 'inactive'
+                                            ? 'border-secondary-500 bg-secondary-100/50 dark:bg-secondary-900/30 shadow-xs'
+                                            : 'border-border hover:border-secondary-300 hover:bg-secondary-50/50 bg-white dark:bg-card'
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="parish_status"
+                                        value="inactive"
+                                        checked={formData.status === 'inactive'}
+                                        onChange={() => setFormData({ ...formData, status: 'inactive' })}
+                                        disabled={loading}
+                                        className="mt-1 text-secondary-600 focus:ring-secondary-500 h-4 w-4 shrink-0"
+                                    />
+                                    <div className="ml-3.5 flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <EyeOff className="w-4 h-4 text-secondary-600" />
+                                            <span className="text-sm font-bold text-foreground">Inactive</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-200 text-secondary-800 dark:bg-secondary-800 dark:text-secondary-300">
+                                                Archived
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted mt-1 leading-relaxed">
+                                            Archived from public directory
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Read-only verification status badge for non-super admins */
+                        <div className="p-4 rounded-2xl border border-border bg-secondary-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <label className="block text-sm font-semibold text-foreground">
+                                    Parish Verification Status
+                                </label>
+                                <p className="text-xs text-muted mt-0.5">
+                                    Verification status is governed by Diocese and Chancery Super Administrators.
+                                </p>
+                            </div>
+                            <div className="shrink-0">
+                                {(formData.status === 'verified_active' || formData.status === 'active') && (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                        Verified Parish
+                                    </span>
+                                )}
+                                {formData.status === 'unverified' && (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                                        Unverified / Under Audit
+                                    </span>
+                                )}
+                                {formData.status === 'inactive' && (
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary-200 dark:bg-secondary-800 text-secondary-800 dark:text-secondary-200 border border-secondary-300">
+                                        <EyeOff className="w-3.5 h-3.5 text-secondary-600" />
+                                        Inactive (Archived)
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     )}
 

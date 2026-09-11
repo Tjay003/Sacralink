@@ -216,13 +216,15 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
             isOpen={true}
             onClose={onClose}
             title={
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="p-2 bg-red-100 rounded-lg shrink-0">
                         <Heart className="w-5 h-5 text-red-500" />
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-foreground truncate">Donate to {church.name}</h2>
-                        <p className="text-xs text-muted">Your generosity helps the community 🙏</p>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-base sm:text-lg font-bold text-foreground line-clamp-2 sm:line-clamp-1 leading-snug break-words">
+                            Donate to {church.name}
+                        </h2>
+                        <p className="text-xs text-muted truncate">Your generosity helps the community 🙏</p>
                     </div>
                 </div>
             }

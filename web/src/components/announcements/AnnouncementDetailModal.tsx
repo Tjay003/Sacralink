@@ -1,4 +1,4 @@
-import { Pin, Calendar, Building2, Clock, Megaphone, Church, CalendarDays, AlertTriangle, Bell } from 'lucide-react';
+import { Pin, Calendar, Building2, Clock, Megaphone, Church, CalendarDays, AlertTriangle, Bell, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type {
     ChurchAnnouncement,
@@ -57,10 +57,10 @@ export default function AnnouncementDetailModal({ announcement, type = 'all', on
             onClose={onClose}
             size="2xl"
             header={
-                <div className={`px-6 pt-5 pb-4 border-b border-border flex items-start justify-between gap-4 ${isChurch ? '' : 'bg-blue-50/50'}`}>
-                    <div className="flex-1 min-w-0">
+                <div className={`px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border flex items-start justify-between gap-3 sm:gap-4 ${isChurch ? '' : 'bg-blue-50/50'}`}>
+                    <div className="flex-1 min-w-0 pr-2">
                         {/* Badges row */}
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 mb-2.5 sm:mb-3">
                             {isChurch && (
                                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${catMeta.class}`}>
                                     <CatIcon className="w-3 h-3" />
@@ -83,22 +83,31 @@ export default function AnnouncementDetailModal({ announcement, type = 'all', on
                         </div>
 
                         {/* Title */}
-                        <h2 className="text-xl font-bold leading-snug text-foreground">{announcement.title}</h2>
+                        <h2 className="text-lg sm:text-xl font-bold leading-snug text-foreground break-words">{announcement.title}</h2>
 
                         {/* Meta */}
-                        <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted">
-                            <span className="flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" />
+                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 mt-2 text-xs sm:text-sm text-muted">
+                            <span className="flex items-center gap-1 shrink-0">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
                                 {formatDate(announcement.created_at || new Date().toISOString())}
                             </span>
                             {isChurch && churchAnn.church?.name && (
-                                <span className="flex items-center gap-1 font-medium text-foreground/80">
-                                    <Building2 className="w-3.5 h-3.5 text-primary" />
-                                    {churchAnn.church.name}
+                                <span className="flex items-center gap-1 font-medium text-foreground/80 break-words min-w-0">
+                                    <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <span className="break-words">{churchAnn.church.name}</span>
                                 </span>
                             )}
                         </div>
                     </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 transition-colors shrink-0 -mr-1 mt-0.5"
+                        aria-label="Close modal"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
             }
             footer={

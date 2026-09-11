@@ -89,11 +89,11 @@ export default function ChangePasswordModal({ onClose }: ChangePasswordModalProp
             isOpen={true}
             onClose={onClose}
             title={
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                         <Lock className="w-5 h-5 text-primary" />
                     </div>
-                    <h2 className="text-xl font-bold text-foreground">Change Password</h2>
+                    <h2 className="text-base sm:text-xl font-bold text-foreground break-words min-w-0">Change Password</h2>
                 </div>
             }
             size="md"

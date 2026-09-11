@@ -61,13 +61,13 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
             isOpen={true}
             onClose={onClose}
             title={
-                <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                         <Heart className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-foreground">Donation Details</h2>
-                        <p className="text-xs text-muted">Reference: {donation.reference_number || 'N/A'}</p>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-base sm:text-xl font-bold text-foreground break-words">Donation Details</h2>
+                        <p className="text-xs text-muted truncate">Reference: {donation.reference_number || 'N/A'}</p>
                     </div>
                 </div>
             }

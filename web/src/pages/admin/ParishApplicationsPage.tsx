@@ -374,10 +374,14 @@ export default function ParishApplicationsPage() {
               <div className="flex items-center gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
                 <button
                   onClick={() => openReviewModal(app)}
-                  className="btn-primary text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 w-full lg:w-auto justify-center"
+                  className={
+                    app.status === 'verified_active' || app.status === 'rejected'
+                      ? 'btn-secondary text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 w-full lg:w-auto justify-center'
+                      : 'btn-primary text-xs font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 w-full lg:w-auto justify-center'
+                  }
                 >
                   <Eye className="w-4 h-4" />
-                  Review & Verify
+                  {app.status === 'verified_active' || app.status === 'rejected' ? 'Review' : 'Review & Verify'}
                 </button>
               </div>
             </div>
@@ -386,323 +390,429 @@ export default function ParishApplicationsPage() {
       )}
 
       {/* Review & Checklist Modal */}
-      {selectedApp && (
-        <Modal
-          isOpen={true}
-          onClose={closeReviewModal}
-          title={
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-100 dark:bg-primary-950/60 text-primary rounded-xl">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-foreground truncate">
-                  Verification Review: {selectedApp.parish_name}
-                </h2>
-                <p className="text-xs text-muted">Strict Anti-Fraud & Clergy Credentials Vetting</p>
-              </div>
-            </div>
-          }
-          size="lg"
-        >
-          <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
-            {/* Error in modal */}
-            {actionError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {actionError}
-              </div>
-            )}
+      {selectedApp && (() => {
+        const isVerified = selectedApp.status === 'verified_active';
+        const isRejected = selectedApp.status === 'rejected';
+        const isPastDecision = isVerified || isRejected;
 
-            {/* Parish & Applicant Details Card */}
-            <div className="p-4 bg-secondary-50 dark:bg-secondary-900/50 rounded-xl border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Parish & Applicant Information</h4>
-                {getStatusBadge(selectedApp.status)}
+        return (
+          <Modal
+            isOpen={true}
+            onClose={closeReviewModal}
+            title={
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+                <div
+                  className={`p-2 rounded-xl shrink-0 ${
+                    isVerified
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600'
+                      : isRejected
+                      ? 'bg-red-100 dark:bg-red-950/60 text-red-600'
+                      : 'bg-primary-100 dark:bg-primary-950/60 text-primary'
+                  }`}
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-lg font-bold text-foreground line-clamp-2 sm:line-clamp-1 leading-snug break-words">
+                    {isPastDecision ? `Application Record: ${selectedApp.parish_name}` : `Verification Review: ${selectedApp.parish_name}`}
+                  </h2>
+                  <p className="text-xs text-muted truncate">
+                    {isVerified
+                      ? 'Verified Active • Official Chancery Record'
+                      : isRejected
+                      ? 'Application Rejected • Audit Record'
+                      : 'Strict Anti-Fraud & Clergy Credentials Vetting'}
+                  </p>
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-muted block">Parish Address:</span>
-                  <span className="font-semibold text-foreground">{selectedApp.address}</span>
-                </div>
-                <div>
-                  <span className="text-muted block">Applicant Name:</span>
-                  <span className="font-semibold text-foreground">
-                    {selectedApp.applicant?.full_name || 'Unknown User'} ({selectedApp.applicant?.email || 'No email'})
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted block">Contact / Rectory Phone:</span>
-                  <span className="font-semibold text-foreground">{selectedApp.contact_number || 'Not provided'}</span>
-                </div>
-                <div>
-                  <span className="text-muted block">Parish Email:</span>
-                  <span className="font-semibold text-foreground">{selectedApp.email || 'Not provided'}</span>
-                </div>
-                {selectedApp.gcash_number && (
-                  <div>
-                    <span className="text-muted block">GCash Account Number:</span>
-                    <span className="font-semibold text-foreground font-mono">{selectedApp.gcash_number}</span>
+            }
+            size="lg"
+          >
+            <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+              {/* Past Decision Banner */}
+              {isVerified && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl flex items-start gap-3 text-emerald-900 dark:text-emerald-100">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1 text-xs space-y-1">
+                    <p className="font-bold text-sm text-emerald-800 dark:text-emerald-300">Verified Active Parish</p>
+                    <p className="text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                      This parish was audited and approved by the Chancery. The church is active in the public directory and cashless donations are enabled.
+                    </p>
+                    <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-emerald-800 dark:text-emerald-200">
+                      {selectedApp.reviewer && (
+                        <span><strong>Reviewed by:</strong> {selectedApp.reviewer.full_name || 'Diocesan Chancery'}</span>
+                      )}
+                      {selectedApp.reviewed_at && (
+                        <span><strong>Date:</strong> {new Date(selectedApp.reviewed_at).toLocaleDateString()}</span>
+                      )}
+                    </div>
                   </div>
-                )}
-                {selectedApp.maya_number && (
-                  <div>
-                    <span className="text-muted block">Maya Account Number:</span>
-                    <span className="font-semibold text-foreground font-mono">{selectedApp.maya_number}</span>
-                  </div>
-                )}
-              </div>
-
-              {selectedApp.description && (
-                <div className="text-xs pt-1 border-t border-border/60">
-                  <span className="text-muted block mb-0.5">Parish Description:</span>
-                  <p className="text-foreground leading-relaxed">{selectedApp.description}</p>
                 </div>
               )}
-            </div>
 
-            {/* Uploaded Verification Documents */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                Submitted Verification Documents
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Celebret Link */}
-                <a
-                  href={selectedApp.celebret_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-4 rounded-xl border border-border hover:border-primary hover:bg-secondary-50 dark:hover:bg-secondary-900/50 flex items-center justify-between group transition-all shadow-sm"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-lg shrink-0">
-                      <FileCheck className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
-                        CBCP Clergy ID / Celebret
+              {isRejected && (
+                <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl flex items-start gap-3 text-red-900 dark:text-red-100">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1 text-xs space-y-1">
+                    <p className="font-bold text-sm text-red-800 dark:text-red-300">Application Rejected</p>
+                    {selectedApp.rejection_reason && (
+                      <p className="text-red-700 dark:text-red-400 leading-relaxed">
+                        <strong>Rejection Reason:</strong> {selectedApp.rejection_reason}
                       </p>
-                      <p className="text-[11px] text-muted truncate">View Scanned Document</p>
+                    )}
+                    <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-red-800 dark:text-red-200">
+                      {selectedApp.reviewer && (
+                        <span><strong>Reviewed by:</strong> {selectedApp.reviewer.full_name || 'Diocesan Chancery'}</span>
+                      )}
+                      {selectedApp.reviewed_at && (
+                        <span><strong>Date:</strong> {new Date(selectedApp.reviewed_at).toLocaleDateString()}</span>
+                      )}
                     </div>
                   </div>
-                  <ExternalLink className="w-4 h-4 text-muted group-hover:text-primary shrink-0 ml-2" />
-                </a>
+                </div>
+              )}
 
-                {/* Chancery Decree Link */}
-                <a
-                  href={selectedApp.decree_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-4 rounded-xl border border-border hover:border-primary hover:bg-secondary-50 dark:hover:bg-secondary-900/50 flex items-center justify-between group transition-all shadow-sm"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2.5 bg-blue-100 dark:bg-blue-950/60 text-blue-600 rounded-lg shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
-                        Chancery Appointment Decree
-                      </p>
-                      <p className="text-[11px] text-muted truncate">View Scanned Document</p>
-                    </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-muted group-hover:text-primary shrink-0 ml-2" />
-                </a>
-              </div>
-            </div>
+              {/* Error in modal */}
+              {actionError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {actionError}
+                </div>
+              )}
 
-            {/* Anti-Fraud Verification Checklist */}
-            <div className="p-5 bg-primary-50/40 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" />
-                  Mandatory Anti-Fraud Checklist
-                </h4>
-                <span className="text-[11px] font-semibold text-primary">Super Admin Verification</span>
-              </div>
-
-              <div className="space-y-3">
-                {/* Item 1: Rectory Call */}
-                <label
-                  className="flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border cursor-pointer hover:border-primary/50 transition-colors shadow-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={modalChecklist.rectory_call}
-                    onChange={(e) =>
-                      setModalChecklist((prev) => ({ ...prev, rectory_call: e.target.checked }))
-                    }
-                    className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
-                    disabled={actionLoading}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground">
-                      Rectory Phone Call Confirmed with Chancery
-                    </p>
-                    <p className="text-[11px] text-muted mt-0.5">
-                      Chancery staff verified the applicant by speaking with the rectory office landline.
-                    </p>
-                  </div>
-                </label>
-
-                {/* Item 2: Celebret Verified */}
-                <label
-                  className="flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border cursor-pointer hover:border-primary/50 transition-colors shadow-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={modalChecklist.celebret_verified}
-                    onChange={(e) =>
-                      setModalChecklist((prev) => ({ ...prev, celebret_verified: e.target.checked }))
-                    }
-                    className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
-                    disabled={actionLoading}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground">
-                      CBCP Clergy ID / Celebret Verified with Diocese Roster
-                    </p>
-                    <p className="text-[11px] text-muted mt-0.5">
-                      Confirmed priest is in good standing and duly appointed to this jurisdiction.
-                    </p>
-                  </div>
-                </label>
-
-                {/* Item 3: Merchant Name */}
-                <label
-                  className="flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border cursor-pointer hover:border-primary/50 transition-colors shadow-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={modalChecklist.merchant_entity_verified}
-                    onChange={(e) =>
-                      setModalChecklist((prev) => ({ ...prev, merchant_entity_verified: e.target.checked }))
-                    }
-                    className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
-                    disabled={actionLoading}
-                  />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground">
-                      Merchant Name / GCash / Maya Matches Legal Parish Entity
-                    </p>
-                    <p className="text-[11px] text-muted mt-0.5">
-                      Ensures cashless donations flow into official church bank or merchant accounts.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Review Notes */}
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Chancery Internal Review Notes
-                </label>
-                <textarea
-                  value={modalChecklist.notes}
-                  onChange={(e) =>
-                    setModalChecklist((prev) => ({ ...prev, notes: e.target.value }))
-                  }
-                  placeholder="Record verification notes, diocese call log, or specific remarks..."
-                  rows={2}
-                  className="input w-full text-xs"
-                  disabled={actionLoading}
-                />
-              </div>
-            </div>
-
-            {/* Rejection Form Drawer */}
-            {showRejectForm ? (
-              <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl space-y-3">
+              {/* Parish & Applicant Details Card */}
+              <div className="p-4 bg-secondary-50 dark:bg-secondary-900/50 rounded-xl border border-border space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4" />
-                    Formal Rejection Reason
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => setShowRejectForm(false)}
-                    className="text-xs text-muted hover:text-foreground"
-                  >
-                    Cancel
-                  </button>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Parish & Applicant Information</h4>
+                  {getStatusBadge(selectedApp.status)}
                 </div>
-                <textarea
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="State the reason for rejection (e.g., Unclear Celebret scan, mismatched rectory phone, unauthorized applicant)..."
-                  rows={3}
-                  className="input w-full text-xs border-red-300"
-                  required
-                  disabled={actionLoading}
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={handleReject}
-                    className="btn-danger px-4 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5"
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? 'Rejecting...' : 'Confirm Formal Rejection'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
 
-            {/* Modal Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={handleSaveChecklist}
-                  className="btn-secondary text-xs px-3.5 py-2 rounded-xl w-full sm:w-auto"
-                  disabled={actionLoading}
-                >
-                  Save Progress
-                </button>
-                {!showRejectForm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowRejectForm(true)}
-                    className="text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 px-3 py-2 rounded-xl font-medium border border-transparent hover:border-red-200 w-full sm:w-auto"
-                    disabled={actionLoading}
-                  >
-                    Reject Application
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-muted block">Parish Address:</span>
+                    <span className="font-semibold text-foreground">{selectedApp.address}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted block">Applicant Name:</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedApp.applicant?.full_name || 'Unknown User'} ({selectedApp.applicant?.email || 'No email'})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted block">Contact / Rectory Phone:</span>
+                    <span className="font-semibold text-foreground">{selectedApp.contact_number || 'Not provided'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted block">Parish Email:</span>
+                    <span className="font-semibold text-foreground">{selectedApp.email || 'Not provided'}</span>
+                  </div>
+                  {selectedApp.gcash_number && (
+                    <div>
+                      <span className="text-muted block">GCash Account Number:</span>
+                      <span className="font-semibold text-foreground font-mono">{selectedApp.gcash_number}</span>
+                    </div>
+                  )}
+                  {selectedApp.maya_number && (
+                    <div>
+                      <span className="text-muted block">Maya Account Number:</span>
+                      <span className="font-semibold text-foreground font-mono">{selectedApp.maya_number}</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedApp.description && (
+                  <div className="text-xs pt-1 border-t border-border/60">
+                    <span className="text-muted block mb-0.5">Parish Description:</span>
+                    <p className="text-foreground leading-relaxed">{selectedApp.description}</p>
+                  </div>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={closeReviewModal}
-                  className="btn-secondary text-xs px-4 py-2 rounded-xl"
-                  disabled={actionLoading}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  className="btn-primary text-xs font-semibold px-5 py-2 rounded-xl shadow-md flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? (
-                    'Processing Approval...'
+              {/* Uploaded Verification Documents */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  Submitted Verification Documents
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Celebret Link */}
+                  <a
+                    href={selectedApp.celebret_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 rounded-xl border border-border hover:border-primary hover:bg-secondary-50 dark:hover:bg-secondary-900/50 flex items-center justify-between group transition-all shadow-sm"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 rounded-lg shrink-0">
+                        <FileCheck className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
+                          CBCP Clergy ID / Celebret
+                        </p>
+                        <p className="text-[11px] text-muted truncate">View Scanned Document</p>
+                      </div>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-muted group-hover:text-primary shrink-0 ml-2" />
+                  </a>
+
+                  {/* Chancery Decree Link */}
+                  <a
+                    href={selectedApp.decree_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 rounded-xl border border-border hover:border-primary hover:bg-secondary-50 dark:hover:bg-secondary-900/50 flex items-center justify-between group transition-all shadow-sm"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2.5 bg-blue-100 dark:bg-blue-950/60 text-blue-600 rounded-lg shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
+                          Chancery Appointment Decree
+                        </p>
+                        <p className="text-[11px] text-muted truncate">View Scanned Document</p>
+                      </div>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-muted group-hover:text-primary shrink-0 ml-2" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Anti-Fraud Verification Checklist */}
+              <div className="p-5 bg-primary-50/40 dark:bg-primary-950/20 border border-primary-200 dark:border-primary-800 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4" />
+                    {isPastDecision ? 'Completed Anti-Fraud Checklist' : 'Mandatory Anti-Fraud Checklist'}
+                  </h4>
+                  <span className="text-[11px] font-semibold text-primary">
+                    {isPastDecision ? 'Archived Audit Record' : 'Super Admin Verification'}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Item 1: Rectory Call */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border transition-colors shadow-sm ${
+                      isPastDecision ? 'cursor-default' : 'cursor-pointer hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modalChecklist.rectory_call}
+                      onChange={(e) =>
+                        !isPastDecision && setModalChecklist((prev) => ({ ...prev, rectory_call: e.target.checked }))
+                      }
+                      className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
+                      disabled={actionLoading || isPastDecision}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground">
+                        Rectory Phone Call Confirmed with Chancery
+                      </p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        Chancery staff verified the applicant by speaking with the rectory office landline.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Item 2: Celebret Verified */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border transition-colors shadow-sm ${
+                      isPastDecision ? 'cursor-default' : 'cursor-pointer hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modalChecklist.celebret_verified}
+                      onChange={(e) =>
+                        !isPastDecision && setModalChecklist((prev) => ({ ...prev, celebret_verified: e.target.checked }))
+                      }
+                      className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
+                      disabled={actionLoading || isPastDecision}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground">
+                        CBCP Clergy ID / Celebret Verified with Diocese Roster
+                      </p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        Confirmed priest is in good standing and duly appointed to this jurisdiction.
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Item 3: Merchant Name */}
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-secondary-900 border border-border transition-colors shadow-sm ${
+                      isPastDecision ? 'cursor-default' : 'cursor-pointer hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={modalChecklist.merchant_entity_verified}
+                      onChange={(e) =>
+                        !isPastDecision && setModalChecklist((prev) => ({ ...prev, merchant_entity_verified: e.target.checked }))
+                      }
+                      className="mt-0.5 w-4 h-4 rounded text-primary focus:ring-primary"
+                      disabled={actionLoading || isPastDecision}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground">
+                        Merchant Name / GCash / Maya Matches Legal Parish Entity
+                      </p>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        Ensures cashless donations flow into official church bank or merchant accounts.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Review Notes */}
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1">
+                    Chancery Internal Review Notes
+                  </label>
+                  {isPastDecision ? (
+                    <div className="p-3 bg-white dark:bg-secondary-900 border border-border rounded-xl text-xs text-foreground">
+                      {modalChecklist.notes || <span className="text-muted italic">No internal review notes recorded.</span>}
+                    </div>
                   ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Approve & Activate Parish
-                    </>
+                    <textarea
+                      value={modalChecklist.notes}
+                      onChange={(e) =>
+                        setModalChecklist((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="Record verification notes, diocese call log, or specific remarks..."
+                      rows={2}
+                      className="input w-full text-xs"
+                      disabled={actionLoading}
+                    />
                   )}
-                </button>
+                </div>
+              </div>
+
+              {/* Rejection Form Drawer */}
+              {showRejectForm && !isPastDecision ? (
+                <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      Formal Rejection Reason
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectForm(false)}
+                      className="text-xs text-muted hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="State the reason for rejection (e.g., Unclear Celebret scan, mismatched rectory phone, unauthorized applicant)..."
+                    rows={3}
+                    className="input w-full text-xs border-red-300"
+                    required
+                    disabled={actionLoading}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReject}
+                      className="btn-danger px-4 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5"
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? 'Rejecting...' : 'Confirm Formal Rejection'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Modal Actions */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border">
+                {isPastDecision ? (
+                  <>
+                    <div>
+                      {isVerified && selectedApp.church_id && (
+                        <a
+                          href={`/churches/${selectedApp.church_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-secondary text-xs px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          View Active Church Profile
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={closeReviewModal}
+                        className="btn-primary text-xs px-5 py-2 rounded-xl"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleSaveChecklist}
+                        className="btn-secondary text-xs px-3.5 py-2 rounded-xl w-full sm:w-auto"
+                        disabled={actionLoading}
+                      >
+                        Save Progress
+                      </button>
+                      {!showRejectForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowRejectForm(true)}
+                          className="text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 px-3 py-2 rounded-xl font-medium border border-transparent hover:border-red-200 w-full sm:w-auto"
+                          disabled={actionLoading}
+                        >
+                          Reject Application
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={closeReviewModal}
+                        className="btn-secondary text-xs px-4 py-2 rounded-xl"
+                        disabled={actionLoading}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleApprove}
+                        className="btn-primary text-xs font-semibold px-5 py-2 rounded-xl shadow-md flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? (
+                          'Processing Approval...'
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Approve & Activate Parish
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
 
       {/* Custom Confirmation Modal: Incomplete Anti-Fraud Checklist */}
       {showIncompleteConfirmModal && selectedApp && (
