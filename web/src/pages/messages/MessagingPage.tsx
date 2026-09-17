@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {
     MessageSquare,
     Search,
@@ -40,10 +41,20 @@ import type { Profile, Church } from '../../types/database';
 
 export default function MessagingPage() {
     const { user, profile } = useAuth();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
+
+    // Permissions: regular parishioners cannot access staff channels
+    const isStaff = ['super_admin', 'admin', 'church_admin', 'priest', 'volunteer'].includes(profile?.role || '');
+    const isSuperOrDioceseAdmin = ['super_admin', 'admin'].includes(profile?.role || '');
+
+    // URL search param & navigation state for direct conversation links (e.g. from ChurchDetailPage)
+    const convParam = searchParams.get('conv') || (location.state as any)?.conversationId || new URLSearchParams(window.location.search).get('conv');
+    const infoMessage = (location.state as any)?.info as string | undefined;
 
     // Data states
     const [conversations, setConversations] = useState<ConversationWithDetails[]>([]);
-    const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+    const [activeConversationId, setActiveConversationId] = useState<string | null>(convParam || null);
     const [messages, setMessages] = useState<MessageWithSender[]>([]);
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
@@ -51,7 +62,7 @@ export default function MessagingPage() {
 
     // Filter & search
     const [searchQuery, setSearchQuery] = useState('');
-    const [mobileChatOpen, setMobileChatOpen] = useState(false);
+    const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(convParam));
 
     // New Message Dialog
     const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -87,7 +98,7 @@ export default function MessagingPage() {
         return conversations.find((c) => c.id === activeConversationId) || null;
     }, [conversations, activeConversationId]);
 
-    // Fetch all churches for Super Admin channel browsing
+    // Fetch all churches for channel browsing (super_admin/admin) or filtering
     useEffect(() => {
         const loadChurches = async () => {
             const list = await directFetchChurches();
@@ -106,7 +117,11 @@ export default function MessagingPage() {
             const convs = data || [];
             setConversations(convs);
 
-            if (selectFirst && convs.length > 0 && !activeConversationId) {
+            const directConvId = new URLSearchParams(window.location.search).get('conv') || (location.state as any)?.conversationId;
+            if (directConvId) {
+                setActiveConversationId(directConvId);
+                setMobileChatOpen(true);
+            } else if (selectFirst && convs.length > 0 && !activeConversationId) {
                 setActiveConversationId(convs[0].id);
             }
         } catch (err) {
@@ -114,12 +129,23 @@ export default function MessagingPage() {
         } finally {
             setLoadingConversations(false);
         }
-    }, [user, activeConversationId]);
+    }, [user, activeConversationId, location.state]);
 
     // Initial load
     useEffect(() => {
         loadConversations(true);
     }, [user]);
+
+    // Sync activeConversationId if convParam changes in URL / navigation
+    useEffect(() => {
+        if (convParam) {
+            setActiveConversationId(convParam);
+            setMobileChatOpen(true);
+            if (user && !conversations.some((c) => c.id === convParam)) {
+                loadConversations(false);
+            }
+        }
+    }, [convParam, user, conversations, loadConversations]);
 
     // Global user-level listener for incoming messages across all user conversations
     useEffect(() => {
@@ -434,16 +460,32 @@ export default function MessagingPage() {
         }
     };
 
-    const userChurchId = profile?.assigned_church_id || profile?.church_id;
+    const userChurchId = (profile?.assigned_church_id || profile?.church_id) || undefined;
 
     // Open or create Parish Staff Channel
     const handleOpenChurchStaffChannel = async (targetChurchId?: string, targetChurchName?: string) => {
-        if (!user) return;
-        const churchId = targetChurchId || userChurchId;
-        if (!churchId) {
-            setShowParishPickerModal(true);
-            return;
+        if (!user || !isStaff) return;
+
+        let churchId: string | undefined;
+
+        if (isSuperOrDioceseAdmin) {
+            // Super Admin & Diocese Admin can pick any parish channel or open targetChurchId
+            if (targetChurchId) {
+                churchId = targetChurchId;
+            } else {
+                setShowParishPickerModal(true);
+                return;
+            }
+        } else {
+            // Parish staff (church_admin, priest, volunteer) only access their dedicated church
+            churchId = userChurchId;
+            if (!churchId) {
+                console.warn('Parish staff has no assigned church.');
+                return;
+            }
         }
+
+        if (!churchId) return;
 
         try {
             setLoadingConversations(true);
@@ -484,11 +526,15 @@ export default function MessagingPage() {
         return 'Parish Member';
     };
 
-    // Filter conversations by search term
+    // Filter conversations by search term, ensuring parishioners only see direct chats
     const filteredConversations = useMemo(() => {
-        if (!searchQuery.trim()) return conversations;
+        let list = conversations;
+        if (!isStaff) {
+            list = list.filter((c) => c.type === 'direct');
+        }
+        if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase();
-        return conversations.filter((c) => {
+        return list.filter((c) => {
             const title = getDisplayName(c);
             const other = getParticipantProfile(c);
             const email = other?.email;
@@ -501,7 +547,7 @@ export default function MessagingPage() {
                 (lastMsg && lastMsg.toLowerCase().includes(q))
             );
         });
-    }, [conversations, searchQuery]);
+    }, [conversations, searchQuery, isStaff]);
 
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
@@ -632,15 +678,17 @@ export default function MessagingPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* Quick Staff Channel Button */}
-                    <button
-                        type="button"
-                        onClick={() => handleOpenChurchStaffChannel()}
-                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
-                    >
-                        <Building2 className="w-4 h-4 text-primary" />
-                        <span>Staff Channel</span>
-                    </button>
+                    {/* Quick Staff Channel Button - staff only */}
+                    {isStaff && (
+                        <button
+                            type="button"
+                            onClick={() => handleOpenChurchStaffChannel()}
+                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
+                        >
+                            <Building2 className="w-4 h-4 text-primary" />
+                            <span>Staff Channel</span>
+                        </button>
+                    )}
 
                     {/* New Chat Button */}
                     <button
@@ -653,6 +701,14 @@ export default function MessagingPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Informative message banner (e.g. redirected from Contact Parish) */}
+            {infoMessage && (
+                <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 flex-shrink-0 text-primary" />
+                    <span>{infoMessage}</span>
+                </div>
+            )}
 
             {/* Main Dual-Pane Chat Card */}
             <div className="flex-1 min-h-0 card p-0 border border-border/80 rounded-2xl shadow-sm overflow-hidden flex bg-card">
@@ -677,30 +733,33 @@ export default function MessagingPage() {
                             />
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => handleOpenChurchStaffChannel()}
-                            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left cursor-pointer"
-                        >
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                                    <Building2 className="w-4 h-4" />
+                        {/* Quick Parish Staff Channel link in sidebar - staff only */}
+                        {isStaff && (
+                            <button
+                                type="button"
+                                onClick={() => handleOpenChurchStaffChannel()}
+                                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left cursor-pointer"
+                            >
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                        <Building2 className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <span className="truncate block font-bold">Parish Staff Channel</span>
+                                        {!userChurchId ? (
+                                            <span className="text-[10px] text-muted block font-normal truncate">
+                                                Select parish to connect with staff
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-muted block font-normal truncate">
+                                                Connect with parish staff
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                    <span className="truncate block font-bold">Parish Staff Channel</span>
-                                    {!userChurchId ? (
-                                        <span className="text-[10px] text-muted block font-normal truncate">
-                                            Select parish to connect with staff
-                                        </span>
-                                    ) : (
-                                        <span className="text-[10px] text-muted block font-normal truncate">
-                                            Connect with parish staff
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0" />
-                        </button>
+                                <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0" />
+                            </button>
+                        )}
                     </div>
 
                     {/* Conversation List Items */}
@@ -1434,9 +1493,9 @@ export default function MessagingPage() {
             )}
 
             {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* PARISH STAFF CHANNEL PICKER MODAL                               */}
+            {/* PARISH STAFF CHANNEL PICKER MODAL (Super Admin / Admin only)    */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            {showParishPickerModal && (
+            {isSuperOrDioceseAdmin && showParishPickerModal && (
                 <Modal
                     isOpen={showParishPickerModal}
                     onClose={() => setShowParishPickerModal(false)}

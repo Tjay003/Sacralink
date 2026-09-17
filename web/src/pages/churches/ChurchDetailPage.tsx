@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert, X } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert, X, MessageSquare } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { getOrCreateDirectConversation } from '../../lib/supabase/messaging';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
 import FacebookFeed from '../../components/social/FacebookFeed';
@@ -40,8 +41,10 @@ interface SupporterRow {
 export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { profile } = useAuth(); // Added call to useAuth
+    const { user, profile } = useAuth();
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
+
+    const [contactLoading, setContactLoading] = useState(false);
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<MassSchedule | null>(null);
@@ -209,6 +212,72 @@ export default function ChurchDetailPage() {
         }
     };
 
+    const handleContactParish = async () => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+
+        if (!id) return;
+
+        try {
+            setContactLoading(true);
+            // Query profiles for a staff member of this church
+            const { data: staffMembers, error: staffError } = await supabase
+                .from('profiles')
+                .select('id, full_name, role')
+                .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
+                .in('role', ['church_admin', 'priest', 'volunteer'])
+                .limit(1);
+
+            if (staffError) throw staffError;
+
+            const staffUser = staffMembers && staffMembers.length > 0 ? staffMembers[0] : null;
+
+            if (!staffUser) {
+                setActionFeedback({
+                    type: 'error',
+                    message: 'No parish staff member is currently assigned to this church office. Opening Messages directory...',
+                });
+                setTimeout(() => {
+                    navigate('/messages', {
+                        state: { info: 'No parish staff member is currently assigned to this church office.' },
+                    });
+                }, 1000);
+                return;
+            }
+
+            // If user is contacting their own staff profile, navigate to messages
+            if (staffUser.id === user.id) {
+                navigate('/messages');
+                return;
+            }
+
+            const { conversationId, error: convError } = await getOrCreateDirectConversation(
+                user.id,
+                staffUser.id
+            );
+
+            if (convError) throw convError;
+
+            if (conversationId) {
+                navigate(`/messages?conv=${conversationId}`);
+            } else {
+                navigate('/messages', {
+                    state: { info: `Started direct conversation with ${staffUser.full_name || 'Parish Office'}.` },
+                });
+            }
+        } catch (err: any) {
+            console.error('Error contacting parish:', err);
+            setActionFeedback({
+                type: 'error',
+                message: err?.message || 'Failed to start conversation with parish office.',
+            });
+        } finally {
+            setContactLoading(false);
+        }
+    };
+
     // Fetch gallery images
     useEffect(() => {
         const fetchGallery = async () => {
@@ -348,6 +417,21 @@ export default function ChurchDetailPage() {
                                 <span className="text-xs truncate">Book Appointment</span>
                             </button>
                         )}
+
+                        {/* Contact Parish / Message Office */}
+                        <button
+                            onClick={handleContactParish}
+                            disabled={contactLoading}
+                            title="Directly message the parish office"
+                            className="flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md disabled:opacity-60"
+                        >
+                            {contactLoading ? (
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0 mb-0.5" />
+                            ) : (
+                                <MessageSquare className="w-4 h-4 shrink-0" />
+                            )}
+                            <span className="text-xs truncate">Contact Parish</span>
+                        </button>
 
                         {/* Donate button - visible if church has payment info */}
                         {(church.gcash_number || church.maya_number) && (
