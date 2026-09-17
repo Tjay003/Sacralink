@@ -26,7 +26,6 @@ interface FeatureFlags {
 
     // === CHURCH ADMIN FEATURES ===
     churchAnnouncements: FeatureFlag;
-    churchQuickLinks: FeatureFlag;
     churchRecentAppointments: FeatureFlag;
     churchAiSync: FeatureFlag;
 
@@ -39,7 +38,6 @@ interface FeatureFlags {
 
     // === USER FEATURES ===
     dailyVerse: FeatureFlag;
-    quickLinks: FeatureFlag; // Regular user quick links
     userChurchSelector: FeatureFlag;
     userUpcomingAppointments: FeatureFlag;
     socialAuth: FeatureFlag;
@@ -83,13 +81,6 @@ export const featureFlags: FeatureFlags = {
         enabled: true, // Always visible, buttons disabled in demo mode
         label: 'Church Announcements',
         description: 'Manage parish-specific announcements',
-    },
-
-    // Church Quick Links (Church Admin Dashboard)
-    churchQuickLinks: {
-        enabled: true, // Always enabled
-        label: 'Church Quick Links',
-        description: 'Quick action links for church admin',
     },
 
     // Church Recent Appointments (Church Admin Dashboard)
@@ -156,13 +147,6 @@ export const featureFlags: FeatureFlags = {
         description: 'Daily Bible verse widget on dashboard',
     },
 
-    // Quick Links (Regular User Dashboard)
-    quickLinks: {
-        enabled: true, // Always enabled
-        label: 'Quick Links',
-        description: 'Quick action links on user dashboard',
-    },
-
     // Church Selector (User Dashboard)
     userChurchSelector: {
         enabled: true, // Always visible
@@ -202,9 +186,6 @@ export const dashboardConfig = {
     // Toggle between real database data and mock data for demos.
     // NOTE: Always uses real Supabase data so live churches, stats, and appointments appear.
     useMockData: false,  // Always real data
-
-    // Show/hide quick actions section on user dashboard
-    showQuickActions: true,   // Always show quick actions
 
     // Mock data values (only used as fallback when useMockData = true)
     mockData: {

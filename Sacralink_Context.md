@@ -139,8 +139,6 @@ All authenticated routes are nested under `DashboardLayout`. Auth is handled by 
 | `parishionerChatbot` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
 | `churchAiSync` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
 | `calendar` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
-| `churchQuickLinks` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
-| `quickLinks` | ❌ Incomplete/Demo | Hidden in demo mode (`!isDemoMode`) |
 
 ---
 

@@ -22,8 +22,6 @@ All flags are configured in [`web/src/config/featureFlags.ts`](file:///C:/Users/
 - ✅ **AI Parishioner Assistant** (`parishionerChatbot`) - Floating AI chatbot on church detail pages
 - ✅ **AI Knowledge Base Sync** (`churchAiSync`) - Admin dashboard AI sync button & widget
 - ✅ **Calendar View** (`calendar`) - Visual appointments calendar widget
-- ✅ **Church Quick Links** (`churchQuickLinks`) - Church admin quick actions
-- ✅ **User Quick Links** (`quickLinks`) - Parishioner dashboard quick action buttons
 - ✅ **System Announcements** (`systemAnnouncements`) - Full creation, editing, and deletion enabled
 - ✅ **Church Announcements** (`churchAnnouncements`) - Full creation, editing, and deletion enabled
 - ✅ **User Church Selector** (`userChurchSelector`) - Interactive parish selector

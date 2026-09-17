@@ -6,9 +6,9 @@ import StatCard from '../../components/dashboard/StatCard';
 import ChurchSelector from '../../components/dashboard/ChurchSelector';
 import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
-import { Calendar, Clock, MapPin, PlusCircle, BarChart3, Church } from 'lucide-react';
+import { Calendar, Clock, MapPin, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
-import { dashboardConfig, isFeatureEnabled } from '../../config/featureFlags';
+import { isFeatureEnabled } from '../../config/featureFlags';
 import { useChurches } from '../../hooks/useChurches';
 import {
     getAppointments,
@@ -235,43 +235,9 @@ export default function UserDashboard() {
                     )}
                 </div>
 
-                {/* Right Column: Verse & Actions */}
+                {/* Right Column: Verse */}
                 <div className="space-y-6">
                     <DailyVerse />
-
-                    {/* Quick Actions - Controlled by dashboardConfig */}
-                    {dashboardConfig.showQuickActions && (
-                        <div className="card p-6">
-                            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-                            <div className="space-y-3">
-                                <button
-                                    onClick={() => navigate('/churches')}
-                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                >
-                                    <div className="bg-blue-100 p-2 rounded-full mr-3">
-                                        <PlusCircle className="w-5 h-5 text-blue-600" />
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm">Book Appointment</div>
-                                        <div className="text-xs text-muted">Find a church & schedule</div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => navigate('/churches')}
-                                    className="w-full flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100 text-left"
-                                >
-                                    <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                                        <Church className="w-4 h-4 text-purple-600" />
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm">Browse Churches</div>
-                                        <div className="text-xs text-muted">Explore parishes</div>
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

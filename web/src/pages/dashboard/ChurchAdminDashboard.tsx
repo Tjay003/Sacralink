@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink, MapPin, Calendar, Heart } from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
@@ -147,36 +147,6 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                             {lastSynced && (
                                 <p className="text-xs text-muted text-center">Last synced at {lastSynced}</p>
                             )}
-                        </div>
-                    )}
-
-                    {/* Quick Links */}
-                    {isFeatureEnabled('churchQuickLinks') && (
-                        <div className="bg-card border rounded-lg p-6">
-                            <h3 className="font-semibold text-foreground mb-4">Quick Links</h3>
-                            <div className="space-y-2">
-                                <a
-                                    href={`/churches/${churchId}`}
-                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                                >
-                                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
-                                    My Church Details
-                                </a>
-                                <a
-                                    href="/appointments"
-                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                                >
-                                    <Calendar className="w-4 h-4 text-purple-500 shrink-0" />
-                                    All Appointments
-                                </a>
-                                <a
-                                    href="/donations"
-                                    className="flex items-center gap-3 w-full text-left px-4 py-3 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-                                >
-                                    <Heart className="w-4 h-4 text-red-500 shrink-0" />
-                                    Donations
-                                </a>
-                            </div>
                         </div>
                     )}
                 </div>
