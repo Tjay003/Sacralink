@@ -27,22 +27,10 @@ const BLESSING_PRESETS = [
         hoverStyle: 'hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 dark:hover:bg-amber-950/30 dark:hover:text-amber-300 dark:hover:border-amber-700',
     },
     {
-        label: 'Peace be with you',
-        icon: '🕊️',
-        color: 'from-blue-400 to-indigo-600',
-        hoverStyle: 'hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950/30 dark:hover:text-blue-300 dark:hover:border-blue-700',
-    },
-    {
         label: 'Lord hear our prayer',
         icon: '🙏',
         color: 'from-purple-400 to-purple-600',
         hoverStyle: 'hover:bg-purple-50 hover:text-purple-700 hover:border-purple-300 dark:hover:bg-purple-950/30 dark:hover:text-purple-300 dark:hover:border-purple-700',
-    },
-    {
-        label: 'Deo Gratias',
-        icon: '✨',
-        color: 'from-emerald-400 to-emerald-600',
-        hoverStyle: 'hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 dark:hover:border-emerald-700',
     },
     {
         label: 'God Bless',
@@ -238,7 +226,7 @@ export default function SpiritualReactionsBar({
                         <span>Share a Blessing:</span>
                     </span>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                         {BLESSING_PRESETS.map((preset) => (
                             <button
                                 key={preset.label}

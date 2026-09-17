@@ -59,11 +59,6 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
         }
     };
 
-    const openTab = (tab: 'liturgy' | 'intentions' | 'offertory') => {
-        setActiveSidebarTab(tab);
-        setIsSidebarOpen(true);
-    };
-
     return (
         <section id="virtual-sanctuary" className="space-y-6 pt-2">
             {/* Section Heading with Ecclesiastical Glow */}
@@ -165,9 +160,6 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
                         candleCount={candleCount}
                         isSidebarOpen={isSidebarOpen}
                         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                        onOpenLiturgyTab={() => openTab('liturgy')}
-                        onOpenIntentionsTab={() => openTab('intentions')}
-                        onOpenDonationTab={() => openTab('offertory')}
                     />
 
                     {/* Interactive Spiritual Reactions and Candle Lighting */}

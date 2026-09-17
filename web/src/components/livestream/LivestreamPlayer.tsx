@@ -16,10 +16,6 @@ import type { Church, MassSchedule } from '../../types/database';
 
 interface LivestreamPlayerProps {
     church: Church & { mass_schedules?: MassSchedule[] };
-    onOpenLiturgyTab?: () => void;
-    onOpenIntentionsTab?: () => void;
-    onOpenDonationTab?: () => void;
-    onLightCandle?: () => void;
     candleCount?: number;
     isSidebarOpen?: boolean;
     onToggleSidebar?: () => void;
@@ -172,10 +168,6 @@ export function getNextUpcomingMass(schedules?: MassSchedule[] | null) {
 
 export default function LivestreamPlayer({
     church,
-    onOpenLiturgyTab,
-    onOpenIntentionsTab,
-    onOpenDonationTab,
-    onLightCandle,
     candleCount,
     isSidebarOpen = true,
     onToggleSidebar,
@@ -402,46 +394,6 @@ export default function LivestreamPlayer({
                                     <Clock className="w-4 h-4 text-muted inline mr-1.5" />
                                     Regular Mass schedule is updated weekly by parish administrators.
                                 </div>
-                            )}
-                        </div>
-
-                        {/* Bottom Actions Row */}
-                        <div className="relative z-10 flex flex-wrap items-center gap-2 sm:gap-3 pt-2">
-                            {onLightCandle && (
-                                <button
-                                    onClick={onLightCandle}
-                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all duration-200 shadow-xs hover:shadow-md hover:shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
-                                >
-                                    <Flame className="w-4 h-4 fill-white text-white" />
-                                    <span>Light a Virtual Candle</span>
-                                </button>
-                            )}
-
-                            {onOpenLiturgyTab && (
-                                <button
-                                    onClick={onOpenLiturgyTab}
-                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
-                                >
-                                    <span>📖 Read Today's Gospel</span>
-                                </button>
-                            )}
-
-                            {onOpenIntentionsTab && (
-                                <button
-                                    onClick={onOpenIntentionsTab}
-                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-white/95 hover:bg-white dark:bg-secondary-800/90 dark:hover:bg-secondary-700/90 text-foreground font-semibold text-xs border border-border transition-all duration-200 backdrop-blur-sm shadow-xs hover:shadow-sm hover:border-primary/40 hover:-translate-y-0.5 active:scale-95 cursor-pointer shrink-0"
-                                >
-                                    <span>📜 Mass Intentions</span>
-                                </button>
-                            )}
-
-                            {onOpenDonationTab && (church.gcash_number || church.maya_number || church.donation_qr_url) && (
-                                <button
-                                    onClick={onOpenDonationTab}
-                                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs border border-primary/20 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer hover:shadow-xs shrink-0"
-                                >
-                                    <span>🪙 Digital Offertory</span>
-                                </button>
                             )}
                         </div>
                     </div>
