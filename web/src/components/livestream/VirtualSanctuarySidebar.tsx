@@ -103,11 +103,11 @@ export default function VirtualSanctuarySidebar({
                     .from('appointments')
                     .select(`
                         id,
-                        requested_date,
+                        appointment_date,
                         notes,
                         status,
                         user_id,
-                        profiles (
+                        profiles:profiles!appointments_user_id_fkey (
                             full_name
                         )
                     `)
@@ -127,7 +127,7 @@ export default function VirtualSanctuarySidebar({
                         const fullName = item.profiles?.full_name || 'Parishioner';
                         return {
                             id: item.id,
-                            requested_date: item.requested_date,
+                            requested_date: item.appointment_date || item.requested_date,
                             notes: rawNotes,
                             status: item.status,
                             category: categorizeIntention(rawNotes),

@@ -102,7 +102,7 @@ export async function getAppointments(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles(id, full_name, email)
+                profile:profiles!appointments_user_id_fkey(id, full_name, email)
             `);
 
         // Church scoping filter
@@ -211,7 +211,7 @@ export async function getAppointmentById(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles(id, full_name, email)
+                profile:profiles!appointments_user_id_fkey(id, full_name, email)
             `)
             .eq('id', id)
             .single()
