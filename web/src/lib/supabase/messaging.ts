@@ -17,6 +17,11 @@ export interface ConversationWithDetails extends Conversation {
     otherParticipant?: Profile | null; // For 1-on-1 direct chats
 }
 
+export interface ContactProfile extends Profile {
+    assigned_church?: { id: string; name: string } | null;
+    church?: { id: string; name: string } | null;
+}
+
 /**
  * Fetch all conversations for a given user with participant details and latest message
  */
@@ -257,9 +262,14 @@ export async function getOrCreateDirectConversation(
     error: Error | null;
 }> {
     try {
+        if (!userId || !targetUserId) {
+            throw new Error('Both userId and targetUserId are required to start a direct conversation');
+        }
         if (userId === targetUserId) {
             throw new Error('Cannot create direct conversation with oneself');
         }
+
+        console.log(`[Messaging] Checking direct conversation between ${userId} and ${targetUserId}...`);
 
         // 1. Find all conversations userId is in
         const { data: userConvs, error: partError } = await supabase
@@ -267,7 +277,10 @@ export async function getOrCreateDirectConversation(
             .select('conversation_id')
             .eq('user_id', userId);
 
-        if (partError) throw partError;
+        if (partError) {
+            console.error('❌ [Messaging] Error fetching user participants:', partError);
+            throw partError;
+        }
 
         const candidateIds = (userConvs || []).map((c) => c.conversation_id);
 
@@ -279,7 +292,10 @@ export async function getOrCreateDirectConversation(
                 .in('id', candidateIds)
                 .eq('type', 'direct');
 
-            if (convError) throw convError;
+            if (convError) {
+                console.error('❌ [Messaging] Error fetching candidate direct conversations:', convError);
+                throw convError;
+            }
 
             const directIds = (directConvs || []).map((c) => c.id);
 
@@ -292,15 +308,20 @@ export async function getOrCreateDirectConversation(
                     .eq('user_id', targetUserId)
                     .limit(1);
 
-                if (matchError) throw matchError;
+                if (matchError) {
+                    console.error('❌ [Messaging] Error checking target participant:', matchError);
+                    throw matchError;
+                }
 
                 if (matchingParticipants && matchingParticipants.length > 0) {
+                    console.log(`[Messaging] Existing conversation found: ${matchingParticipants[0].conversation_id}`);
                     return { conversationId: matchingParticipants[0].conversation_id, error: null };
                 }
             }
         }
 
         // 2. No existing conversation found -> Create new direct conversation
+        console.log('[Messaging] Creating new direct conversation...');
         const { data: newConv, error: createConvError } = await supabase
             .from('conversations')
             .insert({
@@ -311,9 +332,17 @@ export async function getOrCreateDirectConversation(
             .select('id')
             .single();
 
-        if (createConvError) throw createConvError;
+        if (createConvError) {
+            console.error('❌ [Messaging] Error creating conversation:', createConvError);
+            throw createConvError;
+        }
+
+        if (!newConv?.id) {
+            throw new Error('Failed to create direct conversation: No conversation ID returned.');
+        }
 
         const newId = newConv.id;
+        console.log(`[Messaging] Created conversation ${newId}. Adding participants...`);
 
         // 3. Add both users as participants
         const { error: addPartsError } = await supabase
@@ -323,8 +352,18 @@ export async function getOrCreateDirectConversation(
                 { conversation_id: newId, user_id: targetUserId },
             ] as any);
 
-        if (addPartsError) throw addPartsError;
+        if (addPartsError) {
+            console.error('❌ [Messaging] Error adding participants to conversation:', addPartsError);
+            // Attempt cleanup to prevent orphaned conversations
+            try {
+                await supabase.from('conversations').delete().eq('id', newId);
+            } catch (cleanupErr: any) {
+                console.warn('[Messaging] Could not clean up orphaned conversation:', cleanupErr);
+            }
+            throw addPartsError;
+        }
 
+        console.log(`✅ [Messaging] Direct conversation created successfully: ${newId}`);
         return { conversationId: newId, error: null };
     } catch (err: any) {
         console.error('❌ Error getting/creating direct conversation:', err);
@@ -457,19 +496,27 @@ export async function markConversationAsRead(
 }
 
 /**
- * Fetch available contacts (staff members and parishioners) to start new conversations
+ * Fetch available contacts (clergy, administrators, staff members, and parishioners) to start new conversations.
+ * Includes associated church details via PostgREST join or mapped fallback.
  */
 export async function fetchAvailableContacts(
     currentUserId: string,
     churchId?: string | null
 ): Promise<{
-    data: Profile[] | null;
+    data: ContactProfile[] | null;
     error: Error | null;
 }> {
     try {
+        console.log(`[Messaging] Fetching available contacts (currentUserId: ${currentUserId}, churchId: ${churchId || 'all'})...`);
+
+        // Attempt joined query with assigned_church and church relations
         let query = supabase
             .from('profiles')
-            .select('*')
+            .select(`
+                *,
+                assigned_church:churches!assigned_church_id(id, name),
+                church:churches!church_id(id, name)
+            `)
             .neq('id', currentUserId)
             .order('full_name', { ascending: true });
 
@@ -477,9 +524,57 @@ export async function fetchAvailableContacts(
             query = query.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
         }
 
-        const { data, error } = await query.limit(50);
-        if (error) throw error;
-        return { data: (data as Profile[]) || [], error: null };
+        const { data, error } = await query.limit(100);
+
+        if (!error && data) {
+            const normalizedData: ContactProfile[] = (data as any[]).map((p) => ({
+                ...p,
+                assigned_church: p.assigned_church || p.church || null,
+            }));
+            return { data: normalizedData, error: null };
+        }
+
+        if (error) {
+            console.warn('⚠️ [Messaging] Joined contact query error, falling back to direct mapping:', error);
+
+            // Fallback: simple profile query + mapping church names
+            let fallbackQuery = supabase
+                .from('profiles')
+                .select('*')
+                .neq('id', currentUserId)
+                .order('full_name', { ascending: true });
+
+            if (churchId) {
+                fallbackQuery = fallbackQuery.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
+            }
+
+            const { data: rawProfiles, error: fallbackError } = await fallbackQuery.limit(100);
+            if (fallbackError) throw fallbackError;
+
+            // Fetch churches to map names
+            const { data: churchesData } = await supabase
+                .from('churches')
+                .select('id, name');
+
+            const churchMap = new Map<string, { id: string; name: string }>();
+            (churchesData || []).forEach((ch: any) => {
+                churchMap.set(ch.id, { id: ch.id, name: ch.name });
+            });
+
+            const mappedData: ContactProfile[] = (rawProfiles || []).map((p: any) => {
+                const cId = p.assigned_church_id || p.church_id;
+                const churchObj = cId ? churchMap.get(cId) || null : null;
+                return {
+                    ...p,
+                    assigned_church: churchObj,
+                    church: churchObj,
+                };
+            });
+
+            return { data: mappedData, error: null };
+        }
+
+        return { data: [], error: null };
     } catch (err: any) {
         console.error('❌ Error fetching contacts:', err);
         return { data: null, error: err };

@@ -10,6 +10,7 @@ import {
     CheckCheck,
     Sparkles,
     ChevronRight,
+    ChevronDown,
     Trash2,
     UserX,
     AlertTriangle,
@@ -30,6 +31,7 @@ import {
     deleteConversationForEveryone,
     type ConversationWithDetails,
     type MessageWithSender,
+    type ContactProfile,
 } from '../../lib/supabase/messaging';
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
@@ -53,10 +55,11 @@ export default function MessagingPage() {
 
     // New Message Dialog
     const [showNewChatModal, setShowNewChatModal] = useState(false);
-    const [contacts, setContacts] = useState<Profile[]>([]);
+    const [contacts, setContacts] = useState<ContactProfile[]>([]);
     const [loadingContacts, setLoadingContacts] = useState(false);
     const [contactSearch, setContactSearch] = useState('');
     const [contactRoleFilter, setContactRoleFilter] = useState<string>('all');
+    const [contactChurchFilter, setContactChurchFilter] = useState<string>('all');
 
     // Delete Conversation Modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -397,14 +400,19 @@ export default function MessagingPage() {
         setShowNewChatModal(true);
         if (!user) return;
         setLoadingContacts(true);
-        const userChurchId = profile?.assigned_church_id || profile?.church_id;
-        const { data } = await fetchAvailableContacts(user.id, userChurchId);
-        setContacts(data || []);
-        setLoadingContacts(false);
+        try {
+            const { data, error } = await fetchAvailableContacts(user.id);
+            if (error) throw error;
+            setContacts(data || []);
+        } catch (err) {
+            console.error('Error fetching contacts in modal:', err);
+        } finally {
+            setLoadingContacts(false);
+        }
     };
 
     // Select a contact from New Message modal
-    const handleSelectContact = async (contactUser: Profile) => {
+    const handleSelectContact = async (contactUser: ContactProfile | Profile) => {
         if (!user) return;
         setShowNewChatModal(false);
         try {
@@ -426,7 +434,6 @@ export default function MessagingPage() {
         }
     };
 
-    const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
     const userChurchId = profile?.assigned_church_id || profile?.church_id;
 
     // Open or create Parish Staff Channel
@@ -434,9 +441,7 @@ export default function MessagingPage() {
         if (!user) return;
         const churchId = targetChurchId || userChurchId;
         if (!churchId) {
-            if (isSuperAdmin) {
-                setShowParishPickerModal(true);
-            }
+            setShowParishPickerModal(true);
             return;
         }
 
@@ -501,6 +506,8 @@ export default function MessagingPage() {
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
         let result = [...contacts];
+
+        // Role filter
         if (contactRoleFilter === 'church_admin') {
             result = result.filter(
                 (c) => c.role === 'admin' || c.role === 'church_admin' || c.role === 'super_admin'
@@ -508,16 +515,27 @@ export default function MessagingPage() {
         } else if (contactRoleFilter !== 'all') {
             result = result.filter((c) => (c.role || 'user') === contactRoleFilter);
         }
+
+        // Church filter
+        if (contactChurchFilter !== 'all') {
+            result = result.filter((c) => {
+                const cChurchId = c.assigned_church?.id || c.assigned_church_id || c.church_id;
+                return cChurchId === contactChurchFilter;
+            });
+        }
+
+        // Search filter (name, email, parish name)
         if (contactSearch.trim()) {
             const q = contactSearch.toLowerCase();
             result = result.filter((c) => {
                 const name = (c.full_name || '').toLowerCase();
                 const email = (c.email || '').toLowerCase();
-                return name.includes(q) || email.includes(q);
+                const churchName = (c.assigned_church?.name || c.church?.name || '').toLowerCase();
+                return name.includes(q) || email.includes(q) || churchName.includes(q);
             });
         }
         return result;
-    }, [contacts, contactRoleFilter, contactSearch]);
+    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch]);
 
     // Filtered parishes for Super Admin modal
     const filteredParishes = useMemo(() => {
@@ -615,16 +633,14 @@ export default function MessagingPage() {
 
                 <div className="flex items-center gap-2">
                     {/* Quick Staff Channel Button */}
-                    {(userChurchId || isSuperAdmin) && (
-                        <button
-                            type="button"
-                            onClick={() => handleOpenChurchStaffChannel()}
-                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
-                        >
-                            <Building2 className="w-4 h-4 text-primary" />
-                            <span>Staff Channel</span>
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={() => handleOpenChurchStaffChannel()}
+                        className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
+                    >
+                        <Building2 className="w-4 h-4 text-primary" />
+                        <span>Staff Channel</span>
+                    </button>
 
                     {/* New Chat Button */}
                     <button
@@ -661,26 +677,30 @@ export default function MessagingPage() {
                             />
                         </div>
 
-                        {(userChurchId || isSuperAdmin) && (
-                            <button
-                                type="button"
-                                onClick={() => handleOpenChurchStaffChannel()}
-                                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left"
-                            >
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                                        <Building2 className="w-4 h-4" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                        <span className="truncate block font-bold">Parish Staff Channel</span>
-                                        {isSuperAdmin && !userChurchId && (
-                                            <span className="text-[10px] text-muted block font-normal">Select Diocese Parish</span>
-                                        )}
-                                    </div>
+                        <button
+                            type="button"
+                            onClick={() => handleOpenChurchStaffChannel()}
+                            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left cursor-pointer"
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                    <Building2 className="w-4 h-4" />
                                 </div>
-                                <ChevronRight className="w-4 h-4 opacity-70" />
-                            </button>
-                        )}
+                                <div className="min-w-0 flex-1">
+                                    <span className="truncate block font-bold">Parish Staff Channel</span>
+                                    {!userChurchId ? (
+                                        <span className="text-[10px] text-muted block font-normal truncate">
+                                            Select parish to connect with staff
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] text-muted block font-normal truncate">
+                                            Connect with parish staff
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0" />
+                        </button>
                     </div>
 
                     {/* Conversation List Items */}
@@ -1165,21 +1185,46 @@ export default function MessagingPage() {
                 <div className="space-y-4">
                     {/* Search & Filter */}
                     <div className="space-y-2.5">
-                        <div className="relative">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-                            <input
-                                type="text"
-                                placeholder="Search by name or email..."
-                                value={contactSearch}
-                                onChange={(e) => setContactSearch(e.target.value)}
-                                className="input !pl-10 w-full text-xs sm:text-sm"
-                            />
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, email, or parish..."
+                                    value={contactSearch}
+                                    onChange={(e) => setContactSearch(e.target.value)}
+                                    className="input !pl-10 w-full text-xs sm:text-sm"
+                                />
+                            </div>
+
+                            {/* Church Filter Dropdown */}
+                            <div className="sm:w-56 flex-shrink-0">
+                                <div className="relative">
+                                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
+                                    <select
+                                        value={contactChurchFilter}
+                                        onChange={(e) => setContactChurchFilter(e.target.value)}
+                                        className="input !pl-8 !pr-7 w-full text-xs py-2 truncate bg-card border-border text-foreground appearance-none cursor-pointer"
+                                    >
+                                        <option value="all">All Parishes</option>
+                                        {allChurches.map((ch) => (
+                                            <option key={ch.id} value={ch.id}>
+                                                {ch.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted">
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+                        <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
                             {[
                                 { id: 'all', label: 'All Contacts' },
-                                { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'priest', label: 'Priests' },
+                                { id: 'church_admin', label: 'Admins & Staff' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ].map((tab) => (
@@ -1187,9 +1232,9 @@ export default function MessagingPage() {
                                     key={tab.id}
                                     type="button"
                                     onClick={() => setContactRoleFilter(tab.id)}
-                                    className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                                    className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
                                         contactRoleFilter === tab.id
-                                            ? 'bg-primary text-white'
+                                            ? 'bg-primary text-white shadow-sm'
                                             : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
                                     }`}
                                 >
@@ -1213,6 +1258,7 @@ export default function MessagingPage() {
                         ) : (
                             filteredContacts.map((c) => {
                                 const role = getRoleBadge(c.role);
+                                const churchName = c.assigned_church?.name || c.church?.name;
                                 return (
                                     <div
                                         key={c.id}
@@ -1224,10 +1270,10 @@ export default function MessagingPage() {
                                                 <img
                                                     src={c.avatar_url}
                                                     alt={c.full_name || ''}
-                                                    className="w-9 h-9 rounded-xl object-cover"
+                                                    className="w-9 h-9 rounded-xl object-cover border border-border flex-shrink-0"
                                                 />
                                             ) : (
-                                                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-xs">
+                                                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-xs flex-shrink-0">
                                                     {(c.full_name || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                             )}
@@ -1235,11 +1281,28 @@ export default function MessagingPage() {
                                                 <p className="text-xs sm:text-sm font-semibold text-foreground truncate">
                                                     {c.full_name || 'No name'}
                                                 </p>
-                                                <p className="text-[11px] text-muted truncate">{c.email}</p>
+                                                <div className="flex items-center gap-2 text-[11px] text-muted truncate">
+                                                    <span className="truncate">{c.email}</span>
+                                                    {churchName && (
+                                                        <span className="sm:hidden flex items-center gap-0.5 text-secondary-600 font-medium truncate">
+                                                            • <Building2 className="w-2.5 h-2.5 inline text-secondary-500 flex-shrink-0" />
+                                                            <span className="truncate">{churchName}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
+                                            {churchName && (
+                                                <span
+                                                    className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium bg-secondary-100 text-secondary-700 border border-border max-w-[170px] truncate"
+                                                    title={churchName}
+                                                >
+                                                    <Building2 className="w-3 h-3 text-secondary-500 flex-shrink-0" />
+                                                    <span className="truncate">{churchName}</span>
+                                                </span>
+                                            )}
                                             <span
                                                 className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${role.className}`}
                                             >
@@ -1371,13 +1434,14 @@ export default function MessagingPage() {
             )}
 
             {/* ═══════════════════════════════════════════════════════════════ */}
-            {/* SUPER ADMIN PARISH STAFF CHANNEL PICKER MODAL                   */}
+            {/* PARISH STAFF CHANNEL PICKER MODAL                               */}
             {/* ═══════════════════════════════════════════════════════════════ */}
             {showParishPickerModal && (
                 <Modal
                     isOpen={showParishPickerModal}
                     onClose={() => setShowParishPickerModal(false)}
                     title="Select Parish Staff Channel"
+                    description="Choose a parish to connect and chat with its priests and pastoral staff"
                     className="max-w-md"
                 >
                     <div className="space-y-4">
