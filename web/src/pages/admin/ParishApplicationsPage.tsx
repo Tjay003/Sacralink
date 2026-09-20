@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ShieldCheck,
   Building2,
@@ -18,6 +18,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import Pagination from '../../components/common/Pagination';
+import { supabase } from '../../lib/supabase';
 import {
   getParishApplications,
   approveParishApplication,
@@ -34,6 +36,16 @@ export default function ParishApplicationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'under_review' | 'verified_active' | 'rejected'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    pending: 0,
+    under_review: 0,
+    verified_active: 0,
+    rejected: 0,
+  });
 
   // Modal State
   const [selectedApp, setSelectedApp] = useState<ParishApplicationWithRelations | null>(null);
@@ -49,21 +61,47 @@ export default function ParishApplicationsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchApplications = async () => {
-    setLoading(true);
-    setError(null);
-    const { data, error: fetchErr } = await getParishApplications();
-    if (fetchErr) {
-      setError(fetchErr.message || 'Failed to load parish applications');
-    } else {
-      setApplications(data || []);
+  const fetchStatusCounts = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('parish_applications').select('status');
+      if (data) {
+        setStatusCounts({
+          all: data.length,
+          pending: data.filter((a) => a.status === 'pending').length,
+          under_review: data.filter((a) => a.status === 'under_review').length,
+          verified_active: data.filter((a) => a.status === 'verified_active').length,
+          rejected: data.filter((a) => a.status === 'rejected').length,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching application status counts:', err);
     }
-    setLoading(false);
-  };
+  }, []);
+
+  const fetchApplications = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    setError(null);
+    try {
+      const { data, count, error: fetchErr } = await getParishApplications({
+        page: currentPage,
+        pageSize,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+      });
+      if (fetchErr) {
+        setError(fetchErr.message || 'Failed to load parish applications');
+      } else {
+        setApplications(data || []);
+        setTotalCount(count ?? (data?.length || 0));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, pageSize, statusFilter]);
 
   useEffect(() => {
-    fetchApplications();
-  }, []);
+    void fetchApplications();
+    void fetchStatusCounts();
+  }, [fetchApplications, fetchStatusCounts]);
 
   const openReviewModal = (app: ParishApplicationWithRelations) => {
     setSelectedApp(app);
@@ -100,6 +138,7 @@ export default function ParishApplicationsPage() {
       setActionError(updateErr.message || 'Failed to update checklist');
     } else {
       await fetchApplications();
+      void fetchStatusCounts();
       closeReviewModal();
     }
   };
@@ -117,6 +156,7 @@ export default function ParishApplicationsPage() {
       setActionError(approveErr.message || 'Failed to approve application');
     } else {
       await fetchApplications();
+      void fetchStatusCounts();
       closeReviewModal();
     }
   };
@@ -153,6 +193,7 @@ export default function ParishApplicationsPage() {
       setActionError(rejectErr.message || 'Failed to reject application');
     } else {
       await fetchApplications();
+      void fetchStatusCounts();
       closeReviewModal();
     }
   };
@@ -174,6 +215,7 @@ export default function ParishApplicationsPage() {
   }, [applications, statusFilter, searchQuery]);
 
   const counts = useMemo(() => {
+    if (statusCounts.all > 0) return statusCounts;
     return {
       all: applications.length,
       pending: applications.filter((a) => a.status === 'pending').length,
@@ -181,7 +223,7 @@ export default function ParishApplicationsPage() {
       verified_active: applications.filter((a) => a.status === 'verified_active').length,
       rejected: applications.filter((a) => a.status === 'rejected').length,
     };
-  }, [applications]);
+  }, [statusCounts, applications]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -237,7 +279,7 @@ export default function ParishApplicationsPage() {
         </div>
 
         <button
-          onClick={fetchApplications}
+          onClick={() => { void fetchApplications(); void fetchStatusCounts(); }}
           className="btn-secondary text-xs sm:text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-2 self-start sm:self-auto"
           disabled={loading}
         >
@@ -261,7 +303,10 @@ export default function ParishApplicationsPage() {
           ).map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setStatusFilter(tab.key)}
+              onClick={() => {
+                setStatusFilter(tab.key);
+                setCurrentPage(1);
+              }}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                 statusFilter === tab.key
                   ? 'bg-primary text-white shadow-sm'
@@ -289,7 +334,10 @@ export default function ParishApplicationsPage() {
             type="text"
             placeholder="Search parish or applicant..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="input w-full !pl-10 text-sm"
           />
         </div>
@@ -307,7 +355,7 @@ export default function ParishApplicationsPage() {
         <div className="card p-6 text-center text-red-600 space-y-2">
           <AlertCircle className="w-8 h-8 mx-auto" />
           <p className="font-semibold">{error}</p>
-          <button onClick={fetchApplications} className="btn-secondary text-xs px-4 py-2 mt-2">
+          <button onClick={() => void fetchApplications(true)} className="btn-secondary text-xs px-4 py-2 mt-2">
             Try Again
           </button>
         </div>
@@ -347,7 +395,7 @@ export default function ParishApplicationsPage() {
                   </div>
                   <div className="flex items-center gap-1.5 truncate">
                     <Clock className="w-3.5 h-3.5 shrink-0 text-primary" />
-                    <span>Submitted: {new Date(app.created_at || Date.now()).toLocaleDateString()}</span>
+                    <span>Submitted: {app.created_at ? new Date(app.created_at).toLocaleDateString() : 'Recent'}</span>
                   </div>
                 </div>
 
@@ -387,6 +435,22 @@ export default function ParishApplicationsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Pagination Component */}
+      {totalCount > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={searchQuery ? filteredApps.length : totalCount}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50]}
+          itemName="applications"
+        />
       )}
 
       {/* Review & Checklist Modal */}

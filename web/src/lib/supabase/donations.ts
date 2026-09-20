@@ -116,11 +116,24 @@ export async function getUserDonations() {
     }
 }
 
+export interface DonationPaginationOptions {
+    page?: number;
+    pageSize?: number;
+    status?: 'pending' | 'verified' | 'rejected';
+}
+
 /**
  * Get donations for a church (admin view)
  */
-export async function getChurchDonations(churchId: string, status?: 'pending' | 'verified' | 'rejected') {
+export async function getChurchDonations(
+    churchId: string,
+    optionsOrStatus?: 'pending' | 'verified' | 'rejected' | DonationPaginationOptions
+): Promise<{ data: Donation[]; count: number; error: Error | null }> {
     try {
+        const options: DonationPaginationOptions = typeof optionsOrStatus === 'string'
+            ? { status: optionsOrStatus }
+            : (optionsOrStatus || {});
+
         let query = supabase
             .from('donations')
             .select(`
@@ -128,28 +141,44 @@ export async function getChurchDonations(churchId: string, status?: 'pending' | 
                 church:churches(name),
                 donor:profiles!donations_user_id_fkey(full_name, email),
                 verifier:profiles!donations_verified_by_fkey(full_name)
-            `)
+            `, { count: 'exact' })
             .eq('church_id', churchId)
             .order('created_at', { ascending: false });
 
-        if (status) {
-            query = query.eq('status', status);
+        if (options.status) {
+            query = query.eq('status', options.status);
         }
 
-        const { data, error } = await query;
+        if (options.page && options.pageSize) {
+            const from = (options.page - 1) * options.pageSize;
+            const to = from + options.pageSize - 1;
+            query = query.range(from, to);
+        }
+
+        const { data, count, error } = await query;
         if (error) throw error;
-        return { data: data as Donation[], error: null };
+        return {
+            data: (data as Donation[]) || [],
+            count: count ?? (data?.length || 0),
+            error: null,
+        };
     } catch (err: unknown) {
         console.error('Error fetching church donations:', err);
-        return { data: [], error: toError(err) };
+        return { data: [], count: 0, error: toError(err) };
     }
 }
 
 /**
  * Get all donations (super admin / admin view)
  */
-export async function getAllDonations(status?: 'pending' | 'verified' | 'rejected') {
+export async function getAllDonations(
+    optionsOrStatus?: 'pending' | 'verified' | 'rejected' | DonationPaginationOptions
+): Promise<{ data: Donation[]; count: number; error: Error | null }> {
     try {
+        const options: DonationPaginationOptions = typeof optionsOrStatus === 'string'
+            ? { status: optionsOrStatus }
+            : (optionsOrStatus || {});
+
         let query = supabase
             .from('donations')
             .select(`
@@ -157,19 +186,29 @@ export async function getAllDonations(status?: 'pending' | 'verified' | 'rejecte
                 church:churches(name),
                 donor:profiles!donations_user_id_fkey(full_name, email),
                 verifier:profiles!donations_verified_by_fkey(full_name)
-            `)
+            `, { count: 'exact' })
             .order('created_at', { ascending: false });
 
-        if (status) {
-            query = query.eq('status', status);
+        if (options.status) {
+            query = query.eq('status', options.status);
         }
 
-        const { data, error } = await query;
+        if (options.page && options.pageSize) {
+            const from = (options.page - 1) * options.pageSize;
+            const to = from + options.pageSize - 1;
+            query = query.range(from, to);
+        }
+
+        const { data, count, error } = await query;
         if (error) throw error;
-        return { data: data as Donation[], error: null };
+        return {
+            data: (data as Donation[]) || [],
+            count: count ?? (data?.length || 0),
+            error: null,
+        };
     } catch (err: unknown) {
         console.error('Error fetching all donations:', err);
-        return { data: [], error: toError(err) };
+        return { data: [], count: 0, error: toError(err) };
     }
 }
 

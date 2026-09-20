@@ -19,9 +19,10 @@ import { supabase } from '../../lib/supabase';
 import { submitDonation } from '../../lib/supabase/donations';
 import { getDailyReadings, ACT_OF_SPIRITUAL_COMMUNION, type LiturgicalDay } from '../../lib/liturgy';
 import { useNavigate } from 'react-router-dom';
+import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySidebarProps {
-    church: any;
+    church: Church;
     activeTab?: 'liturgy' | 'intentions' | 'offertory';
     onTabChange?: (tab: 'liturgy' | 'intentions' | 'offertory') => void;
     onClose?: () => void;
@@ -122,14 +123,22 @@ export default function VirtualSanctuarySidebar({
                 }
 
                 if (data) {
-                    const mapped: MassIntentionItem[] = data.map((item: any) => {
+                    type RawIntention = {
+                        id: string;
+                        appointment_date?: string | null;
+                        requested_date?: string | null;
+                        notes?: string | null;
+                        status?: string | null;
+                        profiles?: { full_name?: string | null } | null;
+                    };
+                    const mapped: MassIntentionItem[] = (data as unknown as RawIntention[]).map((item) => {
                         const rawNotes = item.notes || 'Special intention for the Holy Mass';
                         const fullName = item.profiles?.full_name || 'Parishioner';
                         return {
                             id: item.id,
-                            requested_date: item.appointment_date || item.requested_date,
+                            requested_date: item.appointment_date || item.requested_date || '',
                             notes: rawNotes,
-                            status: item.status,
+                            status: item.status || null,
                             category: categorizeIntention(rawNotes),
                             donorName: fullName,
                         };
@@ -206,8 +215,9 @@ export default function VirtualSanctuarySidebar({
             } else {
                 setDonationSuccess(true);
             }
-        } catch (err: any) {
-            setDonationError(err.message || 'An unexpected error occurred.');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
+            setDonationError(message);
         } finally {
             setSubmittingDonation(false);
         }
@@ -218,11 +228,12 @@ export default function VirtualSanctuarySidebar({
     const healingIntentions = intentions.filter((i) => i.category === 'healing');
 
     return (
-        <div className={`card overflow-hidden shadow-sm border border-border bg-white dark:bg-card flex flex-col text-foreground ${className}`}>
+        <div className={`overflow-hidden flex flex-col text-foreground bg-white dark:bg-card ${className ? className : 'card shadow-sm border border-border rounded-2xl'}`}>
             {/* Header Tabs */}
             <div className="flex items-center justify-between border-b border-border bg-secondary-50 dark:bg-secondary-900/40 p-2 gap-1 shrink-0">
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                     <button
+                        type="button"
                         onClick={() => setTab('liturgy')}
                         className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
                             currentTab === 'liturgy'
@@ -236,6 +247,7 @@ export default function VirtualSanctuarySidebar({
                     </button>
 
                     <button
+                        type="button"
                         onClick={() => setTab('intentions')}
                         className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
                             currentTab === 'intentions'
@@ -249,6 +261,7 @@ export default function VirtualSanctuarySidebar({
                     </button>
 
                     <button
+                        type="button"
                         onClick={() => setTab('offertory')}
                         className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
                             currentTab === 'offertory'
@@ -267,8 +280,8 @@ export default function VirtualSanctuarySidebar({
                         onClick={onClose}
                         type="button"
                         className="p-1.5 rounded-xl text-muted hover:text-foreground hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-all duration-200 shrink-0 cursor-pointer ml-1 hover:-translate-y-0.5 active:scale-95"
-                        title="Close Sidebar"
-                        aria-label="Close Companion Sidebar"
+                        title="Close"
+                        aria-label="Close modal"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -276,7 +289,7 @@ export default function VirtualSanctuarySidebar({
             </div>
 
             {/* Tab Body */}
-            <div className="flex-1 min-h-0 p-5 overflow-y-auto max-h-[calc(100vh-70px)] xl:max-h-[640px] scrollbar-thin">
+            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto max-h-[75vh] scrollbar-thin">
                 {/* ── TAB 1: DAILY GOSPEL & SPIRITUAL COMMUNION ── */}
                 {currentTab === 'liturgy' && (
                     <div className="space-y-5 animate-in text-foreground">

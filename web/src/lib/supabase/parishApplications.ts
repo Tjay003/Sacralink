@@ -148,30 +148,59 @@ export async function submitParishApplication(
   }
 }
 
+export interface ParishApplicationPaginationOptions {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}
+
 /**
  * Fetch all parish applications for Super Admin review queue
  */
-export async function getParishApplications(): Promise<{
+export async function getParishApplications(
+  options?: ParishApplicationPaginationOptions
+): Promise<{
   data: ParishApplicationWithRelations[] | null;
+  count: number;
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('parish_applications')
       .select(`
         *,
         applicant:profiles!parish_applications_applicant_id_fkey(id, full_name, email, phone_number),
         reviewer:profiles!parish_applications_reviewed_by_fkey(id, full_name),
         church:churches!parish_applications_church_id_fkey(id, name, status)
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false });
+
+    if (options?.status && options.status !== 'all') {
+      query = query.eq('status', options.status);
+    }
+
+    if (options?.page && options?.pageSize) {
+      const from = (options.page - 1) * options.pageSize;
+      const to = from + options.pageSize - 1;
+      query = query.range(from, to);
+    }
+
+    const { data, count, error } = await query;
 
     if (error) throw error;
 
-    return { data: (data as unknown as ParishApplicationWithRelations[]) || [], error: null };
+    return {
+      data: (data as unknown as ParishApplicationWithRelations[]) || [],
+      count: count ?? (data?.length || 0),
+      error: null,
+    };
   } catch (err: any) {
     console.error('Error fetching parish applications:', err);
-    return { data: null, error: err instanceof Error ? err : new Error(err.message || 'Failed to fetch applications') };
+    return {
+      data: null,
+      count: 0,
+      error: err instanceof Error ? err : new Error(err.message || 'Failed to fetch applications'),
+    };
   }
 }
 

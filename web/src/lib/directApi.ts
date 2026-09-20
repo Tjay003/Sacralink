@@ -39,32 +39,88 @@ export async function directFetchProfile(userId: string, accessToken: string): P
     }
 }
 
+export interface DirectFetchProfilesOptions {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    role?: string;
+    churchId?: string;
+}
+
+export interface DirectFetchProfilesResult {
+    data: Profile[];
+    count: number;
+}
+
 /**
- * Fetch all user profiles (for admin user management)
+ * Fetch all user profiles (for admin user management) with optional pagination and filters
  */
-export async function directFetchProfiles(accessToken: string): Promise<Profile[] | null> {
+export async function directFetchProfiles(
+    accessToken: string,
+    options?: DirectFetchProfilesOptions
+): Promise<DirectFetchProfilesResult> {
     try {
-        const response = await fetch(
-            `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`,
-            {
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
+        let url = `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`;
+
+        if (options?.role && options.role !== 'all') {
+            url += `&role=eq.${encodeURIComponent(options.role)}`;
+        }
+
+        if (options?.churchId && options.churchId !== 'all') {
+            if (options.churchId === 'unassigned') {
+                url += `&assigned_church_id=is.null`;
+            } else {
+                url += `&assigned_church_id=eq.${encodeURIComponent(options.churchId)}`;
             }
-        );
+        }
+
+        if (options?.search && options.search.trim()) {
+            const term = encodeURIComponent(`%${options.search.trim()}%`);
+            url += `&or=(full_name.ilike.${term},email.ilike.${term})`;
+        }
+
+        const headers: Record<string, string> = {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'count=exact',
+        };
+
+        if (options?.page && options?.pageSize) {
+            const from = (options.page - 1) * options.pageSize;
+            const to = options.page * options.pageSize - 1;
+            headers['Range'] = `${from}-${to}`;
+        }
+
+        const response = await fetch(url, { headers });
 
         if (!response.ok) {
             console.error('Direct API error:', response.status, response.statusText);
-            return null;
+            return { data: [], count: 0 };
         }
 
         const data: Profile[] = await response.json();
-        return data;
+        let totalCount = Array.isArray(data) ? data.length : 0;
+
+        const contentRange = response.headers.get('content-range');
+        if (contentRange) {
+            const parts = contentRange.split('/');
+            if (parts.length > 1) {
+                const parsed = parseInt(parts[1], 10);
+                if (!isNaN(parsed)) {
+                    totalCount = parsed;
+                }
+            }
+        }
+
+        const result: DirectFetchProfilesResult = { data: data || [], count: totalCount };
+        if (Array.isArray(data)) {
+            Object.assign(data, result);
+        }
+        return result;
     } catch (error) {
         console.error('Direct API fetch error:', error);
-        return null;
+        return { data: [], count: 0 };
     }
 }
 

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert, X, MessageSquare } from 'lucide-react';
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Edit, Trash2, ExternalLink, Plus, Clock, Calendar, Heart, Bookmark, BookmarkCheck, ShieldCheck, ShieldAlert, X, MessageSquare, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -67,6 +67,56 @@ export default function ChurchDetailPage() {
     const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [searchParams] = useSearchParams();
     const deepLinkAnnouncementId = searchParams.get('announcement');
+
+    const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+    const [dropdownAlign, setDropdownAlign] = useState<'left' | 'right'>('right');
+    const adminDropdownRef = useRef<HTMLDivElement>(null);
+
+    const updateDropdownAlignment = () => {
+        if (adminDropdownRef.current) {
+            const rect = adminDropdownRef.current.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const dropdownWidth = 224; // w-56 = 14rem = 224px
+
+            const wouldOverflowRight = rect.left + dropdownWidth > viewportWidth - 8;
+            const wouldOverflowLeft = rect.right - dropdownWidth < 8;
+
+            if (wouldOverflowLeft && !wouldOverflowRight) {
+                setDropdownAlign('left');
+            } else if (wouldOverflowRight && !wouldOverflowLeft) {
+                setDropdownAlign('right');
+            } else if (rect.left < 200) {
+                setDropdownAlign('left');
+            } else {
+                setDropdownAlign('right');
+            }
+        }
+    };
+
+    const handleToggleAdminMenu = () => {
+        if (!adminMenuOpen) {
+            updateDropdownAlignment();
+        }
+        setAdminMenuOpen((prev) => !prev);
+    };
+
+    // Close admin controls dropdown when clicking outside + update alignment on resize
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (adminDropdownRef.current && !adminDropdownRef.current.contains(event.target as Node)) {
+                setAdminMenuOpen(false);
+            }
+        };
+        if (adminMenuOpen) {
+            updateDropdownAlignment();
+            document.addEventListener('mousedown', handleClickOutside);
+            window.addEventListener('resize', updateDropdownAlignment);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('resize', updateDropdownAlignment);
+        };
+    }, [adminMenuOpen]);
 
     // Load follow state + check for ?announcement= deep link
     useEffect(() => {
@@ -267,11 +317,12 @@ export default function ChurchDetailPage() {
                     state: { info: `Started direct conversation with ${staffUser.full_name || 'Parish Office'}.` },
                 });
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error contacting parish:', err);
+            const message = err instanceof Error ? err.message : 'Failed to start conversation with parish office.';
             setActionFeedback({
                 type: 'error',
-                message: err?.message || 'Failed to start conversation with parish office.',
+                message,
             });
         } finally {
             setContactLoading(false);
@@ -406,140 +457,199 @@ export default function ChurchDetailPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto py-0.5 shrink-0">
-                        {/* Book Appointment */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto py-0.5 shrink-0">
+                        {/* Book Appointment — primary prominence CTA on mobile, inline on desktop */}
                         {isFeatureEnabled('appointments') && (
                             <button
                                 onClick={() => navigate(`/churches/${id}/book`)}
-                                className="btn-primary flex flex-col items-center justify-center rounded-lg px-4 py-2 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
+                                className="btn-primary w-full sm:w-auto inline-flex items-center justify-center gap-2 h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-150 shadow-xs hover:shadow-md"
                             >
-                                <Calendar className="w-4 h-4 shrink-0 mb-1" />
-                                <span className="text-xs truncate">Book Appointment</span>
+                                <Calendar className="w-4 h-4 shrink-0" />
+                                <span className="truncate">Book Appointment</span>
                             </button>
                         )}
 
-                        {/* Contact Parish / Message Office */}
-                        <button
-                            onClick={handleContactParish}
-                            disabled={contactLoading}
-                            title="Directly message the parish office"
-                            className="flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 border border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md disabled:opacity-60"
-                        >
-                            {contactLoading ? (
-                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0 mb-0.5" />
-                            ) : (
-                                <MessageSquare className="w-4 h-4 shrink-0" />
+                        {/* Secondary Actions Row on mobile, seamless inline flow on desktop */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:flex-nowrap">
+                            {/* Donate button - visible if church has payment info */}
+                            {(church.gcash_number || church.maya_number) && (
+                                <button
+                                    onClick={() => {
+                                        if (isUnverified) return;
+                                        getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
+                                        setShowDonateModal(true);
+                                    }}
+                                    disabled={Boolean(isUnverified)}
+                                    title={isUnverified ? 'Donations locked until Diocese verification' : 'Donate to this church'}
+                                    className={`inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 shrink-0 shadow-xs hover:shadow-md cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
+                                        isUnverified
+                                            ? 'bg-secondary-100 text-muted border border-border cursor-not-allowed opacity-60'
+                                            : 'bg-rose-50 hover:bg-rose-100/90 text-rose-700 border border-rose-200'
+                                    }`}
+                                >
+                                    <Heart className="w-4 h-4 shrink-0 fill-rose-500/20 text-rose-600" />
+                                    <span>{isUnverified ? 'Locked' : 'Donate'}</span>
+                                </button>
                             )}
-                            <span className="text-xs truncate">Contact Parish</span>
-                        </button>
 
-                        {/* Donate button - visible if church has payment info */}
-                        {(church.gcash_number || church.maya_number) && (
+                            {/* Contact Parish / Message Office */}
                             <button
-                                onClick={() => {
-                                    if (isUnverified) return;
-                                    getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
-                                    setShowDonateModal(true);
-                                }}
-                                disabled={Boolean(isUnverified)}
-                                title={isUnverified ? 'Donations locked until Diocese verification' : 'Donate to this church'}
-                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 shrink-0 ${
-                                    isUnverified
-                                        ? 'bg-secondary-200 dark:bg-secondary-800 text-muted cursor-not-allowed opacity-60'
-                                        : 'bg-red-500 hover:bg-red-600 text-white cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md'
-                                }`}
+                                onClick={handleContactParish}
+                                disabled={contactLoading}
+                                title="Directly message the parish office"
+                                className="inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 border border-border bg-white hover:bg-secondary-50 text-foreground hover:border-primary/40 hover:text-primary shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md disabled:opacity-60"
                             >
-                                <Heart className="w-4 h-4 shrink-0" />
-                                <span className="text-xs">{isUnverified ? 'Locked' : 'Donate'}</span>
+                                {contactLoading ? (
+                                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                    <MessageSquare className="w-4 h-4 shrink-0 text-muted" />
+                                )}
+                                <span className="hidden sm:inline">Contact Parish</span>
+                                <span className="sm:hidden">Contact</span>
                             </button>
-                        )}
 
-                        {/* Follow / Unfollow button — for regular users */}
-                        {profile && (
-                            <button
-                                onClick={handleFollowToggle}
-                                disabled={followLoading}
-                                title={isFollowing ? 'Unfollow this church' : 'Follow to get notified of announcements'}
-                                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 border shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md ${
-                                    isFollowing
-                                        ? 'bg-primary text-white border-primary hover:bg-primary/90'
-                                        : 'bg-white dark:bg-card text-foreground border-border hover:border-primary hover:text-primary'
-                                } disabled:opacity-60`}
-                            >
-                                {isFollowing
-                                    ? <BookmarkCheck className="w-4 h-4 shrink-0" />
-                                    : <Bookmark className="w-4 h-4 shrink-0" />}
-                                <span className="text-xs">{isFollowing ? 'Following' : 'Follow'}</span>
-                            </button>
-                        )}
-
-                        {/* Super Admin Parish Verification Security Controls */}
-                        {isSuperAdmin && (
-                            (church.status === 'verified_active' || church.status === 'active') ? (
+                            {/* Follow / Unfollow button — for regular users */}
+                            {profile && (
                                 <button
-                                    onClick={() => setShowRevokeModal(true)}
-                                    className="flex flex-col items-center justify-center gap-1 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all duration-200 bg-amber-500 hover:bg-amber-600 text-white shadow-xs hover:shadow-md cursor-pointer active:scale-95 shrink-0"
+                                    onClick={handleFollowToggle}
+                                    disabled={followLoading}
+                                    title={isFollowing ? 'Unfollow this church' : 'Follow to get notified of announcements'}
+                                    className={`inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 border shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md ${
+                                        isFollowing
+                                            ? 'bg-primary-50 text-primary border-primary/30 hover:bg-primary-100/60'
+                                            : 'bg-white text-foreground border-border hover:bg-secondary-50 hover:border-border'
+                                    } disabled:opacity-60`}
                                 >
-                                    <ShieldAlert className="w-4 h-4 shrink-0" />
-                                    <span>Suspend Donations</span>
+                                    {isFollowing ? (
+                                        <BookmarkCheck className="w-4 h-4 shrink-0 text-primary" />
+                                    ) : (
+                                        <Bookmark className="w-4 h-4 shrink-0 text-muted" />
+                                    )}
+                                    <span className="hidden md:inline">{isFollowing ? 'Following' : 'Follow'}</span>
                                 </button>
-                            ) : (
-                                <button
-                                    onClick={handleVerifyChurch}
-                                    disabled={verifying}
-                                    className="flex flex-col items-center justify-center gap-1 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-md cursor-pointer active:scale-95 shrink-0 disabled:opacity-60"
-                                >
-                                    <ShieldCheck className="w-4 h-4 shrink-0" />
-                                    <span>{verifying ? 'Verifying...' : 'Verify Parish'}</span>
-                                </button>
-                            )
-                        )}
+                            )}
 
-                        {/* Admin Action Buttons */}
-                        {canManage() && (
-                            <button
-                                onClick={() => navigate(`/churches/${id}/edit`)}
-                                className="btn-secondary flex flex-col items-center justify-center rounded-lg px-3 py-1.5 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
-                            >
-                                <Edit className="w-4 h-4 shrink-0 mb-1" />
-                                <span className="text-xs">Edit</span>
-                            </button>
-                        )}
+                            {/* Parish Management Controls Dropdown (for Staff / Admins / Super Admins) */}
+                            {(canManage() || isSuperAdmin) && (
+                                <div className="relative shrink-0" ref={adminDropdownRef}>
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleAdminMenu}
+                                        className={`inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 border shadow-xs hover:shadow-sm cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
+                                            adminMenuOpen
+                                                ? 'bg-secondary-100 text-foreground border-secondary-300 ring-2 ring-primary/20'
+                                                : 'bg-white text-foreground border-border hover:bg-secondary-50'
+                                        }`}
+                                        title="Parish administrative tools and settings"
+                                        aria-label="Manage parish settings and controls"
+                                        aria-expanded={adminMenuOpen}
+                                        aria-haspopup="true"
+                                    >
+                                        <SlidersHorizontal className="w-4 h-4 text-muted shrink-0" />
+                                        <span className="hidden sm:inline">Manage</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-muted transition-transform duration-200 ${adminMenuOpen ? 'rotate-180' : ''}`} />
+                                    </button>
 
-                        {isSuperAdmin && (
-                            <button
-                                onClick={async () => {
-                                    if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
-                                        console.log('🗑️ Deleting church:', id);
+                                    {adminMenuOpen && (
+                                        <div
+                                            className={`absolute mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-border shadow-xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 ${
+                                                dropdownAlign === 'left'
+                                                    ? 'left-0 sm:left-auto sm:right-0'
+                                                    : 'right-0'
+                                            }`}
+                                        >
+                                            <div className="px-3.5 py-1.5 border-b border-border/60">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                                                    Parish Controls
+                                                </p>
+                                            </div>
 
-                                        if (!id) return;
+                                            {/* Edit Details */}
+                                            {canManage() && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAdminMenuOpen(false);
+                                                        navigate(`/churches/${id}/edit`);
+                                                    }}
+                                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm text-foreground hover:bg-secondary-50 transition-colors cursor-pointer text-left font-medium"
+                                                >
+                                                    <Edit className="w-4 h-4 text-muted shrink-0" />
+                                                    <span>Edit Parish Details</span>
+                                                </button>
+                                            )}
 
-                                        try {
-                                            const { error } = await supabase
-                                                .from('churches')
-                                                .delete()
-                                                .eq('id', id);
+                                            {/* Super Admin Verification / Suspension */}
+                                            {isSuperAdmin && (
+                                                (church.status === 'verified_active' || church.status === 'active') ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setAdminMenuOpen(false);
+                                                            setShowRevokeModal(true);
+                                                        }}
+                                                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors cursor-pointer text-left font-medium"
+                                                    >
+                                                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                                        <span>Suspend Donations</span>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setAdminMenuOpen(false);
+                                                            handleVerifyChurch();
+                                                        }}
+                                                        disabled={verifying}
+                                                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer text-left font-medium disabled:opacity-60"
+                                                    >
+                                                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                                                        <span>{verifying ? 'Verifying...' : 'Verify Parish'}</span>
+                                                    </button>
+                                                )
+                                            )}
 
-                                            if (error) {
-                                                console.error('❌ Error deleting church:', error);
-                                                alert('Failed to delete church: ' + error.message);
-                                                return;
-                                            }
-
-                                            console.log('✅ Church deleted successfully');
-                                            navigate('/churches');
-                                        } catch (err) {
-                                            console.error('❌ Unexpected error:', err);
-                                            alert('Failed to delete church');
-                                        }
-                                    }
-                                }}
-                                className="btn-secondary text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex flex-col items-center justify-center px-3 py-1.5 shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 transition-all duration-200 shadow-xs hover:shadow-md"
-                            >
-                                <Trash2 className="w-4 h-4 shrink-0 mb-1" />
-                                <span className="text-xs">Delete</span>
-                            </button>
-                        )}
+                                            {/* Super Admin Delete Church */}
+                                            {isSuperAdmin && (
+                                                <>
+                                                    <div className="border-t border-border/60 my-1" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            setAdminMenuOpen(false);
+                                                            if (confirm(`Are you sure you want to delete "${church.name}"?\n\nThis action cannot be undone and will also delete all associated mass schedules.`)) {
+                                                                console.log('🗑️ Deleting church:', id);
+                                                                if (!id) return;
+                                                                try {
+                                                                    const { error } = await supabase
+                                                                        .from('churches')
+                                                                        .delete()
+                                                                        .eq('id', id);
+                                                                    if (error) {
+                                                                        console.error('❌ Error deleting church:', error);
+                                                                        alert('Failed to delete church: ' + error.message);
+                                                                        return;
+                                                                    }
+                                                                    console.log('✅ Church deleted successfully');
+                                                                    navigate('/churches');
+                                                                } catch (err) {
+                                                                    console.error('❌ Unexpected error:', err);
+                                                                    alert('Failed to delete church');
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs sm:text-sm text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer text-left font-medium"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-destructive shrink-0" />
+                                                        <span>Delete Church</span>
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -2,8 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import {
     Tv,
     Radio,
-    Maximize2,
-    Minimize2,
     Calendar,
     Clock,
     Flame,
@@ -12,13 +10,12 @@ import {
     Share2,
     Check
 } from 'lucide-react';
-import type { Church, MassSchedule } from '../../types/database';
+import type { Church } from '../../hooks/useChurches';
+import type { MassSchedule } from '../../types/database';
 
 interface LivestreamPlayerProps {
-    church: Church & { mass_schedules?: MassSchedule[] };
+    church: Church;
     candleCount?: number;
-    isSidebarOpen?: boolean;
-    onToggleSidebar?: () => void;
     className?: string;
 }
 
@@ -32,7 +29,7 @@ export type ParsedStream = {
  * Robust stream parser for YouTube (videos, live, shortlinks, embed IDs)
  * and Facebook Live (video permalinks, fb.watch, live streams).
  */
-export function parseStreamUrl(url?: string | null, platformPreference?: string | null): ParsedStream {
+function parseStreamUrl(url?: string | null, platformPreference?: string | null): ParsedStream {
     if (!url || !url.trim()) return null;
     const clean = url.trim();
 
@@ -111,10 +108,10 @@ const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'F
 /**
  * Calculates the next upcoming scheduled mass
  */
-export function getNextUpcomingMass(schedules?: MassSchedule[] | null) {
+function getNextUpcomingMass(schedules?: MassSchedule[] | null, referenceDate: Date = new Date()) {
     if (!schedules || schedules.length === 0) return null;
 
-    const now = new Date();
+    const now = referenceDate;
     const currentDayIndex = now.getDay();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
@@ -169,12 +166,8 @@ export function getNextUpcomingMass(schedules?: MassSchedule[] | null) {
 export default function LivestreamPlayer({
     church,
     candleCount,
-    isSidebarOpen = true,
-    onToggleSidebar,
     className = '',
 }: LivestreamPlayerProps) {
-    const [isLocalTheater, setIsLocalTheater] = useState(false);
-    const effectiveTheater = onToggleSidebar ? !isSidebarOpen : isLocalTheater;
     const [copied, setCopied] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -189,7 +182,10 @@ export default function LivestreamPlayer({
         church.livestream_platform,
     ]);
 
-    const nextMass = useMemo(() => getNextUpcomingMass(church.mass_schedules), [church.mass_schedules, currentTime]);
+    const nextMass = useMemo(
+        () => getNextUpcomingMass(church.mass_schedules, currentTime),
+        [church.mass_schedules, currentTime]
+    );
 
     const activeCandles = candleCount !== undefined ? candleCount : (church.candle_count || 0);
 
@@ -212,7 +208,7 @@ export default function LivestreamPlayer({
     };
 
     return (
-        <div className={`flex flex-col transition-all duration-300 ${effectiveTheater ? 'w-full' : ''} ${className}`}>
+        <div className={`flex flex-col w-full transition-all duration-300 ${className}`}>
             {/* Main Video Frame */}
             <div className={`relative w-full flex flex-col ${isLive && parsedStream ? 'aspect-video bg-black' : 'bg-secondary-50/50 dark:bg-card min-h-[420px]'} rounded-3xl overflow-hidden border border-border shadow-md group select-none`}>
                 {isLive && parsedStream ? (
@@ -245,20 +241,6 @@ export default function LivestreamPlayer({
                                     <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
                                     <span>{activeCandles} Candles Lit</span>
                                 </div>
-
-                                <button
-                                    onClick={() => {
-                                        if (onToggleSidebar) {
-                                            onToggleSidebar();
-                                        } else {
-                                            setIsLocalTheater(!isLocalTheater);
-                                        }
-                                    }}
-                                    className="p-2 rounded-full bg-black/60 hover:bg-black/80 text-white/90 hover:text-white transition-all duration-200 backdrop-blur-md border border-white/20 shadow-xs cursor-pointer hover:-translate-y-0.5 active:scale-95"
-                                    title={effectiveTheater ? 'Exit Theater Mode (Open Sidebar)' : 'Theater Mode (Collapse Sidebar)'}
-                                >
-                                    {effectiveTheater ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                                </button>
                             </div>
                         </div>
 
@@ -315,21 +297,6 @@ export default function LivestreamPlayer({
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                    onClick={() => {
-                                        if (onToggleSidebar) {
-                                            onToggleSidebar();
-                                        } else {
-                                            setIsLocalTheater(!isLocalTheater);
-                                        }
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 hover:bg-white dark:bg-secondary-900/90 dark:hover:bg-secondary-800 text-xs text-foreground font-medium transition-all duration-200 border border-border shadow-xs backdrop-blur-md cursor-pointer hover:-translate-y-0.5 active:scale-95"
-                                    title={effectiveTheater ? 'Exit Theater Mode (Open Sidebar)' : 'Theater Mode (Collapse Sidebar)'}
-                                >
-                                    {effectiveTheater ? <Minimize2 className="w-3.5 h-3.5 text-muted" /> : <Maximize2 className="w-3.5 h-3.5 text-muted" />}
-                                    <span className="hidden sm:inline">{effectiveTheater ? 'Exit Theater' : 'Theater'}</span>
-                                </button>
-
                                 <button
                                     onClick={handleShare}
                                     className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-white dark:bg-secondary-900/90 dark:hover:bg-secondary-800 text-xs text-foreground font-medium transition-all duration-200 border border-border shadow-xs backdrop-blur-md cursor-pointer hover:-translate-y-0.5 active:scale-95"

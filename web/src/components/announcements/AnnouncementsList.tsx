@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import type {
     ChurchAnnouncement,
     SystemAnnouncement,
@@ -7,10 +7,11 @@ import type {
 } from '../../lib/supabase/announcements';
 import AnnouncementCard from './AnnouncementCard';
 import AnnouncementDetailModal from './AnnouncementDetailModal';
+import Pagination from '../common/Pagination';
 
-const PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 5;
 
-interface AnnouncementsListProps {
+export interface AnnouncementsListProps {
     announcements: (ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement)[];
     type?: 'church' | 'system' | 'all';
     showActions?: boolean;
@@ -21,13 +22,19 @@ interface AnnouncementsListProps {
     onDelete?: (announcement: ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement) => void;
     /** If set, automatically opens this announcement ID in the modal on mount */
     initialOpenId?: string | null;
+    /** Optional parent or server controlled pagination */
+    currentPage?: number;
+    pageSize?: number;
+    totalItems?: number;
+    onPageChange?: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
 }
 
 /**
  * AnnouncementsList - Paginated list of announcements with detail modal
  *
  * Features:
- * - 5-per-page pagination
+ * - Shared Pagination component with 5/10/20 items per page
  * - Click any card → AnnouncementDetailModal
  * - initialOpenId: auto-opens a specific announcement (for notification deep-links)
  * - Flexible item-level action permissions (canEditItem, canDeleteItem)
@@ -42,17 +49,31 @@ export default function AnnouncementsList({
     onEdit,
     onDelete,
     initialOpenId,
+    currentPage: propsCurrentPage,
+    pageSize: propsPageSize,
+    totalItems: propsTotalItems,
+    onPageChange: propsOnPageChange,
+    onPageSizeChange: propsOnPageSizeChange,
 }: AnnouncementsListProps) {
-    const [page, setPage] = useState(0);
+    const [internalPage, setInternalPage] = useState(1);
+    const [internalPageSize, setInternalPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+    const currentPage = propsCurrentPage ?? internalPage;
+    const pageSize = propsPageSize ?? internalPageSize;
+    const onPageChange = propsOnPageChange ?? setInternalPage;
+    const onPageSizeChange = propsOnPageSizeChange ?? setInternalPageSize;
+    const totalItems = propsTotalItems ?? announcements.length;
+
     const [viewing, setViewing] = useState<ChurchAnnouncement | SystemAnnouncement | UnifiedAnnouncement | null>(
         () => initialOpenId
             ? (announcements.find(a => a.id === initialOpenId) ?? null)
             : null
     );
 
-    const totalPages = Math.max(1, Math.ceil(announcements.length / PAGE_SIZE));
-    const safePage = Math.min(page, totalPages - 1);
-    const paginated = announcements.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+    const isServerPaginated = propsTotalItems !== undefined && propsTotalItems > announcements.length;
+    const paginated = isServerPaginated
+        ? announcements
+        : announcements.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     if (announcements.length === 0) {
         return (
@@ -91,32 +112,18 @@ export default function AnnouncementsList({
                 })}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                    <p className="text-sm text-muted">
-                        Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, announcements.length)} of {announcements.length}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(0, p - 1))}
-                            disabled={safePage === 0}
-                            className="p-2 rounded-lg border border-border hover:bg-secondary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-foreground"
-                            aria-label="Previous page"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-sm font-medium px-2 text-foreground">{safePage + 1} / {totalPages}</span>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                            disabled={safePage >= totalPages - 1}
-                            className="p-2 rounded-lg border border-border hover:bg-secondary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-foreground"
-                            aria-label="Next page"
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
+            {/* Shared Pagination Component */}
+            {totalItems > 0 && (
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={totalItems}
+                    pageSize={pageSize}
+                    onPageChange={onPageChange}
+                    onPageSizeChange={onPageSizeChange}
+                    pageSizeOptions={[5, 10, 20]}
+                    itemName="announcements"
+                    className="mt-6"
+                />
             )}
 
             {/* Detail Modal */}

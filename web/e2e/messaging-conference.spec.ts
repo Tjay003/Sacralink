@@ -96,7 +96,7 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
 
     // Modal opens
     await expect(page.getByRole('heading', { name: 'New Direct Conversation' })).toBeVisible();
-    await expect(page.getByPlaceholder('Search by name or email...')).toBeVisible();
+    await expect(page.getByPlaceholder(/Search by name/i)).toBeVisible();
 
     // Verify tabs: All Contacts, Church Admins, Volunteers, Parishioners (Priests should NOT exist)
     await expect(page.getByRole('button', { name: 'All Contacts' })).toBeVisible();

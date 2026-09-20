@@ -41,6 +41,8 @@ export interface GetAppointmentsFilter {
     limit?: number;
     orderBy?: 'created_at' | 'appointment_date';
     ascending?: boolean;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface CreateAppointmentInput {
@@ -95,7 +97,7 @@ export function formatAppointmentTime(time: string | null | undefined): string {
  */
 export async function getAppointments(
     filter: GetAppointmentsFilter = {}
-): Promise<{ data: HydratedAppointment[]; error: PostgrestError | Error | null }> {
+): Promise<{ data: HydratedAppointment[]; count: number; error: PostgrestError | Error | null }> {
     try {
         let query = supabase
             .from('appointments')
@@ -103,7 +105,7 @@ export async function getAppointments(
                 *,
                 church:churches(id, name),
                 profile:profiles!appointments_user_id_fkey(id, full_name, email)
-            `);
+            `, { count: 'exact' });
 
         // Church scoping filter
         if (filter.churchId && filter.churchId !== 'all') {
@@ -158,11 +160,18 @@ export async function getAppointments(
             query = query.limit(filter.limit);
         }
 
-        const { data, error } = await query.returns<RawAppointmentQueryResult[]>();
+        // Pagination range
+        if (filter.page && filter.pageSize) {
+            const from = (filter.page - 1) * filter.pageSize;
+            const to = from + filter.pageSize - 1;
+            query = query.range(from, to);
+        }
+
+        const { data, count, error } = await query.returns<RawAppointmentQueryResult[]>();
 
         if (error) {
             console.error('❌ Error fetching appointments:', error);
-            return { data: [], error };
+            return { data: [], count: 0, error };
         }
 
         let results: HydratedAppointment[] = (data || []).map((row) => ({
@@ -191,11 +200,11 @@ export async function getAppointments(
             });
         }
 
-        return { data: results, error: null };
+        return { data: results, count: count ?? results.length, error: null };
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         console.error('❌ Exception in getAppointments:', error);
-        return { data: [], error };
+        return { data: [], count: 0, error };
     }
 }
 

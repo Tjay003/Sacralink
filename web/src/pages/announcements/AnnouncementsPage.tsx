@@ -20,6 +20,8 @@ import {
     getAllAnnouncements,
     getChurchAnnouncements,
     getSystemAnnouncements,
+    getChurchAnnouncementsCount,
+    getSystemAnnouncementsCount,
     deleteChurchAnnouncement,
     deleteSystemAnnouncement,
     subscribeToAnnouncements,
@@ -115,6 +117,11 @@ export default function AnnouncementsPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(5);
+    const [totalCount, setTotalCount] = useState(0);
+
     // Tab counts
     const [counts, setCounts] = useState({ all: 0, church: 0, system: 0 });
 
@@ -140,6 +147,16 @@ export default function AnnouncementsPage() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
+    // Determine effective church id for queries
+    const activeChurchFilter = isChurchAdmin && !isSuperAdmin
+        ? effectiveChurchId
+        : (selectedChurchId || undefined);
+
+    // Reset pagination on filter or tab change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, activeChurchFilter, debouncedSearch, categoryFilter, systemTypeFilter]);
+
     // Sync active tab to URL
     useEffect(() => {
         setSearchParams(
@@ -157,11 +174,6 @@ export default function AnnouncementsPage() {
         );
     }, [activeTab, selectedChurchId, isChurchAdmin, setSearchParams]);
 
-    // Determine effective church id for queries
-    const activeChurchFilter = isChurchAdmin && !isSuperAdmin
-        ? effectiveChurchId
-        : (selectedChurchId || undefined);
-
     // Main fetch function
     const fetchAnnouncements = useCallback(async (isSilent = false) => {
         if (!isSilent) {
@@ -173,27 +185,38 @@ export default function AnnouncementsPage() {
 
         try {
             if (activeTab === 'all') {
-                const { data, error: fetchErr } = await getAllAnnouncements({
+                const { data, count, error: fetchErr } = await getAllAnnouncements({
                     churchId: activeChurchFilter,
                     search: debouncedSearch || undefined,
                     includeInactiveSystem: isSuperAdmin,
+                    page: currentPage,
+                    pageSize: pageSize,
                 });
                 if (fetchErr) throw fetchErr;
                 setAnnouncements(data);
+                setTotalCount(count);
             } else if (activeTab === 'church') {
-                const { data, error: fetchErr } = await getChurchAnnouncements(
+                const { data, count, error: fetchErr } = await getChurchAnnouncements(
                     activeChurchFilter,
-                    { search: debouncedSearch || undefined }
+                    {
+                        search: debouncedSearch || undefined,
+                        page: currentPage,
+                        pageSize: pageSize,
+                    }
                 );
                 if (fetchErr) throw fetchErr;
                 setAnnouncements(data);
+                setTotalCount(count);
             } else {
-                const { data, error: fetchErr } = await getSystemAnnouncements({
+                const { data, count, error: fetchErr } = await getSystemAnnouncements({
                     search: debouncedSearch || undefined,
                     includeInactive: isSuperAdmin,
+                    page: currentPage,
+                    pageSize: pageSize,
                 });
                 if (fetchErr) throw fetchErr;
                 setAnnouncements(data);
+                setTotalCount(count);
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to load announcements';
@@ -203,17 +226,15 @@ export default function AnnouncementsPage() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [activeTab, activeChurchFilter, debouncedSearch, isSuperAdmin]);
+    }, [activeTab, activeChurchFilter, debouncedSearch, isSuperAdmin, currentPage, pageSize]);
 
-    // Fetch tab overview counts
+    // Fetch tab overview counts using exact head queries
     const fetchCounts = useCallback(async () => {
         try {
-            const [churchRes, systemRes] = await Promise.all([
-                getChurchAnnouncements(activeChurchFilter),
-                getSystemAnnouncements({ includeInactive: isSuperAdmin }),
+            const [churchCount, systemCount] = await Promise.all([
+                getChurchAnnouncementsCount(activeChurchFilter),
+                getSystemAnnouncementsCount({ includeInactive: isSuperAdmin }),
             ]);
-            const churchCount = churchRes.data?.length || 0;
-            const systemCount = systemRes.data?.length || 0;
             setCounts({
                 church: churchCount,
                 system: systemCount,
@@ -721,6 +742,14 @@ export default function AnnouncementsPage() {
                     initialOpenId={initialOpenId}
                     onEdit={handleOpenEdit}
                     onDelete={handleDeleteClick}
+                    currentPage={currentPage}
+                    pageSize={pageSize}
+                    totalItems={totalCount || filteredAnnouncements.length}
+                    onPageChange={(page) => setCurrentPage(page)}
+                    onPageSizeChange={(newSize) => {
+                        setPageSize(newSize);
+                        setCurrentPage(1);
+                    }}
                 />
             )}
 

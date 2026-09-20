@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X, ChevronDown } from 'lucide-react';
 import {
     getAppointments,
@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import Modal from '../../components/ui/Modal';
+import Pagination from '../../components/common/Pagination';
 
 export default function AppointmentsPage() {
     const { profile } = useAuth();
@@ -25,7 +26,8 @@ export default function AppointmentsPage() {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [viewingDocumentsFor, setViewingDocumentsFor] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(5);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
 
     // Church filter — admin/super_admin only
     const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
@@ -33,7 +35,11 @@ export default function AppointmentsPage() {
     const { churches } = useChurches();
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
 
-    // Effective church for display badge
+    // Effective church for display badge and scoping
+    const effectiveChurchId = isChurchStaff
+        ? (profile?.assigned_church_id || null)
+        : selectedChurchId === 'all' ? null : selectedChurchId;
+
     const activeChurchName = isChurchStaff
         ? churches.find(c => c.id === profile?.assigned_church_id)?.name || 'Your Church'
         : selectedChurchId === 'all'
@@ -65,29 +71,44 @@ export default function AppointmentsPage() {
         || profile?.role === 'church_admin'
         || profile?.role === 'volunteer';
 
-    const fetchAppointments = async () => {
+    const fetchAppointments = useCallback(async () => {
         try {
             setLoading(true);
-            const { data, error: fetchErr } = await getAppointments();
+            const { data, count, error: fetchErr } = await getAppointments({
+                churchId: effectiveChurchId,
+                status: filterStatus !== 'all' ? (filterStatus as AppointmentStatus) : undefined,
+                serviceType: filterSacrament !== 'all' ? filterSacrament : undefined,
+                dateFrom: filterDateFrom || undefined,
+                dateTo: filterDateTo || undefined,
+                searchQuery: searchQuery.trim() || undefined,
+                page: currentPage,
+                pageSize: pageSize,
+                orderBy: 'appointment_date',
+                ascending: false,
+            });
             if (fetchErr) throw fetchErr;
             setAppointments(data || []);
+            setTotalCount(count ?? (data?.length || 0));
         } catch (err) {
             console.error('Error fetching appointments:', err);
             setError('Failed to load appointments.');
         } finally {
             setLoading(false);
         }
-    };
+    }, [effectiveChurchId, filterStatus, filterSacrament, filterDateFrom, filterDateTo, searchQuery, currentPage, pageSize]);
 
     useEffect(() => {
-        fetchAppointments();
-        const unsubscribe = subscribeToAppointments(undefined, () => {
-            fetchAppointments();
-        });
+        void fetchAppointments();
+        const unsubscribe = subscribeToAppointments(
+            effectiveChurchId ? { churchId: effectiveChurchId } : undefined,
+            () => {
+                void fetchAppointments();
+            }
+        );
         return () => {
             unsubscribe();
         };
-    }, [profile?.assigned_church_id]);
+    }, [fetchAppointments, effectiveChurchId]);
 
     const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus) => {
         try {
@@ -110,32 +131,6 @@ export default function AppointmentsPage() {
             alert('Failed to update status');
         }
     };
-
-    const filteredAppointments = appointments.filter(app => {
-        // Church filter (admin/super_admin only — church staff already scoped by RLS)
-        if (isAdminRole && selectedChurchId !== 'all' && app.church_id !== selectedChurchId) return false;
-        // Status filter
-        if (filterStatus !== 'all' && app.status !== filterStatus) return false;
-        // Sacrament type filter
-        if (filterSacrament !== 'all' && app.service_type !== filterSacrament) return false;
-        // Date from filter
-        if (filterDateFrom && app.appointment_date && app.appointment_date < filterDateFrom) return false;
-        // Date to filter
-        if (filterDateTo && app.appointment_date && app.appointment_date > filterDateTo) return false;
-        // Search by parishioner name
-        if (searchQuery) {
-            const name = app.profile?.full_name?.toLowerCase() || '';
-            if (!name.includes(searchQuery.toLowerCase())) return false;
-        }
-        return true;
-    });
-
-    const paginatedAppointments = filteredAppointments.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
-
-    const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
 
     const resetToPage1 = () => setCurrentPage(1);
 
@@ -175,7 +170,7 @@ export default function AppointmentsPage() {
                     <p className="text-muted">{canManageAppointments ? 'Manage sacramental requests' : 'View status of your requests'}</p>
                 </div>
                 <div className="text-sm text-muted">
-                    Total: <span className="font-semibold text-foreground">{appointments.length}</span>
+                    Total: <span className="font-semibold text-foreground">{totalCount}</span>
                 </div>
             </div>
 
@@ -301,7 +296,7 @@ export default function AppointmentsPage() {
                     <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                         <span className="text-sm text-muted">
                             <span className="inline-flex items-center justify-center w-5 h-5 bg-primary text-white text-xs rounded-full mr-1">{activeFilterCount}</span>
-                            filter{activeFilterCount > 1 ? 's' : ''} active &mdash; showing {filteredAppointments.length} of {appointments.length} appointments
+                            filter{activeFilterCount > 1 ? 's' : ''} active &mdash; showing {appointments.length} of {totalCount} appointments
                         </span>
                         <button
                             onClick={clearAllFilters}
@@ -321,12 +316,12 @@ export default function AppointmentsPage() {
             )}
 
             <div className="grid gap-4">
-                {filteredAppointments.length === 0 ? (
+                {appointments.length === 0 ? (
                     <div className="text-center p-8 bg-gray-50 rounded-lg text-gray-500">
                         {canManageAppointments ? 'No appointments found.' : 'You have no appointment requests.'}
                     </div>
                 ) : (
-                    paginatedAppointments.map((appointment) => (
+                    appointments.map((appointment) => (
                         <div key={appointment.id} className="card p-4 flex flex-col md:flex-row justify-between gap-4">
                             <div className="space-y-2 flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -422,60 +417,19 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Pagination Controls */}
-            {filteredAppointments.length > 0 && (
-                <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="text-sm text-muted text-center sm:text-left">
-                        Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAppointments.length)} to{' '}
-                        {Math.min(currentPage * itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} appointments
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap justify-center">
-                        <button
-                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                            disabled={currentPage === 1}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-
-                        {(() => {
-                            const pages = [];
-                            const maxVisible = 5;
-
-                            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-                            const endPage = Math.min(totalPages, startPage + maxVisible - 1);
-
-                            if (endPage - startPage < maxVisible - 1) {
-                                startPage = Math.max(1, endPage - maxVisible + 1);
-                            }
-
-                            for (let i = startPage; i <= endPage; i++) {
-                                pages.push(
-                                    <button
-                                        key={i}
-                                        onClick={() => setCurrentPage(i)}
-                                        className={`px-3 py-1.5 text-sm border rounded-lg ${
-                                            currentPage === i
-                                                ? 'bg-primary text-white border-primary'
-                                                : 'border-gray-300 hover:bg-gray-50'
-                                        }`}
-                                    >
-                                        {i}
-                                    </button>
-                                );
-                            }
-
-                            return pages;
-                        })()}
-
-                        <button
-                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                            disabled={currentPage >= totalPages}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+            {totalCount > 0 && (
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={totalCount}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={(newSize) => {
+                        setPageSize(newSize);
+                        setCurrentPage(1);
+                    }}
+                    pageSizeOptions={[5, 10, 25, 50]}
+                    itemName="appointments"
+                />
             )}
 
             {/* Document Viewer Modal */}

@@ -353,22 +353,25 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
     }
 
     // List of all profiles (Users page)
+    const allProfiles = Object.values(MOCK_USERS).map((u) => ({
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name,
+      role: u.role,
+      assigned_church_id: u.assigned_church_id || null,
+      church_id: u.church_id || null,
+      avatar_url: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    }));
+
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(
-        Object.values(MOCK_USERS).map((u) => ({
-          id: u.id,
-          email: u.email,
-          full_name: u.full_name,
-          role: u.role,
-          assigned_church_id: u.assigned_church_id || null,
-          church_id: u.church_id || null,
-          avatar_url: null,
-          created_at: '2026-01-01T00:00:00.000Z',
-          updated_at: '2026-01-01T00:00:00.000Z',
-        }))
-      ),
+      headers: {
+        'content-range': `0-${Math.max(0, allProfiles.length - 1)}/${allProfiles.length}`,
+      },
+      body: JSON.stringify(allProfiles),
     });
   });
 
@@ -461,18 +464,46 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
 
   // 5. System announcements REST route
   await page.route('**/rest/v1/system_announcements*', async (route) => {
+    const method = route.request().method();
+    const count = MOCK_SYSTEM_ANNOUNCEMENTS.length;
+    if (method === 'HEAD') {
+      return route.fulfill({
+        status: 200,
+        headers: {
+          'content-range': `0-${Math.max(0, count - 1)}/${count}`,
+        },
+        body: '',
+      });
+    }
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'content-range': `0-${Math.max(0, count - 1)}/${count}`,
+      },
       body: JSON.stringify(MOCK_SYSTEM_ANNOUNCEMENTS),
     });
   });
 
   // 6. Church announcements REST route
   await page.route('**/rest/v1/church_announcements*', async (route) => {
+    const method = route.request().method();
+    const count = MOCK_CHURCH_ANNOUNCEMENTS.length;
+    if (method === 'HEAD') {
+      return route.fulfill({
+        status: 200,
+        headers: {
+          'content-range': `0-${Math.max(0, count - 1)}/${count}`,
+        },
+        body: '',
+      });
+    }
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'content-range': `0-${Math.max(0, count - 1)}/${count}`,
+      },
       body: JSON.stringify(MOCK_CHURCH_ANNOUNCEMENTS),
     });
   });
@@ -805,6 +836,9 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'content-range': `0-${Math.max(0, MOCK_PARISH_APPLICATIONS.length - 1)}/${MOCK_PARISH_APPLICATIONS.length}`,
+      },
       body: JSON.stringify(MOCK_PARISH_APPLICATIONS),
     });
   });

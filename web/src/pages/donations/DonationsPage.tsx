@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Heart, Search, RefreshCw, CheckCircle, XCircle, Clock, TrendingUp, Building2, ChevronDown } from 'lucide-react';
 import { getAllDonations, getChurchDonations, type Donation } from '../../lib/supabase/donations';
 import DonationDetailModal from '../../components/donations/DonationDetailModal';
+import Pagination from '../../components/common/Pagination';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
@@ -18,6 +19,16 @@ export default function DonationsPage() {
     const [search, setSearch] = useState('');
     const [selectedDonation, setSelectedDonation] = useState<Donation | null>(null);
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
+    const [stats, setStats] = useState({
+        pending: 0,
+        verified: 0,
+        rejected: 0,
+        all: 0,
+        totalVerifiedAmount: 0,
+    });
 
     // Super admin / admin can pick any church
     const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
@@ -29,44 +40,63 @@ export default function DonationsPage() {
         ? (profile?.assigned_church_id || null)
         : selectedChurchId === 'all' ? null : selectedChurchId;
 
+    const fetchStats = useCallback(async () => {
+        try {
+            let query = supabase.from('donations').select('status, amount');
+            if (effectiveChurchId) {
+                query = query.eq('church_id', effectiveChurchId);
+            }
+            const { data, error } = await query;
+            if (!error && data) {
+                const pending = data.filter(d => d.status === 'pending').length;
+                const verified = data.filter(d => d.status === 'verified');
+                const rejected = data.filter(d => d.status === 'rejected').length;
+                const totalVerifiedAmount = verified.reduce((sum, d) => sum + Number(d.amount), 0);
+                setStats({
+                    pending,
+                    verified: verified.length,
+                    rejected,
+                    all: data.length,
+                    totalVerifiedAmount,
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching donation stats:', err);
+        }
+    }, [effectiveChurchId]);
+
     const fetchDonations = useCallback(async (showLoading = false) => {
         if (showLoading) setLoading(true);
         try {
+            const statusParam = activeTab === 'all' ? undefined : activeTab;
             let result;
             if (effectiveChurchId) {
-                result = await getChurchDonations(effectiveChurchId);
+                result = await getChurchDonations(effectiveChurchId, {
+                    page,
+                    pageSize,
+                    status: statusParam,
+                });
             } else if (isSuperAdmin) {
-                result = await getAllDonations();
+                result = await getAllDonations({
+                    page,
+                    pageSize,
+                    status: statusParam,
+                });
             } else {
                 setDonations([]);
+                setTotalCount(0);
                 return;
             }
             setDonations(result.data || []);
+            setTotalCount(result.count || 0);
         } finally {
             setLoading(false);
         }
-    }, [effectiveChurchId, isSuperAdmin]);
+    }, [effectiveChurchId, isSuperAdmin, activeTab, page, pageSize]);
 
     useEffect(() => {
-        let isMounted = true;
-        (async () => {
-            let result;
-            if (effectiveChurchId) {
-                result = await getChurchDonations(effectiveChurchId);
-            } else if (isSuperAdmin) {
-                result = await getAllDonations();
-            } else {
-                if (isMounted) {
-                    setDonations([]);
-                    setLoading(false);
-                }
-                return;
-            }
-            if (isMounted) {
-                setDonations(result.data || []);
-                setLoading(false);
-            }
-        })();
+        void fetchDonations();
+        void fetchStats();
 
         // Realtime — re-fetch when any donation row changes
         const channel = supabase
@@ -74,15 +104,17 @@ export default function DonationsPage() {
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'donations' },
-                () => { void fetchDonations(); }
+                () => {
+                    void fetchDonations();
+                    void fetchStats();
+                }
             )
             .subscribe();
 
         return () => {
-            isMounted = false;
             supabase.removeChannel(channel);
         };
-    }, [effectiveChurchId, isSuperAdmin, fetchDonations]);
+    }, [fetchDonations, fetchStats]);
 
     // Active church name for display
     const activeChurchName = isChurchStaff
@@ -91,25 +123,19 @@ export default function DonationsPage() {
             ? 'All Churches'
             : churches.find(c => c.id === selectedChurchId)?.name || 'Unknown';
 
-    // Filter by tab + search
+    // Filter by search
     const filtered = donations.filter(d => {
-        const matchesTab = activeTab === 'all' || d.status === activeTab;
         const donorName = d.donor?.full_name?.toLowerCase() || '';
         const ref = d.reference_number?.toLowerCase() || '';
         const matchesSearch = !search || donorName.includes(search.toLowerCase()) || ref.includes(search.toLowerCase());
-        return matchesTab && matchesSearch;
+        return matchesSearch;
     });
 
-    // Stats
-    const pending = donations.filter(d => d.status === 'pending').length;
-    const verified = donations.filter(d => d.status === 'verified');
-    const totalVerifiedAmount = verified.reduce((sum, d) => sum + Number(d.amount), 0);
-
     const tabs: { id: StatusTab; label: string; count: number }[] = [
-        { id: 'pending', label: 'Pending', count: pending },
-        { id: 'verified', label: 'Verified', count: verified.length },
-        { id: 'rejected', label: 'Rejected', count: donations.filter(d => d.status === 'rejected').length },
-        { id: 'all', label: 'All', count: donations.length },
+        { id: 'pending', label: 'Pending', count: stats.pending },
+        { id: 'verified', label: 'Verified', count: stats.verified },
+        { id: 'rejected', label: 'Rejected', count: stats.rejected },
+        { id: 'all', label: 'All', count: stats.all },
     ];
 
     const statusBadge = (status: string) => {
@@ -144,7 +170,7 @@ export default function DonationsPage() {
                     <h1 className="text-2xl font-bold text-foreground">Donations</h1>
                     <p className="text-muted">Verify and manage cashless donations</p>
                 </div>
-                <button onClick={() => { void fetchDonations(true); }} className="flex items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors shadow-sm">
+                <button onClick={() => { void fetchDonations(true); void fetchStats(); }} className="flex items-center gap-2 self-start px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-colors shadow-sm">
                     <RefreshCw className="w-4 h-4" />
                     Refresh
                 </button>
@@ -162,7 +188,10 @@ export default function DonationsPage() {
                             <div className="relative">
                                 <select
                                     value={selectedChurchId}
-                                    onChange={(e) => setSelectedChurchId(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedChurchId(e.target.value);
+                                        setPage(1);
+                                    }}
                                     className="w-full appearance-none bg-muted/10 border border-border rounded-lg px-3 pr-8 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
                                 >
                                     <option value="all">🌐 All Churches</option>
@@ -194,7 +223,7 @@ export default function DonationsPage() {
                     </div>
                     <div>
                         <p className="text-xs text-muted">Pending Review</p>
-                        <p className="text-2xl font-bold">{pending}</p>
+                        <p className="text-2xl font-bold">{stats.pending}</p>
                     </div>
                 </div>
                 <div className="card p-4 flex items-center gap-4">
@@ -203,7 +232,7 @@ export default function DonationsPage() {
                     </div>
                     <div>
                         <p className="text-xs text-muted">Verified Donations</p>
-                        <p className="text-2xl font-bold">{verified.length}</p>
+                        <p className="text-2xl font-bold">{stats.verified}</p>
                     </div>
                 </div>
                 <div className="card p-4 flex items-center gap-4">
@@ -213,7 +242,7 @@ export default function DonationsPage() {
                     <div>
                         <p className="text-xs text-muted">Total Collected</p>
                         <p className="text-xl font-bold">
-                            ₱{totalVerifiedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                            ₱{stats.totalVerifiedAmount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                         </p>
                     </div>
                 </div>
@@ -224,7 +253,10 @@ export default function DonationsPage() {
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => {
+                            setActiveTab(tab.id);
+                            setPage(1);
+                        }}
                         className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.id
                             ? 'text-primary border-b-2 border-primary -mb-px'
                             : 'text-muted hover:text-foreground'
@@ -245,7 +277,10 @@ export default function DonationsPage() {
                 <input
                     type="text"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                    }}
                     placeholder="Search by name or reference..."
                     className="input w-full !pl-10"
                 />
@@ -315,12 +350,30 @@ export default function DonationsPage() {
                 )}
             </div>
 
+            {/* Pagination Component */}
+            <Pagination
+                currentPage={page}
+                totalItems={search ? filtered.length : totalCount}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(newSize) => {
+                    setPageSize(newSize);
+                    setPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                itemName="donations"
+            />
+
             {/* Detail Modal */}
             {selectedDonation && (
                 <DonationDetailModal
                     donation={selectedDonation}
                     onClose={() => setSelectedDonation(null)}
-                    onUpdated={() => { void fetchDonations(true); setSelectedDonation(null); }}
+                    onUpdated={() => {
+                        void fetchDonations(true);
+                        void fetchStats();
+                        setSelectedDonation(null);
+                    }}
                 />
             )}
         </div>

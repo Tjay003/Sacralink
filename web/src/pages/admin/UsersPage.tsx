@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
+import Pagination from '../../components/common/Pagination';
 import { 
     Building2, 
     Layers, 
@@ -70,7 +71,8 @@ export default function UsersPage() {
     const [transferSuccessMessage, setTransferSuccessMessage] = useState<string | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
     const [collapsedChurchIds, setCollapsedChurchIds] = useState<Set<string>>(new Set());
 
     const fetchData = useCallback(async () => {
@@ -78,12 +80,18 @@ export default function UsersPage() {
             setLoading(true);
             const token = session?.access_token || '';
             const [profilesRes, churchesRes] = await Promise.all([
-                token ? directFetchProfiles(token) : Promise.resolve([]),
+                token
+                    ? directFetchProfiles(token, {
+                          page: currentPage,
+                          pageSize: itemsPerPage,
+                      })
+                    : Promise.resolve({ data: [], count: 0 }),
                 directFetchChurches(),
             ]);
 
             if (profilesRes) {
-                setUsers(profilesRes);
+                setUsers(profilesRes.data || []);
+                setTotalCount(profilesRes.count ?? (profilesRes.data ? profilesRes.data.length : 0));
             }
             if (churchesRes) {
                 setChurches(churchesRes);
@@ -93,7 +101,7 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [session]);
+    }, [session, currentPage, itemsPerPage]);
 
     useEffect(() => {
         fetchData();
@@ -196,6 +204,14 @@ export default function UsersPage() {
 
         return filtered;
     }, [users, currentUser, searchQuery, roleFilter, churchFilter, sortField, sortOrder, getChurchName]);
+
+    // Paginated users for flat table mode
+    const paginatedUsers = useMemo(() => {
+        if (totalCount > users.length || users.length <= itemsPerPage) {
+            return filteredUsers;
+        }
+        return filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredUsers, totalCount, users.length, currentPage, itemsPerPage]);
 
     // Reset pagination on filter change
     useEffect(() => {
@@ -477,7 +493,7 @@ export default function UsersPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs text-muted">
                     <span>
                         Showing <strong className="text-foreground">{filteredUsers.length}</strong> of{' '}
-                        <strong className="text-foreground">{users.length}</strong> total users
+                        <strong className="text-foreground">{totalCount || users.length}</strong> total users
                     </span>
                     {(searchQuery || roleFilter !== 'all' || churchFilter !== 'all') && (
                         <button
@@ -662,12 +678,12 @@ export default function UsersPage() {
                 <>
                     {/* Mobile & Tablet Responsive Card Grid (< xl) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 xl:hidden">
-                        {filteredUsers.length === 0 ? (
+                        {paginatedUsers.length === 0 ? (
                             <div className="col-span-full card p-8 text-center text-muted">
                                 No users found matching current filters.
                             </div>
                         ) : (
-                            filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
+                            paginatedUsers.map((user) => {
                                 const churchName = getChurchName(user.assigned_church_id);
                                 const isUserSuperAdmin = user.role === 'super_admin';
                                 const isSelf = user.id === currentUser?.id;
@@ -801,14 +817,14 @@ export default function UsersPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border bg-white dark:bg-card">
-                                    {filteredUsers.length === 0 ? (
+                                    {paginatedUsers.length === 0 ? (
                                         <tr>
                                             <td colSpan={6} className="px-5 py-10 text-center text-muted">
                                                 No users found matching current filters.
                                             </td>
                                         </tr>
                                     ) : (
-                                        filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
+                                        paginatedUsers.map((user) => {
                                             const churchName = getChurchName(user.assigned_church_id);
                                             const isUserSuperAdmin = user.role === 'super_admin';
                                             const isSelf = user.id === currentUser?.id;
@@ -933,62 +949,19 @@ export default function UsersPage() {
                     </div>
 
                     {/* Pagination Controls */}
-                    {filteredUsers.length > 0 && (
-                        <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                            <div className="text-xs text-muted text-center sm:text-left">
-                                Showing <strong className="text-foreground">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)}</strong> to{' '}
-                                <strong className="text-foreground">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</strong> of{' '}
-                                <strong className="text-foreground">{filteredUsers.length}</strong> users
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                                <button
-                                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1.5 text-xs font-semibold border border-border rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Previous
-                                </button>
-
-                                {(() => {
-                                    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-                                    const pages = [];
-                                    const maxVisible = 5;
-
-                                    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-                                    const endPage = Math.min(totalPages, startPage + maxVisible - 1);
-
-                                    if (endPage - startPage < maxVisible - 1) {
-                                        startPage = Math.max(1, endPage - maxVisible + 1);
-                                    }
-
-                                    for (let i = startPage; i <= endPage; i++) {
-                                        pages.push(
-                                            <button
-                                                key={i}
-                                                onClick={() => setCurrentPage(i)}
-                                                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border ${
-                                                    currentPage === i
-                                                        ? 'bg-primary text-white border-primary shadow-sm'
-                                                        : 'border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 text-foreground'
-                                                }`}
-                                            >
-                                                {i}
-                                            </button>
-                                        );
-                                    }
-
-                                    return pages;
-                                })()}
-
-                                <button
-                                    onClick={() => setCurrentPage(Math.min(Math.ceil(filteredUsers.length / itemsPerPage), currentPage + 1))}
-                                    disabled={currentPage >= Math.ceil(filteredUsers.length / itemsPerPage)}
-                                    className="px-3 py-1.5 text-xs font-semibold border border-border rounded-lg hover:bg-secondary-50 dark:hover:bg-secondary-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        </div>
+                    {(totalCount > 0 || filteredUsers.length > 0) && (
+                        <Pagination
+                            currentPage={currentPage}
+                            totalItems={totalCount || filteredUsers.length}
+                            pageSize={itemsPerPage}
+                            onPageChange={(page) => setCurrentPage(page)}
+                            onPageSizeChange={(size) => {
+                                setItemsPerPage(size);
+                                setCurrentPage(1);
+                            }}
+                            pageSizeOptions={[10, 25, 50]}
+                            itemName="users"
+                        />
                     )}
                 </>
             )}

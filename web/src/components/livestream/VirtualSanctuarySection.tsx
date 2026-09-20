@@ -1,62 +1,24 @@
-import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Sparkles, BookOpen, Scroll, Heart, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { useState } from 'react';
+import { Sparkles, BookOpen, Scroll, Heart } from 'lucide-react';
 import LivestreamPlayer from './LivestreamPlayer';
 import SpiritualReactionsBar from './SpiritualReactionsBar';
 import VirtualSanctuarySidebar from './VirtualSanctuarySidebar';
-import type { MassSchedule } from '../../types/database';
+import Modal from '../ui/Modal';
+import type { Church as DbChurch } from '../../types/database';
+import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySectionProps {
-    church: any & { mass_schedules?: MassSchedule[] };
+    church: Church;
 }
 
 export default function VirtualSanctuarySection({ church }: VirtualSanctuarySectionProps) {
-    const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
-        if (typeof window !== 'undefined') {
-            return window.innerWidth >= 1280;
-        }
-        return true;
-    });
-    const [activeSidebarTab, setActiveSidebarTab] = useState<'liturgy' | 'intentions' | 'offertory'>('liturgy');
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'intentions' | 'offertory'>('liturgy');
     const [candleCount, setCandleCount] = useState<number>(church.candle_count || 0);
 
-    // Escape key closes open sidebar/drawer
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && isSidebarOpen) {
-                setIsSidebarOpen(false);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isSidebarOpen]);
-
-    // Lock body scroll only when slide-over drawer is open on mobile/tablet (< 1280px)
-    useEffect(() => {
-        const updateScrollLock = () => {
-            if (isSidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1280) {
-                document.body.style.overflow = 'hidden';
-            } else {
-                document.body.style.overflow = '';
-            }
-        };
-
-        updateScrollLock();
-        window.addEventListener('resize', updateScrollLock);
-        return () => {
-            document.body.style.overflow = '';
-            window.removeEventListener('resize', updateScrollLock);
-        };
-    }, [isSidebarOpen]);
-
-    const handleTabClick = (tab: 'liturgy' | 'intentions' | 'offertory') => {
-        if (isSidebarOpen && activeSidebarTab === tab) {
-            // Clicking the active tab toggles the sidebar closed
-            setIsSidebarOpen(false);
-        } else {
-            setActiveSidebarTab(tab);
-            setIsSidebarOpen(true);
-        }
+    const handleOpenModal = (tab: 'liturgy' | 'intentions' | 'offertory') => {
+        setActiveModalTab(tab);
+        setIsModalOpen(true);
     };
 
     return (
@@ -87,11 +49,12 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
 
                 <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 shrink-0">
                     <button
-                        onClick={() => handleTabClick('liturgy')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            isSidebarOpen && activeSidebarTab === 'liturgy'
+                        type="button"
+                        onClick={() => handleOpenModal('liturgy')}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
+                            isModalOpen && activeModalTab === 'liturgy'
                                 ? 'bg-primary text-white border-primary shadow-sm shadow-blue-500/20'
-                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40'
+                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40 shadow-2xs'
                         }`}
                         title="Daily Gospel & Spiritual Communion"
                     >
@@ -101,11 +64,12 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
                     </button>
 
                     <button
-                        onClick={() => handleTabClick('intentions')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            isSidebarOpen && activeSidebarTab === 'intentions'
+                        type="button"
+                        onClick={() => handleOpenModal('intentions')}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
+                            isModalOpen && activeModalTab === 'intentions'
                                 ? 'bg-primary text-white border-primary shadow-sm shadow-blue-500/20'
-                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40'
+                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40 shadow-2xs'
                         }`}
                         title="Mass Intentions"
                     >
@@ -114,105 +78,53 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
                     </button>
 
                     <button
-                        onClick={() => handleTabClick('offertory')}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            isSidebarOpen && activeSidebarTab === 'offertory'
+                        type="button"
+                        onClick={() => handleOpenModal('offertory')}
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
+                            isModalOpen && activeModalTab === 'offertory'
                                 ? 'bg-primary text-white border-primary shadow-sm shadow-blue-500/20'
-                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40'
+                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40 shadow-2xs'
                         }`}
                         title="Digital Offertory"
                     >
                         <Heart className="w-3.5 h-3.5 shrink-0" />
                         <span>Offertory</span>
                     </button>
-
-                    {/* Dedicated Collapse / Expand Toggle Button (Desktop XL only) */}
-                    <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className={`hidden xl:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            isSidebarOpen
-                                ? 'bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-200 border-border hover:bg-secondary-200 dark:hover:bg-secondary-700'
-                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100 shadow-xs'
-                        }`}
-                        title={isSidebarOpen ? 'Hide Companion Sidebar (Cinema Mode)' : 'Open Sanctuary Companion Sidebar'}
-                    >
-                        {isSidebarOpen ? (
-                            <>
-                                <PanelRightClose className="w-3.5 h-3.5 shrink-0" />
-                                <span>Hide Sidebar</span>
-                            </>
-                        ) : (
-                            <>
-                                <PanelRightOpen className="w-3.5 h-3.5 shrink-0" />
-                                <span>Show Sidebar</span>
-                            </>
-                        )}
-                    </button>
                 </div>
             </div>
 
-            {/* Main Sanctuary Area: Responsive Flex Layout */}
-            <div className="flex flex-col xl:flex-row gap-6 lg:gap-8 items-start">
-                {/* Video Player & Spiritual Reactions Area (Expands to 100% when sidebar is collapsed) */}
-                <div className="flex-1 min-w-0 space-y-5 w-full transition-all duration-300">
-                    <LivestreamPlayer
-                        church={church}
-                        candleCount={candleCount}
-                        isSidebarOpen={isSidebarOpen}
-                        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-                    />
+            {/* Main Sanctuary Area: Clean Full-Width Layout */}
+            <div className="space-y-5 w-full">
+                <LivestreamPlayer
+                    church={church}
+                    candleCount={candleCount}
+                />
 
-                    {/* Interactive Spiritual Reactions and Candle Lighting */}
-                    <SpiritualReactionsBar
-                        church={church}
-                        currentCandleCount={candleCount}
-                        onCandleCountChange={(newCount) => setCandleCount(newCount)}
-                    />
-                </div>
-
-                {/* Desktop Side-by-Side Docked Sidebar (Only displayed on screens >= xl, min-width guaranteed 390px-420px) */}
-                {isSidebarOpen && (
-                    <div className="hidden xl:block w-[390px] 2xl:w-[420px] shrink-0 sticky top-6 animate-in fade-in slide-in-from-right-3 duration-200">
-                        <VirtualSanctuarySidebar
-                            church={church}
-                            activeTab={activeSidebarTab}
-                            onTabChange={(tab) => setActiveSidebarTab(tab)}
-                            onClose={() => setIsSidebarOpen(false)}
-                        />
-                    </div>
-                )}
+                {/* Interactive Spiritual Reactions and Candle Lighting */}
+                <SpiritualReactionsBar
+                    church={church as unknown as DbChurch}
+                    currentCandleCount={candleCount}
+                    onCandleCountChange={(newCount) => setCandleCount(newCount)}
+                />
             </div>
 
-            {/* Slide-Over Drawer for Tablets / Laptops / Mobile (< xl) */}
-            {isSidebarOpen && typeof document !== 'undefined' && createPortal(
-                <div
-                    className="xl:hidden fixed inset-0 z-50 overflow-hidden"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Sanctuary Companion Drawer"
-                >
-                    {/* Darkened Backdrop */}
-                    <div
-                        className="fixed inset-0 bg-secondary-900/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-                        onClick={() => setIsSidebarOpen(false)}
-                        aria-hidden="true"
-                    />
-
-                    {/* Slide-in Panel from Right */}
-                    <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-                        <div className="w-screen max-w-md bg-white dark:bg-card shadow-2xl flex flex-col border-l border-border animate-in slide-in-from-right duration-300">
-                            <VirtualSanctuarySidebar
-                                church={church}
-                                activeTab={activeSidebarTab}
-                                onTabChange={(tab) => setActiveSidebarTab(tab)}
-                                onClose={() => setIsSidebarOpen(false)}
-                                className="h-full border-none shadow-none rounded-none"
-                            />
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Dedicated Modal for Gospel, Mass Intentions, and Digital Offertory */}
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                size="2xl"
+                showCloseButton={false}
+                bodyClassName="p-0 flex flex-col"
+                className="max-h-[85vh] overflow-hidden dark:bg-card border border-border"
+            >
+                <VirtualSanctuarySidebar
+                    church={church}
+                    activeTab={activeModalTab}
+                    onTabChange={(tab) => setActiveModalTab(tab)}
+                    onClose={() => setIsModalOpen(false)}
+                    className="border-none shadow-none rounded-none h-full"
+                />
+            </Modal>
         </section>
     );
 }

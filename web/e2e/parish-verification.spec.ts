@@ -115,4 +115,54 @@ test.describe('Parish Verification & Donation Gate', () => {
     // Modal closes after approval
     await expect(page.getByRole('heading', { name: /Verification Review: St. Vincent Ferrer Parish/i })).not.toBeVisible();
   });
+
+  test('4. Action buttons and Manage dropdown fit cleanly on mobile screen without clipping', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await authenticateAs(page, 'super_admin');
+    await page.goto('/churches/church-unverified-1');
+    await page.waitForLoadState('networkidle');
+
+    // Verify Book Appointment button exists and has full width styling on mobile
+    const bookBtn = page.getByRole('button', { name: /Book Appointment/i });
+    if (await bookBtn.isVisible()) {
+      const bookBox = await bookBtn.boundingBox();
+      expect(bookBox).not.toBeNull();
+      // On 375px screen with 16px page padding (32px total), bookBtn should span nearly the full width (> 300px)
+      expect(bookBox!.width).toBeGreaterThan(300);
+    }
+
+    // Find and click the Manage button (dropdown trigger)
+    const manageBtn = page.getByRole('button', { name: /Manage/i });
+    await expect(manageBtn).toBeVisible();
+    await manageBtn.click();
+
+    // Dropdown should open and be visible
+    const dropdown = page.getByText('Parish Controls');
+    await expect(dropdown).toBeVisible();
+
+    // The dropdown container must stay entirely within the 375px viewport
+    const menuContainer = dropdown.locator('..');
+    const menuBox = await menuContainer.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(375);
+
+    // Also test verified church page on 390px viewport (e.g. iPhone 13/14)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/churches/church-1');
+    await page.waitForLoadState('networkidle');
+
+    const manageBtnVerified = page.getByRole('button', { name: /Manage/i });
+    await expect(manageBtnVerified).toBeVisible();
+    await manageBtnVerified.click();
+
+    const dropdownVerified = page.getByText('Parish Controls');
+    await expect(dropdownVerified).toBeVisible();
+
+    const menuContainerVerified = dropdownVerified.locator('..');
+    const menuBoxVerified = await menuContainerVerified.boundingBox();
+    expect(menuBoxVerified).not.toBeNull();
+    expect(menuBoxVerified!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBoxVerified!.x + menuBoxVerified!.width).toBeLessThanOrEqual(390);
+  });
 });

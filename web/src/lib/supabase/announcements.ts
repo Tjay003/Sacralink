@@ -66,12 +66,16 @@ export type UnifiedAnnouncement = UnifiedChurchAnnouncement | UnifiedSystemAnnou
 export interface GetChurchAnnouncementsOptions {
     search?: string;
     limit?: number;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface GetSystemAnnouncementsOptions {
     search?: string;
     limit?: number;
     includeInactive?: boolean;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface GetAllAnnouncementsOptions {
@@ -79,6 +83,8 @@ export interface GetAllAnnouncementsOptions {
     search?: string;
     limit?: number;
     includeInactiveSystem?: boolean;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface CreateChurchAnnouncementInput {
@@ -146,13 +152,13 @@ export function rankAnnouncements<T extends { is_pinned?: boolean | null; create
 }
 
 /**
- * Fetch church announcements with optional church ID filtering, search, and pagination limit.
+ * Fetch church announcements with optional church ID filtering, search, and pagination.
  * Always ranks pinned announcements first, then newest created_at descending.
  */
 export async function getChurchAnnouncements(
     churchId?: string,
     options: GetChurchAnnouncementsOptions = {}
-): Promise<{ data: ChurchAnnouncement[]; error: Error | null }> {
+): Promise<{ data: ChurchAnnouncement[]; count: number; error: Error | null }> {
     try {
         let query = supabase
             .from('church_announcements')
@@ -168,7 +174,7 @@ export async function getChurchAnnouncements(
                 created_at,
                 updated_at,
                 church:churches(id, name, status)
-            `)
+            `, { count: 'exact' })
             .order('is_pinned', { ascending: false, nullsFirst: false })
             .order('created_at', { ascending: false });
 
@@ -181,11 +187,15 @@ export async function getChurchAnnouncements(
             query = query.or(`title.ilike.%${term}%,content.ilike.%${term}%`);
         }
 
-        if (typeof options.limit === 'number' && options.limit > 0) {
+        if (typeof options.page === 'number' && typeof options.pageSize === 'number') {
+            const from = (options.page - 1) * options.pageSize;
+            const to = options.page * options.pageSize - 1;
+            query = query.range(from, to);
+        } else if (typeof options.limit === 'number' && options.limit > 0) {
             query = query.limit(options.limit);
         }
 
-        const { data, error } = await query;
+        const { data, count, error } = await query;
         if (error) throw error;
 
         const mapped: ChurchAnnouncement[] = (data || []).map((row) => ({
@@ -204,11 +214,11 @@ export async function getChurchAnnouncements(
 
         const sorted = rankAnnouncements(mapped);
 
-        return { data: sorted, error: null };
+        return { data: sorted, count: count ?? sorted.length, error: null };
     } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         console.error('Error fetching church announcements:', error);
-        return { data: [], error };
+        return { data: [], count: 0, error };
     }
 }
 
@@ -218,7 +228,7 @@ export async function getChurchAnnouncements(
  */
 export async function getSystemAnnouncements(
     options: GetSystemAnnouncementsOptions = {}
-): Promise<{ data: SystemAnnouncement[]; error: Error | null }> {
+): Promise<{ data: SystemAnnouncement[]; count: number; error: Error | null }> {
     try {
         const nowIso = new Date().toISOString();
         let query = supabase
@@ -233,7 +243,7 @@ export async function getSystemAnnouncements(
                 created_by,
                 created_at,
                 updated_at
-            `)
+            `, { count: 'exact' })
             .order('created_at', { ascending: false });
 
         if (!options.includeInactive) {
@@ -247,11 +257,15 @@ export async function getSystemAnnouncements(
             query = query.or(`title.ilike.%${term}%,content.ilike.%${term}%`);
         }
 
-        if (typeof options.limit === 'number' && options.limit > 0) {
+        if (typeof options.page === 'number' && typeof options.pageSize === 'number') {
+            const from = (options.page - 1) * options.pageSize;
+            const to = options.page * options.pageSize - 1;
+            query = query.range(from, to);
+        } else if (typeof options.limit === 'number' && options.limit > 0) {
             query = query.limit(options.limit);
         }
 
-        const { data, error } = await query;
+        const { data, count, error } = await query;
         if (error) throw error;
 
         const nowMs = Date.now();
@@ -279,11 +293,11 @@ export async function getSystemAnnouncements(
                 return true;
             });
 
-        return { data: mapped, error: null };
+        return { data: mapped, count: count ?? mapped.length, error: null };
     } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         console.error('Error fetching system announcements:', error);
-        return { data: [], error };
+        return { data: [], count: 0, error };
     }
 }
 
@@ -293,7 +307,7 @@ export async function getSystemAnnouncements(
  */
 export async function getAllAnnouncements(
     options: GetAllAnnouncementsOptions = {}
-): Promise<{ data: UnifiedAnnouncement[]; error: Error | null }> {
+): Promise<{ data: UnifiedAnnouncement[]; count: number; error: Error | null }> {
     try {
         const [churchRes, systemRes] = await Promise.all([
             getChurchAnnouncements(options.churchId, {
@@ -325,14 +339,70 @@ export async function getAllAnnouncements(
         }));
 
         const combined = rankAnnouncements([...churchUnified, ...systemUnified]);
-        const data = options.limit && options.limit > 0 ? combined.slice(0, options.limit) : combined;
+        const totalCount = (churchRes.count ?? churchUnified.length) + (systemRes.count ?? systemUnified.length);
+
+        let data = combined;
+        if (typeof options.page === 'number' && typeof options.pageSize === 'number') {
+            const from = (options.page - 1) * options.pageSize;
+            const to = options.page * options.pageSize;
+            data = combined.slice(from, to);
+        } else if (typeof options.limit === 'number' && options.limit > 0) {
+            data = combined.slice(0, options.limit);
+        }
 
         const combinedError = churchRes.error || systemRes.error || null;
-        return { data, error: combinedError };
+        return { data, count: totalCount, error: combinedError };
     } catch (err: unknown) {
         const error = err instanceof Error ? err : new Error(String(err));
         console.error('Error in getAllAnnouncements:', error);
-        return { data: [], error };
+        return { data: [], count: 0, error };
+    }
+}
+
+/**
+ * Fetch total count of church announcements using PostgREST HEAD query
+ */
+export async function getChurchAnnouncementsCount(churchId?: string): Promise<number> {
+    try {
+        let query = supabase
+            .from('church_announcements')
+            .select('*', { count: 'exact', head: true });
+
+        if (churchId) {
+            query = query.eq('church_id', churchId);
+        }
+
+        const { count, error } = await query;
+        if (error) throw error;
+        return count ?? 0;
+    } catch (err) {
+        console.error('Error fetching church announcements count:', err);
+        return 0;
+    }
+}
+
+/**
+ * Fetch total count of system announcements using PostgREST HEAD query
+ */
+export async function getSystemAnnouncementsCount(options: { includeInactive?: boolean } = {}): Promise<number> {
+    try {
+        const nowIso = new Date().toISOString();
+        let query = supabase
+            .from('system_announcements')
+            .select('*', { count: 'exact', head: true });
+
+        if (!options.includeInactive) {
+            query = query
+                .eq('is_active', true)
+                .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+        }
+
+        const { count, error } = await query;
+        if (error) throw error;
+        return count ?? 0;
+    } catch (err) {
+        console.error('Error fetching system announcements count:', err);
+        return 0;
     }
 }
 

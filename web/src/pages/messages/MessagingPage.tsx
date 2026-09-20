@@ -1282,8 +1282,7 @@ export default function MessagingPage() {
                         <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
                             {[
                                 { id: 'all', label: 'All Contacts' },
-                                { id: 'priest', label: 'Priests' },
-                                { id: 'church_admin', label: 'Admins & Staff' },
+                                { id: 'church_admin', label: 'Church Admins' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ].map((tab) => (
