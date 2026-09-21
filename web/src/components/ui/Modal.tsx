@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 export interface ModalProps {
     isOpen: boolean;
@@ -70,7 +71,7 @@ export default function Modal({
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 sm:py-6 overflow-y-auto">
+        <div className={`fixed inset-0 z-[9999] flex items-center justify-center ${size === 'full' ? 'p-1 sm:p-2' : 'p-3 sm:p-4 sm:py-6'} overflow-y-auto`}>
             {/* Full-screen backdrop with blur and fade animation */}
             <div
                 className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-modal-overlay"
@@ -84,14 +85,19 @@ export default function Modal({
             <div
                 role="dialog"
                 aria-modal="true"
-                className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col overflow-hidden animate-modal z-10 ${className}`}
+                className={cn(
+                    'relative bg-white rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden animate-modal z-10',
+                    sizeClasses[size],
+                    size === 'full' ? 'max-h-[96vh]' : 'max-h-[90vh]',
+                    className
+                )}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header: custom header or title + description */}
                 {header ? (
                     header
                 ) : (title || showCloseButton) ? (
-                    <div className={`flex items-start justify-between p-4 sm:p-6 border-b border-border flex-shrink-0 ${headerClassName}`}>
+                    <div className={cn('flex items-start justify-between p-4 sm:p-6 border-b border-border flex-shrink-0', headerClassName)}>
                         <div className="min-w-0 flex-1 pr-3 sm:pr-4">
                             {typeof title === 'string' ? (
                                 <h2 className="text-lg sm:text-xl font-bold text-foreground break-words">{title}</h2>
@@ -116,13 +122,19 @@ export default function Modal({
                 ) : null}
 
                 {/* Body Content */}
-                <div className={`overflow-y-auto p-4 sm:p-6 flex-1 scrollbar-thin ${bodyClassName}`}>
+                <div
+                    className={cn(
+                        'overflow-y-auto flex-1 min-h-0 scrollbar-thin',
+                        !bodyClassName.includes('p-') && !bodyClassName.includes('p0') && 'p-4 sm:p-6',
+                        bodyClassName
+                    )}
+                >
                     {children}
                 </div>
 
                 {/* Footer */}
                 {footer && (
-                    <div className={`p-4 sm:p-6 border-t border-border bg-gray-50/50 flex-shrink-0 flex items-center justify-end gap-3 ${footerClassName}`}>
+                    <div className={cn('p-4 sm:p-6 border-t border-border bg-gray-50/50 flex-shrink-0 flex items-center justify-end gap-3', footerClassName)}>
                         {footer}
                     </div>
                 )}

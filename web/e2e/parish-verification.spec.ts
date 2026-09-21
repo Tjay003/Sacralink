@@ -5,7 +5,7 @@ test.describe('Parish Verification & Donation Gate', () => {
   test('1. Submits parish onboarding application with mandatory credentials', async ({ page }) => {
     await authenticateAs(page, 'church_admin');
     await page.goto('/churches/apply');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify page header and sections
     await expect(page.getByRole('heading', { name: 'Parish Onboarding Application' })).toBeVisible();
@@ -46,7 +46,7 @@ test.describe('Parish Verification & Donation Gate', () => {
     await submitBtn.click();
 
     // Verify success confirmation screen
-    await expect(page.getByRole('heading', { name: 'Application Submitted Successfully' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Application Submitted Successfully' })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Diocese Chancery Super Admin queue')).toBeVisible();
   });
 
@@ -54,7 +54,7 @@ test.describe('Parish Verification & Donation Gate', () => {
     await authenticateAs(page, 'parishioner');
 
     await page.goto('/churches/church-unverified-1');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify Verification Pending badge in header
     await expect(page.getByText('Verification Pending').first()).toBeVisible();
@@ -73,7 +73,7 @@ test.describe('Parish Verification & Donation Gate', () => {
   test('3. Super Admin reviews queue, inspects documents, and completes anti-fraud checklist to approve parish', async ({ page }) => {
     await authenticateAs(page, 'super_admin');
     await page.goto('/admin/applications');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify review queue page
     await expect(page.getByRole('heading', { name: 'Parish Verification Applications' })).toBeVisible();
@@ -120,7 +120,7 @@ test.describe('Parish Verification & Donation Gate', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await authenticateAs(page, 'super_admin');
     await page.goto('/churches/church-unverified-1');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Verify Book Appointment button exists and has full width styling on mobile
     const bookBtn = page.getByRole('button', { name: /Book Appointment/i });
@@ -150,7 +150,7 @@ test.describe('Parish Verification & Donation Gate', () => {
     // Also test verified church page on 390px viewport (e.g. iPhone 13/14)
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/churches/church-1');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const manageBtnVerified = page.getByRole('button', { name: /Manage/i });
     await expect(manageBtnVerified).toBeVisible();

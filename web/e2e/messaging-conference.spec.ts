@@ -55,9 +55,29 @@ test.describe('Ticket 05: Real-Time Messaging & Embedded Video/Audio Conferencin
     await startCallBtn.click();
 
     // VideoConferenceModal should open
-    await expect(page.getByRole('dialog').getByText('Live Room')).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('Live Room')).toBeVisible();
     await expect(page.getByText('End-to-End Encrypted Peer Audio/Video')).toBeVisible();
     await expect(page.getByText('Zero Server Data Storage')).toBeVisible();
+
+    // Verify modal is spacious and does NOT collapse to 198px (height > 500px on desktop)
+    const boxBefore = await dialog.boundingBox();
+    expect(boxBefore).not.toBeNull();
+    expect(boxBefore!.height).toBeGreaterThan(500);
+
+    // Test Fullscreen toggle expands the modal
+    const fullscreenBtn = page.getByRole('button', { name: 'Fullscreen' });
+    await expect(fullscreenBtn).toBeVisible();
+    await fullscreenBtn.click();
+
+    const boxFullscreen = await dialog.boundingBox();
+    expect(boxFullscreen).not.toBeNull();
+    expect(boxFullscreen!.height).toBeGreaterThanOrEqual(boxBefore!.height);
+
+    // Toggle back to standard spacious view
+    const exitFullscreenBtn = page.getByRole('button', { name: 'Exit Fullscreen' });
+    await expect(exitFullscreenBtn).toBeVisible();
+    await exitFullscreenBtn.click();
 
     // Copy link button inside video modal
     const copyLinkBtn = page.getByRole('button', { name: 'Copy Link' });

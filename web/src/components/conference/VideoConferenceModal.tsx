@@ -60,7 +60,12 @@ export default function VideoConferenceModal({
             size={isFullscreen ? 'full' : '4xl'}
             showCloseButton={false}
             closeOnBackdropClick={false}
-            bodyClassName="p-0 flex flex-col h-[75vh] sm:h-[80vh]"
+            className={
+                isFullscreen
+                    ? 'w-[98vw] max-w-[98vw] h-[96vh] max-h-[96vh] flex flex-col overflow-hidden shadow-2xl'
+                    : 'w-full max-w-6xl h-[85vh] sm:h-[90vh] max-h-[94vh] flex flex-col overflow-hidden shadow-2xl'
+            }
+            bodyClassName="p-0 flex-1 min-h-0 flex flex-col overflow-hidden"
             header={
                 <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card">
                     <div className="flex items-center gap-3 min-w-0">
@@ -122,6 +127,7 @@ export default function VideoConferenceModal({
                             onClick={() => setIsFullscreen(!isFullscreen)}
                             className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 transition-colors"
                             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                         >
                             {isFullscreen ? (
                                 <Minimize2 className="w-4 h-4" />
@@ -164,7 +170,7 @@ export default function VideoConferenceModal({
                 </div>
             }
         >
-            <div className="relative flex-1 w-full h-full bg-slate-950 flex flex-col overflow-hidden">
+            <div className="relative flex-1 min-h-0 w-full h-full bg-slate-950 flex flex-col overflow-hidden">
                 {/* Loading Skeleton */}
                 {!iframeLoaded && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900 text-white gap-3">
@@ -187,8 +193,8 @@ export default function VideoConferenceModal({
                     title={`Video Conference - ${conversationTitle}`}
                     allow="camera; microphone; display-capture; autoplay; clipboard-write; fullscreen"
                     onLoad={() => setIframeLoaded(true)}
-                    className="w-full h-full border-0 flex-1"
-                    style={{ minHeight: '100%' }}
+                    className="w-full h-full min-h-0 border-0 flex-1"
+                    style={{ minHeight: '100%', height: '100%', width: '100%' }}
                 />
             </div>
         </Modal>
