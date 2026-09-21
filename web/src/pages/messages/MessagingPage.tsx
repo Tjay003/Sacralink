@@ -338,6 +338,14 @@ export default function MessagingPage() {
         scrollToBottom();
     }, [messages, loadingMessages]);
 
+    // Smoothly auto-resize message input textarea
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.style.height = 'auto';
+            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 128)}px`;
+        }
+    }, [inputContent]);
+
     // Handle sending a standard text message
     const handleSendMessage = async () => {
         if (!inputContent.trim() || !activeConversationId || !user || sending) return;
@@ -653,37 +661,37 @@ export default function MessagingPage() {
     }, [conversations]);
 
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)] max-w-7xl mx-auto space-y-4">
+        <div className="flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8rem)] min-h-[500px] w-full max-w-7xl mx-auto space-y-3 sm:space-y-4 overflow-hidden">
             {/* Top Bar Header */}
-            <div className="flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm flex-shrink-0">
                         <MessageSquare className="w-5 h-5" />
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
                                 Real-Time Messaging
                             </h1>
                             {totalUnreadCount > 0 && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-white animate-pulse">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-white animate-pulse flex-shrink-0">
                                     {totalUnreadCount} new
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-muted">
+                        <p className="text-xs text-muted line-clamp-1 sm:line-clamp-none">
                             Connect with diocese clergy, parish staff, and parishioners instantly
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-start sm:justify-end">
                     {/* Quick Staff Channel Button - staff only */}
                     {isStaff && (
                         <button
                             type="button"
                             onClick={() => handleOpenChurchStaffChannel()}
-                            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary-100 hover:bg-secondary-200 text-secondary-800 border border-border transition-colors cursor-pointer flex-shrink-0"
                         >
                             <Building2 className="w-4 h-4 text-primary" />
                             <span>Staff Channel</span>
@@ -694,7 +702,7 @@ export default function MessagingPage() {
                     <button
                         type="button"
                         onClick={handleOpenNewChatModal}
-                        className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm px-3.5 py-2 rounded-xl text-white font-semibold shadow-sm"
+                        className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm px-3.5 py-2 rounded-xl text-white font-semibold shadow-sm flex-shrink-0"
                     >
                         <Plus className="w-4 h-4" />
                         <span>New Message</span>
@@ -704,25 +712,25 @@ export default function MessagingPage() {
 
             {/* Informative message banner (e.g. redirected from Contact Parish) */}
             {infoMessage && (
-                <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium flex items-center gap-2">
+                <div className="p-3 sm:p-3.5 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium flex items-center gap-2 flex-shrink-0">
                     <Sparkles className="w-4 h-4 flex-shrink-0 text-primary" />
-                    <span>{infoMessage}</span>
+                    <span className="truncate">{infoMessage}</span>
                 </div>
             )}
 
             {/* Main Dual-Pane Chat Card */}
-            <div className="flex-1 min-h-0 card p-0 border border-border/80 rounded-2xl shadow-sm overflow-hidden flex bg-card">
+            <div className="flex-1 min-h-0 card p-0 border border-border/80 rounded-2xl shadow-sm overflow-hidden flex bg-card w-full">
                 {/* ═══════════════════════════════════════════════════════════════ */}
                 {/* LEFT PANE: CONVERSATION LIST                                   */}
                 {/* ═══════════════════════════════════════════════════════════════ */}
                 <div
-                    className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col bg-background/50 flex-shrink-0 ${
+                    className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col bg-background/50 flex-shrink-0 min-w-0 overflow-hidden ${
                         mobileChatOpen ? 'hidden md:flex' : 'flex'
                     }`}
                 >
                     {/* Search & Channel Header */}
-                    <div className="p-3.5 border-b border-border space-y-2.5 bg-card">
-                        <div className="relative">
+                    <div className="p-3 sm:p-3.5 border-b border-border space-y-2.5 bg-card flex-shrink-0 min-w-0">
+                        <div className="relative min-w-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                             <input
                                 type="text"
@@ -738,9 +746,9 @@ export default function MessagingPage() {
                             <button
                                 type="button"
                                 onClick={() => handleOpenChurchStaffChannel()}
-                                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left cursor-pointer"
+                                className="w-full flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-primary/5 hover:bg-primary/10 border border-primary/20 text-xs font-semibold text-primary transition-colors text-left cursor-pointer min-w-0 overflow-hidden"
                             >
-                                <div className="flex items-center gap-2 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                                     <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                                         <Building2 className="w-4 h-4" />
                                     </div>
@@ -757,7 +765,7 @@ export default function MessagingPage() {
                                         )}
                                     </div>
                                 </div>
-                                <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0" />
+                                <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0 ml-1" />
                             </button>
                         )}
                     </div>
@@ -806,7 +814,7 @@ export default function MessagingPage() {
                                             setActiveConversationId(conv.id);
                                             setMobileChatOpen(true);
                                         }}
-                                        className={`p-3.5 flex items-start gap-3 cursor-pointer transition-all ${
+                                        className={`p-3 sm:p-3.5 flex items-start gap-3 cursor-pointer transition-all min-w-0 w-full overflow-hidden ${
                                             isSelected
                                                 ? 'bg-primary/10 border-l-4 border-primary'
                                                 : 'hover:bg-secondary-50'
@@ -815,60 +823,60 @@ export default function MessagingPage() {
                                         {/* Avatar */}
                                         <div className="relative flex-shrink-0">
                                             {isChannel ? (
-                                                <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm">
+                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm">
                                                     <Building2 className="w-5 h-5" />
                                                 </div>
                                             ) : otherProf?.avatar_url ? (
                                                 <img
                                                     src={otherProf.avatar_url}
                                                     alt={displayName}
-                                                    className="w-11 h-11 rounded-xl object-cover"
+                                                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-sm">
+                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-sm">
                                                     {(displayName.charAt(0) || 'P').toUpperCase()}
                                                 </div>
                                             )}
                                         </div>
 
                                         {/* Content */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <div className="flex-1 min-w-0 overflow-hidden">
+                                            <div className="flex items-center justify-between gap-1.5 mb-1 min-w-0">
                                                 <h3
-                                                    className={`text-xs sm:text-sm font-semibold truncate ${
+                                                    className={`text-xs sm:text-sm font-semibold truncate flex-1 min-w-0 ${
                                                         isSelected ? 'text-primary' : 'text-foreground'
                                                     }`}
                                                 >
                                                     {displayName}
                                                 </h3>
-                                                <span className="text-[10px] text-muted flex-shrink-0">
+                                                <span className="text-[10px] text-muted flex-shrink-0 ml-1">
                                                     {formatConversationDate(conv.updated_at)}
                                                 </span>
                                             </div>
 
                                             {/* Role & Parish Tags */}
-                                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                            <div className="min-w-0 flex items-center gap-1.5 text-xs mb-1.5 overflow-hidden">
                                                 {!isChannel && (
                                                     <span
-                                                        className={`text-[10px] px-1.5 py-0.2 rounded font-semibold border ${roleInfo.className}`}
+                                                        className={`text-[10px] px-1.5 py-0.5 rounded font-semibold border flex-shrink-0 ${roleInfo.className}`}
                                                     >
                                                         {roleInfo.label}
                                                     </span>
                                                 )}
                                                 {conv.church?.name && (
-                                                    <span className="text-[10px] text-muted truncate max-w-[140px]">
+                                                    <span className="text-[10px] text-muted truncate min-w-0">
                                                         • {conv.church.name}
                                                     </span>
                                                 )}
                                             </div>
 
                                             {/* Last message preview */}
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className="text-xs text-muted truncate">
+                                            <div className="flex items-center justify-between gap-2 min-w-0">
+                                                <p className="text-xs text-muted truncate min-w-0 flex-1 [overflow-wrap:anywhere] break-words">
                                                     {isCallInvite ? (
-                                                        <span className="inline-flex items-center gap-1 text-primary font-medium">
-                                                            <Video className="w-3 h-3 text-primary" />
-                                                            Video Meeting Invited
+                                                        <span className="inline-flex items-center gap-1 text-primary font-medium truncate">
+                                                            <Video className="w-3 h-3 text-primary flex-shrink-0" />
+                                                            <span className="truncate">Video Meeting Invited</span>
                                                         </span>
                                                     ) : (
                                                         lastMsg?.content || 'No messages yet'
@@ -877,7 +885,7 @@ export default function MessagingPage() {
 
                                                 {/* Unread Badge */}
                                                 {conv.unreadCount > 0 && (
-                                                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white flex-shrink-0">
+                                                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white flex-shrink-0 ml-1">
                                                         {conv.unreadCount}
                                                     </span>
                                                 )}
@@ -894,20 +902,20 @@ export default function MessagingPage() {
                 {/* RIGHT PANE: ACTIVE CHAT VIEWPORT                               */}
                 {/* ═══════════════════════════════════════════════════════════════ */}
                 <div
-                    className={`flex-1 flex flex-col bg-card min-w-0 ${
+                    className={`flex-1 flex flex-col bg-card min-w-0 overflow-hidden ${
                         !mobileChatOpen ? 'hidden md:flex' : 'flex'
                     }`}
                 >
                     {activeConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="p-3.5 sm:p-4 border-b border-border flex items-center justify-between bg-card flex-shrink-0">
-                                <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between gap-2 sm:gap-3 bg-card flex-shrink-0 min-w-0">
+                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
                                     {/* Mobile Back Button */}
                                     <button
                                         type="button"
                                         onClick={() => setMobileChatOpen(false)}
-                                        className="md:hidden p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100"
+                                        className="md:hidden p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 flex-shrink-0"
                                     >
                                         <ArrowLeft className="w-5 h-5" />
                                     </button>
@@ -920,37 +928,37 @@ export default function MessagingPage() {
                                         const roleInfo = getRoleBadge(otherProf?.role);
 
                                         return (
-                                            <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
                                                 {isChannel ? (
-                                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold flex-shrink-0">
+                                                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold flex-shrink-0">
                                                         <Building2 className="w-5 h-5" />
                                                     </div>
                                                 ) : otherProf?.avatar_url ? (
                                                     <img
                                                         src={otherProf.avatar_url}
                                                         alt={headerTitle}
-                                                        className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+                                                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover flex-shrink-0"
                                                     />
                                                 ) : (
-                                                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm flex-shrink-0">
+                                                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm flex-shrink-0">
                                                         {(headerTitle.charAt(0) || 'P').toUpperCase()}
                                                     </div>
                                                 )}
 
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <h2 className="text-sm sm:text-base font-bold text-foreground truncate">
+                                                <div className="min-w-0 flex-1 overflow-hidden">
+                                                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                                                        <h2 className="text-sm sm:text-base font-bold text-foreground truncate min-w-0">
                                                             {headerTitle}
                                                         </h2>
                                                         {!isChannel && (
                                                             <span
-                                                                className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${roleInfo.className}`}
+                                                                className={`text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${roleInfo.className}`}
                                                             >
                                                                 {roleInfo.label}
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-muted truncate">
+                                                    <p className="text-xs text-muted truncate min-w-0">
                                                         {isChannel
                                                             ? `${activeConversation.participants.length} staff participants`
                                                             : (activeConversation.church?.name
@@ -964,7 +972,7 @@ export default function MessagingPage() {
                                 </div>
 
                                 {/* Header Actions */}
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                                     {/* Instant Video Call Button */}
                                     {(profile?.role === 'super_admin' ||
                                         profile?.role === 'admin' ||
@@ -974,7 +982,7 @@ export default function MessagingPage() {
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
-                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
+                                            className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer flex-shrink-0"
                                             title="Start instant video/audio conference"
                                         >
                                             <Video className="w-4 h-4" />
@@ -990,7 +998,7 @@ export default function MessagingPage() {
                                                 setConversationToDelete(activeConversation);
                                                 setShowDeleteModal(true);
                                             }}
-                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 shadow-sm transition-all cursor-pointer"
+                                            className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 shadow-sm transition-all cursor-pointer flex-shrink-0"
                                             title="Delete Conversation"
                                             aria-label="Delete Conversation"
                                         >
@@ -1002,7 +1010,7 @@ export default function MessagingPage() {
                             </div>
 
                             {/* Message Thread Scroll Viewport */}
-                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-secondary-50/40 dark:bg-background/40">
+                            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 bg-secondary-50/40 dark:bg-background/40 min-w-0">
                                 {loadingMessages ? (
                                     <div className="flex items-center justify-center h-full">
                                         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -1031,18 +1039,18 @@ export default function MessagingPage() {
                                         return (
                                             <div
                                                 key={msg.id}
-                                                className={`flex items-end gap-2.5 ${
+                                                className={`flex items-end gap-2 sm:gap-2.5 min-w-0 ${
                                                     isCurrentUser ? 'justify-end' : 'justify-start'
                                                 }`}
                                             >
                                                 {/* Left Avatar for other users */}
                                                 {!isCurrentUser && (
-                                                    <div className="w-8 h-8 rounded-lg bg-secondary-200 text-secondary-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
+                                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-secondary-200 text-secondary-700 flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm">
                                                         {msg.sender?.avatar_url ? (
                                                             <img
                                                                 src={msg.sender.avatar_url}
                                                                 alt={msg.sender.full_name || ''}
-                                                                className="w-8 h-8 rounded-lg object-cover"
+                                                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-cover"
                                                             />
                                                         ) : (
                                                             (msg.sender?.full_name || 'U')
@@ -1054,7 +1062,7 @@ export default function MessagingPage() {
 
                                                 {/* Bubble Body */}
                                                 <div
-                                                    className={`max-w-[85%] sm:max-w-md md:max-w-lg rounded-2xl p-3.5 shadow-sm space-y-1.5 ${
+                                                    className={`max-w-[88%] sm:max-w-md md:max-w-lg rounded-2xl p-3 sm:p-3.5 shadow-sm space-y-1.5 min-w-0 overflow-hidden ${
                                                         isCurrentUser
                                                             ? 'bg-primary text-white rounded-br-none'
                                                             : 'bg-white dark:bg-card border border-border/80 text-foreground rounded-bl-none'
@@ -1062,12 +1070,12 @@ export default function MessagingPage() {
                                                 >
                                                     {/* Sender info when in group or other user */}
                                                     {!isCurrentUser && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-xs font-bold text-foreground">
+                                                        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                                            <span className="text-xs font-bold text-foreground truncate min-w-0">
                                                                 {msg.sender?.full_name || 'Staff Member'}
                                                             </span>
                                                             <span
-                                                                className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${
+                                                                className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border flex-shrink-0 ${
                                                                     getRoleBadge(msg.sender?.role).className
                                                                 }`}
                                                             >
@@ -1079,18 +1087,18 @@ export default function MessagingPage() {
                                                     {/* If Call Invite Card */}
                                                     {isCallInvite ? (
                                                         <div
-                                                            className={`p-3.5 rounded-xl border flex flex-col gap-2.5 ${
+                                                            className={`w-full max-w-full overflow-hidden p-3 sm:p-3.5 rounded-xl border flex flex-col gap-2.5 ${
                                                                 isCurrentUser
                                                                     ? 'bg-white/10 border-white/20 text-white'
                                                                     : 'bg-emerald-50 border-emerald-200 text-emerald-950'
                                                             }`}
                                                         >
-                                                            <div className="flex items-center justify-between gap-2 border-b pb-2 border-current/10">
-                                                                <div className="flex items-center gap-2">
+                                                            <div className="flex items-center justify-between gap-2 border-b pb-2 border-current/10 min-w-0">
+                                                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                                                     <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                                                                         <Video className="w-4 h-4" />
                                                                     </div>
-                                                                    <div className="min-w-0">
+                                                                    <div className="min-w-0 flex-1">
                                                                         <p className="text-xs font-bold truncate">
                                                                             Parish Video Conference
                                                                         </p>
@@ -1105,7 +1113,7 @@ export default function MessagingPage() {
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                                                                     isCurrentUser ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
                                                                 }`}>
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1123,13 +1131,13 @@ export default function MessagingPage() {
                                                                 }
                                                                 className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
                                                             >
-                                                                <Video className="w-4 h-4" />
-                                                                <span>Join Video Conference</span>
+                                                                <Video className="w-4 h-4 flex-shrink-0" />
+                                                                <span className="truncate">Join Video Conference</span>
                                                             </button>
                                                         </div>
                                                     ) : (
                                                         /* Normal Message Text */
-                                                        <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                                        <p className="text-xs sm:text-sm whitespace-pre-wrap [overflow-wrap:anywhere] break-words leading-relaxed min-w-0">
                                                             {msg.content}
                                                         </p>
                                                     )}
@@ -1156,7 +1164,7 @@ export default function MessagingPage() {
                             </div>
 
                             {/* Message Composer Footer */}
-                            <div className="p-3 sm:p-4 border-t border-border bg-card">
+                            <div className="p-2.5 sm:p-4 border-t border-border bg-card flex-shrink-0">
                                 <form
                                     onSubmit={(e) => {
                                         e.preventDefault();
@@ -1164,7 +1172,7 @@ export default function MessagingPage() {
                                     }}
                                     className="flex items-end gap-2"
                                 >
-                                    <div className="flex-1 relative">
+                                    <div className="flex-1 relative min-w-0">
                                         <textarea
                                             ref={inputRef}
                                             rows={1}
@@ -1177,7 +1185,7 @@ export default function MessagingPage() {
                                                 }
                                             }}
                                             placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
-                                            className="input w-full resize-none py-2.5 text-xs sm:text-sm max-h-32 rounded-xl pr-10"
+                                            className="input w-full resize-none py-2 sm:py-2.5 text-xs sm:text-sm max-h-32 rounded-xl pr-10 overflow-y-auto leading-relaxed"
                                         />
                                     </div>
 
@@ -1185,20 +1193,20 @@ export default function MessagingPage() {
                                     <button
                                         type="button"
                                         onClick={() => handleStartVideoCall(activeConversation)}
-                                        className="p-2.5 rounded-xl border border-border text-muted hover:text-foreground hover:bg-secondary-100 transition-colors"
+                                        className="p-2 sm:p-2.5 rounded-xl border border-border text-muted hover:text-foreground hover:bg-secondary-100 transition-colors flex-shrink-0"
                                         title="Start Video Meeting"
                                     >
-                                        <Video className="w-5 h-5 text-emerald-600" />
+                                        <Video className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                                     </button>
 
                                     {/* Send Button */}
                                     <button
                                         type="submit"
                                         disabled={!inputContent.trim() || sending}
-                                        className="btn-primary text-white p-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex-shrink-0"
+                                        className="btn-primary text-white p-2 sm:p-2.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex-shrink-0"
                                         title="Send Message"
                                     >
-                                        <Send className="w-5 h-5" />
+                                        <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                                     </button>
                                 </form>
                             </div>
