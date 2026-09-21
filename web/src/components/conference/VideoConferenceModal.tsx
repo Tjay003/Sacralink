@@ -40,7 +40,7 @@ export default function VideoConferenceModal({
     const toolbarButtons = encodeURIComponent(
         "['microphone','camera','closedcaptions','desktop','fullscreen','fodeviceselection','hangup','chat','settings','raisehand','videoquality','filmstrip','tileview']"
     );
-    const jitsiUrl = `https://meet.jit.si/${safeRoom}#userInfo.displayName="${safeDisplayName}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=${toolbarButtons}`;
+    const jitsiUrl = `https://meet.jit.si/${safeRoom}#userInfo.displayName="${safeDisplayName}"&config.prejoinPageEnabled=false&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=${toolbarButtons}`;
     const directShareLink = `https://meet.jit.si/${safeRoom}`;
 
     const handleCopyLink = async () => {
