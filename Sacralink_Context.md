@@ -11,8 +11,9 @@
 | **Title** | SACRALINK – A Cross-Platform System for Church Management |
 | **Type** | Hybrid System (Web Admin Dashboard + Android Mobile App) |
 | **Core Goal** | Modernize parish operations in San Jose del Monte (CSJDM) — digitize records, automate sacrament scheduling, enable cashless donations, and provide virtual church access (360° tour, Livestream) |
-| **Target Web** | Desktop/Tablet for Admins & Super Admins (also accessible on iOS via browser) |
-| **Target Mobile** | Android 10+ (API Level 29+) for Parishioners — **not yet built** |
+| **Target Mobile** | Android 10+ (API Level 29+) for Parishioners |
+| **Production Branch** | `feature/demo-mode` (Live Client Demos & Production Releases) |
+| **Build/Test Branch** | `main` (Strictly for Integration, Building, & Automated Testing) |
 
 ---
 

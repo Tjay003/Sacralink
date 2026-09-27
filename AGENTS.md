@@ -1,5 +1,15 @@
 # Agent Instructions & Skills
 
+## ⚠️ Branching & Environment Strategy (STRICT PROJECT MEMORY)
+- **PRODUCTION BRANCH: `feature/demo-mode`**
+  - The production branch for deployment, live client demos, and production pushes is **`feature/demo-mode`**.
+  - Whenever asked to push to production or deploy to live clients, ALWAYS push to **`feature/demo-mode`**.
+- **BUILDING & TESTING BRANCH: `main`**
+  - **`main`** is strictly for building, integration, staging, and running automated tests.
+  - **NEVER** mistake `main` as the production branch.
+
+---
+
 ## Agent skills
 
 ### Issue tracker
