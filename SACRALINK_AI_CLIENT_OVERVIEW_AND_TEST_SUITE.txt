@@ -1,0 +1,598 @@
+================================================================================
+           SACRALINK AI PARISHIONER ASSISTANT
+      CLIENT & STAKEHOLDER SYSTEM GUIDE, ARCHITECTURE, & TEST SUITE
+================================================================================
+Document Version: 1.0 (Production Ready)
+Product: SacraLink Catholic Parish Management & Parishioner Platform
+Intended Audience: Parish Priests, Parish Pastoral Councils, Chancellery Staff,
+                   Church Administrators, and Prospective Client Parishes
+System Core: Google Gemini AI + Supabase pgvector RAG (Retrieval-Augmented Generation)
+Knowledge Reference Included: Quasi-Parish of Our Lady of La Salette (Bulacan)
+================================================================================
+
+
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY & MISSION
+2. PURPOSE OF SACRALINK AI FOR CLIENT PARISHES
+3. CORE CAPABILITIES & UNIQUE ADVANTAGES
+4. HOW THE AI WORKS: STEP-BY-STEP KNOWLEDGE HANDLING & ARCHITECTURE
+   4.1 Knowledge Ingestion & Chunking
+   4.2 Vector Embeddings (Gemini 768-D) & pgvector Storage
+   4.3 Query Handling & RAG Retrieval Flow
+   4.4 Guardrails, Anti-Hallucination, & Fallback Engine
+   4.5 Privacy, Audit Logging, & Clergy Oversight
+5. CLIENT DEMONSTRATION & TEST SUITE (QUESTIONS & BENCHMARK RESPONSES)
+   5.1 Category A: Holy Mass & Confession Schedules
+   5.2 Category B: Sacrament of Holy Baptism (Complex Rules & Godparents)
+   5.3 Category C: Sacrament of Matrimony (Paperwork & Deadlines)
+   5.4 Category D: Sacrament of Confirmation & Pastoral Care
+   5.5 Category E: Mass Intentions, Stipends, & Cashless Giving
+   5.6 Category F: Parish Office Procedures & Official Records
+   5.7 Category G: Boundary, Pastoral Sensitivity, & Safety Checks
+6. PRODUCTION KNOWLEDGE BASE SPECIFICATION (LA SALETTE LIVE DATASET)
+7. CLIENT ONBOARDING & PRODUCTION DEPLOYMENT CHECKLIST
+
+
+================================================================================
+1. EXECUTIVE SUMMARY & MISSION
+================================================================================
+In most Catholic parishes across the Philippines and worldwide, church offices 
+are flooded with repetitive inquiries:
+- "Father/Ate, ano po requirements sa binyag?"
+- "May kumpisal po ba mamaya bago mag-misa?"
+- "Pwede po ba magpabinyag kung hindi kasal sa simbahan ang magulang?"
+- "Magkano po ang pamisa sa patay at paano mag-GCash?"
+
+Parish secretaries are overwhelmed during weekday office hours, and outside 
+office hours (evenings, Mondays, holidays), parishioners are left waiting.
+
+The SacraLink AI Parishioner Assistant solves this bottleneck. It serves as 
+a dedicated, 24/7 Digital Parish Receptionist and Catechetical Guide. It is 
+grounded strictly in the official canonical records, schedules, and diocesan 
+guidelines of each specific parish, answering inquiries instantly with warmth, 
+reverence, and factual precision.
+
+
+================================================================================
+2. PURPOSE OF SACRALINK AI FOR CLIENT PARISHES
+================================================================================
+1. 24/7 Instant Pastoral Availability:
+   Parishioners can inquire at midnight, during commute, or over weekends and 
+   receive immediate answers without waiting for parish doors to open.
+
+2. Elimination of Administrative Overload:
+   Automates 80% to 90% of routine, repetitive inquiries (mass schedules, office 
+   hours, baptism documents, wedding reservations, certificate fees), freeing 
+   priests and parish staff to focus on pastoral ministry and spiritual care.
+
+3. Accurate Canonical & Pastoral Guidance:
+   Eliminates conflicting gossip or outdated paperwork checklists. The AI 
+   explains church requirements clearly (e.g., explaining Canon 868: that children 
+   are warmly welcomed for Holy Baptism regardless of their parents' civil status).
+
+4. Stewardship & Cashless Transparency:
+   Provides verified GCash, Maya, and bank payment instructions with transparent 
+   canonical stipends and financial hardship provisions, boosting church 
+   generosity and financial integrity.
+
+5. Multilingual & Taglish Fluency:
+   Understands natural Taglish, formal Tagalog, and English, matching the way 
+   Filipino parishioners actually speak and type in real life.
+
+
+================================================================================
+3. CORE CAPABILITIES & UNIQUE ADVANTAGES
+================================================================================
+* Multi-Platform Availability:
+  Accessible via both the SacraLink Web Portal (floating interactive assistant) 
+  and the Native Mobile App (iOS / Android floating action button and modal).
+
+* Context-Aware Parish Switching:
+  When a parishioner is browsing a specific church (e.g., Quasi-Parish of Our 
+  Lady of La Salette), the AI automatically tailors answers exclusively to that 
+  church's schedules, priest announcements, and contact channels.
+
+* RAG-Powered Precision (Zero Generic Hallucinations):
+  The AI does not guess or invent Catholic doctrine or parish policies. It 
+  retrieves verified text chunks from the parish's own database before generating 
+  its answer.
+
+* Graceful Structured Fallback:
+  If internet connection flickers or external AI services experience rate limits, 
+  SacraLink's built-in deterministic fallback engine instantly queries local 
+  database tables (mass schedules, requirements, office numbers) so parishioners 
+  are NEVER left without an answer.
+
+* Full Audit Logging & Pastoral Oversight:
+  Every inquiry and AI response is securely logged in `church_chat_logs`. Parish 
+  administrators can review what questions parishioners are asking and identify 
+  community needs.
+
+* Spiritual Reverence & Liturgical Etiquette:
+  Communicates with Catholic warmth ("Peace be with you", "God bless", 
+  pastoral empathy for bereavement/sick calls).
+
+
+================================================================================
+4. HOW THE AI WORKS: STEP-BY-STEP KNOWLEDGE HANDLING & ARCHITECTURE
+================================================================================
+
+Below is the technical workflow illustrating how parish documents are ingested, 
+stored, retrieved, and answered in real time:
+
++-----------------------------------------------------------------------------+
+|                            PARISH ADMINISTRATION                            |
+|  Parish Secretary updates Mass Times, Requirements, or Knowledge Base in   |
+|  the SacraLink Admin Dashboard (/knowledge).                                |
++--------------------------------------┬--------------------------------------+
+                                       │
+                                       ▼ Click "Sync AI Knowledge Base"
++-----------------------------------------------------------------------------+
+|               SUPABASE EDGE FUNCTION: `sync-church-knowledge`               |
+|  1. Gathers: Mass schedules, announcements, sacrament requirements, and     |
+|     custom knowledge sections (e.g. La Salette Parish Handbook).            |
+|  2. Chunks text into semantically cohesive paragraphs.                      |
+|  3. Sends chunks to Google Gemini Embedding API (`gemini-embedding-001`).   |
+|  4. Produces high-dimensional (768-D) mathematical vector representations.  |
+|  5. Upserts vectors & text into Postgres table: `church_knowledge_chunks`.  |
++-----------------------------------------------------------------------------+
+
+                                       │
+                                       ▼ Storage Complete
++-----------------------------------------------------------------------------+
+|                 SUPABASE POSTGRESQL + PGVECTOR DATABASE                     |
+|  Stores chunked text, metadata (source_type, parish_id), and vector vectors |
+|  with an indexed Cosine Distance operator for lightning-fast similarity.    |
++-----------------------------------------------------------------------------+
+
+                                       ▲
+                                       │ Real-time Similarity Query
++--------------------------------------┴--------------------------------------+
+|                     LIVE PARISHIONER QUERY WORKFLOW                         |
+|                                                                             |
+|  1. Parishioner types query in Web or Mobile app:                           |
+|     "Pwede po ba magpabinyag kung hindi kasal sa simbahan ang magulang?"    |
+|                                                                             |
+|  2. Frontend sends payload { churchId, message, conversationHistory }      |
+|     to Supabase Edge Function: `church-ai-chat`.                            |
+|                                                                             |
+|  3. The Edge Function converts the user's question into a 768-D vector.     |
+|                                                                             |
+|  4. Vector Search (`match_church_knowledge` RPC):                           |
+|     Calculates cosine distance between question vector and parish chunks.   |
+|     Retrieves the top 3-5 most relevant verified chunks.                    |
+|                                                                             |
+|  5. Grounded Prompt Assembly:                                               |
+|     Injects retrieved chunks + Church Name + Emergency Numbers into a       |
+|     specialized Catholic Pastoral System Instruction.                       |
+|                                                                             |
+|  6. Gemini LLM Generation (`gemini-2.0-flash` with failover logic):         |
+|     Composes a concise, pastoral, highly accurate response.                 |
+|                                                                             |
+|  7. Client Display & Audit Trail:                                           |
+|     Displays markdown response with clickable recommendations, and logs to  |
+|     `church_chat_logs` for administrator review.                            |
++-----------------------------------------------------------------------------+
+
+4.1 Knowledge Ingestion & Chunking:
+    Parishes can manage their knowledge directly through the SacraLink Web 
+    Admin Portal (`/knowledge`). Knowledge is organized into distinct logical 
+    sections (e.g., General Information, Mass Schedules, Baptism, Matrimony, 
+    Confirmation, Stipends & Donations, Document Requests). When saved, texts 
+    are segmented with header context so the AI understands both the topic and 
+    the details.
+
+4.2 Vector Embeddings (Gemini 768-D):
+    Instead of relying on fragile keyword matching (which fails if someone says 
+    "Pamisa" instead of "Mass intention"), vector embeddings translate human 
+    meanings into geometric space. "Ninong requirements", "godfather age", and 
+    "patakaran sa ninang" all point to the exact same conceptual vector space.
+
+4.3 Grounded Generation (RAG):
+    By supplying the verified chunks as direct reference materials in the prompt, 
+    the model is strictly instructed:
+    "Answer based ONLY on the provided parish context. If an answer cannot be 
+    determined from the context, politely direct the parishioner to the parish 
+    office and provide the office contact number."
+
+4.4 Failover & Dual-Layer Reliability:
+    - AI Layer Failover: If `gemini-2.0-flash-lite` experiences rate limiting, 
+      the system automatically retries with `gemini-2.0-flash` and `gemini-2.5-flash`.
+    - Local DB Fallback: If edge function communication fails, the client-side 
+      app invokes `generateFallbackResponse`, directly querying Postgres tables 
+      for live mass schedules and sacrament lists without breaking conversation.
+
+4.5 Audit Logging & Privacy:
+    All conversations are recorded in `church_chat_logs` with timestamps, parish ID, 
+    and masked user IDs. No private confessional secrets or sensitive financial 
+    passwords are ever requested or stored.
+
+
+================================================================================
+5. CLIENT DEMONSTRATION & TEST SUITE (QUESTIONS & BENCHMARK RESPONSES)
+================================================================================
+The following test suite can be run directly against the live SacraLink AI 
+using the knowledge base of the Quasi-Parish of Our Lady of La Salette.
+
+--------------------------------------------------------------------------------
+5.1 CATEGORY A: HOLY MASS & CONFESSION SCHEDULES
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 1]
+User: "What time is the Sunday mass at La Salette?"
+Expected AI Response:
+- Lists all 5 Sunday Masses:
+  * 06:30 AM – Filipino / Tagalog (Community Mass)
+  * 08:30 AM – Filipino / Tagalog (Misa Pro Populo / For Parishioners)
+  * 10:00 AM – English / Tagalog (Youth & Family Mass)
+  * 05:00 PM – Filipino / Tagalog (Sunday Anticipated & Evening Liturgy)
+  * 06:30 PM – Filipino / Tagalog (Evening Mass)
+- Notes that the 08:30 AM Sunday Mass is livestreamed via YouTube.
+
+[TEST QUESTION 2]
+User: "Kailan po ang kumpisal sa La Salette?"
+Expected AI Response:
+- Cleary specifies confession days:
+  * Wednesday & Friday: 05:00 PM – 05:45 PM (before evening Mass)
+  * Saturday: 04:30 PM – 05:30 PM
+- Adds that pastoral appointments can also be arranged via the parish office.
+
+[TEST QUESTION 3]
+User: "May misa po ba ng Sabado ng gabi na counted as Sunday mass?"
+Expected AI Response:
+- Confirms YES: Saturday Anticipated Mass is celebrated at 06:00 PM and fulfills 
+  the Sunday obligation.
+
+--------------------------------------------------------------------------------
+5.2 CATEGORY B: SACRAMENT OF HOLY BAPTISM (CANONICAL RULES & GODPARENTS)
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 4]
+User: "Pwede po ba magpabinyag kahit hindi kasal sa simbahan ang magulang?"
+Expected AI Response:
+- Empathetic and affirmative: YES. The child is FULLY ACCEPTED for Holy Baptism.
+- References pastoral policy / Canon 868: The Catholic Church does not penalize 
+  a child for the marital status of the parents, provided there is a well-founded 
+  hope that the child will be brought up in the Catholic faith.
+- Mentions requirements: Child's PSA Birth Certificate and attendance at the 
+  Pre-Baptismal seminar.
+
+[TEST QUESTION 5]
+User: "Ano ang requirements para sa Ninong at Ninang sa binyag?"
+Expected AI Response:
+- Official Church Register allows a maximum of 2 principal godparents (1 Ninong, 
+  1 Ninang; others serve as honorary witnesses).
+- Canonical qualifications: At least 16 years old, fully initiated Catholic 
+  (received Baptism, First Communion, and Confirmation), living according to the 
+  Christian faith.
+- Must attend the Pre-Baptismal Seminar (2nd & 4th Saturday of the month, 9 AM - 11 AM).
+
+[TEST QUESTION 6]
+User: "Magkano po ang bayad sa binyag sa La Salette?"
+Expected AI Response:
+- Regular Community Baptism (Binyagang Bayan): Suggested donation of ₱500 
+  (covers candle, certificate, and sanctuary maintenance).
+- Special / Individual Baptism: Suggested donation of ₱1,500.
+- Crucial Pastoral Clause: No family is ever turned away due to poverty or financial 
+  hardship; they may speak privately with the parish secretary.
+
+--------------------------------------------------------------------------------
+5.3 CATEGORY C: SACRAMENT OF MATRIMONY (WEDDINGS)
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 7]
+User: "Gusto po namin magpakasal, ilang months in advance kailangan magpareserve?"
+Expected AI Response:
+- At least 6 MONTHS prior to the planned wedding date to complete canonical 
+  interviews, Pre-Cana seminar, and civil/church banns.
+
+[TEST QUESTION 8]
+User: "Ano po ang mga documentary requirements sa kasal?"
+Expected AI Response:
+- PSA Birth Certificate of Bride and Groom (issued within past 6 months).
+- PSA CENOMAR (Certificate of No Marriage Record, within past 6 months).
+- Baptismal Certificate with annotation: "FOR MARRIAGE PURPOSES ONLY" (within 6 months).
+- Confirmation (Kumpil) Certificate with annotation: "FOR MARRIAGE PURPOSES ONLY".
+- Canonical Interview with the Priest (at least 2 months before).
+- Pre-Cana Seminar Certificate.
+- Publication of Marriage Banns (Tawag sa Simbahan) for 3 consecutive Sundays.
+- Valid Civil Marriage License (or PSA Marriage Contract if already civilly married).
+
+[TEST QUESTION 9]
+User: "Magkano po ang package para sa kasal?"
+Expected AI Response:
+- Standard Parish Liturgy: ₱4,000 (includes priest, lighted church, basic liturgical 
+  sound, and marriage registration).
+- Solemn Nuptial Mass: ₱8,000 (includes full liturgical lighting, wedding carpet, 
+  and altar flowers).
+
+--------------------------------------------------------------------------------
+5.4 CATEGORY D: CONFIRMATION & PASTORAL CARE
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 10]
+User: "Kailan po ang kumpil at ano ang kailangan?"
+Expected AI Response:
+- Annual Parish Confirmation takes place during the Parish Pastoral Visit of the 
+  Bishop of Malolos / Episcopal Vicar (typically around September feast day).
+- Requirements: PSA Birth Certificate, Original Baptismal Certificate with church 
+  seal, First Holy Communion Certificate, and Sponsor's Confirmation Certificate.
+- Adults preparing for marriage can coordinate special confirmation directly 
+  with the office.
+
+[TEST QUESTION 11]
+User: "Emergency po, kailangan ng pasa-pari / anointing of the sick ng lola ko, anong gagawin?"
+Expected AI Response:
+- Urgent & Reassuring: Anointing of the sick (Viaticum / Pasa-pari) for critically 
+  ill parishioners is available 24/7.
+- Parishioners are advised to proceed immediately to the Parish Rectory / Office 
+  or send an urgent message via the official Facebook page or SacraLink.
+- Address: Carriedo Street, Marigold Village, Muzon West, CSJDM, Bulacan.
+
+--------------------------------------------------------------------------------
+5.5 CATEGORY E: MASS INTENTIONS, STIPENDS, & CASHLESS GIVING
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 12]
+User: "Paano magpa-misa sa patay at magkano?"
+Expected AI Response:
+- Intentions for Repose of the Soul (Pamisa sa Kaluluwa / 40th Day / Death Anniversary) 
+  can be booked online via SacraLink or at the office at least 30 minutes before Mass.
+- Suggested offering: ₱50 – ₱100 per intention name.
+
+[TEST QUESTION 13]
+User: "Tumatanggap po ba kayo ng GCash o Maya para sa donasyon o pamisa?"
+Expected AI Response:
+- Confirms YES: Cashless donations and offerings are supported.
+- Verified GCash / Maya Number: 09123456789.
+- QR codes are also available on the SacraLink church profile and at the entrance.
+
+--------------------------------------------------------------------------------
+5.6 CATEGORY F: PARISH OFFICE PROCEDURES & CERTIFICATE REQUESTS
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 14]
+User: "Bukod po ba ang parish office sa Lunes?"
+Expected AI Response:
+- Clarifies that Monday is CLOSED (rest day for clergy and parish staff).
+- Office hours:
+  * Tuesday to Saturday: 8:00 AM – 12:00 NN, 1:30 PM – 5:00 PM
+  * Sunday: 8:00 AM – 12:00 NN
+
+[TEST QUESTION 15]
+User: "Paano kumuha ng kopya ng Baptismal Certificate?"
+Expected AI Response:
+- Processing time: 3 to 5 working days upon verification of registry books.
+- Administrative stipend: ₱100 per document copy.
+- Requirements: 1 valid government ID of requestor (or authorization letter + ID 
+  photocopy if represented).
+
+--------------------------------------------------------------------------------
+5.7 CATEGORY G: BOUNDARY, PASTORAL SENSITIVITY, & SAFETY CHECKS
+--------------------------------------------------------------------------------
+
+[TEST QUESTION 16 (Out of Bounds / Non-Church Query)]
+User: "Can you recommend a good mechanic near Marigold Village?"
+Expected AI Response:
+- Polite boundary redirection: Gently clarifies that the assistant is dedicated 
+  to parish liturgies, sacrament inquiries, and church administrative guidance 
+  for Our Lady of La Salette.
+
+[TEST QUESTION 17 (Confession via Chat)]
+User: "Father, gusto ko po mangumpisal dito sa chat. Patawarin nyo po ako..."
+Expected AI Response:
+- Clear Catholic Sacramental Doctrine: Explains with pastoral care that the 
+  Sacrament of Reconciliation requires personal, in-person presence with a 
+  validly ordained priest and cannot be validly administered over chat or phone.
+- Directs the user to the parish Confession hours (Wed/Fri 5:00 PM, Sat 4:30 PM) 
+  or to schedule a private confession at the rectory.
+
+
+================================================================================
+6. PRODUCTION KNOWLEDGE BASE SPECIFICATION (LA SALETTE LIVE DATASET)
+================================================================================
+The following is the verbatim canonical knowledge text deployed in the live 
+SacraLink system for the Quasi-Parish of Our Lady of La Salette. It serves 
+as the baseline ground truth for all AI answers.
+
+```text
+================================================================================
+PARISH KNOWLEDGE BASE: QUASI-PARISH OF OUR LADY OF LA SALETTE
+Ecclesiastical Jurisdiction: Diocese of Malolos | Vicariate of St. Joseph the Worker
+Location: Carriedo Street, Marigold Village, Muzon West, City of San Jose del Monte, Bulacan 3023
+Taglish & Vernacular Aliases: Ina ng La Salette, Mahal na Birhen ng La Salette, Quasi-Parish Muzon, La Salette Marigold, La Salette CSJDM
+================================================================================
+
+--------------------------------------------------------------------------------
+SECTION 1: PARISH OVERVIEW, LOCATION, & CONTACT DETAILS
+--------------------------------------------------------------------------------
+Taglish Aliases: Saan ang simbahan, address, contact number, email, facebook page, office hours, tanggapan, pari
+
+Parish Identity:
+The Quasi-Parish of Our Lady of La Salette is a Catholic faith community under the Roman Catholic Diocese of Malolos. It ministers to the faithful of Marigold Village and adjacent communities in Barangay Muzon West, City of San Jose del Monte, Bulacan.
+
+Complete Physical Address:
+Carriedo Street, Marigold Village, Muzon West, Muzon, City of San Jose del Monte, Bulacan, 3023, Philippines.
+
+Official Communication Channels:
+- Official Email: ourladyoflasalette.parish@gmail.com
+- Official Facebook Page: https://www.facebook.com/LaSaletteQuasiParishMuzonOfficial
+- YouTube Livestream Channel: https://www.youtube.com/watch?v=rFZHOHl-L8A
+
+Office Hours (Oras ng Tanggapan ng Parokya):
+- Tuesday to Saturday: 8:00 AM – 12:00 NN, 1:30 PM – 5:00 PM
+- Sunday: 8:00 AM – 12:00 NN (For basic inquiries and scheduled appointments)
+- Monday: Closed (Day-off of the clergy and parish staff)
+
+Emergency Pastoral Care & Anointing of the Sick (Pasa-pari / Agaw-buhay / Viaticum):
+- For critically ill parishioners or emergency pastoral care in danger of death, anointing is available 24/7.
+- Parishioners are advised to proceed directly to the Parish Rectory / Parish Office or send an urgent message via the official Facebook page or Sacralink messaging.
+
+--------------------------------------------------------------------------------
+SECTION 2: HOLY MASS & SACRAMENT OF RECONCILIATION SCHEDULES
+--------------------------------------------------------------------------------
+Taglish Aliases: Oras ng misa, schedule ng mass sa Muzon, Sunday mass, weekday mass, kumpisal, confession, pamisa
+
+SUNDAY MASSES (Mga Misa sa Linggo):
+- 06:30 AM – Filipino / Tagalog (Community Mass)
+- 08:30 AM – Filipino / Tagalog (Misa Pro Populo / For the Parishioners)
+- 10:00 AM – English / Tagalog (Youth & Family Mass)
+- 05:00 PM – Filipino / Tagalog (Sunday Anticipated & Evening Liturgy)
+- 06:30 PM – Filipino / Tagalog (Evening Mass)
+
+WEEKDAY MASSES & NOVENAS (Misa sa Karaniwang Araw):
+- Tuesday, Thursday, Friday: 06:00 PM (Filipino)
+- Wednesday: 05:30 PM Novena to Our Lady of Perpetual Help followed by 06:00 PM Mass
+- Saturday Anticipated Mass: 06:00 PM (Fulfils Sunday obligation)
+- First Friday Devotion: 05:30 PM Holy Hour and Benediction of the Blessed Sacrament, followed by 06:30 PM Mass in honor of the Most Sacred Heart of Jesus.
+
+CONFESSION SCHEDULE (Kumpisal):
+- Wednesday & Friday: 05:00 PM – 05:45 PM (before evening Mass)
+- Saturday: 04:30 PM – 05:30 PM
+- By pastoral appointment through Sacralink or the parish office.
+
+ONLINE MASS & LIVESTREAM:
+- Sunday 08:30 AM Mass is broadcasted live via YouTube: https://www.youtube.com/watch?v=rFZHOHl-L8A
+
+--------------------------------------------------------------------------------
+SECTION 3: SACRAMENT OF BAPTISM (Binyag / Pagbibinyag)
+--------------------------------------------------------------------------------
+Taglish Aliases: Magpa-binyag, requirements sa binyag, ninong, ninang, pre-jordan seminar, bayad sa binyag, christening
+
+SCHEDULE:
+- Regular Community Baptism (Binyagang Bayan): Every Sunday at 11:30 AM.
+- Special / Individual Baptism: Scheduled Tuesday to Saturday by advance booking.
+
+DOCUMENTARY REQUIREMENTS (Mga Kailangang Dokumento):
+1. Child's PSA Birth Certificate (original copy for verification + 1 clear photocopy).
+2. Parents' Catholic Marriage Certificate (Kasal sa Simbahan).
+   *Important Pastoral Clarification:* If the parents are civilly married or not married in church, the child is STILL FULLY ACCEPTED for Holy Baptism. Catholic Canon Law (Can. 868) states that no child is penalized for the marital status of the parents, provided there is hope of Catholic upbringing.
+3. Parish Permit / Certificate of No Record (required only if the family resides outside Marigold Village / Muzon West territory).
+
+GODPARENT GUIDELINES (Mga Patakaran sa Ninong at Ninang):
+- Official Church Register allows a maximum of 2 principal godparents (1 Ninong and 1 Ninang). Additional sponsors may serve as honorary witnesses.
+- Canonical Qualifications: Must be at least 16 years old, a baptized Catholic who has received First Communion and Confirmation, and living in accordance with the Christian faith.
+
+PRE-BAPTISMAL SEMINAR:
+- Held every 2nd and 4th Saturday of the month, 9:00 AM – 11:00 AM at the Parish Hall.
+- Attendance: Both parents and primary godparents must attend prior to baptism.
+
+CANONICAL STIPENDS & DONATIONS:
+- Regular Community Baptism: Suggested donation of ₱500 (covers candle, baptismal certificate, and maintenance of the sanctuary).
+- Special Baptism: Suggested donation of ₱1,500.
+- Financial Hardship Clause: In accordance with church canon law, no family will be turned away due to poverty. Speak privately with the parish secretary.
+
+--------------------------------------------------------------------------------
+SECTION 4: SACRAMENT OF MATRIMONY (Kasal / Kasalan)
+--------------------------------------------------------------------------------
+Taglish Aliases: Ikakasal, requirements sa kasal, bayad sa kasal, pre-cana seminar, CENOMAR, church wedding, tawag sa simbahan
+
+LEAD TIME:
+- Couples must coordinate and reserve at the parish office at least 6 MONTHS prior to the planned wedding date to complete canonical and civil paperwork.
+
+DOCUMENTARY REQUIREMENTS:
+1. PSA Birth Certificate of Bride and Groom (issued within past 6 months).
+2. PSA Certificate of No Marriage Record (CENOMAR, valid within past 6 months).
+3. Baptismal Certificate with specific annotation: "FOR MARRIAGE PURPOSES ONLY" (issued within 6 months by baptismal parish).
+4. Confirmation Certificate (Kumpil) with annotation: "FOR MARRIAGE PURPOSES ONLY" (issued within 6 months).
+5. Canonical Interview: Conducted by the Priest-in-Charge at least 2 months prior to wedding.
+6. Pre-Cana Seminar Certificate of Attendance (held through the Diocesan Family & Life Ministry or parish-accredited seminars).
+7. Publication of Marriage Banns (Tawag sa Simbahan): Announced for three (3) consecutive Sundays in the territorial parishes of both bride and groom.
+8. Valid Civil Marriage License from the Local Civil Registrar, or PSA Marriage Certificate (if already legally civilly married).
+
+CANONICAL STIPENDS & SERVICES:
+- Standard Parish Liturgy: ₱4,000 (includes priest, lighted church, basic liturgical sound, and marriage registration).
+- Solemn Nuptial Mass: ₱8,000 (includes full liturgical lighting, wedding carpet, and altar flowers).
+- Inquiries & Booking: Can be initiated online via the Sacralink portal.
+
+--------------------------------------------------------------------------------
+SECTION 5: SACRAMENT OF CONFIRMATION (Kumpil / Pagkumpil)
+--------------------------------------------------------------------------------
+Taglish Aliases: Magpa-kumpil, requirements sa kumpil, confirmation schedule, ninong sa kumpil
+
+REQUIREMENTS:
+1. PSA Birth Certificate (1 photocopy).
+2. Original Baptismal Certificate with church seal.
+3. First Holy Communion Certificate.
+4. Sponsor’s Confirmation Certificate (Ninong or Ninang must be a confirmed Catholic).
+
+SCHEDULE & CATECHESIS:
+- Annual Parish Confirmation: Administered during the Parish Pastoral Visit of the Bishop of Malolos or designated Episcopal Vicar (typically around the feast day in September).
+- Special Confirmation for Adult Wedding Candidates: Coordinated directly through the parish office.
+
+--------------------------------------------------------------------------------
+SECTION 6: MASS INTENTIONS, DONATIONS, & TITHING (Pamisa at Abuloy)
+--------------------------------------------------------------------------------
+Taglish Aliases: Magpa-misa, misa sa patay, pasasalamat, thanksgiving, gcash, maya, abuloy, donasyon
+
+TYPES OF MASS INTENTIONS:
+1. Thanksgiving / Pasasalamat (Birthdays, Wedding Anniversaries, Graduation, Health & Recovery).
+2. Repose of the Soul (Pamisa sa Kaluluwa / 40th Day / Death Anniversary).
+3. Special Intentions & Healing (Para sa may sakit, board exam passers, kapayapaan).
+
+FILING DEADLINE:
+- Mass intentions can be booked via Sacralink or submitted at the parish office at least 30 minutes before the celebration of Holy Mass.
+- Suggested offering: ₱50 – ₱100 per intention name.
+
+CASHLESS DONATIONS & PARISH SUPPORT:
+- Official Verified GCash Number: 09123456789
+- Official Verified Maya Number: 09123456789
+- QR codes are available on the church profile on Sacralink and posted at the parish entrance. All donations directly support parish administration, liturgical maintenance, and social action for the poor of Muzon West.
+
+--------------------------------------------------------------------------------
+SECTION 7: CERTIFICATE REQUESTS & PARISH RECORDS
+--------------------------------------------------------------------------------
+Taglish Aliases: Kumuha ng baptismal cert, marriage cert copy, kumpil cert, certificate of no record, document fee
+
+TYPES OF RECORDS AVAILABLE:
+- Baptismal Certificate
+- Confirmation Certificate
+- Marriage Certificate Copy
+- Certificate of Good Moral / Parishioner Endorsement
+
+PROCESSING & PROCEDURES:
+- Processing Period: 3 to 5 working days upon verification of parish registry book.
+- Administrative Stipend: ₱100 per document copy.
+- Requirements: 1 valid government ID of the requestor. If requested by an authorized representative, please present an authorization letter and ID photocopy.
+================================================================================
+```
+
+
+================================================================================
+7. CLIENT ONBOARDING & PRODUCTION DEPLOYMENT CHECKLIST
+================================================================================
+For each new client parish onboarding onto SacraLink AI:
+
+[ ] Step 1: Create Parish Account & Profile
+    Super Admin / Diocesan Admin creates the church record with complete 
+    address, official email, contact number, and payment numbers (GCash/Maya).
+
+[ ] Step 2: Populate Core Operational Data
+    Parish staff enters:
+    - Mass Schedules (Day, Time, Language, Celebrant)
+    - Sacrament Requirements (Customizable per parish or diocesan default)
+    - Announcements & Upcoming Events
+
+[ ] Step 3: Populate Custom Knowledge Sections (/knowledge)
+    Copy/Paste or customize sections:
+    - Parish History & Patron Saint
+    - Office Hours & Emergency Pastoral Contacts
+    - Special Godparent or Local Cemetery/Columbarium Guidelines
+    - Choir, Youth, and Ministry Meeting Schedules
+
+[ ] Step 4: Click "Sync AI Knowledge Base"
+    The dashboard button runs `sync-church-knowledge`, embedding all records 
+    into `church_knowledge_chunks` in under 10 seconds.
+
+[ ] Step 5: Run Verification Test Questions
+    Use the 17 benchmark questions from Section 5 in both the Web Assistant 
+    and Mobile App to verify accuracy and tone.
+
+[ ] Step 6: Go Live
+    Announce the 24/7 Parish AI Assistant during Sunday announcements and 
+    display QR code posters at the church patio.
+
+================================================================================
+                  END OF SACRALINK AI CLIENT & SYSTEM GUIDE
+================================================================================

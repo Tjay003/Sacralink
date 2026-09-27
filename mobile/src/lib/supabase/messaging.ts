@@ -532,11 +532,79 @@ export function subscribeToConversationMessages(
 export const subscribeToMessages = subscribeToConversationMessages;
 
 /**
- * Generates Jitsi Meet video consultation URL.
+ * Generates a cryptographically unguessable room identifier.
+ * Incorporates high entropy to prevent room enumeration, brute-forcing,
+ * and eavesdropping on confidential pastoral counseling sessions.
  */
-export function getJitsiMeetUrl(conversationId: string): string {
-  const cleanId = conversationId.replace(/[^a-zA-Z0-9-]/g, '');
-  return `https://meet.jit.si/sacralink-${cleanId}`;
+export function generateSecureRoomId(prefix = 'counseling'): string {
+  let entropy = '';
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    entropy = globalThis.crypto.randomUUID();
+  } else if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // v4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    entropy = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } else {
+    // High-entropy fallback
+    const r1 = Math.random().toString(36).substring(2, 10);
+    const r2 = Math.random().toString(36).substring(2, 10);
+    const r3 = Math.random().toString(36).substring(2, 10);
+    entropy = `${Date.now().toString(36)}-${r1}-${r2}-${r3}`;
+  }
+  const cleanPrefix = prefix.replace(/[^a-zA-Z0-9-]/g, '');
+  return `sacralink-${cleanPrefix}-${entropy}`;
+}
+
+/**
+ * Fast 32-bit FNV-1a checksum for deterministic appointment salt generation.
+ */
+function computeChecksum(str: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Generates an unguessable, appointment-scoped Jitsi room identifier.
+ * Requires the full appointment UUID and incorporates a pastoral security salt
+ * so that third parties cannot guess or enumerate confidential counseling rooms.
+ */
+export function generateAppointmentRoomId(appointmentId: string): string {
+  const cleanApptId = appointmentId.replace(/[^a-zA-Z0-9-]/g, '');
+  const salt = 'sacralink-confidential-pastoral-v1';
+  const checksum = computeChecksum(`${cleanApptId}:${salt}`);
+  return `sacralink-counseling-${cleanApptId}-${checksum}`;
+}
+
+/**
+ * Generates a secure Jitsi Meet video consultation URL.
+ * Sanitizes room identifiers and configures prejoin screening to prevent unauthorized background entry.
+ */
+export function getJitsiMeetUrl(
+  roomIdentifier: string,
+  options: { prejoin?: boolean; subject?: string } = {}
+): string {
+  // If the roomIdentifier already contains 'sacralink-', keep it clean; otherwise prefix
+  const cleanId = roomIdentifier.replace(/[^a-zA-Z0-9-_]/g, '');
+  const roomName = cleanId.startsWith('sacralink-') ? cleanId : `sacralink-${cleanId}`;
+  const base = `https://meet.jit.si/${roomName}`;
+
+  const configParams = [
+    'config.prejoinPageEnabled=true',
+    'config.requireDisplayName=true',
+    'config.disableDeepLinking=false',
+  ];
+  if (options.subject) {
+    configParams.push(`config.subject=${encodeURIComponent(options.subject)}`);
+  }
+
+  return `${base}#${configParams.join('&')}`;
 }
 
 /**

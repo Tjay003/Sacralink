@@ -137,20 +137,20 @@ function renderFormattedContent(rawContent: string) {
     const inlineElements = parts.map((part, pIdx) => {
       if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
         return (
-          <Text key={pIdx} className="font-bold text-slate-900 font-sans">
+          <Text key={pIdx} className="font-bold text-foreground font-sans">
             {part.slice(2, -2)}
           </Text>
         );
       }
       if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
         return (
-          <Text key={pIdx} className="italic text-slate-600 font-sans">
+          <Text key={pIdx} className="italic text-muted-foreground font-sans">
             {part.slice(1, -1)}
           </Text>
         );
       }
       return (
-        <Text key={pIdx} className="text-slate-800 font-sans">
+        <Text key={pIdx} className="text-foreground font-sans">
           {part}
         </Text>
       );
@@ -159,8 +159,8 @@ function renderFormattedContent(rawContent: string) {
     if (isBullet) {
       return (
         <View key={idx} className="flex-row items-start mb-1 pl-0.5 pr-2">
-          <View className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 mr-2 shrink-0" />
-          <Text className="text-xs leading-relaxed text-slate-800 font-sans flex-1">
+          <View className="w-1.5 h-1.5 rounded-full bg-accent mt-2 mr-2 shrink-0" />
+          <Text className="text-xs leading-relaxed text-foreground font-sans flex-1">
             {inlineElements}
           </Text>
         </View>
@@ -170,7 +170,7 @@ function renderFormattedContent(rawContent: string) {
     return (
       <Text
         key={idx}
-        className="text-xs leading-relaxed text-slate-800 font-sans mb-1"
+        className="text-xs leading-relaxed text-foreground font-sans mb-1"
       >
         {inlineElements}
       </Text>
@@ -372,28 +372,28 @@ export function ParishionerChatbotModal({
     >
       <SafeAreaView
         edges={['top', 'bottom']}
-        className="flex-1 bg-slate-900"
+        className="flex-1 bg-white"
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="flex-1 bg-slate-50"
+          className="flex-1 bg-background"
         >
           {/* Catholic AI Assistant Header */}
-          <View className="bg-slate-900 px-4 pt-3 pb-3.5 border-b border-amber-500/20 shadow-md">
+          <View className="bg-white px-4 pt-3 pb-3.5 border-b border-border shadow-xs">
             <View className="flex-row items-center justify-between">
               {/* Branding Icon & Titles */}
-              <View className="flex-row items-center space-x-2.5 flex-1 mr-2">
-                <View className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 items-center justify-center mr-2">
+              <View className="flex-row items-center gap-2.5 flex-1 mr-2">
+                <View className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 items-center justify-center mr-2">
                   <Sparkles size={20} color="#F59E0B" />
                 </View>
                 <View className="flex-1">
-                  <View className="flex-row items-center space-x-1.5">
-                    <Text className="text-[10px] font-bold tracking-widest text-amber-400 uppercase font-sans">
+                  <View className="flex-row items-center gap-1.5">
+                    <Text className="text-[10px] font-bold tracking-widest text-amber-600 uppercase font-sans">
                       Catholic Knowledge Assistant
                     </Text>
                   </View>
                   <Text
-                    className="text-base font-bold text-white font-sans tracking-tight"
+                    className="text-base font-bold text-foreground font-sans tracking-tight"
                     numberOfLines={1}
                   >
                     Parish AI Assistant
@@ -402,21 +402,21 @@ export function ParishionerChatbotModal({
               </View>
 
               {/* Action Buttons: Reset & Close */}
-              <View className="flex-row items-center space-x-1.5">
+              <View className="flex-row items-center gap-1.5">
                 <TouchableOpacity
                   onPress={handleResetChat}
-                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center mr-1"
+                  className="w-8 h-8 rounded-full bg-secondary-100 items-center justify-center mr-1"
                   accessibilityLabel="Restart conversation"
                 >
-                  <RotateCcw size={15} color="#94A3B8" />
+                  <RotateCcw size={15} color="#64748B" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={onClose}
-                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
+                  className="w-8 h-8 rounded-full bg-secondary-100 items-center justify-center"
                   accessibilityLabel="Close assistant"
                 >
-                  <X size={17} color="#FFFFFF" />
+                  <X size={17} color="#0F172A" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -426,18 +426,18 @@ export function ParishionerChatbotModal({
               <TouchableOpacity
                 onPress={() => setIsChurchPickerOpen(true)}
                 activeOpacity={0.8}
-                className="flex-row items-center justify-between bg-slate-800/90 border border-amber-500/30 rounded-xl px-3 py-1.5"
+                className="flex-row items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5"
               >
-                <View className="flex-row items-center space-x-2 flex-1 mr-2">
-                  <ChurchIcon size={14} color="#F59E0B" />
+                <View className="flex-row items-center gap-2 flex-1 mr-2">
+                  <ChurchIcon size={14} color="#D97706" />
                   <Text
-                    className="text-xs font-semibold text-amber-200 font-sans ml-1.5 flex-1"
+                    className="text-xs font-semibold text-amber-900 font-sans ml-1.5 flex-1"
                     numberOfLines={1}
                   >
                     {selectedChurchName || 'General Diocesan Knowledge'}
                   </Text>
                 </View>
-                <ChevronDown size={14} color="#F59E0B" />
+                <ChevronDown size={14} color="#D97706" />
               </TouchableOpacity>
             </View>
           </View>
@@ -469,8 +469,8 @@ export function ParishionerChatbotModal({
                   <View
                     className={`max-w-[82%] p-3.5 rounded-2xl shadow-xs ${
                       isUser
-                        ? 'bg-blue-600 rounded-tr-xs'
-                        : 'bg-white border border-slate-200/90 rounded-tl-xs'
+                        ? 'bg-primary rounded-tr-xs'
+                        : 'bg-white border border-border rounded-tl-xs'
                     }`}
                   >
                     {/* Sources Badge if verified chunks used */}
@@ -507,7 +507,7 @@ export function ParishionerChatbotModal({
                     <View className="flex-row justify-end mt-1.5">
                       <Text
                         className={`text-[9px] font-sans ${
-                          isUser ? 'text-blue-200' : 'text-slate-400'
+                          isUser ? 'text-blue-100' : 'text-muted-foreground'
                         }`}
                       >
                         {formatTime(msg.timestamp)}
@@ -524,10 +524,10 @@ export function ParishionerChatbotModal({
                 <View className="w-8 h-8 rounded-full bg-amber-100 border border-amber-300 items-center justify-center mr-2.5 self-start mt-0.5">
                   <Sparkles size={16} color="#F59E0B" />
                 </View>
-                <View className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs">
-                  <View className="flex-row items-center space-x-2">
+                <View className="bg-white border border-border rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs">
+                  <View className="flex-row items-center gap-2">
                     <AnimatedTypingIndicator />
-                    <Text className="text-xs text-slate-500 font-sans ml-2">
+                    <Text className="text-xs text-muted-foreground font-sans ml-2">
                       Searching parish records...
                     </Text>
                   </View>
@@ -538,9 +538,9 @@ export function ParishionerChatbotModal({
             {/* Quick Suggestion Prompt Pills */}
             {showQuickSuggestions && (
               <View className="mt-3 pt-2">
-                <View className="flex-row items-center space-x-1.5 mb-2.5">
+                <View className="flex-row items-center gap-1.5 mb-2.5">
                   <HelpCircle size={13} color="#64748B" />
-                  <Text className="text-xs font-bold text-slate-500 font-sans uppercase tracking-wider ml-1">
+                  <Text className="text-xs font-bold text-muted-foreground font-sans uppercase tracking-wider ml-1">
                     Suggested Inquiries
                   </Text>
                 </View>
@@ -550,9 +550,9 @@ export function ParishionerChatbotModal({
                       key={pill}
                       onPress={() => handleSend(pill)}
                       activeOpacity={0.7}
-                      className="bg-white border border-amber-500/40 px-3 py-2 rounded-xl shadow-xs"
+                      className="bg-white border border-amber-300 px-3 py-2 rounded-xl shadow-xs"
                     >
-                      <Text className="text-xs font-semibold text-slate-700 font-sans">
+                      <Text className="text-xs font-semibold text-foreground font-sans">
                         {pill}
                       </Text>
                     </TouchableOpacity>
@@ -570,8 +570,8 @@ export function ParishionerChatbotModal({
           </View>
 
           {/* Input Bar */}
-          <View className="bg-white border-t border-slate-200/90 px-3 py-2.5 flex-row items-end space-x-2">
-            <View className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-1.5 min-h-[42px] max-h-[110px] justify-center ml-1">
+          <View className="bg-white border-t border-border px-3 py-2.5 flex-row items-end gap-2">
+            <View className="flex-1 bg-secondary-50 border border-border rounded-2xl px-3.5 py-1.5 min-h-[42px] max-h-[110px] justify-center ml-1">
               <TextInput
                 value={inputText}
                 onChangeText={setInputText}
@@ -580,7 +580,7 @@ export function ParishionerChatbotModal({
                 multiline
                 maxLength={1000}
                 editable={!isAsking}
-                className="text-xs text-slate-800 font-sans p-0 m-0"
+                className="text-xs text-foreground font-sans p-0 m-0"
                 style={{
                   maxHeight: 90,
                   textAlignVertical: 'center',
@@ -597,8 +597,8 @@ export function ParishionerChatbotModal({
               activeOpacity={0.8}
               className={`w-10 h-10 rounded-full items-center justify-center mb-0.5 ml-1 ${
                 inputText.trim() && !isAsking
-                  ? 'bg-amber-500 shadow-sm'
-                  : 'bg-slate-100'
+                  ? 'bg-primary shadow-sm'
+                  : 'bg-secondary-100'
               }`}
               accessibilityLabel="Send inquiry"
             >
@@ -620,10 +620,10 @@ export function ParishionerChatbotModal({
         >
           <View className="flex-1 bg-black/60 justify-end">
             <View className="bg-white rounded-t-3xl max-h-[75%] p-5">
-              <View className="flex-row items-center justify-between pb-3 border-b border-slate-200">
-                <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center justify-between pb-3 border-b border-border">
+                <View className="flex-row items-center gap-2">
                   <ChurchIcon size={18} color="#F59E0B" />
-                  <Text className="text-base font-bold text-slate-900 font-sans ml-1.5">
+                  <Text className="text-base font-bold text-foreground font-sans ml-1.5">
                     Select Parish Context
                   </Text>
                 </View>
@@ -641,15 +641,15 @@ export function ParishionerChatbotModal({
                   onPress={() => handleSelectChurch(null)}
                   className={`p-3.5 rounded-2xl border mb-2 flex-row items-center justify-between ${
                     !selectedChurchId
-                      ? 'bg-amber-50/70 border-amber-400'
-                      : 'bg-slate-50 border-slate-200'
+                      ? 'bg-amber-50/80 border-amber-300'
+                      : 'bg-secondary-50 border-border'
                   }`}
                 >
                   <View>
-                    <Text className="text-sm font-bold text-slate-900 font-sans">
+                    <Text className="text-sm font-bold text-foreground font-sans">
                       General Diocesan Knowledge
                     </Text>
-                    <Text className="text-xs text-slate-500 font-sans">
+                    <Text className="text-xs text-muted-foreground font-sans">
                       Diocese-wide guidelines, sacraments, and schedules
                     </Text>
                   </View>
@@ -665,15 +665,15 @@ export function ParishionerChatbotModal({
                       onPress={() => handleSelectChurch(church)}
                       className={`p-3.5 rounded-2xl border mb-2 flex-row items-center justify-between ${
                         isSelected
-                          ? 'bg-amber-50/70 border-amber-400'
-                          : 'bg-slate-50 border-slate-200'
+                          ? 'bg-amber-50/80 border-amber-300'
+                          : 'bg-secondary-50 border-border'
                       }`}
                     >
                       <View className="flex-1 mr-2">
-                        <Text className="text-sm font-bold text-slate-900 font-sans">
+                        <Text className="text-sm font-bold text-foreground font-sans">
                           {church.name}
                         </Text>
-                        <Text className="text-xs text-slate-500 font-sans">
+                        <Text className="text-xs text-muted-foreground font-sans">
                           {church.city}
                         </Text>
                       </View>

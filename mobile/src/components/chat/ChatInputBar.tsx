@@ -35,7 +35,7 @@ export function ChatInputBar({
   };
 
   return (
-    <View className="bg-white border-t border-slate-200 px-3 py-2.5 flex-row items-end space-x-2">
+    <View className="bg-white border-t border-slate-200 px-3 py-2.5 flex-row items-end gap-2">
       {/* Video Consultation Quick Action Button */}
       {onStartVideoCall && (
         <TouchableOpacity

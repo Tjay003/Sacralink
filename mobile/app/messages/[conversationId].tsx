@@ -9,9 +9,9 @@ import {
   ActivityIndicator,
   Modal,
   Image,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { WebView } from 'react-native-webview';
@@ -32,6 +32,7 @@ import {
   markConversationAsRead,
   subscribeToConversationMessages,
   getJitsiMeetUrl,
+  generateSecureRoomId,
   type MessageWithSender,
 } from '@/lib/supabase/messaging';
 import { ChatMessageItem } from '@/components/chat/ChatMessageItem';
@@ -46,6 +47,7 @@ export default function ActiveChatScreen() {
   const [loading, setLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isVideoModalVisible, setIsVideoModalVisible] = useState(false);
+  const [activeMeetingUrl, setActiveMeetingUrl] = useState<string | null>(null);
 
   // Conversation metadata
   const [conversationTitle, setConversationTitle] = useState('Parish Chat');
@@ -55,7 +57,8 @@ export default function ActiveChatScreen() {
 
   const flatListRef = useRef<FlatList<MessageWithSender>>(null);
 
-  const jitsiUrl = conversationId ? getJitsiMeetUrl(conversationId) : '';
+  const meetingUrlToLaunch =
+    activeMeetingUrl || (conversationId ? getJitsiMeetUrl(conversationId) : '');
 
   // 1. Fetch conversation details & participant info
   useEffect(() => {
@@ -232,7 +235,11 @@ export default function ActiveChatScreen() {
   const handleStartVideoConsultation = async () => {
     if (!conversationId || !user?.id) return;
 
-    // Open video conference modal
+    // Generate secure unguessable room ID with high entropy
+    const secureRoomId = generateSecureRoomId('pastoral-chat');
+    const secureUrl = getJitsiMeetUrl(secureRoomId, { subject: 'Pastoral Video Consultation' });
+
+    setActiveMeetingUrl(secureUrl);
     setIsVideoModalVisible(true);
 
     // Send call invite into chat stream so other party sees the invite link
@@ -242,7 +249,7 @@ export default function ActiveChatScreen() {
         user.id,
         'Started a Pastoral Video Consultation session. Tap to join the room.',
         'call_invite',
-        { meeting_url: jitsiUrl }
+        { meeting_url: secureUrl, room_id: secureRoomId }
       );
     } catch (err) {
       console.error('Error broadcasting video call invite:', err);
@@ -250,16 +257,16 @@ export default function ActiveChatScreen() {
   };
 
   const handleOpenExternalJitsi = async () => {
-    if (!jitsiUrl) return;
+    if (!meetingUrlToLaunch) return;
     try {
-      await Linking.openURL(jitsiUrl);
+      await Linking.openURL(meetingUrlToLaunch);
     } catch (err) {
       console.error('Could not open external video call link:', err);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-50">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header */}
@@ -305,7 +312,7 @@ export default function ActiveChatScreen() {
             >
               {conversationTitle}
             </Text>
-            <View className="flex-row items-center space-x-1">
+            <View className="flex-row items-center gap-1">
               <View className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" />
               <Text
                 numberOfLines={1}
@@ -321,7 +328,7 @@ export default function ActiveChatScreen() {
         <TouchableOpacity
           onPress={handleStartVideoConsultation}
           activeOpacity={0.8}
-          className="bg-blue-600 px-3 py-2 rounded-xl flex-row items-center space-x-1.5 shadow-xs"
+          className="bg-blue-600 px-3 py-2 rounded-xl flex-row items-center gap-1.5 shadow-xs"
           accessibilityLabel="Start Video Consultation"
         >
           <Video size={16} color="#FFFFFF" />
@@ -353,7 +360,14 @@ export default function ActiveChatScreen() {
               <ChatMessageItem
                 message={item}
                 isCurrentUser={item.sender_id === user?.id}
-                onPressCallInvite={() => setIsVideoModalVisible(true)}
+                onPressCallInvite={(meetingUrl) => {
+                  const url =
+                    meetingUrl ||
+                    activeMeetingUrl ||
+                    (conversationId ? getJitsiMeetUrl(conversationId) : '');
+                  setActiveMeetingUrl(url);
+                  setIsVideoModalVisible(true);
+                }}
               />
             )}
             contentContainerStyle={{
@@ -396,12 +410,12 @@ export default function ActiveChatScreen() {
         presentationStyle="fullScreen"
         onRequestClose={() => setIsVideoModalVisible(false)}
       >
-        <SafeAreaView className="flex-1 bg-slate-900">
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-900">
           <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
           {/* Video Header Bar */}
           <View className="bg-slate-900 px-4 py-3 border-b border-slate-800 flex-row items-center justify-between">
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center gap-2">
               <View className="w-8 h-8 rounded-full bg-blue-600/30 items-center justify-center mr-2">
                 <Video size={16} color="#60A5FA" />
               </View>
@@ -415,12 +429,12 @@ export default function ActiveChatScreen() {
               </View>
             </View>
 
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center gap-2">
               {/* External Jitsi Meet Launcher Button */}
               <TouchableOpacity
                 onPress={handleOpenExternalJitsi}
                 activeOpacity={0.7}
-                className="bg-slate-800 px-2.5 py-1.5 rounded-lg flex-row items-center space-x-1 mr-2 border border-slate-700"
+                className="bg-slate-800 px-2.5 py-1.5 rounded-lg flex-row items-center gap-1 mr-2 border border-slate-700"
               >
                 <ExternalLink size={13} color="#94A3B8" />
                 <Text className="text-[11px] font-semibold text-slate-300 font-sans ml-1">
@@ -439,9 +453,9 @@ export default function ActiveChatScreen() {
           </View>
 
           {/* Jitsi Meet WebView */}
-          {jitsiUrl ? (
+          {meetingUrlToLaunch ? (
             <WebView
-              source={{ uri: jitsiUrl }}
+              source={{ uri: meetingUrlToLaunch }}
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}
               javaScriptEnabled

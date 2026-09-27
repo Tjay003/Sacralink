@@ -135,7 +135,7 @@ export default function RegisterScreen() {
   // Success State View
   if (isSuccess) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50">
+      <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-50">
         <View className="flex-1 px-6 justify-center items-center">
           <View className="w-20 h-20 rounded-3xl bg-emerald-100 items-center justify-center mb-6 shadow-sm">
             <MailCheck size={40} color="#059669" />
@@ -159,7 +159,7 @@ export default function RegisterScreen() {
 
             <TouchableOpacity
               onPress={() => router.replace('/(auth)/login')}
-              className="w-full bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row space-x-2"
+              className="w-full bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row gap-2"
             >
               <Text className="text-sm font-bold text-white font-sans">
                 Back to Login
@@ -173,7 +173,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-50">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -194,7 +194,7 @@ export default function RegisterScreen() {
             <View className="w-14 h-14 rounded-2xl bg-blue-600 items-center justify-center shadow-md shadow-blue-500/30 mb-2">
               <Church size={28} color="#FFFFFF" />
             </View>
-            <View className="flex-row items-center space-x-1.5">
+            <View className="flex-row items-center gap-1.5">
               <Text className="text-2xl font-bold text-slate-900 font-heading">
                 Join SacraLink
               </Text>
@@ -216,7 +216,7 @@ export default function RegisterScreen() {
 
             {/* Error Message */}
             {errorMessage && (
-              <View className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mb-4 flex-row items-start space-x-2.5">
+              <View className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mb-4 flex-row items-start gap-2.5">
                 <AlertCircle size={18} color="#E11D48" className="mt-0.5" />
                 <Text className="flex-1 text-xs text-rose-700 font-sans leading-relaxed">
                   {errorMessage}
@@ -304,7 +304,7 @@ export default function RegisterScreen() {
             {password.length > 0 && (
               <View className="bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-3.5">
                 <View className="flex-row items-center justify-between mb-1.5">
-                  <View className="flex-row items-center space-x-1">
+                  <View className="flex-row items-center gap-1">
                     <Sparkles size={14} color="#64748B" />
                     <Text className="text-[11px] font-semibold text-slate-600 font-sans">
                       Password Strength:
@@ -328,7 +328,7 @@ export default function RegisterScreen() {
                   {criteria.map((c) => (
                     <View
                       key={c.label}
-                      className={`flex-row items-center space-x-1 px-2 py-0.5 rounded-full border ${
+                      className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full border ${
                         c.met
                           ? 'bg-emerald-50 border-emerald-200'
                           : 'bg-slate-100 border-slate-200'
@@ -387,7 +387,7 @@ export default function RegisterScreen() {
             <TouchableOpacity
               onPress={handleSignUp}
               disabled={isLoading}
-              className="bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row space-x-2"
+              className="bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row gap-2"
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -403,7 +403,7 @@ export default function RegisterScreen() {
           </View>
 
           {/* Footer Link to Login */}
-          <View className="flex-row justify-center items-center mt-6 space-x-1.5">
+          <View className="flex-row justify-center items-center mt-6 gap-1.5">
             <Text className="text-sm text-slate-500 font-sans">
               Already have an account?
             </Text>

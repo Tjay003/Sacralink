@@ -9,8 +9,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   MessageSquare,
@@ -178,7 +178,7 @@ export default function MessagesScreen() {
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={() => router.push(`/messages/${item.id}`)}
-        className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex-row items-center space-x-3 mb-2.5"
+        className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex-row items-center gap-3 mb-2.5"
       >
         {/* Avatar */}
         <View className="relative mr-3">
@@ -247,7 +247,7 @@ export default function MessagesScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-slate-50">
       {/* Screen Header */}
       <View className="px-5 pt-4 pb-3 bg-white border-b border-slate-200">
         <View className="flex-row items-center justify-between mb-3">
@@ -259,11 +259,11 @@ export default function MessagesScreen() {
               Messages
             </Text>
           </View>
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center gap-2">
             <TouchableOpacity
               onPress={() => setShowParishModal(true)}
               activeOpacity={0.8}
-              className="bg-blue-600 rounded-full px-3 py-1.5 flex-row items-center space-x-1.5 shadow-xs"
+              className="bg-blue-600 rounded-full px-3 py-1.5 flex-row items-center gap-1.5 shadow-xs"
             >
               <Plus size={15} color="#FFFFFF" />
               <Text className="text-xs font-bold text-white font-sans ml-1">
@@ -337,7 +337,7 @@ export default function MessagesScreen() {
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => setShowParishModal(true)}
-                className="bg-blue-600 px-5 py-2.5 rounded-xl flex-row items-center space-x-1.5 shadow-sm"
+                className="bg-blue-600 px-5 py-2.5 rounded-xl flex-row items-center gap-1.5 shadow-sm"
               >
                 <ChurchIcon size={16} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white font-sans ml-1.5">
@@ -356,7 +356,7 @@ export default function MessagesScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowParishModal(false)}
       >
-        <SafeAreaView className="flex-1 bg-slate-50">
+        <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-50">
           {/* Modal Header */}
           <View className="px-5 py-4 bg-white border-b border-slate-200 flex-row items-center justify-between">
             <View>

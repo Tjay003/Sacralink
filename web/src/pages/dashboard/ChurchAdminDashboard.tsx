@@ -35,7 +35,8 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
             if (error) {
                 let errorMsg = error.message;
                 try {
-                    const body = await (error as any).context?.json?.();
+                    const errorWithContext = error as { context?: { json?: () => Promise<{ error?: string; diagnostics?: string[] }> } };
+                    const body = await errorWithContext.context?.json?.();
                     if (body?.error) errorMsg = body.error;
                     else if (body?.diagnostics) errorMsg = body.diagnostics.slice(-3).join(' | ');
                 } catch { /* use original error */ }
@@ -45,10 +46,10 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
             setSyncStatus('success');
             setSyncMessage(`Synced ${data.chunksProcessed} knowledge chunks`);
             setLastSynced(new Date().toLocaleTimeString());
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Sync error:', err);
             setSyncStatus('error');
-            setSyncMessage(err.message || 'Sync failed. Please try again.');
+            setSyncMessage(err instanceof Error ? err.message : 'Sync failed. Please try again.');
         } finally {
             setIsSyncing(false);
             setTimeout(() => setSyncStatus('idle'), 10000);

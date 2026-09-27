@@ -262,9 +262,9 @@ export default function ChurchDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-900 items-center justify-center">
+      <SafeAreaView className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#2563EB" />
-        <Text className="text-xs font-semibold text-slate-400 mt-3 font-sans">
+        <Text className="text-xs font-semibold text-muted-foreground mt-3 font-sans">
           Loading Church Details...
         </Text>
       </SafeAreaView>
@@ -273,19 +273,19 @@ export default function ChurchDetailScreen() {
 
   if (isError || !church) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center px-6">
+      <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
         <View className="w-16 h-16 rounded-2xl bg-rose-50 items-center justify-center mb-3">
           <ChurchIcon size={32} color="#E11D48" />
         </View>
-        <Text className="text-lg font-bold text-slate-800 font-sans text-center">
+        <Text className="text-lg font-bold text-foreground font-sans text-center">
           Church Not Found
         </Text>
-        <Text className="text-xs text-slate-500 text-center mt-1 mb-5 font-sans">
+        <Text className="text-xs text-muted-foreground text-center mt-1 mb-5 font-sans">
           {(error as Error)?.message || 'This parish could not be loaded.'}
         </Text>
         <TouchableOpacity
           onPress={() => router.back()}
-          className="bg-blue-600 px-5 py-2.5 rounded-xl"
+          className="bg-primary px-5 py-2.5 rounded-xl shadow-xs"
         >
           <Text className="text-xs font-semibold text-white font-sans">
             Go Back
@@ -450,17 +450,17 @@ export default function ChurchDetailScreen() {
           <TouchableOpacity
             onPress={() => setIsAiModalOpen(true)}
             activeOpacity={0.88}
-            className="w-full bg-slate-900 active:bg-slate-800 border border-amber-500/40 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm mb-3"
+            className="w-full bg-white active:bg-amber-50/40 border border-amber-200 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm mb-3"
           >
             <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 items-center justify-center">
+              <View className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 items-center justify-center">
                 <Sparkles size={18} color="#F59E0B" />
               </View>
               <View>
-                <Text className="text-sm font-bold text-amber-400 font-sans">
+                <Text className="text-sm font-bold text-foreground font-sans">
                   Ask Parish AI Assistant
                 </Text>
-                <Text className="text-[11px] text-slate-400 font-sans">
+                <Text className="text-[11px] text-muted-foreground font-sans">
                   Instant answers on mass times & sacrament guides
                 </Text>
               </View>
@@ -471,7 +471,7 @@ export default function ChurchDetailScreen() {
           {/* Book Sacrament Button */}
           <TouchableOpacity
             onPress={handleBookSacrament}
-            className="w-full bg-blue-600 active:bg-blue-700 rounded-2xl p-4 flex-row items-center justify-between shadow-md shadow-blue-600/25 mb-3"
+            className="w-full bg-primary active:bg-blue-700 rounded-2xl p-4 flex-row items-center justify-between shadow-md shadow-primary/25 mb-3"
           >
             <View className="flex-row items-center gap-3">
               <View className="w-10 h-10 rounded-xl bg-white/20 items-center justify-center">
@@ -493,7 +493,7 @@ export default function ChurchDetailScreen() {
             {/* Give Donation Button */}
             <TouchableOpacity
               onPress={handleGiveDonation}
-              className="flex-1 bg-amber-500 active:bg-amber-600 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm shadow-amber-500/20"
+              className="flex-1 bg-accent active:bg-amber-600 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm shadow-accent/20"
             >
               <View className="flex-row items-center gap-2.5">
                 <View className="w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
@@ -514,22 +514,22 @@ export default function ChurchDetailScreen() {
             {/* Chat with Parish Button */}
             <TouchableOpacity
               onPress={handleChat}
-              className="flex-1 bg-slate-900 active:bg-slate-800 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm"
+              className="flex-1 bg-white active:bg-secondary-50 border border-border rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm"
             >
               <View className="flex-row items-center gap-2.5">
-                <View className="w-9 h-9 rounded-xl bg-white/10 items-center justify-center">
-                  <MessageCircle size={18} color="#60A5FA" />
+                <View className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 items-center justify-center">
+                  <MessageCircle size={18} color="#2563EB" />
                 </View>
                 <View>
-                  <Text className="text-xs font-bold text-white font-sans">
+                  <Text className="text-xs font-bold text-foreground font-sans">
                     Chat Parish
                   </Text>
-                  <Text className="text-[10px] text-slate-400 font-sans">
+                  <Text className="text-[10px] text-muted-foreground font-sans">
                     Realtime Staff
                   </Text>
                 </View>
               </View>
-              <ChevronRight size={16} color="#FFFFFF" />
+              <ChevronRight size={16} color="#64748B" />
             </TouchableOpacity>
           </View>
         </View>
@@ -539,7 +539,7 @@ export default function ChurchDetailScreen() {
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center gap-1.5">
               <Eye size={16} color="#2563EB" />
-              <Text className="text-sm font-bold text-slate-900 font-sans">
+              <Text className="text-sm font-bold text-foreground font-sans">
                 360° Virtual Interior Tour
               </Text>
             </View>
@@ -547,7 +547,7 @@ export default function ChurchDetailScreen() {
               onPress={() => setShowTourModal(true)}
               className="bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
             >
-              <Text className="text-[11px] font-bold text-blue-700 font-sans">
+              <Text className="text-[11px] font-bold text-primary font-sans">
                 Fullscreen View
               </Text>
             </TouchableOpacity>
@@ -561,7 +561,7 @@ export default function ChurchDetailScreen() {
               onClose={() => setShowTourModal(false)}
             />
           </View>
-          <Text className="text-[11px] text-slate-500 font-sans mt-1.5 px-1">
+          <Text className="text-[11px] text-muted-foreground font-sans mt-1.5 px-1">
             Explore the sacred altar, nave, and interior architecture using 360° panoramic navigation.
           </Text>
         </View>
@@ -571,7 +571,7 @@ export default function ChurchDetailScreen() {
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center gap-1.5">
               <Radio size={16} color={church.is_live ? '#DC2626' : '#2563EB'} />
-              <Text className="text-sm font-bold text-slate-900 font-sans">
+              <Text className="text-sm font-bold text-foreground font-sans">
                 {church.is_live ? 'Live Sanctuary Broadcast' : 'Virtual Sanctuary & Mass Stream'}
               </Text>
             </View>
@@ -608,11 +608,11 @@ export default function ChurchDetailScreen() {
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center gap-1.5">
               <Clock size={16} color="#2563EB" />
-              <Text className="text-sm font-bold text-slate-900 font-sans">
+              <Text className="text-sm font-bold text-foreground font-sans">
                 Weekly Mass Schedules
               </Text>
             </View>
-            <Text className="text-xs font-semibold text-slate-400 font-sans">
+            <Text className="text-xs font-semibold text-muted-foreground font-sans">
               Timetable
             </Text>
           </View>
@@ -633,20 +633,20 @@ export default function ChurchDetailScreen() {
                   onPress={() => setSelectedDay(day)}
                   className={`px-3 py-2 rounded-2xl border ${
                     isSelected
-                      ? 'bg-blue-600 border-blue-600 shadow-sm shadow-blue-600/20'
-                      : 'bg-white border-slate-200'
+                      ? 'bg-primary border-primary shadow-sm shadow-primary/20'
+                      : 'bg-white border-border'
                   }`}
                 >
                   <Text
                     className={`text-xs font-bold font-sans ${
-                      isSelected ? 'text-white' : 'text-slate-700'
+                      isSelected ? 'text-white' : 'text-foreground'
                     }`}
                   >
                     {day.slice(0, 3)}
                   </Text>
                   <Text
                     className={`text-[10px] font-medium text-center font-sans ${
-                      isSelected ? 'text-blue-100' : 'text-slate-400'
+                      isSelected ? 'text-blue-100' : 'text-muted-foreground'
                     }`}
                   >
                     {count} {count === 1 ? 'mass' : 'masses'}
@@ -657,19 +657,19 @@ export default function ChurchDetailScreen() {
           </ScrollView>
 
           {/* Schedule List for Selected Day */}
-          <View className="space-y-2">
+          <View className="gap-2">
             {currentDaySchedules.length > 0 ? (
               currentDaySchedules.map((schedule) => (
                 <View
                   key={schedule.id}
-                  className="bg-white rounded-2xl p-3.5 border border-slate-200/80 flex-row items-center justify-between shadow-xs mb-2"
+                  className="bg-white rounded-2xl p-3.5 border border-border flex-row items-center justify-between shadow-xs mb-2"
                 >
                   <View className="flex-row items-center gap-3">
                     <View className="w-9 h-9 rounded-xl bg-blue-50 items-center justify-center border border-blue-100">
                       <Clock size={16} color="#2563EB" />
                     </View>
                     <View>
-                      <Text className="text-sm font-bold text-slate-900 font-sans">
+                      <Text className="text-sm font-bold text-foreground font-sans">
                         {formatTime12(schedule.time || schedule.time_start)}
                       </Text>
                       {schedule.celebrant ? (
@@ -741,46 +741,46 @@ export default function ChurchDetailScreen() {
           animationType="fade"
           onRequestClose={() => setIsCandleModalOpen(false)}
         >
-          <View className="flex-1 bg-black/70 items-center justify-center p-4">
-            <View className="w-full max-w-sm bg-slate-900 border border-amber-500/40 rounded-3xl p-5 shadow-2xl">
+          <View className="flex-1 bg-black/60 items-center justify-center p-4">
+            <View className="w-full max-w-sm bg-white border border-amber-200 rounded-3xl p-5 shadow-xl">
               {/* Header */}
-              <View className="flex-row items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <View className="flex-row items-center justify-between pb-3 border-b border-border mb-4">
                 <View className="flex-row items-center gap-2.5">
-                  <View className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 items-center justify-center">
+                  <View className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 items-center justify-center">
                     <Flame size={20} color="#F59E0B" />
                   </View>
                   <View>
-                    <Text className="text-base font-bold text-white font-sans">
+                    <Text className="text-base font-bold text-foreground font-sans">
                       Light a Virtual Candle
                     </Text>
-                    <Text className="text-[11px] text-amber-300 font-sans">
+                    <Text className="text-[11px] text-amber-700 font-sans">
                       {candleCount} Candles Lit for {church.name}
                     </Text>
                   </View>
                 </View>
                 <TouchableOpacity
                   onPress={() => setIsCandleModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
+                  className="w-8 h-8 rounded-full bg-secondary-100 items-center justify-center"
                 >
-                  <X size={16} color="#94A3B8" />
+                  <X size={16} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
               {candleSuccess ? (
                 <View className="py-8 items-center justify-center">
-                  <View className="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 items-center justify-center mb-3">
+                  <View className="w-16 h-16 rounded-full bg-amber-50 border-2 border-amber-400 items-center justify-center mb-3">
                     <Sparkles size={32} color="#F59E0B" />
                   </View>
-                  <Text className="text-lg font-bold text-white font-sans text-center">
+                  <Text className="text-lg font-bold text-foreground font-sans text-center">
                     Candle Lit & Intention Offered
                   </Text>
-                  <Text className="text-xs text-amber-200/80 font-sans text-center mt-1">
+                  <Text className="text-xs text-amber-700 font-sans text-center mt-1">
                     May your prayers and intentions be heard. Amen.
                   </Text>
                 </View>
               ) : (
                 <>
-                  <Text className="text-xs text-slate-300 font-sans mb-2">
+                  <Text className="text-xs text-secondary-600 font-sans mb-2">
                     Leave your prayer petition or special intention (optional):
                   </Text>
 
@@ -788,19 +788,19 @@ export default function ChurchDetailScreen() {
                     value={intentionText}
                     onChangeText={setIntentionText}
                     placeholder="e.g., Thanksgiving for family blessings, healing for our loved ones..."
-                    placeholderTextColor="#64748B"
+                    placeholderTextColor="#94A3B8"
                     multiline
                     numberOfLines={3}
-                    className="w-full bg-slate-800/90 border border-slate-700 rounded-2xl p-3.5 text-xs text-white font-sans mb-4 text-left align-top"
+                    className="w-full bg-secondary-50 border border-border rounded-2xl p-3.5 text-xs text-foreground font-sans mb-4 text-left align-top"
                     style={{ minHeight: 80, textAlignVertical: 'top' }}
                   />
 
                   <View className="flex-row items-center gap-2.5">
                     <TouchableOpacity
                       onPress={() => setIsCandleModalOpen(false)}
-                      className="flex-1 py-3 rounded-xl bg-slate-800 border border-slate-700 items-center justify-center"
+                      className="flex-1 py-3 rounded-xl bg-secondary-100 border border-border items-center justify-center"
                     >
-                      <Text className="text-xs font-semibold text-slate-300 font-sans">
+                      <Text className="text-xs font-semibold text-secondary-700 font-sans">
                         Cancel
                       </Text>
                     </TouchableOpacity>
@@ -808,14 +808,14 @@ export default function ChurchDetailScreen() {
                     <TouchableOpacity
                       onPress={handleLightCandleSubmit}
                       disabled={isLightingCandle}
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r bg-amber-500 active:bg-amber-600 flex-row items-center justify-center gap-1.5 shadow-md shadow-amber-500/25"
+                      className="flex-1 py-3 rounded-xl bg-accent active:bg-amber-600 flex-row items-center justify-center gap-1.5 shadow-md shadow-accent/25"
                     >
                       {isLightingCandle ? (
-                        <ActivityIndicator size="small" color="#0F172A" />
+                        <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
                         <>
-                          <Flame size={15} color="#0F172A" />
-                          <Text className="text-xs font-bold text-slate-950 font-sans">
+                          <Flame size={15} color="#FFFFFF" />
+                          <Text className="text-xs font-bold text-white font-sans">
                             Light Candle
                           </Text>
                         </>
@@ -837,41 +837,41 @@ export default function ChurchDetailScreen() {
           animationType="slide"
           onRequestClose={() => setIsOffertoryModalOpen(false)}
         >
-          <View className="flex-1 bg-black/70 justify-end">
-            <View className="bg-slate-900 border-t border-rose-500/30 rounded-t-3xl p-5 max-h-[85%]">
+          <View className="flex-1 bg-black/60 justify-end">
+            <View className="bg-white border-t border-border rounded-t-3xl p-5 max-h-[85%] shadow-xl">
               {/* Header */}
-              <View className="flex-row items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <View className="flex-row items-center justify-between pb-3 border-b border-border mb-4">
                 <View className="flex-row items-center gap-2.5">
-                  <View className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 items-center justify-center">
-                    <HeartHandshake size={20} color="#F43F5E" />
+                  <View className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 items-center justify-center">
+                    <HeartHandshake size={20} color="#E11D48" />
                   </View>
                   <View>
-                    <Text className="text-base font-bold text-white font-sans">
+                    <Text className="text-base font-bold text-foreground font-sans">
                       Love Offering & Tithes
                     </Text>
-                    <Text className="text-[11px] text-rose-300 font-sans" numberOfLines={1}>
+                    <Text className="text-[11px] text-muted-foreground font-sans" numberOfLines={1}>
                       {church.name}
                     </Text>
                   </View>
                 </View>
                 <TouchableOpacity
                   onPress={() => setIsOffertoryModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-800 items-center justify-center"
+                  className="w-8 h-8 rounded-full bg-secondary-100 items-center justify-center"
                 >
-                  <X size={16} color="#94A3B8" />
+                  <X size={16} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} className="space-y-4">
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-4">
                 {/* QR Code if present */}
                 {church.donation_qr_url && (
-                  <View className="bg-white rounded-2xl p-4 items-center justify-center border border-slate-700">
+                  <View className="bg-white rounded-2xl p-4 items-center justify-center border border-border shadow-xs">
                     <Image
                       source={{ uri: church.donation_qr_url }}
                       className="w-48 h-48"
                       resizeMode="contain"
                     />
-                    <Text className="text-[11px] font-semibold text-slate-700 mt-2 font-sans">
+                    <Text className="text-[11px] font-semibold text-secondary-700 mt-2 font-sans">
                       Scan QR with GCash / Maya app
                     </Text>
                   </View>
@@ -879,18 +879,18 @@ export default function ChurchDetailScreen() {
 
                 {/* GCash Box */}
                 {church.gcash_number && (
-                  <View className="bg-blue-950/60 border border-blue-600/40 rounded-2xl p-3.5 flex-row items-center justify-between">
+                  <View className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex-row items-center justify-between">
                     <View className="flex-1 mr-2">
-                      <Text className="text-[10px] font-bold text-blue-400 uppercase font-sans">
+                      <Text className="text-[10px] font-bold text-primary uppercase font-sans">
                         GCash Mobile Account
                       </Text>
-                      <Text className="text-sm font-bold text-white font-sans mt-0.5">
+                      <Text className="text-sm font-bold text-foreground font-sans mt-0.5">
                         {church.gcash_number}
                       </Text>
                     </View>
                     <TouchableOpacity
                       onPress={handleCopyGcash}
-                      className="px-3 py-1.5 rounded-xl bg-blue-600 flex-row items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl bg-primary flex-row items-center gap-1"
                     >
                       {copiedGcash ? (
                         <>
@@ -909,12 +909,12 @@ export default function ChurchDetailScreen() {
 
                 {/* Maya Box */}
                 {church.maya_number && (
-                  <View className="bg-emerald-950/60 border border-emerald-600/40 rounded-2xl p-3.5 flex-row items-center justify-between">
+                  <View className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex-row items-center justify-between">
                     <View className="flex-1 mr-2">
-                      <Text className="text-[10px] font-bold text-emerald-400 uppercase font-sans">
+                      <Text className="text-[10px] font-bold text-emerald-700 uppercase font-sans">
                         Maya Account
                       </Text>
-                      <Text className="text-sm font-bold text-white font-sans mt-0.5">
+                      <Text className="text-sm font-bold text-foreground font-sans mt-0.5">
                         {church.maya_number}
                       </Text>
                     </View>
@@ -946,7 +946,7 @@ export default function ChurchDetailScreen() {
                       params: { churchId: church.id, churchName: church.name },
                     } as any);
                   }}
-                  className="w-full bg-rose-600 active:bg-rose-700 py-3.5 rounded-2xl items-center justify-center flex-row gap-1.5 shadow-md shadow-rose-600/25 mt-2 mb-4"
+                  className="w-full bg-primary active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center flex-row gap-1.5 shadow-md shadow-primary/25 mt-2 mb-4"
                 >
                   <Text className="text-xs font-bold text-white font-sans">
                     Submit Offering Slip / Receipt

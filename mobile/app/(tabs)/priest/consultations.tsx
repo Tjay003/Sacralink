@@ -23,10 +23,17 @@ import {
   Mail,
   Building2,
   CheckCircle2,
+  Copy,
+  Lock,
 } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleBadge } from '@/components/RoleBadge';
-import { getJitsiMeetUrl } from '@/lib/supabase/messaging';
+import {
+  getJitsiMeetUrl,
+  generateSecureRoomId,
+  generateAppointmentRoomId,
+} from '@/lib/supabase/messaging';
 import { usePriestSchedule } from '@/lib/supabase/adminWorkflows';
 import { formatAppointmentDate, formatAppointmentTime } from '@/lib/supabase/appointments';
 
@@ -57,17 +64,43 @@ export default function PriestConsultationsScreen() {
     });
   }, [scheduleData?.appointments]);
 
-  const handleLaunchMeeting = (roomId: string) => {
-    const url = getJitsiMeetUrl(roomId);
+  const handleLaunchMeeting = (roomId: string, session?: (typeof counselingSessions)[0]) => {
+    // Access control: Ensure only verified priest, parishioner, or authorized admin can access
+    if (session) {
+      const roleStr = profile?.role as string | undefined;
+      const isAuthorized =
+        roleStr === 'super_admin' ||
+        roleStr === 'admin' ||
+        roleStr === 'church_admin' ||
+        profile?.id === session.priest?.id ||
+        (session as any).priest_id === profile?.id ||
+        profile?.id === session.user?.id ||
+        (session as any).user_id === profile?.id;
+
+      if (!isAuthorized) {
+        Alert.alert(
+          'Access Restricted',
+          'Only the assigned priest and verified parishioner are authorized to access this confidential pastoral counseling session.'
+        );
+        return;
+      }
+    }
+
+    const url = getJitsiMeetUrl(roomId, { subject: 'Pastoral Video Counseling' });
     Linking.openURL(url).catch((err) => {
       console.error('Failed to open video consultation URL:', err);
       Alert.alert('Connection Error', 'Could not open video consultation room.');
     });
   };
 
+  const handleCopyMeetingLink = async (roomId: string) => {
+    const url = getJitsiMeetUrl(roomId, { subject: 'Pastoral Video Counseling' });
+    await Clipboard.setStringAsync(url);
+    Alert.alert('Link Copied', 'Encrypted pastoral consultation link copied to clipboard.');
+  };
+
   const handleLaunchInstantRoom = () => {
-    const cleanPriestId = priestId ? priestId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) : 'general';
-    const instantRoomId = `pastoral-priest-${cleanPriestId}`;
+    const instantRoomId = generateSecureRoomId('pastoral-chamber');
     handleLaunchMeeting(instantRoomId);
   };
 
@@ -168,7 +201,7 @@ export default function PriestConsultationsScreen() {
         ) : (
           <View className="space-y-3.5">
             {counselingSessions.map((session) => {
-              const roomId = `counseling-${session.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}`;
+              const roomId = generateAppointmentRoomId(session.id);
               const isApproved = session.status === 'approved';
 
               return (
@@ -179,7 +212,8 @@ export default function PriestConsultationsScreen() {
                   <View className="flex-row items-start justify-between mb-2">
                     <View className="flex-1 mr-2">
                       <View className="flex-row items-center space-x-1.5 mb-1">
-                        <View className="bg-indigo-50 px-2 py-0.5 rounded-md">
+                        <View className="bg-indigo-50 px-2 py-0.5 rounded-md flex-row items-center space-x-1">
+                          <Lock size={9} color="#4F46E5" />
                           <Text className="text-[10px] font-bold text-indigo-800 uppercase font-sans">
                             {session.service_type}
                           </Text>
@@ -253,16 +287,26 @@ export default function PriestConsultationsScreen() {
                     </View>
                   )}
 
-                  {/* Launch Video Room CTA Button */}
-                  <TouchableOpacity
-                    onPress={() => handleLaunchMeeting(roomId)}
-                    className="bg-indigo-600 active:bg-indigo-700 py-3 rounded-xl flex-row items-center justify-center space-x-2"
-                  >
-                    <Video size={16} color="#FFFFFF" />
-                    <Text className="text-xs font-bold text-white font-sans">
-                      Launch Video Room (Jitsi Meet)
-                    </Text>
-                  </TouchableOpacity>
+                  {/* Action Buttons: Launch Video Room & Copy Encrypted Link */}
+                  <View className="flex-row items-center space-x-2">
+                    <TouchableOpacity
+                      onPress={() => handleLaunchMeeting(roomId, session)}
+                      className="flex-1 bg-indigo-600 active:bg-indigo-700 py-3 rounded-xl flex-row items-center justify-center space-x-2"
+                    >
+                      <Video size={16} color="#FFFFFF" />
+                      <Text className="text-xs font-bold text-white font-sans">
+                        Launch Video Room
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleCopyMeetingLink(roomId)}
+                      accessibilityLabel="Copy Encrypted Video Link"
+                      className="bg-slate-100 active:bg-slate-200 p-3 rounded-xl items-center justify-center border border-slate-200"
+                    >
+                      <Copy size={16} color="#4F46E5" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}

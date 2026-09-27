@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import {
   Church,
   Cross,
@@ -48,8 +49,9 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
+      const redirectUrl = Linking.createURL('reset-password');
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: 'sacralink://reset-password',
+        redirectTo: redirectUrl,
       });
       if (error) throw error;
       setIsSuccess(true);

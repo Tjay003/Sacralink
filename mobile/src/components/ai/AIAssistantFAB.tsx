@@ -64,13 +64,13 @@ export function AIAssistantFAB({
           accessibilityLabel="Open Parishioner AI Chatbot"
           accessibilityRole="button"
           style={{
-            shadowColor: '#F59E0B',
+            shadowColor: '#D97706',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
+            shadowOpacity: 0.25,
             shadowRadius: 8,
             elevation: 8,
           }}
-          className={`flex-row items-center bg-slate-900 border-2 border-amber-500 ${
+          className={`flex-row items-center bg-white border border-amber-300 ${
             showLabel
               ? 'px-4 py-3 rounded-full space-x-2'
               : 'w-14 h-14 rounded-full justify-center items-center'
@@ -80,7 +80,7 @@ export function AIAssistantFAB({
           <Sparkles size={22} color="#F59E0B" />
 
           {showLabel && (
-            <Text className="text-xs font-bold text-amber-400 font-sans tracking-tight ml-2">
+            <Text className="text-xs font-bold text-foreground font-sans tracking-tight ml-2">
               Ask Parish AI
             </Text>
           )}

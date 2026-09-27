@@ -113,7 +113,7 @@ export function ChatMessageItem({
                 : 'bg-white border-blue-200 rounded-bl-xs'
             }`}
           >
-            <View className="flex-row items-center space-x-2.5 mb-2">
+            <View className="flex-row items-center gap-2.5 mb-2">
               <View
                 className={`w-9 h-9 rounded-full items-center justify-center ${
                   isCurrentUser ? 'bg-blue-500' : 'bg-blue-100'
@@ -151,7 +151,7 @@ export function ChatMessageItem({
             </Text>
 
             <View
-              className={`py-2 px-3 rounded-xl flex-row items-center justify-center space-x-1.5 ${
+              className={`py-2 px-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
                 isCurrentUser ? 'bg-white' : 'bg-blue-600'
               }`}
             >
@@ -189,7 +189,7 @@ export function ChatMessageItem({
 
         {/* Timestamp and Delivery Status */}
         <View
-          className={`flex-row items-center mt-1 space-x-1 px-1 ${
+          className={`flex-row items-center mt-1 gap-1 px-1 ${
             isCurrentUser ? 'justify-end' : 'justify-start'
           }`}
         >

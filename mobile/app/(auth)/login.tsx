@@ -140,7 +140,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50">
+    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-slate-50">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -161,7 +161,7 @@ export default function LoginScreen() {
             <View className="w-16 h-16 rounded-2xl bg-blue-600 items-center justify-center shadow-lg shadow-blue-500/30 mb-3">
               <Church size={32} color="#FFFFFF" />
             </View>
-            <View className="flex-row items-center space-x-1.5">
+            <View className="flex-row items-center gap-1.5">
               <Text className="text-3xl font-bold text-slate-900 font-heading">
                 SacraLink
               </Text>
@@ -184,7 +184,7 @@ export default function LoginScreen() {
             {/* Amber Alert Banner: Email Not Confirmed */}
             {unconfirmedEmail && (
               <View className="bg-amber-50 border border-amber-300 rounded-2xl p-4 mb-5">
-                <View className="flex-row items-start space-x-3">
+                <View className="flex-row items-start gap-3">
                   <View className="mt-0.5">
                     <AlertCircle size={20} color="#D97706" />
                   </View>
@@ -197,7 +197,7 @@ export default function LoginScreen() {
                     </Text>
 
                     {resendSuccess ? (
-                      <View className="flex-row items-center space-x-1.5 mt-3 bg-amber-100/70 py-1.5 px-3 rounded-lg self-start">
+                      <View className="flex-row items-center gap-1.5 mt-3 bg-amber-100/70 py-1.5 px-3 rounded-lg self-start">
                         <CheckCircle2 size={15} color="#15803D" />
                         <Text className="text-xs font-semibold text-emerald-800 font-sans">
                           Verification email resent! Check your inbox.
@@ -207,7 +207,7 @@ export default function LoginScreen() {
                       <TouchableOpacity
                         onPress={handleResendConfirmation}
                         disabled={isResending}
-                        className="mt-3 bg-amber-500 active:bg-amber-600 py-2 px-3.5 rounded-xl self-start flex-row items-center space-x-2"
+                        className="mt-3 bg-amber-500 active:bg-amber-600 py-2 px-3.5 rounded-xl self-start flex-row items-center gap-2"
                       >
                         {isResending ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -228,7 +228,7 @@ export default function LoginScreen() {
 
             {/* Standard Error Message Banner */}
             {errorMessage && (
-              <View className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-5 flex-row items-start space-x-3">
+              <View className="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-5 flex-row items-start gap-3">
                 <AlertCircle size={20} color="#E11D48" className="mt-0.5" />
                 <Text className="flex-1 text-xs text-rose-700 font-sans leading-relaxed">
                   {errorMessage}
@@ -305,7 +305,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleSignIn}
               disabled={isLoading}
-              className="mt-5 bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row space-x-2"
+              className="mt-5 bg-blue-600 active:bg-blue-700 py-3.5 rounded-2xl items-center justify-center shadow-md shadow-blue-500/25 flex-row gap-2"
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -332,7 +332,7 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleGoogleSignIn}
               disabled={isGoogleLoading}
-              className="bg-white border border-slate-200 active:bg-slate-50 py-3.5 rounded-2xl items-center justify-center flex-row space-x-2.5 shadow-2xs"
+              className="bg-white border border-slate-200 active:bg-slate-50 py-3.5 rounded-2xl items-center justify-center flex-row gap-2.5 shadow-2xs"
             >
               {isGoogleLoading ? (
                 <ActivityIndicator size="small" color="#2563EB" />
@@ -348,7 +348,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Footer Link to Register */}
-          <View className="flex-row justify-center items-center mt-6 space-x-1.5">
+          <View className="flex-row justify-center items-center mt-6 gap-1.5">
             <Text className="text-sm text-slate-500 font-sans">
               Don't have an account?
             </Text>
