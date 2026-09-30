@@ -13,6 +13,8 @@ import {
 } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { setupAndroidNotificationChannels } from '@/lib/notifications';
+import { OfflineNotice } from '@/components/common/OfflineNotice';
 
 // Prevent splash screen from auto-hiding until fonts are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -139,6 +141,12 @@ export default function RootLayout() {
   const [isReady, setIsReady] = React.useState(false);
 
   useEffect(() => {
+    setupAndroidNotificationChannels().catch((err) => {
+      console.warn('[RootLayout] Failed to configure Android notification channels:', err);
+    });
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setIsReady(true);
       SplashScreen.hideAsync().catch(() => {});
@@ -165,6 +173,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RootNavigation />
+          <OfflineNotice />
         </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
