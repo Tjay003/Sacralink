@@ -9,9 +9,10 @@ import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySectionProps {
     church: Church;
+    activePanoramaUrl?: string;
 }
 
-export default function VirtualSanctuarySection({ church }: VirtualSanctuarySectionProps) {
+export default function VirtualSanctuarySection({ church, activePanoramaUrl }: VirtualSanctuarySectionProps) {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'intentions' | 'offertory'>('liturgy');
     const [candleCount, setCandleCount] = useState<number>(church.candle_count || 0);
@@ -98,6 +99,7 @@ export default function VirtualSanctuarySection({ church }: VirtualSanctuarySect
                 <LivestreamPlayer
                     church={church}
                     candleCount={candleCount}
+                    activePanoramaUrl={activePanoramaUrl}
                 />
 
                 {/* Interactive Spiritual Reactions and Candle Lighting */}

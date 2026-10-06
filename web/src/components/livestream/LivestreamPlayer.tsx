@@ -17,6 +17,7 @@ interface LivestreamPlayerProps {
     church: Church;
     candleCount?: number;
     className?: string;
+    activePanoramaUrl?: string;
 }
 
 export type ParsedStream = {
@@ -167,6 +168,7 @@ export default function LivestreamPlayer({
     church,
     candleCount,
     className = '',
+    activePanoramaUrl,
 }: LivestreamPlayerProps) {
     const [copied, setCopied] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -279,6 +281,7 @@ export default function LivestreamPlayer({
                                 src={
                                     church.featured_image_url ||
                                     church.panorama_url ||
+                                    activePanoramaUrl ||
                                     'https://images.unsplash.com/photo-1548625361-ec85301ff7a6?auto=format&fit=crop&q=80&w=1200'
                                 }
                                 alt={church.name}

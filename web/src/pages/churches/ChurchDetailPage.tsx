@@ -24,6 +24,8 @@ import ChurchChatbot from '../../components/ai/ChurchChatbot';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
 
+const FALLBACK_PANORAMA_URL = 'https://oaczurouvaevebpimply.supabase.co/storage/v1/object/public/church-images/panoramas/b2tabj6xh1v.jpg';
+
 interface SupporterRow {
     user_id: string;
     profiles: { id: string; full_name: string | null } | null;
@@ -418,6 +420,7 @@ export default function ChurchDetailPage() {
     }
 
     // const massSchedules = church?.mass_schedules || [];
+    const activePanoramaUrl = church.panorama_url || FALLBACK_PANORAMA_URL;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -745,32 +748,28 @@ export default function ChurchDetailPage() {
             </div>
 
             {/* Virtual Tour & Livestream */}
-            {/* Virtual Tour & Livestream */}
-            {/* Virtual Tour & Livestream */}
+            {/* 360° Virtual Sanctuary & Tour */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 360 Viewer */}
-                {church.panorama_url && (
-                    <div className="card p-0 overflow-hidden md:col-span-2">
-                        <div className="p-4 border-b border-border flex items-center justify-between bg-secondary-50">
-                            <h2 className="text-lg font-semibold flex items-center">
-                                <Building2 className="w-5 h-5 text-primary mr-2" />
-                                360° Virtual Tour
-                            </h2>
-                        </div>
-                        <div style={{ height: '400px', width: '100%', isolation: 'isolate', position: 'relative' }}>
-                            <ReactPhotoSphereViewer
-                                src={church.panorama_url}
-                                height={'400px'}
-                                width={"100%"}
-                                container={""}
-                            />
-                        </div>
+                <div className="card p-0 overflow-hidden md:col-span-2">
+                    <div className="p-4 border-b border-border flex items-center justify-between bg-secondary-50">
+                        <h2 className="text-lg font-semibold flex items-center">
+                            <Building2 className="w-5 h-5 text-primary mr-2" />
+                            360° Virtual Sanctuary Tour
+                        </h2>
                     </div>
-                )}
+                    <div style={{ height: '400px', width: '100%', isolation: 'isolate', position: 'relative' }}>
+                        <ReactPhotoSphereViewer
+                            src={activePanoramaUrl}
+                            height={'400px'}
+                            width={"100%"}
+                            container={""}
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Virtual Sanctuary (Universal Stream Player & Sacramental Companion) */}
-            <VirtualSanctuarySection church={church} />
+            <VirtualSanctuarySection church={church} activePanoramaUrl={activePanoramaUrl} />
 
             {/* Donate / Recent Donors or Verification Pending Banner */}
             {isUnverified ? (

@@ -29,6 +29,7 @@ import {
   Send,
   User,
   ShieldCheck,
+  Video,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleBadge } from '@/components/RoleBadge';
@@ -245,6 +246,27 @@ export default function AdminHubScreen() {
                 </Text>
                 <Text className="text-xs text-slate-500 font-sans">
                   Inspect GCash and Maya screenshots against reference records
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          {/* Pastoral Video Consultations Shortcut */}
+          <TouchableOpacity
+            onPress={() => router.push('/priest/consultations' as any)}
+            className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center space-x-3 flex-1 mr-2">
+              <View className="bg-indigo-50 p-2.5 rounded-xl">
+                <Video size={18} color="#4F46E5" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-slate-900 font-heading">
+                  Pastoral Video Consultations
+                </Text>
+                <Text className="text-xs text-slate-500 font-sans">
+                  Join secure telehealth calls for confession & spiritual counseling
                 </Text>
               </View>
             </View>

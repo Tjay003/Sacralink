@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
 import chatbotIcon from '../../assets/chatbotIcon.png';
-import { supabase } from '../../lib/supabase';
+import { askParishAI, generateFallbackResponse } from '../../lib/supabase/aiFallback';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -95,36 +95,29 @@ export default function ChurchChatbot({ churchId, churchName }: ChurchChatbotPro
             // Trim history to last MAX_HISTORY messages (exclude the brand-new user message)
             const conversationHistory = newMessages.slice(0, -1).slice(-MAX_HISTORY);
 
-            const { data, error: fnError } = await supabase.functions.invoke('church-ai-chat', {
-                body: {
-                    churchId,
-                    message,
-                    conversationHistory,
-                },
+            const result = await askParishAI({
+                churchId,
+                churchName,
+                message,
+                conversationHistory,
             });
 
-            if (fnError) {
-                let errMsg = fnError.message;
-                try {
-                    const errorWithContext = fnError as { context?: { json?: () => Promise<{ error?: string }> } };
-                    const body = await errorWithContext.context?.json?.();
-                    if (body?.error) errMsg = body.error;
-                } catch { /* use original */ }
-                throw new Error(errMsg);
-            }
-
-            setMessages(prev => [...prev, { role: 'assistant', content: data.reply, feedback: null }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: result.reply, feedback: null }]);
         } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : 'Something went wrong.';
-            console.error('Chatbot error:', errMsg);
-            setError(errMsg);
-            setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: errMsg.startsWith('Gemini') || errMsg.startsWith('DB') || errMsg.toLowerCase().includes('unavailable')
-                    ? 'The assistant is temporarily unavailable. Please contact the parish office directly.'
-                    : errMsg,
-                feedback: null,
-            }]);
+            console.error('Chatbot error, attempting fallback:', err);
+            try {
+                const fallback = await generateFallbackResponse(message, churchId, churchName);
+                setMessages(prev => [...prev, { role: 'assistant', content: fallback.reply, feedback: null }]);
+            } catch (fallbackErr: unknown) {
+                const errMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unable to load parish information.';
+                console.error('Fallback error:', errMsg);
+                setError(errMsg);
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: 'The assistant is temporarily unavailable. Please contact the parish office directly.',
+                    feedback: null,
+                }]);
+            }
         } finally {
             setIsLoading(false);
         }

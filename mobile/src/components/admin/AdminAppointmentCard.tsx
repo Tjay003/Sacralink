@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
 import {
   Calendar,
   Clock,
@@ -29,6 +30,7 @@ import {
   UserCheck,
   Check,
   Eye,
+  Video,
 } from 'lucide-react-native';
 import type {
   ChurchAppointmentWithDetails,
@@ -48,6 +50,7 @@ export function AdminAppointmentCard({
   churchPriests = [],
   onRefresh,
 }: AdminAppointmentCardProps) {
+  const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [documentViewerUrl, setDocumentViewerUrl] = useState<string | null>(null);
   const [selectedPriestId, setSelectedPriestId] = useState<string | null>(
@@ -56,6 +59,17 @@ export function AdminAppointmentCard({
   const [remarks, setRemarks] = useState(appointment.admin_feedback || '');
 
   const updateMutation = useUpdateAppointmentStatus();
+
+  // Check if appointment is for counseling/spiritual consultation or mentions virtual/video
+  const serviceTypeLower = (appointment.service_type || '').toLowerCase();
+  const notesLower = (appointment.notes || '').toLowerCase();
+  const isVirtualConsultation =
+    serviceTypeLower.includes('counsel') ||
+    serviceTypeLower.includes('spiritual direction') ||
+    serviceTypeLower.includes('consultation') ||
+    serviceTypeLower.includes('confession') ||
+    notesLower.includes('virtual') ||
+    notesLower.includes('video');
 
   // Status badge coloring
   const status = appointment.status || 'pending';
@@ -189,6 +203,14 @@ export function AdminAppointmentCard({
                   {appointment.service_type}
                 </Text>
               </View>
+              {isVirtualConsultation && (
+                <View className="bg-indigo-50 px-2 py-0.5 rounded-md flex-row items-center space-x-1">
+                  <Video size={10} color="#4F46E5" />
+                  <Text className="text-[10px] font-semibold text-indigo-700 font-sans">
+                    Virtual
+                  </Text>
+                </View>
+              )}
               {appointment.priest && (
                 <View className="bg-amber-50 px-2 py-0.5 rounded-md flex-row items-center space-x-1">
                   <UserCheck size={10} color="#D97706" />
@@ -266,6 +288,19 @@ export function AdminAppointmentCard({
           >
             "{appointment.notes}"
           </Text>
+        )}
+
+        {/* Quick Launch Video Consultation for Virtual Appointments */}
+        {isVirtualConsultation && (
+          <TouchableOpacity
+            onPress={() => router.push('/priest/consultations' as any)}
+            className="mb-2 bg-indigo-600 active:bg-indigo-700 py-2.5 px-4 rounded-xl flex-row items-center justify-center space-x-1.5"
+          >
+            <Video size={14} color="#FFFFFF" />
+            <Text className="text-xs font-bold text-white font-sans">
+              Join Video Call
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Action Button: Review & Triage */}
@@ -517,6 +552,22 @@ export function AdminAppointmentCard({
                   textAlignVertical="top"
                 />
               </View>
+
+              {/* Virtual Video Call Shortcut in Modal */}
+              {isVirtualConsultation && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalVisible(false);
+                    router.push('/priest/consultations' as any);
+                  }}
+                  className="mb-3 bg-indigo-600 active:bg-indigo-700 py-3 rounded-2xl flex-row items-center justify-center space-x-2 shadow-xs"
+                >
+                  <Video size={16} color="#FFFFFF" />
+                  <Text className="text-sm font-bold text-white font-sans">
+                    Join Video Call
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {/* Action Buttons */}
               <View className="space-y-2.5">

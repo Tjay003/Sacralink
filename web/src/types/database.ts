@@ -516,6 +516,127 @@ export type Database = {
           },
         ]
       }
+      church_chat_logs: {
+        Row: {
+          answer: string
+          church_id: string | null
+          created_at: string | null
+          id: string
+          question: string
+          user_id: string | null
+        }
+        Insert: {
+          answer: string
+          church_id?: string | null
+          created_at?: string | null
+          id?: string
+          question: string
+          user_id?: string | null
+        }
+        Update: {
+          answer?: string
+          church_id?: string | null
+          created_at?: string | null
+          id?: string
+          question?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_chat_logs_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "church_chat_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      church_knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          church_id: string
+          source_id: string | null
+          source_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          church_id: string
+          source_id?: string | null
+          source_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          church_id?: string
+          source_id?: string | null
+          source_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_knowledge_chunks_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      church_knowledge_sections: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          display_order: number
+          id: string
+          church_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          church_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          church_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_knowledge_sections_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       donations: {
         Row: {
           amount: number
@@ -1384,6 +1505,9 @@ export type ChurchCandlePrayer = Tables<"church_candle_prayers">
 export type Appointment = Tables<"appointments">
 export type Donation = Tables<"donations">
 export type MassSchedule = Tables<"mass_schedules">
+export type ChurchKnowledgeChunk = Tables<"church_knowledge_chunks">
+export type ChurchKnowledgeSection = Tables<"church_knowledge_sections">
+export type ChurchChatLog = Tables<"church_chat_logs">
 export type Conversation = Tables<"conversations">
 export type ConversationParticipant = Tables<"conversation_participants">
 export type Message = Tables<"messages">
