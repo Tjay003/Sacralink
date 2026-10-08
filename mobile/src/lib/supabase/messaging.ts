@@ -593,7 +593,8 @@ export function getJitsiMeetUrl(
   // If the roomIdentifier already contains 'sacralink-', keep it clean; otherwise prefix
   const cleanId = roomIdentifier.replace(/[^a-zA-Z0-9-_]/g, '');
   const roomName = cleanId.startsWith('sacralink-') ? cleanId : `sacralink-${cleanId}`;
-  const base = `https://meet.jit.si/${roomName}`;
+  const jitsiDomain = process.env.EXPO_PUBLIC_JITSI_DOMAIN || 'fairmeeting.net';
+  const base = `https://${jitsiDomain}/${roomName}`;
 
   const configParams = [
     'config.prejoinPageEnabled=true',

@@ -37,11 +37,12 @@ export default function VideoConferenceModal({
     const safeDisplayName = encodeURIComponent(participantName.trim());
 
     // Jitsi meet URL configuration
+    const jitsiDomain = (import.meta.env.VITE_JITSI_DOMAIN as string) || 'fairmeeting.net';
     const toolbarButtons = encodeURIComponent(
         "['microphone','camera','closedcaptions','desktop','fullscreen','fodeviceselection','hangup','chat','settings','raisehand','videoquality','filmstrip','tileview']"
     );
-    const jitsiUrl = `https://meet.jit.si/${safeRoom}#userInfo.displayName="${safeDisplayName}"&config.prejoinPageEnabled=false&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=${toolbarButtons}`;
-    const directShareLink = `https://meet.jit.si/${safeRoom}`;
+    const jitsiUrl = `https://${jitsiDomain}/${safeRoom}#userInfo.displayName="${safeDisplayName}"&config.prejoinPageEnabled=false&config.prejoinConfig.enabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.TOOLBAR_BUTTONS=${toolbarButtons}`;
+    const directShareLink = `https://${jitsiDomain}/${safeRoom}`;
 
     const handleCopyLink = async () => {
         try {

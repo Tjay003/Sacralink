@@ -323,12 +323,12 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                             Amount Donated (₱) <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-medium">₱</span>
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted font-medium pointer-events-none select-none">₱</span>
                             <input
                                 type="number"
                                 value={amount}
                                 onChange={(e) => handleAmountChange(e.target.value)}
-                                className={`input w-full pl-8 ${amountErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
+                                className={`input w-full !pl-10 ${amountErr ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : ''}`}
                                 placeholder="0.00"
                                 min="1"
                                 step="0.01"
