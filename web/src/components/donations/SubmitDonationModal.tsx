@@ -145,6 +145,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (loading) return; // Prevent double submit from rapid clicks
         setSubmitError('');
 
         if (isUnverified) {

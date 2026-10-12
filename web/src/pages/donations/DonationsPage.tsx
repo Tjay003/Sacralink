@@ -30,17 +30,18 @@ export default function DonationsPage() {
         totalVerifiedAmount: 0,
     });
 
-    // Super admin / admin can pick any church
-    const isSuperAdmin = profile?.role === 'super_admin' || profile?.role === 'admin';
-    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'volunteer';
+    // Parish staff are assigned to their church; super_admin is strictly redirected away
+    const assignedChurchId = profile?.assigned_church_id || profile?.church_id || null;
+    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'volunteer' || (profile?.role === 'admin' && !!assignedChurchId);
     const { churches } = useChurches();
 
     // Church staff only see their assigned church
     const effectiveChurchId = isChurchStaff
-        ? (profile?.assigned_church_id || null)
+        ? assignedChurchId
         : selectedChurchId === 'all' ? null : selectedChurchId;
 
     const fetchStats = useCallback(async () => {
+        if (profile?.role === 'super_admin') return;
         try {
             let query = supabase.from('donations').select('status, amount');
             if (effectiveChurchId) {
@@ -63,9 +64,10 @@ export default function DonationsPage() {
         } catch (err) {
             console.error('Error fetching donation stats:', err);
         }
-    }, [effectiveChurchId]);
+    }, [profile?.role, effectiveChurchId]);
 
     const fetchDonations = useCallback(async (showLoading = false) => {
+        if (profile?.role === 'super_admin') return;
         if (showLoading) setLoading(true);
         try {
             const statusParam = activeTab === 'all' ? undefined : activeTab;
@@ -76,7 +78,7 @@ export default function DonationsPage() {
                     pageSize,
                     status: statusParam,
                 });
-            } else if (isSuperAdmin) {
+            } else if (profile?.role === 'admin') {
                 result = await getAllDonations({
                     page,
                     pageSize,
@@ -92,9 +94,11 @@ export default function DonationsPage() {
         } finally {
             setLoading(false);
         }
-    }, [effectiveChurchId, isSuperAdmin, activeTab, page, pageSize]);
+    }, [profile?.role, effectiveChurchId, activeTab, page, pageSize]);
 
     useEffect(() => {
+        if (profile?.role === 'super_admin') return;
+
         void fetchDonations();
         void fetchStats();
 
@@ -114,11 +118,11 @@ export default function DonationsPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [fetchDonations, fetchStats]);
+    }, [profile?.role, fetchDonations, fetchStats]);
 
     // Active church name for display
     const activeChurchName = isChurchStaff
-        ? churches.find(c => c.id === profile?.assigned_church_id)?.name || 'Your Church'
+        ? churches.find(c => c.id === assignedChurchId)?.name || 'Your Church'
         : selectedChurchId === 'all'
             ? 'All Churches'
             : churches.find(c => c.id === selectedChurchId)?.name || 'Unknown';
@@ -157,6 +161,19 @@ export default function DonationsPage() {
         );
     };
 
+    // Super admins are strictly forbidden from accessing parish financial records (confidentiality blindspot)
+    if (profile?.role === 'super_admin') {
+        return (
+            <Navigate
+                to="/dashboard"
+                replace
+                state={{
+                    notice: 'Parish financial records are confidential and restricted to parish administration.',
+                }}
+            />
+        );
+    }
+
     // Regular users are not allowed here — redirect to Profile (which has My Donations)
     if (profile && profile.role === 'user') {
         return <Navigate to="/profile" replace />;
@@ -176,8 +193,8 @@ export default function DonationsPage() {
                 </button>
             </div>
 
-            {/* Church Selector (Super Admin / Admin only) */}
-            {isSuperAdmin && (
+            {/* Church Selector (Admin without assigned church only) */}
+            {profile?.role === 'admin' && !assignedChurchId && (
                 <div className="card p-4">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
@@ -324,7 +341,7 @@ export default function DonationsPage() {
                                         <div className="min-w-0">
                                             <p className="font-medium truncate">{donorName}</p>
                                             {/* Only show church name when viewing all churches */}
-                                            {(isSuperAdmin && selectedChurchId === 'all') && (
+                                            {(profile?.role === 'admin' && selectedChurchId === 'all') && (
                                                 <p className="text-xs text-primary font-medium truncate">{churchName}</p>
                                             )}
                                             <p className="text-xs text-muted truncate">

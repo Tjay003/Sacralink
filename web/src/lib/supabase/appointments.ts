@@ -1,6 +1,6 @@
 import type { PostgrestError, RealtimePostgresChangesFilter } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
-import { notifyUserOfStatusChange, notifyAdminsOfNewAppointment } from './notifications';
+import { notifyUserOfStatusChange, notifyAdminsOfNewAppointment, createNotification } from './notifications';
 import { uploadDocument } from './documents';
 import type { Appointment as DatabaseAppointment } from '../../types/database';
 
@@ -17,6 +17,8 @@ export interface HydratedAppointment {
     status: AppointmentStatus;
     created_at: string;
     updated_at?: string | null;
+    priest_id?: string | null;
+    admin_feedback?: string | null;
     church?: {
         id?: string;
         name: string;
@@ -25,13 +27,21 @@ export interface HydratedAppointment {
         id?: string;
         full_name: string | null;
         email?: string | null;
+        phone_number?: string | null;
+    } | null;
+    priest?: {
+        id: string;
+        full_name: string | null;
+        email?: string | null;
     } | null;
 }
 
 export interface GetAppointmentsFilter {
     churchId?: string | null;
     userId?: string | null;
+    priestId?: string | null;
     status?: AppointmentStatus | 'all';
+    statusIn?: AppointmentStatus[];
     serviceType?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -56,6 +66,15 @@ export interface CreateAppointmentInput {
     documents?: Map<string, File> | Array<{ requirementId: string; file: File }>;
 }
 
+export interface UpdateAppointmentStatusMetadata {
+    serviceType?: string;
+    userId?: string;
+    priestId?: string | null;
+    adminFeedback?: string | null;
+    appointmentDate?: string;
+    appointmentTime?: string;
+}
+
 interface RawAppointmentQueryResult {
     id: string;
     user_id: string;
@@ -67,11 +86,19 @@ interface RawAppointmentQueryResult {
     status: AppointmentStatus;
     created_at: string | null;
     updated_at: string | null;
+    priest_id?: string | null;
+    admin_feedback?: string | null;
     church: {
         id: string;
         name: string;
     } | null;
     profile: {
+        id: string;
+        full_name: string | null;
+        email: string | null;
+        phone_number?: string | null;
+    } | null;
+    priest?: {
         id: string;
         full_name: string | null;
         email: string | null;
@@ -104,7 +131,8 @@ export async function getAppointments(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles!appointments_user_id_fkey(id, full_name, email)
+                profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
+                priest:profiles!appointments_priest_id_fkey(id, full_name, email)
             `, { count: 'exact' });
 
         // Church scoping filter
@@ -117,9 +145,16 @@ export async function getAppointments(
             query = query.eq('user_id', filter.userId);
         }
 
+        // Priest filter
+        if (filter.priestId) {
+            query = query.eq('priest_id', filter.priestId);
+        }
+
         // Status filter
         if (filter.status && filter.status !== 'all') {
             query = query.eq('status', filter.status);
+        } else if (filter.statusIn && filter.statusIn.length > 0) {
+            query = query.in('status', filter.statusIn);
         }
 
         // Exclude rejected filter
@@ -185,8 +220,11 @@ export async function getAppointments(
             status: row.status,
             created_at: row.created_at ?? '',
             updated_at: row.updated_at,
+            priest_id: row.priest_id ?? null,
+            admin_feedback: row.admin_feedback ?? null,
             church: row.church ? { id: row.church.id, name: row.church.name } : null,
-            profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, email: row.profile.email } : null,
+            profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, email: row.profile.email, phone_number: row.profile.phone_number } : null,
+            priest: row.priest ? { id: row.priest.id, full_name: row.priest.full_name, email: row.priest.email } : null,
         }));
 
         // Search query filter (by parishioner name or service type)
@@ -220,7 +258,8 @@ export async function getAppointmentById(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles!appointments_user_id_fkey(id, full_name, email)
+                profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
+                priest:profiles!appointments_priest_id_fkey(id, full_name, email)
             `)
             .eq('id', id)
             .single()
@@ -240,8 +279,11 @@ export async function getAppointmentById(
             status: data.status,
             created_at: data.created_at ?? '',
             updated_at: data.updated_at,
+            priest_id: data.priest_id ?? null,
+            admin_feedback: data.admin_feedback ?? null,
             church: data.church ? { id: data.church.id, name: data.church.name } : null,
-            profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, email: data.profile.email } : null,
+            profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, email: data.profile.email, phone_number: data.profile.phone_number } : null,
+            priest: data.priest ? { id: data.priest.id, full_name: data.priest.full_name, email: data.priest.email } : null,
         };
 
         return { data: appointment, error: null };
@@ -257,24 +299,43 @@ export async function getAppointmentById(
 export async function updateAppointmentStatus(
     id: string,
     newStatus: AppointmentStatus,
-    metadata?: { serviceType?: string; userId?: string }
+    metadata?: UpdateAppointmentStatusMetadata
 ): Promise<{ success: boolean; error: PostgrestError | Error | null }> {
     try {
         let userId = metadata?.userId;
         let serviceType = metadata?.serviceType;
+        let appointmentDate = metadata?.appointmentDate;
+        let appointmentTime = metadata?.appointmentTime;
 
-        // If metadata is not supplied, fetch appointment details to notify the correct user
-        if (!userId || !serviceType) {
+        // If metadata is not supplied or incomplete, fetch appointment details to notify the correct user / priest
+        if (!userId || !serviceType || (metadata?.priestId && (!appointmentDate || !appointmentTime))) {
             const { data: existing } = await getAppointmentById(id);
             if (existing) {
-                userId = existing.user_id;
-                serviceType = existing.service_type;
+                userId = userId || existing.user_id;
+                serviceType = serviceType || existing.service_type;
+                appointmentDate = appointmentDate || existing.appointment_date;
+                appointmentTime = appointmentTime || existing.appointment_time;
             }
+        }
+
+        const updatePayload: {
+            status: AppointmentStatus;
+            priest_id?: string | null;
+            admin_feedback?: string | null;
+        } = {
+            status: newStatus,
+        };
+
+        if (metadata?.priestId !== undefined) {
+            updatePayload.priest_id = metadata.priestId;
+        }
+        if (metadata?.adminFeedback !== undefined) {
+            updatePayload.admin_feedback = metadata.adminFeedback;
         }
 
         const { error } = await supabase
             .from('appointments')
-            .update({ status: newStatus })
+            .update(updatePayload)
             .eq('id', id);
 
         if (error) throw error;
@@ -285,6 +346,24 @@ export async function updateAppointmentStatus(
                 await notifyUserOfStatusChange(userId, serviceType, newStatus, id);
             } catch (notifErr) {
                 console.warn('⚠️ Non-fatal notification error on status update:', notifErr);
+            }
+        }
+
+        // If priestId is provided, dispatch in-app notification to the priest
+        if (metadata?.priestId) {
+            try {
+                const formattedTime = appointmentTime ? formatAppointmentTime(appointmentTime) : '';
+                await createNotification({
+                    user_id: metadata.priestId,
+                    userId: metadata.priestId,
+                    title: 'New Sacramental Assignment',
+                    message: `You have been assigned as celebrant for a ${serviceType || 'sacrament'} on ${appointmentDate || 'scheduled date'}${formattedTime ? ' at ' + formattedTime : ''}.`,
+                    type: 'appointment',
+                    entity_id: id,
+                    link: '/appointments',
+                });
+            } catch (priestNotifErr) {
+                console.warn('⚠️ Non-fatal notification error to assigned priest:', priestNotifErr);
             }
         }
 
@@ -398,7 +477,7 @@ export async function getDashboardAppointmentCounts(churchId?: string | null): P
  * Subscribes to real-time changes on the appointments table, returning a clean teardown function.
  */
 export function subscribeToAppointments(
-    filter: { churchId?: string; userId?: string } | undefined,
+    filter: { churchId?: string; userId?: string; priestId?: string } | undefined,
     onUpdate: () => void
 ): () => void {
     const channelName = `appointments-realtime-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -408,6 +487,8 @@ export function subscribeToAppointments(
         filterClause = `church_id=eq.${filter.churchId}`;
     } else if (filter?.userId) {
         filterClause = `user_id=eq.${filter.userId}`;
+    } else if (filter?.priestId) {
+        filterClause = `priest_id=eq.${filter.priestId}`;
     }
 
     const channelConfig: RealtimePostgresChangesFilter<'*'> = {

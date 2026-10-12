@@ -134,3 +134,299 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.light_church_candle(UUID, TEXT) TO authenticated, anon;
 
+-- =========================================================
+-- MIGRATION 034: Secure Donations Super Admin Blindspot
+-- =========================================================
+ALTER TABLE public.donations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own donations" ON public.donations;
+DROP POLICY IF EXISTS "Users can create donations" ON public.donations;
+DROP POLICY IF EXISTS "Users can create own donations" ON public.donations;
+DROP POLICY IF EXISTS "Admins can view church donations" ON public.donations;
+DROP POLICY IF EXISTS "Church admins can view church donations" ON public.donations;
+DROP POLICY IF EXISTS "Parish staff can view church donations" ON public.donations;
+DROP POLICY IF EXISTS "Donors can view own donations" ON public.donations;
+DROP POLICY IF EXISTS "Donors can create donations" ON public.donations;
+DROP POLICY IF EXISTS "Admins can update church donations" ON public.donations;
+DROP POLICY IF EXISTS "Parish staff can update church donations" ON public.donations;
+DROP POLICY IF EXISTS "Super admins can view all donations" ON public.donations;
+DROP POLICY IF EXISTS "Super admins can update all donations" ON public.donations;
+
+CREATE POLICY "Donors can view own donations"
+ON public.donations FOR SELECT
+USING (
+  auth.uid() = user_id
+  AND public.get_current_user_role() != 'super_admin'
+);
+
+CREATE POLICY "Parish staff can view church donations"
+ON public.donations FOR SELECT
+USING (
+  public.get_current_user_role() IN ('church_admin', 'admin')
+  AND public.get_current_user_church_id() IS NOT NULL
+  AND church_id = public.get_current_user_church_id()
+);
+
+CREATE POLICY "Donors can create donations"
+ON public.donations FOR INSERT
+WITH CHECK (
+  auth.uid() = user_id
+  AND public.get_current_user_role() != 'super_admin'
+);
+
+CREATE POLICY "Parish staff can update church donations"
+ON public.donations FOR UPDATE
+USING (
+  public.get_current_user_role() IN ('church_admin', 'admin')
+  AND public.get_current_user_church_id() IS NOT NULL
+  AND church_id = public.get_current_user_church_id()
+)
+WITH CHECK (
+  public.get_current_user_role() IN ('church_admin', 'admin')
+  AND public.get_current_user_church_id() IS NOT NULL
+  AND church_id = public.get_current_user_church_id()
+);
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('donation-proofs', 'donation-proofs', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
+
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Donors can upload donation proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload own donation proof" ON storage.objects;
+DROP POLICY IF EXISTS "Donors can view own donation proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view own donation proof" ON storage.objects;
+DROP POLICY IF EXISTS "Parish staff can view church donation proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can view donation proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Super admins can view donation proofs" ON storage.objects;
+DROP POLICY IF EXISTS "Donors can delete own donation proofs" ON storage.objects;
+
+CREATE POLICY "Donors can upload donation proofs"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'donation-proofs'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+  AND public.get_current_user_role() != 'super_admin'
+);
+
+CREATE POLICY "Donors can view own donation proofs"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'donation-proofs'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+  AND public.get_current_user_role() != 'super_admin'
+);
+
+CREATE POLICY "Parish staff can view church donation proofs"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'donation-proofs'
+  AND public.get_current_user_role() IN ('church_admin', 'admin')
+  AND public.get_current_user_church_id() IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM public.donations d
+    WHERE d.church_id = public.get_current_user_church_id()
+      AND (
+        d.user_id::text = (storage.foldername(name))[1]
+        OR d.proof_url LIKE '%' || name || '%'
+      )
+  )
+);
+
+CREATE POLICY "Donors can delete own donation proofs"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'donation-proofs'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+  AND public.get_current_user_role() != 'super_admin'
+);
+
+-- =========================================================
+-- MIGRATION 035: Add is_priest to profiles
+-- =========================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_priest BOOLEAN DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_profiles_is_priest ON public.profiles(is_priest);
+
+-- =========================================================
+-- MIGRATION 036: Restrict Parishioner Direct Messaging (Office Gateway Pattern)
+-- =========================================================
+CREATE OR REPLACE FUNCTION public.get_user_role(target_user_id UUID)
+RETURNS TEXT
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(role, 'user') FROM public.profiles WHERE id = target_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_user_priest(target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = target_user_id
+      AND (role = 'priest' OR COALESCE(is_priest, false) = true)
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_user_role(UUID) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.is_user_priest(UUID) TO authenticated, anon;
+
+DROP POLICY IF EXISTS "Authenticated users can create conversations" ON public.conversations;
+
+CREATE POLICY "Authenticated users can create conversations"
+ON public.conversations FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (
+    (
+      type = 'direct'
+      AND (created_by IS NULL OR created_by = auth.uid())
+    )
+    OR (
+      type = 'channel'
+      AND (
+        public.get_current_user_role() = 'super_admin'
+        OR (
+          public.get_current_user_role() IN ('admin', 'church_admin', 'priest', 'volunteer')
+          AND church_id IS NOT NULL
+          AND church_id = public.get_current_user_church_id()
+        )
+      )
+    )
+  )
+);
+
+DROP POLICY IF EXISTS "Authenticated users can join or add participants" ON public.conversation_participants;
+
+CREATE POLICY "Authenticated users can join or add participants"
+ON public.conversation_participants FOR INSERT
+WITH CHECK (
+  auth.uid() IS NOT NULL
+  AND (
+    (
+      public.get_current_user_role() = 'super_admin'
+      OR (
+        public.get_current_user_role() IN ('admin', 'church_admin', 'priest', 'volunteer')
+        AND EXISTS (
+          SELECT 1 FROM public.conversations c
+          WHERE c.id = conversation_id
+            AND c.type = 'channel'
+            AND c.church_id = public.get_current_user_church_id()
+        )
+      )
+    )
+    OR
+    (
+      EXISTS (
+        SELECT 1 FROM public.conversations c
+        WHERE c.id = conversation_id AND c.type = 'direct'
+      )
+      AND (
+        public.get_current_user_role() = 'super_admin'
+        OR
+        (
+          user_id = auth.uid()
+          AND EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = conversation_id AND c.created_by = auth.uid()
+          )
+        )
+        OR
+        (
+          public.get_current_user_role() IN ('admin', 'church_admin')
+          AND EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = conversation_id AND c.created_by = auth.uid()
+          )
+        )
+        OR
+        (
+          public.get_current_user_role() IN ('user', 'volunteer')
+          AND EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = conversation_id AND c.created_by = auth.uid()
+          )
+          AND public.get_user_role(user_id) IN ('super_admin', 'admin', 'church_admin')
+          AND NOT public.is_user_priest(user_id)
+        )
+        OR
+        (
+          public.is_user_priest(auth.uid())
+          AND EXISTS (
+            SELECT 1 FROM public.conversations c
+            WHERE c.id = conversation_id AND c.created_by = auth.uid()
+          )
+          AND (
+            public.get_user_role(user_id) IN ('admin', 'church_admin', 'super_admin')
+            OR public.is_user_priest(user_id)
+            OR (
+              public.get_user_role(user_id) = 'user'
+              AND EXISTS (
+                SELECT 1 FROM public.appointments a
+                WHERE a.priest_id = auth.uid()
+                  AND a.user_id = conversation_participants.user_id
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+);
+
+-- =========================================================
+-- MIGRATION 037: Limit Concurrent Pending Appointments
+-- =========================================================
+CREATE OR REPLACE FUNCTION public.check_pending_appointments_limit()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (SELECT COUNT(*) FROM public.appointments WHERE user_id = NEW.user_id AND status = 'pending') >= 3 THEN
+    RAISE EXCEPTION 'You have reached the limit of 3 pending sacrament appointments. Please await confirmation before submitting additional requests.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_check_pending_appointments_limit ON public.appointments;
+
+CREATE TRIGGER trg_check_pending_appointments_limit
+BEFORE INSERT ON public.appointments
+FOR EACH ROW
+EXECUTE FUNCTION public.check_pending_appointments_limit();
+
+-- Ensure conversations SELECT policy is restricted to direct and parish staff channels
+DROP POLICY IF EXISTS "Users can view conversations they participate in" ON public.conversations;
+CREATE POLICY "Users can view conversations they participate in"
+ON public.conversations FOR SELECT
+USING (
+  (
+    type = 'direct'
+    AND (
+      public.is_conversation_participant(id, auth.uid())
+      OR created_by = auth.uid()
+      OR public.get_current_user_role() = 'super_admin'
+    )
+  )
+  OR
+  (
+    type = 'channel'
+    AND (
+      public.get_current_user_role() = 'super_admin'
+      OR (
+        public.get_current_user_role() IN ('admin', 'church_admin', 'priest', 'volunteer')
+        AND church_id IS NOT NULL
+        AND church_id = public.get_current_user_church_id()
+      )
+    )
+  )
+);
+
+
+

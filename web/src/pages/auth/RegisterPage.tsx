@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, Check } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Check, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +16,12 @@ import SocialAuthButtons from '../../components/auth/SocialAuthButtons';
 
 import { Card, CardContent } from "@/components/ui/card"
 import logo from '../../assets/logo.png';
+import PuzzleCaptchaModal from '../../components/common/PuzzleCaptchaModal';
+import { isDemoMode } from '../../config/featureFlags';
+import {
+    checkRegistrationRateLimit,
+    recordRegistrationAttempt,
+} from '../../lib/authRateLimiter';
 
 const registerSchema = z.object({
     fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -25,7 +31,7 @@ const registerSchema = z.object({
         .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
         .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
         .regex(/[0-9]/, 'Password must contain at least one number')
-        .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Password must contain at least one special character'),
+        .regex(/[^a-zA-Z0-9\s]/, 'Password must contain at least one special character'),
     confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -40,6 +46,33 @@ export default function RegisterPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [password, setPassword] = useState(''); // For strength indicator
+    const [isPuzzleOpen, setIsPuzzleOpen] = useState(false);
+    const [pendingFormData, setPendingFormData] = useState<RegisterFormData | null>(null);
+    const [isExecutingRegistration, setIsExecutingRegistration] = useState(false);
+
+    // Rate Limiting state
+    const [rateLimitState, setRateLimitState] = useState<{
+        isLocked: boolean;
+        remainingSeconds: number;
+    }>({ isLocked: false, remainingSeconds: 0 });
+
+    useEffect(() => {
+        const check = checkRegistrationRateLimit();
+        setRateLimitState({ isLocked: check.isLocked, remainingSeconds: check.remainingSeconds });
+
+        if (check.isLocked && check.remainingSeconds > 0) {
+            const timer = setInterval(() => {
+                setRateLimitState((prev) => {
+                    if (prev.remainingSeconds <= 1) {
+                        clearInterval(timer);
+                        return { isLocked: false, remainingSeconds: 0 };
+                    }
+                    return { isLocked: true, remainingSeconds: prev.remainingSeconds - 1 };
+                });
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, []);
 
     const {
         register,
@@ -50,12 +83,44 @@ export default function RegisterPage() {
     });
 
     const onSubmit = async (data: RegisterFormData) => {
+        setError(null);
+
+        // Check registration rate limits
+        const rateCheck = checkRegistrationRateLimit();
+        if (rateCheck.isLocked) {
+            setError(`Security lock: Too many account registration attempts. Please wait ${rateCheck.remainingSeconds}s before trying again.`);
+            setRateLimitState({ isLocked: true, remainingSeconds: rateCheck.remainingSeconds });
+            return;
+        }
+
+        if (isDemoMode) {
+            // In demo mode, proceed directly
+            executeSignUp(data, 'demo-verified-token');
+            return;
+        }
+
+        // Open Interactive Puzzle CAPTCHA
+        setPendingFormData(data);
+        setIsPuzzleOpen(true);
+    };
+
+    const executeSignUp = async (data: RegisterFormData, captchaToken: string) => {
         try {
+            setIsExecutingRegistration(true);
             setError(null);
-            await signUp(data.email, data.password, data.fullName);
+            recordRegistrationAttempt();
+            await signUp(data.email, data.password, data.fullName, captchaToken);
             setSuccess(true);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to create account');
+        } finally {
+            setIsExecutingRegistration(false);
+        }
+    };
+
+    const handlePuzzleSuccess = (token: string) => {
+        if (pendingFormData) {
+            executeSignUp(pendingFormData, token);
         }
     };
 
@@ -186,12 +251,21 @@ export default function RegisterPage() {
                                 )}
                             </div>
 
+                            {rateLimitState.isLocked && (
+                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>
+                                        Security rate limit active: Too many recent registration requests. Please wait <strong>{rateLimitState.remainingSeconds}s</strong> before trying again.
+                                    </span>
+                                </div>
+                            )}
+
                             <Button
                                 type="submit"
-                                className="w-full rounded-lg h-11 sm:h-12 text-base font-semibold shadow-md transition-all duration-200 ease-in-out hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] mt-2 sm:mt-4 text-white"
-                                disabled={isSubmitting}
+                                className="w-full rounded-lg h-11 sm:h-12 text-base font-semibold shadow-md transition-all duration-200 ease-in-out hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] mt-2 sm:mt-4 text-white cursor-pointer"
+                                disabled={isSubmitting || isExecutingRegistration || rateLimitState.isLocked}
                             >
-                                {isSubmitting ? (
+                                {isSubmitting || isExecutingRegistration ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         Creating Account...
@@ -201,6 +275,13 @@ export default function RegisterPage() {
                                 )}
                             </Button>
                         </form>
+
+                        {/* Interactive Puzzle CAPTCHA Modal */}
+                        <PuzzleCaptchaModal
+                            isOpen={isPuzzleOpen}
+                            onClose={() => setIsPuzzleOpen(false)}
+                            onSuccess={handlePuzzleSuccess}
+                        />
 
                         <SocialAuthButtons />
                     </CardContent>

@@ -21,6 +21,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
     const donorEmail = donation.donor?.email || '';
 
     const handleVerify = async () => {
+        if (loading) return;
         setLoading(true);
         setError('');
         const { error: err } = await verifyDonation(donation.id);
@@ -34,6 +35,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
     };
 
     const handleReject = async () => {
+        if (loading) return;
         if (!rejectionNote.trim()) {
             setError('Please provide a reason for rejection');
             return;

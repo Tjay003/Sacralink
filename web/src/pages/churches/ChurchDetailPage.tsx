@@ -274,22 +274,24 @@ export default function ChurchDetailPage() {
 
         try {
             setContactLoading(true);
-            // Query profiles for a staff member of this church
+            // Query profiles for the assigned church_admin of this church
             const { data: staffMembers, error: staffError } = await supabase
                 .from('profiles')
-                .select('id, full_name, role')
+                .select('id, full_name, role, is_priest')
                 .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
-                .in('role', ['church_admin', 'priest', 'volunteer'])
-                .limit(1);
+                .eq('role', 'church_admin');
 
             if (staffError) throw staffError;
 
-            const staffUser = staffMembers && staffMembers.length > 0 ? staffMembers[0] : null;
+            // Pick assigned church_admin (prefer non-priest administrator if available)
+            const staffUser = staffMembers && staffMembers.length > 0
+                ? (staffMembers.find((s) => !s.is_priest) || staffMembers[0])
+                : null;
 
             if (!staffUser) {
                 setActionFeedback({
                     type: 'error',
-                    message: 'No parish staff member is currently assigned to this church office. Opening Messages directory...',
+                    message: 'No parish office administrator is currently assigned to this church. Opening Messages directory...',
                 });
                 setTimeout(() => {
                     navigate('/messages', {
@@ -495,11 +497,11 @@ export default function ChurchDetailPage() {
                                 </button>
                             )}
 
-                            {/* Contact Parish / Message Office */}
+                            {/* Message Parish Office */}
                             <button
                                 onClick={handleContactParish}
                                 disabled={contactLoading}
-                                title="Directly message the parish office"
+                                title="Message the parish office"
                                 className="inline-flex items-center justify-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 border border-border bg-white hover:bg-secondary-50 text-foreground hover:border-primary/40 hover:text-primary shrink-0 cursor-pointer hover:-translate-y-0.5 active:scale-95 shadow-xs hover:shadow-md disabled:opacity-60"
                             >
                                 {contactLoading ? (
@@ -507,8 +509,8 @@ export default function ChurchDetailPage() {
                                 ) : (
                                     <MessageSquare className="w-4 h-4 shrink-0 text-muted" />
                                 )}
-                                <span className="hidden sm:inline">Contact Parish</span>
-                                <span className="sm:hidden">Contact</span>
+                                <span className="hidden sm:inline">Message Parish Office</span>
+                                <span className="sm:hidden">Message Office</span>
                             </button>
 
                             {/* Follow / Unfollow button — for regular users */}

@@ -19,6 +19,8 @@ import {
     MapPin,
     Crown,
     ShieldCheck,
+    Cross,
+    Users,
     X
 } from 'lucide-react';
 
@@ -41,7 +43,7 @@ function calculateRoleStats(userList: Profile[]) {
     return {
         admins: userList.filter(u => u.role === 'church_admin' || u.role === 'admin' || u.role === 'super_admin').length,
         volunteers: userList.filter(u => u.role === 'volunteer').length,
-        priests: userList.filter(u => u.role === 'priest').length,
+        priests: userList.filter(u => u.role === 'priest' || u.is_priest).length,
         users: userList.filter(u => !u.role || u.role === 'user').length,
     };
 }
@@ -49,16 +51,22 @@ function calculateRoleStats(userList: Profile[]) {
 type SortField = 'role' | 'church' | 'name' | 'created_at';
 type SortOrder = 'asc' | 'desc';
 type ViewMode = 'table' | 'grouped';
+type DirectoryTab = 'staff' | 'parishioners' | 'all';
 
 export default function UsersPage() {
-    const { profile: currentUser, session } = useAuth();
+    const { profile: currentUser, session, refreshProfile } = useAuth();
     const [churches, setChurches] = useState<Church[]>([]);
 
     const [users, setUsers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [directoryTab, setDirectoryTab] = useState<DirectoryTab>(
+        currentUser?.role === 'church_admin' ? 'staff' : 'all'
+    );
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState<string>('all');
-    const [churchFilter, setChurchFilter] = useState<string>('all');
+    const [churchFilter, setChurchFilter] = useState<string>(
+        currentUser?.role === 'church_admin' ? (currentUser.assigned_church_id || 'all') : 'all'
+    );
     const [viewMode, setViewMode] = useState<ViewMode>('table');
     const [sortField, setSortField] = useState<SortField>('role');
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -72,26 +80,32 @@ export default function UsersPage() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [totalCount, setTotalCount] = useState(0);
     const [collapsedChurchIds, setCollapsedChurchIds] = useState<Set<string>>(new Set());
+
+    // When currentUser loads or changes, ensure church_admin defaults properly
+    useEffect(() => {
+        if (currentUser?.role === 'church_admin') {
+            if (currentUser.assigned_church_id) {
+                setChurchFilter(currentUser.assigned_church_id);
+            }
+            setDirectoryTab(prev => (prev === 'all' ? 'staff' : prev));
+        }
+    }, [currentUser]);
 
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
             const token = session?.access_token || '';
+            // Fetch without pagination truncation so church's staff members and parishioners are properly loaded
             const [profilesRes, churchesRes] = await Promise.all([
                 token
-                    ? directFetchProfiles(token, {
-                          page: currentPage,
-                          pageSize: itemsPerPage,
-                      })
+                    ? directFetchProfiles(token)
                     : Promise.resolve({ data: [], count: 0 }),
                 directFetchChurches(),
             ]);
 
             if (profilesRes) {
                 setUsers(profilesRes.data || []);
-                setTotalCount(profilesRes.count ?? (profilesRes.data ? profilesRes.data.length : 0));
             }
             if (churchesRes) {
                 setChurches(churchesRes);
@@ -101,7 +115,7 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [session, currentPage, itemsPerPage]);
+    }, [session]);
 
     useEffect(() => {
         fetchData();
@@ -125,16 +139,51 @@ export default function UsersPage() {
         return churchMap.get(churchId) || 'Unknown Parish';
     }, [churchMap]);
 
+    // Calculate counts for Directory tabs
+    const tabCounts = useMemo(() => {
+        let base = [...users];
+        if (currentUser?.role === 'church_admin') {
+            base = base.filter(u => {
+                if (u.role === 'super_admin' || u.role === 'admin') return false;
+                return u.assigned_church_id === currentUser.assigned_church_id || !u.role || u.role === 'user';
+            });
+            const staff = base.filter(u => u.assigned_church_id === currentUser.assigned_church_id).length;
+            const parishioners = base.filter(u => !u.role || u.role === 'user').length;
+            return { staff, parishioners, all: base.length };
+        } else {
+            const staff = base.filter(u => u.role && u.role !== 'user').length;
+            const parishioners = base.filter(u => !u.role || u.role === 'user').length;
+            return { staff, parishioners, all: base.length };
+        }
+    }, [users, currentUser]);
+
     // Filter & Sort Logic
     const filteredUsers = useMemo(() => {
         let filtered = [...users];
 
-        // 1. Role visibility restrictions for church_admin
+        // 1. Role visibility & parish scope restrictions
         if (currentUser?.role === 'church_admin') {
             filtered = filtered.filter(user => {
                 if (user.role === 'super_admin' || user.role === 'admin') return false;
-                return user.assigned_church_id === currentUser.assigned_church_id;
+                // Church admin can view:
+                // a) users assigned to their parish (staff / volunteers / self)
+                // b) regular parishioners (available for sacraments or volunteer promotion)
+                const isAssignedToMyChurch = user.assigned_church_id === currentUser.assigned_church_id;
+                const isPlainUser = !user.role || user.role === 'user';
+                return isAssignedToMyChurch || isPlainUser;
             });
+
+            if (directoryTab === 'staff') {
+                filtered = filtered.filter(user => user.assigned_church_id === currentUser.assigned_church_id);
+            } else if (directoryTab === 'parishioners') {
+                filtered = filtered.filter(user => !user.role || user.role === 'user');
+            }
+        } else {
+            if (directoryTab === 'staff') {
+                filtered = filtered.filter(user => user.role && user.role !== 'user');
+            } else if (directoryTab === 'parishioners') {
+                filtered = filtered.filter(user => !user.role || user.role === 'user');
+            }
         }
 
         // 2. Search query (matches name, email, or church name)
@@ -150,12 +199,18 @@ export default function UsersPage() {
 
         // 3. Filter by role
         if (roleFilter !== 'all') {
-            filtered = filtered.filter(user => (user.role || 'user') === roleFilter);
+            if (roleFilter === 'priest') {
+                filtered = filtered.filter(user => (user.role || 'user') === 'priest' || !!user.is_priest);
+            } else {
+                filtered = filtered.filter(user => (user.role || 'user') === roleFilter);
+            }
         }
 
         // 4. Filter by church
         if (churchFilter !== 'all') {
-            if (churchFilter === 'unassigned') {
+            if (currentUser?.role === 'church_admin' && directoryTab === 'parishioners') {
+                // Keep parishioners visible to church admin even if churchFilter is their church
+            } else if (churchFilter === 'unassigned') {
                 filtered = filtered.filter(user => !user.assigned_church_id);
             } else {
                 filtered = filtered.filter(user => user.assigned_church_id === churchFilter);
@@ -203,20 +258,17 @@ export default function UsersPage() {
         });
 
         return filtered;
-    }, [users, currentUser, searchQuery, roleFilter, churchFilter, sortField, sortOrder, getChurchName]);
+    }, [users, currentUser, directoryTab, searchQuery, roleFilter, churchFilter, sortField, sortOrder, getChurchName]);
 
     // Paginated users for flat table mode
     const paginatedUsers = useMemo(() => {
-        if (totalCount > users.length || users.length <= itemsPerPage) {
-            return filteredUsers;
-        }
         return filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    }, [filteredUsers, totalCount, users.length, currentPage, itemsPerPage]);
+    }, [filteredUsers, currentPage, itemsPerPage]);
 
-    // Reset pagination on filter change
+    // Reset pagination on filter or tab change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, roleFilter, churchFilter, sortField, sortOrder]);
+    }, [searchQuery, roleFilter, churchFilter, sortField, sortOrder, directoryTab]);
 
     // Group users by parish for Accordion Mode
     const groupedByParish = useMemo(() => {
@@ -230,11 +282,12 @@ export default function UsersPage() {
 
         // Church buckets
         churches.forEach(church => {
-            if (churchFilter !== 'all' && churchFilter !== church.id) return;
+            if (currentUser?.role === 'church_admin' && church.id !== currentUser.assigned_church_id) return;
+            if (churchFilter !== 'all' && churchFilter !== church.id && directoryTab !== 'parishioners') return;
             const churchUsers = filteredUsers.filter(u => u.assigned_church_id === church.id);
             
             // Only show churches with users matching the filter or if explicitly filtered
-            if (churchUsers.length > 0 || churchFilter === church.id) {
+            if (churchUsers.length > 0 || (currentUser?.role === 'church_admin' && church.id === currentUser.assigned_church_id)) {
                 groups.push({
                     churchId: church.id,
                     churchName: church.name,
@@ -246,21 +299,19 @@ export default function UsersPage() {
         });
 
         // Unassigned bucket
-        if (churchFilter === 'all' || churchFilter === 'unassigned') {
-            const unassignedUsers = filteredUsers.filter(u => !u.assigned_church_id);
-            if (unassignedUsers.length > 0) {
-                groups.push({
-                    churchId: 'unassigned',
-                    churchName: 'General / Unassigned Users',
-                    address: 'Not currently assigned to a specific parish',
-                    users: unassignedUsers,
-                    stats: calculateRoleStats(unassignedUsers),
-                });
-            }
+        const unassignedUsers = filteredUsers.filter(u => !u.assigned_church_id);
+        if (unassignedUsers.length > 0) {
+            groups.push({
+                churchId: 'unassigned',
+                churchName: 'General / Parishioners Available',
+                address: 'Parishioners available for sacrament care or volunteer promotion',
+                users: unassignedUsers,
+                stats: calculateRoleStats(unassignedUsers),
+            });
         }
 
         return groups;
-    }, [churches, filteredUsers, churchFilter]);
+    }, [churches, filteredUsers, churchFilter, currentUser, directoryTab]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -290,6 +341,7 @@ export default function UsersPage() {
 
     const handleRoleUpdated = () => {
         fetchData();
+        refreshProfile();
         setShowEditModal(false);
         setSelectedUser(null);
     };
@@ -400,6 +452,69 @@ export default function UsersPage() {
                 </div>
             )}
 
+            {/* Directory Category Segmented Tabs */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 p-1 bg-secondary-100 dark:bg-secondary-800/60 rounded-xl border border-border">
+                    <button
+                        type="button"
+                        onClick={() => setDirectoryTab('staff')}
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            directoryTab === 'staff'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                : 'text-muted hover:text-foreground'
+                        }`}
+                    >
+                        <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                        <span>Parish Staff & Clergy</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            directoryTab === 'staff'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
+                        }`}>
+                            {tabCounts.staff}
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setDirectoryTab('parishioners')}
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            directoryTab === 'parishioners'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                : 'text-muted hover:text-foreground'
+                        }`}
+                    >
+                        <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Parishioners</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            directoryTab === 'parishioners'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
+                        }`}>
+                            {tabCounts.parishioners}
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setDirectoryTab('all')}
+                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            directoryTab === 'all'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                : 'text-muted hover:text-foreground'
+                        }`}
+                    >
+                        <List className="w-3.5 h-3.5 text-muted" />
+                        <span>All Accounts</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            directoryTab === 'all'
+                                ? 'bg-secondary-200 text-foreground dark:bg-secondary-600'
+                                : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
+                        }`}>
+                            {tabCounts.all}
+                        </span>
+                    </button>
+                </div>
+            </div>
+
             {/* Filters Bar */}
             <div className="card p-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -448,11 +563,15 @@ export default function UsersPage() {
                         <select
                             value={churchFilter}
                             onChange={(e) => setChurchFilter(e.target.value)}
-                            className="input w-full text-sm"
+                            className="input w-full text-sm disabled:opacity-75 disabled:cursor-not-allowed"
                             disabled={!isSuperOrDioceseAdmin}
                         >
-                            <option value="all">All Parishes / Churches</option>
-                            <option value="unassigned">No Church Assigned (Unassigned)</option>
+                            {isSuperOrDioceseAdmin && (
+                                <>
+                                    <option value="all">All Parishes / Churches</option>
+                                    <option value="unassigned">No Church Assigned (Unassigned)</option>
+                                </>
+                            )}
                             {churches.map((church) => (
                                 <option key={church.id} value={church.id}>
                                     {church.name}
@@ -492,15 +611,19 @@ export default function UsersPage() {
                 {/* Filter Summary Status */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs text-muted">
                     <span>
-                        Showing <strong className="text-foreground">{filteredUsers.length}</strong> of{' '}
-                        <strong className="text-foreground">{totalCount || users.length}</strong> total users
+                        Showing <strong className="text-foreground">{paginatedUsers.length}</strong> of{' '}
+                        <strong className="text-foreground">{filteredUsers.length}</strong>{' '}
+                        {directoryTab === 'staff' ? 'parish staff & clergy' : directoryTab === 'parishioners' ? 'parishioners' : 'users'}
+                        {filteredUsers.length !== users.length && (
+                            <span className="text-muted/70"> ({users.length} total accessible)</span>
+                        )}
                     </span>
-                    {(searchQuery || roleFilter !== 'all' || churchFilter !== 'all') && (
+                    {(searchQuery || roleFilter !== 'all' || (isSuperOrDioceseAdmin && churchFilter !== 'all')) && (
                         <button
                             onClick={() => {
                                 setSearchQuery('');
                                 setRoleFilter('all');
-                                setChurchFilter('all');
+                                if (isSuperOrDioceseAdmin) setChurchFilter('all');
                             }}
                             className="text-primary hover:underline font-medium"
                         >
@@ -622,6 +745,12 @@ export default function UsersPage() {
                                                                                     {formatRole(user.role || 'user')}
                                                                                 </span>
                                                                             )}
+                                                                            {user.is_priest && user.role !== 'priest' && (
+                                                                                <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
+                                                                                    <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                                                                    <span>Priest / Celebrant</span>
+                                                                                </span>
+                                                                            )}
                                                                         </div>
                                                                         <div className="flex items-center gap-3 text-xs text-muted mt-0.5 flex-wrap">
                                                                             <span className="flex items-center gap-1 min-w-0 max-w-full">
@@ -646,12 +775,20 @@ export default function UsersPage() {
                                                                         >
                                                                             Owner Locked
                                                                         </button>
+                                                                    ) : isSelf ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleEditRole(user)}
+                                                                            className="btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold flex items-center gap-1.5 transition-all"
+                                                                        >
+                                                                            <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                                                            <span>Edit Clergy Status</span>
+                                                                        </button>
                                                                     ) : (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handleEditRole(user)}
-                                                                            disabled={isSelf}
-                                                                            className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
+                                                                            className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                         >
                                                                             Edit Role
                                                                         </button>
@@ -721,6 +858,12 @@ export default function UsersPage() {
                                                                 {formatRole(user.role || 'user')}
                                                             </span>
                                                         )}
+                                                        {user.is_priest && user.role !== 'priest' && (
+                                                            <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
+                                                                <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                                                <span>Clergy</span>
+                                                            </span>
+                                                        )}
                                                         {user.assigned_church_id && (
                                                             <span className="px-2 py-0.5 inline-flex text-xs font-medium rounded-md bg-secondary-100 dark:bg-secondary-800 text-foreground border border-border truncate max-w-[150px]">
                                                                 {churchName}
@@ -765,12 +908,20 @@ export default function UsersPage() {
                                                 >
                                                     Platform Owner (Locked)
                                                 </button>
+                                            ) : isSelf ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditRole(user)}
+                                                    className="w-full btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                                >
+                                                    <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                                    <span>Edit Clergy Status</span>
+                                                </button>
                                             ) : (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleEditRole(user)}
-                                                    disabled={isSelf}
-                                                    className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                                    className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
                                                 >
                                                     Edit Role & Parish Access
                                                 </button>
@@ -857,16 +1008,24 @@ export default function UsersPage() {
 
                                                     {/* Role */}
                                                     <td className="px-5 py-3.5 whitespace-nowrap">
-                                                        {isUserSuperAdmin ? (
-                                                            <span className="px-2.5 py-1 inline-flex items-center gap-1.5 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
-                                                                <Crown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                                                <span>Platform Owner</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
-                                                                {formatRole(user.role || 'user')}
-                                                            </span>
-                                                        )}
+                                                        <div className="flex items-center gap-1.5">
+                                                            {isUserSuperAdmin ? (
+                                                                <span className="px-2.5 py-1 inline-flex items-center gap-1.5 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                                    <Crown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                                                    <span>Platform Owner</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className={`px-2.5 py-1 inline-flex text-xs font-semibold rounded-full border ${getRoleBadgeClass(user.role || 'user')}`}>
+                                                                    {formatRole(user.role || 'user')}
+                                                                </span>
+                                                            )}
+                                                            {user.is_priest && user.role !== 'priest' && (
+                                                                <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
+                                                                    <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                                                    <span>Priest</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </td>
 
                                                     {/* Assigned Church with Interactive Hover Tooltip */}
@@ -927,12 +1086,20 @@ export default function UsersPage() {
                                                                 >
                                                                     Owner Locked
                                                                 </button>
+                                                            ) : isSelf ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditRole(user)}
+                                                                    className="btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold flex items-center gap-1.5 transition-all"
+                                                                >
+                                                                    <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                                                    <span>Edit Clergy Status</span>
+                                                                </button>
                                                             ) : (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleEditRole(user)}
-                                                                    disabled={isSelf}
-                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-semibold"
+                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                 >
                                                                     Edit Role
                                                                 </button>
@@ -949,10 +1116,10 @@ export default function UsersPage() {
                     </div>
 
                     {/* Pagination Controls */}
-                    {(totalCount > 0 || filteredUsers.length > 0) && (
+                    {(filteredUsers.length > 0) && (
                         <Pagination
                             currentPage={currentPage}
-                            totalItems={totalCount || filteredUsers.length}
+                            totalItems={filteredUsers.length}
                             pageSize={itemsPerPage}
                             onPageChange={(page) => setCurrentPage(page)}
                             onPageSizeChange={(size) => {
@@ -960,7 +1127,7 @@ export default function UsersPage() {
                                 setCurrentPage(1);
                             }}
                             pageSizeOptions={[10, 25, 50]}
-                            itemName="users"
+                            itemName={directoryTab === 'staff' ? 'staff members' : directoryTab === 'parishioners' ? 'parishioners' : 'users'}
                         />
                     )}
                 </>

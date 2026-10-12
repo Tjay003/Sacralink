@@ -28,7 +28,7 @@ interface AuthContextType {
     session: Session | null;        // Supabase session (includes access token)
     loading: boolean;               // True while checking authentication status
     signIn: (email: string, password: string) => Promise<void>;
-    signUp: (email: string, password: string, fullName: string) => Promise<void>;
+    signUp: (email: string, password: string, fullName: string, captchaToken?: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;
@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * Note: The full_name is stored in Supabase Auth metadata
      * Our database trigger copies it to the profiles table
      */
-    const signUp = async (email: string, password: string, fullName: string) => {
+    const signUp = async (email: string, password: string, fullName: string, captchaToken?: string) => {
         const { error } = await supabase.auth.signUp({
             email,
             password,
@@ -152,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 data: {
                     full_name: fullName,  // Stored in auth.users metadata
                 },
+                ...(captchaToken ? { captchaToken } : {}),
             },
         });
         if (error) throw error;

@@ -21,15 +21,25 @@ import ConfirmationModal from '../modals/ConfirmationModal';
 import { featureFlags } from '../../config/featureFlags';
 import logo from '../../assets/logo.png';
 
-const navigation = [
+interface NavigationItem {
+    name: string;
+    href: string;
+    icon: typeof LayoutDashboard;
+    featureKey?: keyof typeof featureFlags;
+    adminOnly?: boolean;
+    superAdminOnly?: boolean;
+    staffOnly?: boolean;
+}
+
+const navigation: NavigationItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' as const },
-    { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' as const },
+    { name: 'Users', href: '/users', icon: Users, adminOnly: true, featureKey: 'admin' },
+    { name: 'Churches', href: '/churches', icon: Building2, featureKey: 'churches' },
     { name: 'Parish Applications', href: '/admin/applications', icon: ShieldCheck, superAdminOnly: true },
-    { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' as const },
-    { name: 'Messages', href: '/messages', icon: MessageSquare, featureKey: 'messages' as const },
-    { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations' as const, staffOnly: true },
-    { name: 'System Announcements', href: '/admin/system-announcements', icon: Megaphone, superAdminOnly: true, featureKey: 'systemAnnouncements' as const },
+    { name: 'Appointments', href: '/appointments', icon: Calendar, featureKey: 'appointments' },
+    { name: 'Messages', href: '/messages', icon: MessageSquare, featureKey: 'messages' },
+    { name: 'Donations', href: '/donations', icon: Heart, featureKey: 'donations', staffOnly: true },
+    { name: 'System Announcements', href: '/admin/system-announcements', icon: Megaphone, superAdminOnly: true, featureKey: 'systemAnnouncements' },
 ];
 
 export default function DashboardLayout() {
@@ -125,7 +135,7 @@ export default function DashboardLayout() {
                 <nav className="p-4 space-y-1">
                     {navigation.map((item) => {
                         // Check if user has permission for super-admin-only items (admin, super_admin)
-                        if ((item as any).superAdminOnly && !['admin', 'super_admin'].includes(profile?.role || '')) {
+                        if (item.superAdminOnly && !['admin', 'super_admin'].includes(profile?.role || '')) {
                             return null; // Hide super-admin-only items from unauthorized users
                         }
 
@@ -134,8 +144,15 @@ export default function DashboardLayout() {
                             return null; // Hide admin-only items from unauthorized users
                         }
 
+                        // Hide Donations completely from super_admin (blindspot for parish financial privacy, only visible to church_admin and parish staff)
+                        if (item.name === 'Donations') {
+                            if (profile?.role === 'super_admin' || !['church_admin', 'admin', 'volunteer'].includes(profile?.role || '')) {
+                                return null;
+                            }
+                        }
+
                         // Hide staff-only items from regular users (they use Profile page for their donation history)
-                        if ((item as any).staffOnly && ['user'].includes(profile?.role || '')) {
+                        if (item.staffOnly && ['user'].includes(profile?.role || '')) {
                             return null;
                         }
 

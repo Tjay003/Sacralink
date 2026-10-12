@@ -23,6 +23,93 @@ export interface AskParishAIResponse {
   reply: string;
   sourcesUsed: number;
   isFallback: boolean;
+  isRateLimited?: boolean;
+}
+
+export const AI_CHAT_RATE_LIMIT_STORAGE_KEY = 'sacralink_ai_chat_timestamps';
+export const AI_CHAT_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes (300,000 ms)
+export const AI_CHAT_RATE_LIMIT_MAX_QUERIES = 10;
+export const AI_CHAT_RATE_LIMIT_NOTICE =
+  'You have reached the temporary inquiry limit. Please wait a few minutes or contact the parish office directly for immediate assistance.';
+
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  message?: string;
+  remaining?: number;
+  resetInMs?: number;
+}
+
+/**
+ * Retrieves valid query timestamps within the 5-minute sliding window from sessionStorage.
+ */
+export function getRecentAIChatTimestamps(): number[] {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return [];
+  }
+  try {
+    const raw = window.sessionStorage.getItem(AI_CHAT_RATE_LIMIT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    return parsed.filter(
+      (ts): ts is number => typeof ts === 'number' && !isNaN(ts) && now - ts < AI_CHAT_RATE_LIMIT_WINDOW_MS
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Checks if a new AI chat query is allowed within the sliding window without recording a timestamp.
+ */
+export function checkAIChatRateLimit(): RateLimitCheckResult {
+  const recent = getRecentAIChatTimestamps();
+  if (recent.length >= AI_CHAT_RATE_LIMIT_MAX_QUERIES) {
+    const oldest = recent[0];
+    const resetInMs = Math.max(0, AI_CHAT_RATE_LIMIT_WINDOW_MS - (Date.now() - oldest));
+    return {
+      allowed: false,
+      message: AI_CHAT_RATE_LIMIT_NOTICE,
+      remaining: 0,
+      resetInMs,
+    };
+  }
+  return {
+    allowed: true,
+    remaining: AI_CHAT_RATE_LIMIT_MAX_QUERIES - recent.length,
+  };
+}
+
+/**
+ * Records an AI chat query timestamp into sessionStorage if allowed by the sliding window rate limiter.
+ * Returns RateLimitCheckResult.
+ */
+export function recordAIChatQuery(): RateLimitCheckResult {
+  const check = checkAIChatRateLimit();
+  if (!check.allowed) {
+    return check;
+  }
+
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    try {
+      const recent = getRecentAIChatTimestamps();
+      const now = Date.now();
+      const updated = [...recent, now];
+      window.sessionStorage.setItem(
+        AI_CHAT_RATE_LIMIT_STORAGE_KEY,
+        JSON.stringify(updated)
+      );
+      return {
+        allowed: true,
+        remaining: Math.max(0, AI_CHAT_RATE_LIMIT_MAX_QUERIES - updated.length),
+      };
+    } catch (err) {
+      console.warn('Unable to persist AI chat rate limit timestamp:', err);
+    }
+  }
+
+  return { allowed: true, remaining: AI_CHAT_RATE_LIMIT_MAX_QUERIES - 1 };
 }
 
 /**
@@ -339,6 +426,17 @@ export async function askParishAI(
     userId,
     timeoutMs = 12000,
   } = params;
+
+  // Enforce sliding window rate limit: max 10 messages per 5 minutes
+  const rateLimitStatus = recordAIChatQuery();
+  if (!rateLimitStatus.allowed) {
+    return {
+      reply: rateLimitStatus.message || AI_CHAT_RATE_LIMIT_NOTICE,
+      sourcesUsed: 0,
+      isFallback: true,
+      isRateLimited: true,
+    };
+  }
 
   if (churchId) {
     try {

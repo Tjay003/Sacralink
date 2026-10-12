@@ -46,7 +46,7 @@ export const signIn = async (email: string, password: string) => {
     return data;
 };
 
-export const signUp = async (email: string, password: string, fullName: string) => {
+export const signUp = async (email: string, password: string, fullName: string, captchaToken?: string) => {
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -54,6 +54,7 @@ export const signUp = async (email: string, password: string, fullName: string) 
             data: {
                 full_name: fullName,
             },
+            ...(captchaToken ? { captchaToken } : {}),
         },
     });
     if (error) throw error;

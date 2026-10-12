@@ -36,6 +36,7 @@ export interface Profile {
     avatar_url: string | null;
     phone_number: string | null;
     is_verified: boolean;
+    is_priest?: boolean | null;
     fcm_token: string | null;
     created_at: string;
     updated_at: string;

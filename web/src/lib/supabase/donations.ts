@@ -169,7 +169,7 @@ export async function getChurchDonations(
 }
 
 /**
- * Get all donations (super admin / admin view)
+ * Get all donations (restricted to parish administration; super_admin receives 0 rows under RLS)
  */
 export async function getAllDonations(
     optionsOrStatus?: 'pending' | 'verified' | 'rejected' | DonationPaginationOptions

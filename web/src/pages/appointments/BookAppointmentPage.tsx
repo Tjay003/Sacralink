@@ -243,6 +243,7 @@ export default function BookAppointmentPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !id) return;
+        if (submitting) return; // Prevent double submit from rapid clicks
 
         if (availabilityResult && !availabilityResult.isAvailable) {
             setError('The selected slot is unavailable. Please select an alternative slot or change the date and time.');
@@ -278,9 +279,19 @@ export default function BookAppointmentPage() {
                 navigate(`/churches/${id}`);
             }, 2000);
 
-        } catch (err) {
+        } catch (err: unknown) {
             console.error('Error booking appointment:', err);
-            const message = err instanceof Error ? err.message : 'Failed to submit appointment request.';
+            let message = err instanceof Error ? err.message : 'Failed to submit appointment request.';
+
+            // Catch 3-pending-appointment trigger error from Supabase
+            const rawErrorStr = JSON.stringify(err);
+            if (
+                message.includes('limit of 3 pending sacrament appointments') ||
+                rawErrorStr.includes('limit of 3 pending sacrament appointments')
+            ) {
+                message = 'You have reached the limit of 3 pending sacrament appointments. Please await confirmation before submitting additional requests.';
+            }
+
             setError(message);
             setSubmitting(false);
         }
@@ -342,9 +353,27 @@ export default function BookAppointmentPage() {
                 <p className="text-gray-500 mb-6">Request a sacrament or service at {church.name}</p>
 
                 {error && (
-                    <div className="bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300 p-3 rounded-lg mb-4 text-sm flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        <span>{error}</span>
+                    <div
+                        className={`p-4 rounded-xl mb-4 text-sm flex items-start gap-3 animate-in fade-in ${
+                            error.includes('limit of 3 pending sacrament appointments')
+                                ? 'bg-amber-50 border border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200 shadow-xs'
+                                : 'bg-red-50 border border-red-200 text-red-600 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-300'
+                        }`}
+                        role="alert"
+                    >
+                        <AlertTriangle className={`w-5 h-5 shrink-0 mt-0.5 ${
+                            error.includes('limit of 3 pending sacrament appointments')
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-red-500'
+                        }`} />
+                        <div className="space-y-1">
+                            {error.includes('limit of 3 pending sacrament appointments') && (
+                                <p className="font-semibold text-amber-800 dark:text-amber-300">
+                                    Pending Appointment Limit Reached
+                                </p>
+                            )}
+                            <p className="leading-relaxed">{error}</p>
+                        </div>
                     </div>
                 )}
 
@@ -610,9 +639,18 @@ export default function BookAppointmentPage() {
                         <button
                             type="submit"
                             disabled={submitting || Boolean(isSlotConflict)}
-                            className="btn-primary w-full justify-center rounded-lg py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-primary w-full justify-center rounded-lg py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
-                            {submitting ? 'Submitting...' : isSlotConflict ? 'Slot Unavailable - Select Alternative Above' : 'Submit Request'}
+                            {submitting ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <span>Submitting Request...</span>
+                                </>
+                            ) : isSlotConflict ? (
+                                'Slot Unavailable - Select Alternative Above'
+                            ) : (
+                                'Submit Request'
+                            )}
                         </button>
                     </div>
                 </form>

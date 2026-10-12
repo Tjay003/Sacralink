@@ -2,7 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronDown, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react';
 import chatbotIcon from '../../assets/chatbotIcon.png';
-import { askParishAI, generateFallbackResponse } from '../../lib/supabase/aiFallback';
+import {
+    askParishAI,
+    generateFallbackResponse,
+    checkAIChatRateLimit,
+    AI_CHAT_RATE_LIMIT_NOTICE,
+} from '../../lib/supabase/aiFallback';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -85,6 +90,22 @@ export default function ChurchChatbot({ churchId, churchName }: ChurchChatbotPro
 
     const handleSend = async (message: string) => {
         setError(null);
+
+        // Pre-check sliding window rate limiter (10 queries per 5 minutes)
+        const rateLimit = checkAIChatRateLimit();
+        if (!rateLimit.allowed) {
+            const userMessage: Message = { role: 'user', content: message };
+            setMessages(prev => [
+                ...prev,
+                userMessage,
+                {
+                    role: 'assistant',
+                    content: rateLimit.message || AI_CHAT_RATE_LIMIT_NOTICE,
+                    feedback: null,
+                },
+            ]);
+            return;
+        }
 
         const userMessage: Message = { role: 'user', content: message };
         const newMessages = [...messages, userMessage];

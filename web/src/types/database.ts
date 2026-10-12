@@ -182,36 +182,42 @@ export type Database = {
       }
       appointments: {
         Row: {
+          admin_feedback: string | null
           appointment_date: string
           appointment_time: string
           church_id: string
           created_at: string | null
           id: string
           notes: string | null
+          priest_id: string | null
           service_type: string
           status: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          admin_feedback?: string | null
           appointment_date: string
           appointment_time: string
           church_id: string
           created_at?: string | null
           id?: string
           notes?: string | null
+          priest_id?: string | null
           service_type: string
           status?: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          admin_feedback?: string | null
           appointment_date?: string
           appointment_time?: string
           church_id?: string
           created_at?: string | null
           id?: string
           notes?: string | null
+          priest_id?: string | null
           service_type?: string
           status?: string
           updated_at?: string | null
@@ -230,6 +236,13 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_priest_id_fkey"
+            columns: ["priest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -956,6 +969,7 @@ export type Database = {
           fcm_token: string | null
           full_name: string | null
           id: string
+          is_priest?: boolean | null
           is_verified: boolean | null
           phone_number: string | null
           role: Database["public"]["Enums"]["user_role"] | null
@@ -970,6 +984,7 @@ export type Database = {
           fcm_token?: string | null
           full_name?: string | null
           id: string
+          is_priest?: boolean | null
           is_verified?: boolean | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
@@ -984,6 +999,7 @@ export type Database = {
           fcm_token?: string | null
           full_name?: string | null
           id?: string
+          is_priest?: boolean | null
           is_verified?: boolean | null
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null

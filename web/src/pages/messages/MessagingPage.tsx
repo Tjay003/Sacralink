@@ -71,6 +71,7 @@ export default function MessagingPage() {
     const [contactSearch, setContactSearch] = useState('');
     const [contactRoleFilter, setContactRoleFilter] = useState<string>('all');
     const [contactChurchFilter, setContactChurchFilter] = useState<string>('all');
+    const [modalError, setModalError] = useState<string | null>(null);
 
     // Delete Conversation Modal
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -82,6 +83,8 @@ export default function MessagingPage() {
     const [allChurches, setAllChurches] = useState<Church[]>([]);
     const [showParishPickerModal, setShowParishPickerModal] = useState(false);
     const [parishSearch, setParishSearch] = useState('');
+
+    const userChurchId = (profile?.assigned_church_id || profile?.church_id) || undefined;
 
     // Video Conference Modal
     const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -97,15 +100,6 @@ export default function MessagingPage() {
     const activeConversation = useMemo(() => {
         return conversations.find((c) => c.id === activeConversationId) || null;
     }, [conversations, activeConversationId]);
-
-    // Fetch all churches for channel browsing (super_admin/admin) or filtering
-    useEffect(() => {
-        const loadChurches = async () => {
-            const list = await directFetchChurches();
-            setAllChurches(list || []);
-        };
-        loadChurches();
-    }, []);
 
     // Load conversations for the user
     const loadConversations = useCallback(async (selectFirst = false) => {
@@ -203,6 +197,20 @@ export default function MessagingPage() {
             unsubscribe();
         };
     }, [user, activeConversationId, loadConversations]);
+
+    // Load churches for Super Admin / Diocese Admin Parish Staff Channel selector
+    useEffect(() => {
+        if (!isSuperOrDioceseAdmin) return;
+        const loadChurches = async () => {
+            try {
+                const churches = await directFetchChurches();
+                setAllChurches(churches || []);
+            } catch (err) {
+                console.error('Failed to load churches for messaging:', err);
+            }
+        };
+        loadChurches();
+    }, [isSuperOrDioceseAdmin]);
 
     // Load messages when activeConversationId changes
     useEffect(() => {
@@ -396,6 +404,8 @@ export default function MessagingPage() {
         const title =
             targetConv.type === 'channel'
                 ? targetConv.title || 'Parish Staff Video Call'
+                : targetConv.type === 'group'
+                ? `${targetConv.title || 'Ministry'} Group Video Call`
                 : `Call with ${targetConv.otherParticipant?.full_name || 'Parish Member'}`;
 
         // Send a call invite message into the chat
@@ -431,11 +441,12 @@ export default function MessagingPage() {
 
     // Open "New Message" contact picker
     const handleOpenNewChatModal = async () => {
+        setModalError(null);
         setShowNewChatModal(true);
         if (!user) return;
         setLoadingContacts(true);
         try {
-            const { data, error } = await fetchAvailableContacts(user.id);
+            const { data, error } = await fetchAvailableContacts(user.id, undefined, profile?.role);
             if (error) throw error;
             setContacts(data || []);
         } catch (err) {
@@ -448,7 +459,16 @@ export default function MessagingPage() {
     // Select a contact from New Message modal
     const handleSelectContact = async (contactUser: ContactProfile | Profile) => {
         if (!user) return;
+
+        // Office Gateway guard: Parishioners cannot message priests directly
+        const isTargetPriest = contactUser.role === 'priest' || (contactUser as any).is_priest === true;
+        if (profile?.role === 'user' && isTargetPriest) {
+            setModalError('To contact parish clergy, please send a message to the Parish Office.');
+            return;
+        }
+
         setShowNewChatModal(false);
+        setModalError(null);
         try {
             setLoadingConversations(true);
             const { conversationId, error } = await getOrCreateDirectConversation(
@@ -461,14 +481,13 @@ export default function MessagingPage() {
                 setActiveConversationId(conversationId);
                 setMobileChatOpen(true);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error starting direct chat:', err);
+            alert(err?.message || 'Failed to start conversation.');
         } finally {
             setLoadingConversations(false);
         }
     };
-
-    const userChurchId = (profile?.assigned_church_id || profile?.church_id) || undefined;
 
     // Open or create Parish Staff Channel
     const handleOpenChurchStaffChannel = async (targetChurchId?: string, targetChurchName?: string) => {
@@ -516,6 +535,7 @@ export default function MessagingPage() {
         }
     };
 
+    // Open or create Parish Ministry Group Channel and immediately enter it
     // Helper to get participant profile with guaranteed fallback
     const getParticipantProfile = (conv: ConversationWithDetails) => {
         if (conv.otherParticipant) return conv.otherParticipant;
@@ -534,7 +554,7 @@ export default function MessagingPage() {
         return 'Parish Member';
     };
 
-    // Filter conversations by search term, ensuring parishioners only see direct chats
+    // Filter conversations
     const filteredConversations = useMemo(() => {
         let list = conversations;
         if (!isStaff) {
@@ -561,11 +581,24 @@ export default function MessagingPage() {
     const filteredContacts = useMemo(() => {
         let result = [...contacts];
 
+        // Strict Gateway: Parishioners can ONLY contact leadership/administrators:
+        // super_admin, admin (diocese admin), church_admin (parish admin).
+        // Under NO circumstances can regular users contact other regular users or priests directly.
+        if (profile?.role === 'user') {
+            result = result.filter((c) =>
+                ['super_admin', 'admin', 'church_admin'].includes(c.role || '') && !c.is_priest
+            );
+        }
+
         // Role filter
         if (contactRoleFilter === 'church_admin') {
             result = result.filter(
-                (c) => c.role === 'admin' || c.role === 'church_admin' || c.role === 'super_admin'
+                (c) => c.role === 'church_admin' && (profile?.role !== 'user' || !c.is_priest)
             );
+        } else if (contactRoleFilter === 'admin') {
+            result = result.filter((c) => c.role === 'admin');
+        } else if (contactRoleFilter === 'super_admin') {
+            result = result.filter((c) => c.role === 'super_admin');
         } else if (contactRoleFilter !== 'all') {
             result = result.filter((c) => (c.role || 'user') === contactRoleFilter);
         }
@@ -589,7 +622,7 @@ export default function MessagingPage() {
             });
         }
         return result;
-    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch]);
+    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role]);
 
     // Filtered parishes for Super Admin modal
     const filteredParishes = useMemo(() => {
@@ -785,13 +818,13 @@ export default function MessagingPage() {
                                 <div>
                                     <p className="text-sm font-semibold text-foreground">No conversations yet</p>
                                     <p className="text-xs text-muted mt-0.5">
-                                        Start a new conversation with parish staff or parishioners.
+                                        Start a new conversation with parish staff or administrators.
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={handleOpenNewChatModal}
-                                    className="btn-primary text-white text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1 mx-auto"
+                                    className="btn-primary text-white text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1 mx-auto cursor-pointer"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
                                     Start Chat
@@ -823,7 +856,7 @@ export default function MessagingPage() {
                                         {/* Avatar */}
                                         <div className="relative flex-shrink-0">
                                             {isChannel ? (
-                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-sm">
+                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shadow-xs">
                                                     <Building2 className="w-5 h-5" />
                                                 </div>
                                             ) : otherProf?.avatar_url ? (
@@ -833,7 +866,7 @@ export default function MessagingPage() {
                                                     className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-sm">
+                                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-xs">
                                                     {(displayName.charAt(0) || 'P').toUpperCase()}
                                                 </div>
                                             )}
@@ -950,11 +983,15 @@ export default function MessagingPage() {
                                                         <h2 className="text-sm sm:text-base font-bold text-foreground truncate min-w-0">
                                                             {headerTitle}
                                                         </h2>
-                                                        {!isChannel && (
+                                                        {!isChannel ? (
                                                             <span
                                                                 className={`text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${roleInfo.className}`}
                                                             >
                                                                 {roleInfo.label}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 flex-shrink-0">
+                                                                Staff Channel
                                                             </span>
                                                         )}
                                                     </div>
@@ -978,7 +1015,8 @@ export default function MessagingPage() {
                                         profile?.role === 'admin' ||
                                         profile?.role === 'church_admin' ||
                                         profile?.role === 'priest' ||
-                                        profile?.role === 'volunteer') && (
+                                        profile?.role === 'volunteer' ||
+                                        activeConversation.type === 'group') && (
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
@@ -990,8 +1028,8 @@ export default function MessagingPage() {
                                         </button>
                                     )}
 
-                                    {/* Delete Conversation Button (Direct Chats Only - Staff Channels are Permanent) */}
-                                    {activeConversation.type !== 'channel' && (
+                                    {/* Delete Conversation Button (Direct Chats Only - Staff & Ministry Channels are Permanent) */}
+                                    {activeConversation.type !== 'channel' && activeConversation.type !== 'group' && (
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -1022,11 +1060,14 @@ export default function MessagingPage() {
                                         </div>
                                         <div>
                                             <h4 className="text-base font-bold text-foreground">
-                                                Start of your conversation
+                                                {activeConversation.type === 'group'
+                                                    ? `Welcome to ${activeConversation.title || 'the Ministry Channel'}`
+                                                    : 'Start of your conversation'}
                                             </h4>
                                             <p className="text-xs text-muted max-w-sm mt-1">
-                                                Send your first message or start an instant video call to begin
-                                                coordinating.
+                                                {activeConversation.type === 'group'
+                                                    ? 'Share ministry announcements, schedule rehearsals, or coordinate activities safely with verified members.'
+                                                    : 'Send your first message or start an instant video call to begin coordinating.'}
                                             </p>
                                         </div>
                                     </div>
@@ -1222,8 +1263,9 @@ export default function MessagingPage() {
                                     No Conversation Selected
                                 </h3>
                                 <p className="text-xs sm:text-sm text-muted mt-1">
-                                    Select an existing conversation from the list or initiate a new direct
-                                    message with parish administrators, priests, volunteers, or parishioners.
+                                    {profile?.role === 'user'
+                                        ? 'Select an existing conversation from the list or initiate a new direct message with the parish office.'
+                                        : 'Select an existing conversation from the list or initiate a new direct message with parish administrators, priests, volunteers, or parishioners.'}
                                 </p>
                             </div>
                             <button
@@ -1246,10 +1288,21 @@ export default function MessagingPage() {
                 isOpen={showNewChatModal}
                 onClose={() => setShowNewChatModal(false)}
                 title="New Direct Conversation"
-                description="Search parish clergy, administrators, staff, or parishioners to start chatting"
+                description={
+                    profile?.role === 'user'
+                        ? 'Search parish office staff to start chatting'
+                        : 'Search parish clergy, administrators, staff, or parishioners to start chatting'
+                }
                 size="lg"
             >
                 <div className="space-y-4">
+                    {modalError && (
+                        <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                            <span>{modalError}</span>
+                        </div>
+                    )}
+
                     {/* Search & Filter */}
                     <div className="space-y-2.5">
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -1275,7 +1328,7 @@ export default function MessagingPage() {
                                     >
                                         <option value="all">All Parishes</option>
                                         {allChurches.map((ch) => (
-                                            <option key={ch.id} value={ch.id}>
+                                             <option key={ch.id} value={ch.id}>
                                                 {ch.name}
                                             </option>
                                         ))}
@@ -1288,12 +1341,18 @@ export default function MessagingPage() {
                         </div>
 
                         <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-                            {[
+                            {(profile?.role === 'user' ? [
+                                { id: 'all', label: 'All Administrators' },
+                                { id: 'church_admin', label: 'Parish Office' },
+                                { id: 'admin', label: 'Diocese Office' },
+                                { id: 'super_admin', label: 'Super Admin' },
+                            ] : [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'admin', label: 'Diocese Admins' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
-                            ].map((tab) => (
+                            ]).map((tab) => (
                                 <button
                                     key={tab.id}
                                     type="button"

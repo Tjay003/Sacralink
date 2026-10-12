@@ -4,6 +4,7 @@ import { useChurches } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { getDashboardAppointmentCounts, subscribeToAppointments } from '../../lib/supabase/appointments';
 import UserDashboard from './UserDashboard';
+import PriestDashboard from './PriestDashboard';
 import ChurchAdminDashboard from './ChurchAdminDashboard';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import UpcomingEventsTimeline from '../../components/dashboard/UpcomingEventsTimeline';
@@ -87,6 +88,11 @@ export default function DashboardPage() {
     // Show user dashboard for normal users
     if (profile?.role === 'user') {
         return <UserDashboard />;
+    }
+
+    // Show priest dashboard for priests
+    if (profile?.role === 'priest') {
+        return <PriestDashboard churchId={profile.assigned_church_id || null} />;
     }
 
     // Show church admin dashboard for church admins

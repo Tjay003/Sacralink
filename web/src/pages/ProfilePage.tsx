@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Mail, Phone, Shield, Calendar, Heart, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { User, Mail, Phone, Shield, Calendar, Heart, CheckCircle, XCircle, Clock, Cross } from 'lucide-react';
 import AvatarUpload from '../components/profile/AvatarUpload';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
-import { getCurrentProfile } from '../lib/supabase/profiles';
+import { getCurrentProfile, updateProfile } from '../lib/supabase/profiles';
 import { getUserDonations, type Donation } from '../lib/supabase/donations';
 import { format, formatDistanceToNow } from 'date-fns';
 
 export default function ProfilePage() {
-    const { refreshProfile } = useAuth();
+    const { refreshProfile, profile } = useAuth();
     const [profileData, setProfileData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -20,6 +20,10 @@ export default function ProfilePage() {
     const [donations, setDonations] = useState<Donation[]>([]);
     const [totalDonated, setTotalDonated] = useState(0);
     const [donationsLoading, setDonationsLoading] = useState(true);
+
+    const [isPriest, setIsPriest] = useState(false);
+    const [priestLoading, setPriestLoading] = useState(false);
+    const [priestMessage, setPriestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
         fetchProfile();
@@ -42,10 +46,38 @@ export default function ProfilePage() {
                 full_name: data?.full_name || '',
                 phone_number: data?.phone_number || ''
             });
+            setIsPriest(Boolean(data?.is_priest));
         } catch (error) {
             console.error('Error fetching profile:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleTogglePriest = async (newValue: boolean) => {
+        if (!profileData?.id) return;
+        setPriestLoading(true);
+        setPriestMessage(null);
+        try {
+            await updateProfile(profileData.id, { is_priest: newValue });
+            setIsPriest(newValue);
+            setProfileData((prev: any) => prev ? { ...prev, is_priest: newValue } : prev);
+            await refreshProfile();
+            setPriestMessage({
+                type: 'success',
+                text: newValue
+                    ? 'Ordained Catholic Priest status activated. Your personal liturgical celebrant calendar is now enabled.'
+                    : 'Clergy status updated to inactive.'
+            });
+            setTimeout(() => setPriestMessage(null), 4000);
+        } catch (err: any) {
+            console.error('Error toggling clergy status:', err);
+            setPriestMessage({
+                type: 'error',
+                text: err.message || 'Failed to update clergy status'
+            });
+        } finally {
+            setPriestLoading(false);
         }
     };
 
@@ -297,6 +329,91 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Clergy Status & Presiding Privileges (for Church Admin, Admin, and Super Admin) */}
+            {(profileData?.role === 'church_admin' || profileData?.role === 'admin' || (profileData?.role as string) === 'super_admin' || profile?.role === 'church_admin' || profile?.role === 'admin' || profile?.role === 'super_admin') && (
+                <div className="card p-6 border border-border rounded-2xl shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        <div className="flex items-start gap-3">
+                            <div className={`p-2.5 rounded-xl flex-shrink-0 transition-colors ${
+                                isPriest 
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' 
+                                    : 'bg-secondary-100 text-secondary-600 dark:bg-secondary-800 dark:text-secondary-400'
+                            }`}>
+                                <Cross className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h2 className="text-lg font-semibold text-foreground">Clergy Status & Presiding Privileges</h2>
+                                    {isPriest ? (
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 flex items-center gap-1">
+                                            <Cross className="w-3 h-3 text-amber-600" />
+                                            Active Celebrant
+                                        </span>
+                                    ) : (
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-600 dark:bg-secondary-800 dark:text-secondary-400">
+                                            Administrative Only
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted mt-1 leading-relaxed">
+                                    Configure liturgical presiding rights for ordained Catholic priests serving in parish leadership.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Toggle switch */}
+                        <div className="flex items-center gap-3 self-end sm:self-auto">
+                            {priestLoading && (
+                                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                            )}
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isPriest}
+                                onClick={() => handleTogglePriest(!isPriest)}
+                                disabled={priestLoading}
+                                aria-label="Toggle Ordained Catholic Priest status"
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    isPriest ? 'bg-amber-500' : 'bg-secondary-200 dark:bg-secondary-700'
+                                }`}
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                        isPriest ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Status Message Alert */}
+                    {priestMessage && (
+                        <div className={`p-3 rounded-xl text-xs font-medium mb-3 border animate-in fade-in ${
+                            priestMessage.type === 'success'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800'
+                                : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-800'
+                        }`}>
+                            {priestMessage.text}
+                        </div>
+                    )}
+
+                    <div className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60">
+                        <div className="flex items-start gap-2.5">
+                            <Cross className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                            <div className="space-y-1 text-xs text-amber-900/90 dark:text-amber-200/90">
+                                <p className="font-semibold">
+                                    Ordained Catholic Priest (Presiding Celebrant)
+                                </p>
+                                <p className="text-[11px] leading-relaxed text-amber-800/80 dark:text-amber-300/80">
+                                    Allows you to be assigned as celebrant for sacraments and enables your personal liturgical calendar.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* My Donations */}
             <div className="card p-6">

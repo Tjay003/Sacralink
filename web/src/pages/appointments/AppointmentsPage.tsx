@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X, ChevronDown } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Calendar, User, Building2, FileText, Search, X, ChevronDown, Cross } from 'lucide-react';
 import {
     getAppointments,
     updateAppointmentStatus,
@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
+import ApproveAppointmentModal from '../../components/appointments/ApproveAppointmentModal';
 import Modal from '../../components/ui/Modal';
 import Pagination from '../../components/common/Pagination';
 
@@ -31,22 +32,28 @@ export default function AppointmentsPage() {
 
     // Church filter — admin/super_admin only
     const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
-    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'volunteer';
+    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'volunteer' || profile?.role === 'priest';
     const { churches } = useChurches();
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
 
+    const userChurchId = profile?.assigned_church_id || profile?.church_id || null;
+
     // Effective church for display badge and scoping
     const effectiveChurchId = isChurchStaff
-        ? (profile?.assigned_church_id || null)
+        ? userChurchId
         : selectedChurchId === 'all' ? null : selectedChurchId;
 
     const activeChurchName = isChurchStaff
-        ? churches.find(c => c.id === profile?.assigned_church_id)?.name || 'Your Church'
+        ? churches.find(c => c.id === userChurchId)?.name || 'Your Church'
         : selectedChurchId === 'all'
             ? 'All Churches'
             : churches.find(c => c.id === selectedChurchId)?.name || 'Unknown';
 
-    // Confirmation modal state
+    // Approve modal state with priest assignment & feedback
+    const [approvingAppointment, setApprovingAppointment] = useState<Appointment | null>(null);
+    const [isApproving, setIsApproving] = useState(false);
+
+    // Confirmation modal state (for rejection)
     const [confirmModal, setConfirmModal] = useState<{
         open: boolean;
         appointmentId: string;
@@ -66,10 +73,40 @@ export default function AppointmentsPage() {
         closeConfirmModal();
     };
 
+    const handleApproveConfirm = async (priestId: string | null, adminFeedback: string | null) => {
+        if (!approvingAppointment) return;
+        try {
+            setIsApproving(true);
+            const { success, error: updateErr } = await updateAppointmentStatus(
+                approvingAppointment.id,
+                'approved',
+                {
+                    serviceType: approvingAppointment.service_type,
+                    userId: approvingAppointment.user_id,
+                    priestId,
+                    adminFeedback,
+                    appointmentDate: approvingAppointment.appointment_date,
+                    appointmentTime: approvingAppointment.appointment_time,
+                }
+            );
+
+            if (!success || updateErr) throw updateErr;
+
+            await fetchAppointments();
+            setApprovingAppointment(null);
+        } catch (err) {
+            console.error('Error saving appointment:', err);
+            alert('Failed to save appointment changes');
+        } finally {
+            setIsApproving(false);
+        }
+    };
+
     const canManageAppointments = profile?.role === 'admin'
         || profile?.role === 'super_admin'
         || profile?.role === 'church_admin'
-        || profile?.role === 'volunteer';
+        || profile?.role === 'volunteer'
+        || profile?.role === 'priest';
 
     const fetchAppointments = useCallback(async () => {
         try {
@@ -362,6 +399,40 @@ export default function AppointmentsPage() {
                                         <strong>Notes:</strong> {appointment.notes}
                                     </div>
                                 )}
+
+                                {/* Celebrant Badge */}
+                                {(appointment.status === 'approved' || appointment.priest) && (
+                                    <div className="pt-1">
+                                        {appointment.priest ? (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                                                <Cross className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                                <span>
+                                                    Celebrant:{' '}
+                                                    {appointment.priest.full_name?.trim().toLowerCase().startsWith('fr.') ||
+                                                    appointment.priest.full_name?.trim().toLowerCase().startsWith('father ')
+                                                        ? appointment.priest.full_name.trim()
+                                                        : `Fr. ${appointment.priest.full_name?.trim() || 'Assigned Clergy'}`}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 text-xs font-medium">
+                                                <Cross className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                                <span>Celebrant: Parish Clergy</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Admin Feedback / Instructions from Parish Office */}
+                                {appointment.admin_feedback && (
+                                    <div className="mt-2 text-sm bg-blue-50/70 border border-blue-200/80 p-2.5 rounded-lg text-blue-950">
+                                        <p className="font-semibold text-xs text-blue-900 uppercase tracking-wide flex items-center gap-1 mb-0.5">
+                                            <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                            Note from Parish Office
+                                        </p>
+                                        <p className="text-xs sm:text-sm whitespace-pre-wrap">{appointment.admin_feedback}</p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Right-side Actions Panel */}
@@ -370,7 +441,7 @@ export default function AppointmentsPage() {
                                 {canManageAppointments && appointment.status === 'pending' && (
                                     <>
                                         <button
-                                            onClick={() => openConfirmModal(appointment.id, 'approved', appointment.service_type)}
+                                            onClick={() => setApprovingAppointment(appointment)}
                                             className="btn-primary bg-green-600 hover:bg-green-700 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full"
                                         >
                                             <CheckCircle className="w-4 h-4 shrink-0" />
@@ -384,6 +455,18 @@ export default function AppointmentsPage() {
                                             Reject
                                         </button>
                                     </>
+                                )}
+
+                                {/* Assign / Change Celebrant — only for managers on approved appointments */}
+                                {canManageAppointments && appointment.status === 'approved' && (
+                                    <button
+                                        onClick={() => setApprovingAppointment(appointment)}
+                                        className="btn-secondary text-amber-700 border-amber-300 hover:bg-amber-50 flex items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-sm w-full font-medium"
+                                        title={appointment.priest_id ? 'Change presiding celebrant' : 'Assign presiding celebrant'}
+                                    >
+                                        <Cross className="w-4 h-4 text-amber-600 shrink-0" />
+                                        {appointment.priest_id ? 'Change Celebrant' : 'Assign Celebrant'}
+                                    </button>
                                 )}
 
                                 {/* Docs button — always visible to managers */}
@@ -440,6 +523,17 @@ export default function AppointmentsPage() {
                     onClose={() => setViewingDocumentsFor(null)}
                 />
             )}
+
+            {/* Approve Appointment Modal with Celebrant Picker & Feedback */}
+            <ApproveAppointmentModal
+                isOpen={!!approvingAppointment}
+                onClose={() => {
+                    if (!isApproving) setApprovingAppointment(null);
+                }}
+                appointment={approvingAppointment}
+                onConfirm={handleApproveConfirm}
+                isSubmitting={isApproving}
+            />
 
             {/* Approve / Reject Confirmation Modal */}
             <Modal

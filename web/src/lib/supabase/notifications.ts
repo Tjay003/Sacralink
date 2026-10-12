@@ -1,11 +1,14 @@
 import { supabase } from '../supabase';
 
 export interface CreateNotificationParams {
-    userId: string;
+    userId?: string;
+    user_id?: string;
     type: string;
     title: string;
     message: string;
     link?: string;
+    entity_id?: string;
+    entityId?: string;
 }
 
 /**
@@ -13,13 +16,23 @@ export interface CreateNotificationParams {
  */
 export async function createNotification({
     userId,
+    user_id,
     type,
     title,
     message,
-    link
+    link,
+    entity_id,
+    entityId,
 }: CreateNotificationParams) {
+    const targetUserId = userId || user_id;
+    if (!targetUserId) {
+        console.error('❌ Cannot create notification: Missing userId');
+        return { data: null, error: new Error('Missing userId') };
+    }
+    const resolvedLink = link || (entity_id || entityId ? '/appointments' : undefined);
+
     try {
-        console.log('📨 Creating notification:', { userId, type, title, message, link });
+        console.log('📨 Creating notification:', { userId: targetUserId, type, title, message, link: resolvedLink });
 
 
         // Note: No .select() here — adding it would cause a 403 for cross-user notifications
@@ -29,11 +42,11 @@ export async function createNotification({
             .from('notifications')
             // @ts-ignore - Supabase type inference issue with notifications table
             .insert({
-                user_id: userId,
+                user_id: targetUserId,
                 type,
                 title,
                 message,
-                link
+                link: resolvedLink
             }) as any);
 
         if (error) {

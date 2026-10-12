@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink } from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink, Building2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import PriestDashboard from './PriestDashboard';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
 import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
@@ -16,11 +18,15 @@ interface ChurchAdminDashboardProps {
 }
 
 export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardProps) {
+    const { profile } = useAuth();
     const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState<'operations' | 'schedule'>('operations');
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [syncMessage, setSyncMessage] = useState('');
     const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+    const isPriest = Boolean(profile?.is_priest);
 
     const handleSyncAI = async () => {
         if (!churchId || isSyncing) return;
@@ -56,9 +62,37 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
         }
     };
 
-    if (!churchId) {
+    if (!churchId && (!isPriest || activeTab !== 'schedule')) {
         return (
             <div className="space-y-6">
+                {isPriest && (
+                    <div className="flex items-center gap-2 border-b border-border pb-3">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('operations')}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                                activeTab === 'operations'
+                                    ? 'bg-primary text-white shadow-xs'
+                                    : 'bg-white border border-border text-foreground hover:bg-secondary-50'
+                            }`}
+                        >
+                            <Building2 className="w-4 h-4" />
+                            Parish Operations
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('schedule')}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                                activeTab === 'schedule'
+                                    ? 'bg-primary text-white shadow-xs'
+                                    : 'bg-white border border-border text-foreground hover:bg-secondary-50'
+                            }`}
+                        >
+                            <Calendar className="w-4 h-4 text-amber-500" />
+                            My Celebrant Schedule
+                        </button>
+                    </div>
+                )}
                 <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
                     <AlertCircle className="w-12 h-12 mx-auto text-red-600 mb-4" />
                     <h3 className="text-lg font-semibold text-red-900 mb-2">No Church Assigned</h3>
@@ -72,9 +106,44 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
 
     return (
         <div className="space-y-6">
-            <SystemAnnouncementsBanner />
-            <ChurchHeader churchId={churchId} />
-            <ChurchStatsCards churchId={churchId} />
+            {isPriest && (
+                <div className="flex items-center gap-2 border-b border-border pb-3">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('operations')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                            activeTab === 'operations'
+                                ? 'bg-primary text-white shadow-xs'
+                                : 'bg-white border border-border text-foreground hover:bg-secondary-50'
+                        }`}
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Parish Operations
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('schedule')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                            activeTab === 'schedule'
+                                ? 'bg-primary text-white shadow-xs'
+                                : 'bg-white border border-border text-foreground hover:bg-secondary-50'
+                        }`}
+                    >
+                        <Calendar className="w-4 h-4 text-amber-500" />
+                        My Celebrant Schedule
+                    </button>
+                </div>
+            )}
+
+            {isPriest && activeTab === 'schedule' ? (
+                <PriestDashboard churchId={churchId} />
+            ) : (
+                <>
+                    <SystemAnnouncementsBanner />
+                    {churchId && (
+                        <>
+                            <ChurchHeader churchId={churchId} />
+                            <ChurchStatsCards churchId={churchId} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column */}
@@ -152,6 +221,10 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                     )}
                 </div>
             </div>
+                        </>
+                    )}
+                </>
+            )}
         </div>
     );
 }

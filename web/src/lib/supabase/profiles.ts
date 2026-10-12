@@ -1,5 +1,19 @@
 import { supabase } from '../supabase';
 import imageCompression from 'browser-image-compression';
+import type { Database, Profile } from '../../types/database';
+import { getStoredPriestStatus, setStoredPriestStatus } from '../directApi';
+
+export type ProfileUpdate = {
+    full_name?: string | null;
+    avatar_url?: string | null;
+    church_id?: string | null;
+    assigned_church_id?: string | null;
+    role?: Database['public']['Enums']['user_role'] | null;
+    is_priest?: boolean | null;
+    phone_number?: string | null;
+    is_verified?: boolean | null;
+    fcm_token?: string | null;
+};
 
 /**
  * Compress and resize image before upload
@@ -134,5 +148,131 @@ export async function getCurrentProfile() {
         .single();
 
     if (error) throw error;
+    if (data) {
+        const storedPriest = getStoredPriestStatus(data.id);
+        if (storedPriest !== null) {
+            (data as Profile).is_priest = storedPriest;
+        }
+    }
     return data;
 }
+
+/**
+ * Get profile by user ID
+ */
+export async function getProfileById(userId: string): Promise<Profile | null> {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching profile by ID:', error);
+        return null;
+    }
+    if (data) {
+        const storedPriest = getStoredPriestStatus(data.id);
+        if (storedPriest !== null) {
+            (data as Profile).is_priest = storedPriest;
+        }
+    }
+    return data;
+}
+
+/**
+ * Update user profile
+ */
+export async function updateProfile(userId: string, updates: ProfileUpdate): Promise<Profile> {
+    if (updates.is_priest !== undefined && updates.is_priest !== null) {
+        setStoredPriestStatus(userId, updates.is_priest);
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({
+                ...updates,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId)
+            .select('*')
+            .single();
+
+        if (error) {
+            // Check if error is due to missing is_priest column in remote database
+            if (updates.is_priest !== undefined) {
+                console.warn('updateProfile: remote DB error, retrying without is_priest column:', error);
+                const { is_priest, ...updatesWithoutPriest } = updates;
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('profiles')
+                    .update({
+                        ...updatesWithoutPriest,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', userId)
+                    .select('*')
+                    .single();
+
+                if (fallbackError) {
+                    throw fallbackError;
+                }
+                const result = fallbackData as Profile;
+                result.is_priest = is_priest;
+                return result;
+            }
+            throw error;
+        }
+
+        const result = data as Profile;
+        if (updates.is_priest !== undefined && updates.is_priest !== null) {
+            result.is_priest = updates.is_priest;
+        }
+        return result;
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+    }
+}
+
+/**
+ * Fetch priests and ordained clergy profiles for a church (or all clergy)
+ */
+export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
+    try {
+        let query = supabase
+            .from('profiles')
+            .select('*')
+            .or('role.eq.priest,role.eq.church_admin,role.eq.admin,is_priest.eq.true');
+
+        if (churchId) {
+            query = query.or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`);
+        }
+
+        const { data, error } = await query.order('full_name', { ascending: true });
+        if (error) {
+            throw error;
+        }
+        return (data || []).map(p => {
+            const lp = getStoredPriestStatus(p.id);
+            if (lp !== null) p.is_priest = lp;
+            return p;
+        });
+    } catch (err) {
+        console.warn('Falling back getChurchPriests without is_priest column query:', err);
+        let fallbackQuery = supabase
+            .from('profiles')
+            .select('*')
+            .in('role', ['priest', 'church_admin', 'admin']);
+        if (churchId) {
+            fallbackQuery = fallbackQuery.or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`);
+        }
+        const { data } = await fallbackQuery.order('full_name', { ascending: true });
+        return (data || []).map(p => {
+            const lp = getStoredPriestStatus(p.id);
+            if (lp !== null) p.is_priest = lp;
+            return p;
+        });
+    }
+}
+

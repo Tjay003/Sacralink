@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +15,11 @@ import SocialAuthButtons from '../../components/auth/SocialAuthButtons';
 
 import { Card, CardContent } from "@/components/ui/card"
 import logo from '../../assets/logo.png';
+import {
+    checkLoginRateLimit,
+    recordFailedLogin,
+    recordSuccessfulLogin,
+} from '../../lib/authRateLimiter';
 
 const loginSchema = z.object({
     email: z.string().email('Please enter a valid email address'),
@@ -28,22 +33,78 @@ export default function LoginPage() {
     const { signIn } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
 
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors, isSubmitting },
     } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
     });
 
+    const watchedEmail = watch('email');
+
+    // Check rate limit status whenever email changes
+    useEffect(() => {
+        if (!watchedEmail) {
+            setLockoutSeconds(0);
+            return;
+        }
+        const check = checkLoginRateLimit(watchedEmail);
+        if (check.isLocked) {
+            setLockoutSeconds(check.remainingSeconds);
+            setError(`Security lock: Too many failed login attempts. Please wait ${check.remainingSeconds}s before trying again.`);
+        } else {
+            setLockoutSeconds(0);
+        }
+    }, [watchedEmail]);
+
+    // Active countdown timer
+    useEffect(() => {
+        if (lockoutSeconds <= 0) return;
+
+        const interval = setInterval(() => {
+            setLockoutSeconds((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    setError(null);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [lockoutSeconds]);
+
     const onSubmit = async (data: LoginFormData) => {
         try {
             setError(null);
+            const check = checkLoginRateLimit(data.email);
+            if (check.isLocked) {
+                setLockoutSeconds(check.remainingSeconds);
+                setError(`Security lock: Too many failed login attempts. Please wait ${check.remainingSeconds}s before trying again.`);
+                return;
+            }
+
             await signIn(data.email, data.password);
+            recordSuccessfulLogin(data.email);
             navigate('/dashboard');
-        } catch (err) {
-            setError('Invalid email or password');
+        } catch {
+            const result = recordFailedLogin(data.email);
+            if (result.isLocked) {
+                setLockoutSeconds(result.remainingSeconds);
+                setError(`Security lock: Account access temporarily suspended due to ${result.attempts} failed login attempts. Please wait ${result.remainingSeconds}s.`);
+            } else {
+                const remainingTries = 5 - result.attempts;
+                if (remainingTries <= 2 && remainingTries > 0) {
+                    setError(`Invalid email or password. Warning: ${remainingTries} attempt${remainingTries === 1 ? '' : 's'} remaining before temporary security lock.`);
+                } else {
+                    setError('Invalid email or password');
+                }
+            }
         }
     };
 
@@ -131,16 +192,27 @@ export default function LoginPage() {
                                 </Link>
                             </div>
 
+                            {lockoutSeconds > 0 && (
+                                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>
+                                        Account temporarily locked: Please wait <strong>{lockoutSeconds}s</strong> before attempting to log in again.
+                                    </span>
+                                </div>
+                            )}
+
                             <Button
                                 type="submit"
-                                className="w-full rounded-lg h-12 sm:h-14 text-base shadow-md transition-all duration-200 ease-in-out hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary hover:bg-primary/90 text-white"
-                                disabled={isSubmitting}
+                                className="w-full rounded-lg h-12 sm:h-14 text-base shadow-md transition-all duration-200 ease-in-out hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] bg-primary hover:bg-primary/90 text-white cursor-pointer disabled:cursor-not-allowed"
+                                disabled={isSubmitting || lockoutSeconds > 0}
                             >
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         Wait...
                                     </>
+                                ) : lockoutSeconds > 0 ? (
+                                    `Locked (${lockoutSeconds}s)`
                                 ) : (
                                     'Login'
                                 )}

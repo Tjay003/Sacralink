@@ -4,7 +4,7 @@ import { directUpdateProfile } from '../../lib/directApi';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import type { Profile, UserRole } from '../../types/database';
-import { ShieldAlert, Lock, AlertCircle, Crown, ArrowRightLeft } from 'lucide-react';
+import { ShieldAlert, Lock, AlertCircle, Crown, ArrowRightLeft, Cross } from 'lucide-react';
 
 interface EditRoleModalProps {
     user: Profile;
@@ -17,9 +17,11 @@ interface EditRoleModalProps {
  * EditRoleModal - Modal to change a user's role and assigned church
  * 
  * Permissions & Invariants:
- * - Super Admin: Can set standard roles ('admin', 'church_admin', 'volunteer', 'user') across any church.
- * - Church Admin: Can set limited roles ('user', 'volunteer', 'church_admin') ONLY for their assigned church.
+ * - Super Admin: Can set standard roles ('admin', 'church_admin', 'priest', 'volunteer', 'user') across any church.
+ * - Church Admin: Can set limited roles ('user', 'volunteer', 'priest', 'church_admin') ONLY for their assigned church.
  * - Super Admin role is immutable via standard role pickers and can ONLY be transferred via TransferOwnershipModal.
+ * - Dual-role Priest-Administrators (church_admin/admin who are ordained priests) can be toggled as is_priest.
+ * - Dedicated priests (role = 'priest') are automatically is_priest = true.
  */
 export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransferModal }: EditRoleModalProps) {
     const { session, profile: currentProfile } = useAuth();
@@ -29,6 +31,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
 
     const [selectedRole, setSelectedRole] = useState(user.role || 'user');
     const [selectedChurchId, setSelectedChurchId] = useState(user.assigned_church_id || '');
+    const [isPriest, setIsPriest] = useState<boolean>(user.is_priest ?? (user.role === 'priest'));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -43,8 +46,19 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
 
     // Available roles: super_admin is strictly excluded for all callers
     const availableRoles = isSuperAdmin
-        ? ['user', 'volunteer', 'church_admin', 'admin']
-        : ['user', 'volunteer', 'church_admin'];
+        ? ['user', 'volunteer', 'priest', 'church_admin', 'admin']
+        : ['user', 'volunteer', 'priest', 'church_admin'];
+
+    // Clergy toggle is available for admin or church_admin roles
+    const isClergyToggleEligible = selectedRole === 'church_admin' || selectedRole === 'admin';
+
+    // Handler when role selection changes
+    const handleRoleChange = (newRole: UserRole) => {
+        setSelectedRole(newRole);
+        if (newRole === 'priest') {
+            setIsPriest(true);
+        }
+    };
 
     // Determine if church selection is allowed
     // Super Admin can select any church.
@@ -85,11 +99,14 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
         setLoading(true);
         setError('');
 
+        const finalIsPriest = selectedRole === 'priest' ? true : (isClergyToggleEligible ? isPriest : false);
+
         const result = await directUpdateProfile(
             user.id,
             {
                 role: selectedRole,
-                assigned_church_id: finalChurchId || null
+                assigned_church_id: finalChurchId || null,
+                is_priest: finalIsPriest
             },
             session.access_token
         );
@@ -106,7 +123,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
         <Modal
             isOpen={true}
             onClose={onClose}
-            title="Edit User Access"
+            title={isSelf ? "Edit Clergy & Account Status" : "Edit User Access"}
             size="md"
         >
             {/* Super Admin Protection Banner */}
@@ -136,9 +153,9 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     </label>
                     <select
                         value={selectedRole || 'user'}
-                        onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                        onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                         className="input w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                        disabled={loading || !canEditThisUser}
+                        disabled={loading || !canEditThisUser || isSelf}
                     >
                         {isEditingSuperAdmin && (
                             <option value="super_admin">Super Admin (Platform Owner)</option>
@@ -149,7 +166,64 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                             </option>
                         ))}
                     </select>
+                    {isSelf && (
+                        <p className="text-[11px] text-muted mt-1">
+                            Your administrative role is locked. You can manage your Ordained Catholic Priest status below.
+                        </p>
+                    )}
                 </div>
+
+                {/* Clergy Notice for Dedicated Priests */}
+                {selectedRole === 'priest' && (
+                    <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 rounded-xl flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-200">
+                        <Cross className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <span>Dedicated Priest account is automatically authorized as an ordained sacramental celebrant.</span>
+                    </div>
+                )}
+
+                {/* Clergy Toggle Switch for Administrators */}
+                {isClergyToggleEligible && (
+                    <div className="p-3.5 rounded-xl border border-border bg-white dark:bg-secondary-900/40 shadow-sm flex items-center justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`p-2 rounded-lg flex-shrink-0 mt-0.5 transition-colors ${
+                                isPriest 
+                                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' 
+                                    : 'bg-secondary-100 dark:bg-secondary-800 text-secondary-500'
+                            }`}>
+                                <Cross className="w-4 h-4" />
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                                <label 
+                                    htmlFor="is-priest-toggle" 
+                                    className="text-xs font-bold text-foreground block cursor-pointer select-none"
+                                >
+                                    Ordained Catholic Priest
+                                </label>
+                                <p className="text-[11px] text-muted leading-relaxed">
+                                    Allows this administrator to be assigned as a sacramental celebrant
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            id="is-priest-toggle"
+                            role="switch"
+                            aria-checked={isPriest}
+                            onClick={() => setIsPriest(!isPriest)}
+                            disabled={loading || !canEditThisUser}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isPriest ? 'bg-amber-500' : 'bg-secondary-200 dark:bg-secondary-700'
+                            }`}
+                        >
+                            <span
+                                aria-hidden="true"
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    isPriest ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                            />
+                        </button>
+                    </div>
+                )}
 
                 {/* Church Selection */}
                 <div>
