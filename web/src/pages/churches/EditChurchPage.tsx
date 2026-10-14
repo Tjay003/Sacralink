@@ -53,6 +53,8 @@ export default function EditChurchPage() {
     });
 
     const [uploadingQr, setUploadingQr] = useState(false);
+    const [qrError, setQrError] = useState('');
+    const [qrSuccess, setQrSuccess] = useState('');
     const [uploading, setUploading] = useState(false);
     const [galleryImages, setGalleryImages] = useState<Tables<'church_images'>[]>([]);
 
@@ -106,16 +108,17 @@ export default function EditChurchPage() {
 
     // Redirect if not authorized
     // Super Admin: All access
-    // Admin: Access if church_id matches
-    // Church Admin / Volunteer: Access if assigned_church_id matches
+    // Admin, Church Admin, Volunteer, Priest: Access if assigned_church_id or church_id matches
     const canAccess = () => {
         if (!profile) return false;
         if (profile.role === 'super_admin') return true;
 
-        // For admin, church_admin, volunteer -> check if they are editing THEIR church
-        if (id) {
-            if (profile.role === 'admin' && profile.assigned_church_id === id) return true;
-            if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === id) return true;
+        if (id && profile.role) {
+            const userChurchId = profile.assigned_church_id || profile.church_id;
+            const staffRoles: string[] = ['admin', 'church_admin', 'volunteer', 'priest'];
+            if (staffRoles.includes(profile.role) && userChurchId === id) {
+                return true;
+            }
         }
 
         return false;
@@ -151,20 +154,54 @@ export default function EditChurchPage() {
     const handleQrUpload = async (field: 'gcash_qr_url' | 'maya_qr_url', e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `qr/${id}-${field}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        // Reset input value so re-selecting the exact same file triggers onChange
+        e.target.value = '';
+
+        // Validate MIME type
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            setQrError('Only JPEG, PNG, or WebP images are supported.');
+            return;
+        }
+
+        // Validate file size limit (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setQrError('File size exceeds 5MB limit. Please choose a smaller image.');
+            return;
+        }
+
+        const fileExt = file.name.split('.').pop() || 'png';
+        const fileName = `${id}/${field}-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         setUploadingQr(true);
         setError('');
+        setQrError('');
+        setQrSuccess('');
+
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('church-images')
+            // Attempt upload to primary church-images bucket with fallback to donation-qr
+            let uploadBucket = 'church-images';
+            let { error: uploadError } = await supabase.storage
+                .from(uploadBucket)
                 .upload(fileName, file, { upsert: true });
-            if (uploadError) throw uploadError;
-            const { data } = supabase.storage.from('church-images').getPublicUrl(fileName);
+
+            if (uploadError) {
+                console.warn('Upload to church-images failed, trying donation-qr bucket:', uploadError);
+                uploadBucket = 'donation-qr';
+                const retry = await supabase.storage
+                    .from(uploadBucket)
+                    .upload(fileName, file, { upsert: true });
+                if (retry.error) throw retry.error;
+            }
+
+            const { data } = supabase.storage.from(uploadBucket).getPublicUrl(fileName);
             setFormData(prev => ({ ...prev, [field]: data.publicUrl }));
+            const label = field === 'gcash_qr_url' ? 'GCash QR' : 'Maya QR';
+            setQrSuccess(`✓ ${label} uploaded! Click "Save Changes" below to apply.`);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to upload QR image';
             setError('Failed to upload QR image: ' + message);
+            setQrError('Failed to upload QR image: ' + message);
         } finally {
             setUploadingQr(false);
         }
@@ -178,11 +215,13 @@ export default function EditChurchPage() {
         // Validation
         if (!formData.name.trim()) {
             setError('Church name is required');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
         if (!formData.address.trim()) {
             setError('Address is required');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -195,6 +234,7 @@ export default function EditChurchPage() {
         if (contact && !/^(\+639|09)\d{9}$/.test(contact.replace(/\s/g, ''))) {
             setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
             setLoading(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
@@ -232,6 +272,7 @@ export default function EditChurchPage() {
                 console.error('❌ Error updating church:', updateError);
                 setError(updateError.message);
                 setLoading(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
 
@@ -247,6 +288,7 @@ export default function EditChurchPage() {
             console.error('❌ Unexpected error:', err);
             setError('Failed to update church');
             setLoading(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
@@ -702,6 +744,29 @@ export default function EditChurchPage() {
                             Set up payment methods so members can donate to this church.
                         </p>
 
+                        {/* Inline QR Upload Alerts */}
+                        {qrError && (
+                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+                                <span className="font-bold">⚠️</span>
+                                <span>{qrError}</span>
+                            </div>
+                        )}
+                        {qrSuccess && (
+                            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                                <span>{qrSuccess}</span>
+                            </div>
+                        )}
+
+                        {/* Anti-Fraud Protection Notice for Unverified Churches */}
+                        {formData.status === 'unverified' && (
+                            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+                                <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <span className="font-semibold">Anti-Fraud Shield Active:</span> Your parish is currently <em>Unverified / Under Audit</em>. You can upload and save your GCash/Maya QR codes now to assist diocesan verification. Note that cashless giving options remain hidden from parishioners on live streams and public pages until approved by Diocese Super Admin.
+                                </div>
+                            </div>
+                        )}
+
                         {/* GCash */}
                         <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 space-y-3">
                             <p className="text-sm font-semibold text-blue-700">💙 GCash</p>
@@ -728,8 +793,9 @@ export default function EditChurchPage() {
                                         <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors">
                                             <QrCode className="w-3.5 h-3.5" />
                                             {uploadingQr ? 'Uploading...' : formData.gcash_qr_url ? 'Replace' : 'Upload QR'}
-                                            <input type="file" accept="image/*" onChange={(e) => handleQrUpload('gcash_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
+                                            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleQrUpload('gcash_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
                                         </label>
+                                        <p className="text-[10px] text-muted">PNG, JPG, WebP up to 5MB</p>
                                         {formData.gcash_qr_url && (
                                             <button type="button" onClick={() => setFormData(p => ({ ...p, gcash_qr_url: '' }))} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
                                                 <X className="w-3 h-3" /> Remove
@@ -766,8 +832,9 @@ export default function EditChurchPage() {
                                         <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors">
                                             <QrCode className="w-3.5 h-3.5" />
                                             {uploadingQr ? 'Uploading...' : formData.maya_qr_url ? 'Replace' : 'Upload QR'}
-                                            <input type="file" accept="image/*" onChange={(e) => handleQrUpload('maya_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
+                                            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => handleQrUpload('maya_qr_url', e)} disabled={loading || uploadingQr} className="hidden" />
                                         </label>
+                                        <p className="text-[10px] text-muted">PNG, JPG, WebP up to 5MB</p>
                                         {formData.maya_qr_url && (
                                             <button type="button" onClick={() => setFormData(p => ({ ...p, maya_qr_url: '' }))} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700">
                                                 <X className="w-3 h-3" /> Remove
