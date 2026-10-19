@@ -455,9 +455,9 @@ export default function ChurchLocationPicker({
 
       {/* Address Geocoding Search Box */}
       <div className="relative">
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -476,7 +476,7 @@ export default function ChurchLocationPicker({
               }}
               disabled={disabled || isSearching}
               placeholder="Search church address, landmark, or barangay in CSJDM..."
-              className="input w-full pl-9 pr-8 text-sm"
+              className="input w-full pl-10 pr-9 text-sm h-11 rounded-xl"
             />
             {searchQuery && (
               <button
@@ -486,7 +486,7 @@ export default function ChurchLocationPicker({
                   setSearchResults([]);
                   setShowDropdown(false);
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs p-1 cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -496,7 +496,7 @@ export default function ChurchLocationPicker({
             type="button"
             onClick={() => void handleSearch()}
             disabled={disabled || isSearching || !searchQuery.trim()}
-            className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="btn-primary h-11 px-5 py-2.5 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0 cursor-pointer shadow-xs"
           >
             {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             <span>{isSearching ? 'Searching...' : 'Search Location'}</span>
@@ -637,7 +637,7 @@ export default function ChurchLocationPicker({
               }}
               disabled={disabled}
               placeholder="e.g., 14.813500"
-              className="input w-full font-mono text-xs"
+              className="input w-full font-mono text-xs rounded-xl h-10"
             />
           </div>
           <div>
@@ -657,7 +657,7 @@ export default function ChurchLocationPicker({
               }}
               disabled={disabled}
               placeholder="e.g., 121.045300"
-              className="input w-full font-mono text-xs"
+              className="input w-full font-mono text-xs rounded-xl h-10"
             />
           </div>
         </div>

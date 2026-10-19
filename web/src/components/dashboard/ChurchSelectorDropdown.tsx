@@ -5,18 +5,25 @@ import { useChurches } from '../../hooks/useChurches';
 interface ChurchSelectorDropdownProps {
     selectedChurchId: string | null;
     onChurchSelect: (churchId: string | null) => void;
+    variant?: 'light' | 'dark';
+    allLabel?: string;
 }
 
 /**
  * ChurchSelectorDropdown - Dropdown for super admins to select a church
  * 
  * Features:
- * - "All Churches" option (default)
+ * - "All parishes" option (default)
  * - Individual church options with status badges
  * - Search/filter capability
- * - Maintains existing color scheme
+ * - Supports light card and dark theme variants
  */
-export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelect }: ChurchSelectorDropdownProps) {
+export default function ChurchSelectorDropdown({
+    selectedChurchId,
+    onChurchSelect,
+    variant = 'light',
+    allLabel = 'All parishes',
+}: ChurchSelectorDropdownProps) {
     const { churches, loading } = useChurches();
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +49,7 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
 
     // Get selected church name
     const selectedChurch = churches.find(c => c.id === selectedChurchId);
-    const displayText = selectedChurch ? selectedChurch.name : 'All Churches';
+    const displayText = selectedChurch ? selectedChurch.name : allLabel;
 
     const handleSelect = (churchId: string | null) => {
         onChurchSelect(churchId);
@@ -50,26 +57,32 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
         setSearchQuery('');
     };
 
+    const isLight = variant === 'light';
+
     return (
-        <div ref={dropdownRef} className="relative w-full max-w-md">
+        <div ref={dropdownRef} className="relative w-full">
             {/* Dropdown Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 disabled={loading}
-                className="w-full flex items-center justify-between px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg transition-colors disabled:opacity-50"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all disabled:opacity-50 ${
+                    isLight
+                        ? 'bg-white hover:bg-secondary-50 border border-border text-foreground shadow-xs'
+                        : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
+                }`}
             >
-                <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-white" />
-                    <span className="text-sm font-medium text-white">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <Building2 className={`w-4 h-4 flex-shrink-0 ${isLight ? 'text-primary' : 'text-white'}`} />
+                    <span className={`text-xs sm:text-sm font-semibold truncate ${isLight ? 'text-foreground' : 'text-white'}`}>
                         {loading ? 'Loading...' : displayText}
                     </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-white transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${isLight ? 'text-secondary-500' : 'text-white'} ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-2xl max-h-96 overflow-hidden">
+                <div className="absolute left-0 z-[100] w-full sm:min-w-[380px] lg:min-w-[420px] max-w-[calc(100vw-2rem)] mt-2 bg-white border border-border/80 rounded-2xl shadow-2xl max-h-96 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
                     {/* Search Input */}
                     <div className="p-3 border-b bg-background">
                         <div className="relative">
@@ -106,7 +119,7 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                                     }`} />
                                 </div>
                                 <div>
-                                    <div className="text-sm font-semibold text-foreground">All Churches</div>
+                                    <div className="text-sm font-semibold text-foreground">{allLabel}</div>
                                     <div className="text-xs text-gray-500">Diocese-wide view</div>
                                 </div>
                             </div>
@@ -134,23 +147,25 @@ export default function ChurchSelectorDropdown({ selectedChurchId, onChurchSelec
                                             : 'hover:bg-blue-50/60 border-l-2 border-transparent'
                                     }`}
                                 >
-                                    <div className="flex-1 min-w-0">
+                                    <div className="flex-1 min-w-0 pr-2">
                                         <div className="flex items-center gap-2 mb-0.5">
                                             <span className={`text-sm font-medium truncate transition-colors ${
                                                 selectedChurchId === church.id ? 'text-blue-700' : 'text-foreground group-hover:text-blue-700'
                                             }`}>
                                                 {church.name}
                                             </span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                                                church.status === 'active'
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : 'bg-gray-100 text-gray-600'
+                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 uppercase tracking-wide ${
+                                                church.status === 'verified_active'
+                                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                                    : church.status === 'active'
+                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                                    : 'bg-gray-100 text-gray-600 border border-gray-200'
                                             }`}>
-                                                {church.status}
+                                                {church.status === 'verified_active' ? 'Verified' : church.status}
                                             </span>
                                         </div>
                                         {church.address && (
-                                            <div className="text-xs text-gray-500 truncate">
+                                            <div className="text-xs text-secondary-500 truncate">
                                                 {church.address}
                                             </div>
                                         )}

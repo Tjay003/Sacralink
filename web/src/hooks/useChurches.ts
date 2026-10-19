@@ -84,6 +84,32 @@ export function useChurch(id: string | undefined) {
         }
 
         fetchChurch();
+
+        console.log(`🔌 Subscribing to realtime updates for church ${id}`);
+        const channelName = `church-detail-${id}`;
+        const channel = supabase
+            .channel(channelName)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'churches',
+                    filter: `id=eq.${id}`,
+                },
+                (payload) => {
+                    console.log('⚡ Realtime church update received:', payload.new);
+                    if (payload.new) {
+                        setChurch((prev) => (prev ? { ...prev, ...payload.new } : (payload.new as Church)));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log(`🔌 Unsubscribing from realtime church updates for ${id}`);
+            void supabase.removeChannel(channel);
+        };
     }, [id]);
 
     const fetchChurch = async () => {

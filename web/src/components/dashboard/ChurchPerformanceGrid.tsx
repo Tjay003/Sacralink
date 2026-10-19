@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Users, Calendar, ArrowRight } from 'lucide-react';
+import { Church, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 
@@ -8,20 +8,27 @@ interface ChurchPerformance {
     id: string;
     name: string;
     status: 'active' | 'inactive';
+    isVerified: boolean;
     memberCount: number;
     eventCount: number;
 }
 
+interface ChurchPerformanceGridProps {
+    onSelectChurch?: (churchId: string | null) => void;
+}
+
 /**
- * ChurchPerformanceGrid - Grid of church cards showing comparative performance
+ * ChurchPerformanceGrid - Grid of parish cards showing comparative performance
  * 
- * Features:
- * - Shows all churches with key metrics
- * - Sorted by member count (descending)
- * - "View Dashboard" button for each church
- * - Status badges (Active/Inactive)
+ * Aligned with SacraLink Vatican & Apple aesthetic:
+ * - Editorial serif header with "All parishes →" navigation
+ * - Soft-blue church icon container
+ * - Modern 2-tile metric display (Members, Appointments)
+ * - Badges: Sacred Gold for "Verified" parishes, Emerald for "Active" parishes
+ * - Strict financial privacy: NO donation or giving metrics
+ * - "View Dashboard" action switches the diocese view to the selected parish dashboard
  */
-export default function ChurchPerformanceGrid() {
+export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerformanceGridProps = {}) {
     const navigate = useNavigate();
     const [churches, setChurches] = useState<ChurchPerformance[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,29 +41,32 @@ export default function ChurchPerformanceGrid() {
         try {
             setLoading(true);
 
-            // Fetch all churches
+            // Fetch all churches with status & active state
             const { data: churchesData, error: churchesError } = await supabase
                 .from('churches')
-                .select('id, name, is_active');
+                .select('id, name, is_active, status');
 
             if (churchesError) throw churchesError;
 
-            // Fetch member counts for each church
+            // Fetch member counts and appointment counts for each church
             const performanceData: ChurchPerformance[] = await Promise.all(
                 (churchesData || []).map(async (church) => {
-                    // Count members
+                    // Count members registered under this church
                     const { count: memberCount } = await supabase
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
                         .eq('assigned_church_id', church.id);
 
-                    // Count approved future events via appointments domain module
+                    // Count approved future appointments/events via appointments domain module
                     const { upcomingApprovedCount } = await getDashboardAppointmentCounts(church.id);
+
+                    const isVerified = church.status === 'verified_active';
 
                     return {
                         id: church.id,
                         name: church.name,
                         status: church.is_active ? 'active' : 'inactive' as 'active' | 'inactive',
+                        isVerified,
                         memberCount: memberCount || 0,
                         eventCount: upcomingApprovedCount,
                     };
@@ -76,14 +86,42 @@ export default function ChurchPerformanceGrid() {
 
     if (loading) {
         return (
-            <div className="bg-card border rounded-lg p-6">
-                <h2 className="text-lg font-semibold mb-4 text-foreground">Church Performance</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                        <div key={i} className="p-4 bg-muted rounded-lg animate-pulse">
-                            <div className="h-5 bg-muted-foreground/20 rounded w-2/3 mb-3" />
-                            <div className="h-4 bg-muted-foreground/20 rounded w-1/2 mb-2" />
-                            <div className="h-4 bg-muted-foreground/20 rounded w-1/3" />
+            <div className="space-y-4">
+                {/* Header Skeleton */}
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1.5">
+                        <div className="h-7 w-48 bg-secondary-100 rounded-lg animate-pulse" />
+                        <div className="h-4 w-64 bg-secondary-100 rounded-md animate-pulse" />
+                    </div>
+                    <div className="h-5 w-24 bg-secondary-100 rounded-md animate-pulse" />
+                </div>
+
+                {/* Cards Skeleton Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div
+                            key={i}
+                            className="bg-white border border-border/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between animate-pulse"
+                        >
+                            <div>
+                                <div className="flex items-start justify-between gap-3 mb-4">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-11 h-11 rounded-2xl bg-secondary-100" />
+                                        <div className="space-y-1.5 min-w-0">
+                                            <div className="h-4 w-32 bg-secondary-200 rounded" />
+                                            <div className="h-3 w-20 bg-secondary-100 rounded" />
+                                        </div>
+                                    </div>
+                                    <div className="h-5 w-14 bg-secondary-100 rounded-full" />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 my-4">
+                                    <div className="p-3 rounded-xl bg-secondary-50 border border-border/50 h-16" />
+                                    <div className="p-3 rounded-xl bg-secondary-50 border border-border/50 h-16" />
+                                </div>
+                            </div>
+
+                            <div className="h-10 bg-secondary-100 rounded-xl w-full mt-2" />
                         </div>
                     ))}
                 </div>
@@ -93,82 +131,143 @@ export default function ChurchPerformanceGrid() {
 
     if (churches.length === 0) {
         return (
-            <div className="bg-card border rounded-lg p-6">
-                <h2 className="text-lg font-semibold mb-4 text-foreground">Church Performance</h2>
-                <div className="text-center py-12 text-muted-foreground">
-                    <Building2 className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                    <p className="text-sm">No churches found</p>
-                    <button
-                        onClick={() => navigate('/churches')}
-                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
-                    >
-                        Add Your First Church
-                    </button>
+            <div className="bg-white border border-border/80 rounded-2xl p-8 sm:p-12 shadow-xs text-center">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary mx-auto mb-4 shadow-2xs">
+                    <Church className="w-7 h-7" />
                 </div>
+                <h3 className="font-serif text-xl font-bold text-foreground tracking-tight mb-1">
+                    No parishes registered yet
+                </h3>
+                <p className="text-sm text-secondary-500 max-w-md mx-auto mb-6">
+                    Connect and approve parish applications to begin monitoring community growth and liturgy appointments.
+                </p>
+                <button
+                    onClick={() => navigate('/churches')}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-xs transition-all active:scale-[0.99] cursor-pointer"
+                >
+                    <span>Manage Parishes</span>
+                    <ArrowRight className="w-4 h-4" />
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="bg-card border rounded-lg p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+        <div className="space-y-4">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
                 <div>
-                    <h2 className="text-lg font-semibold text-foreground">Church Performance</h2>
-                    <p className="text-sm text-muted-foreground">Comparative metrics across all parishes</p>
+                    <h2 className="font-serif text-2xl font-bold text-foreground tracking-tight">
+                        Parish performance
+                    </h2>
+                    <p className="text-xs sm:text-sm text-secondary-500 font-medium">
+                        Live parish engagement, community members, and upcoming sacrament appointments
+                    </p>
                 </div>
                 <button
+                    type="button"
                     onClick={() => navigate('/churches')}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                    className="text-sm font-semibold text-primary hover:text-blue-700 inline-flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer"
                 >
-                    Manage All
+                    <span>All parishes</span>
                     <ArrowRight className="w-4 h-4" />
                 </button>
             </div>
 
-            {/* Church Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {churches.map((church) => (
-                    <div
-                        key={church.id}
-                        className="p-4 bg-background border rounded-lg hover:shadow-md transition-shadow"
-                    >
-                        {/* Church Name & Status */}
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Building2 className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                                <h3 className="font-semibold text-foreground truncate">{church.name}</h3>
-                            </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ml-2 ${church.status === 'active'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                {church.status}
-                            </span>
-                        </div>
+            {/* Parish Performance Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {churches.map((church) => {
+                    const isActive = church.status === 'active';
 
-                        {/* Metrics */}
-                        <div className="space-y-2 mb-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Users className="w-4 h-4" />
-                                <span>{church.memberCount} member{church.memberCount !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Calendar className="w-4 h-4" />
-                                <span>{church.eventCount} active event{church.eventCount !== 1 ? 's' : ''}</span>
-                            </div>
-                        </div>
-
-                        {/* View Dashboard Button */}
-                        <button
-                            onClick={() => navigate(`/dashboard?church=${church.id}`)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    return (
+                        <div
+                            key={church.id}
+                            className="bg-white border border-border/80 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
                         >
-                            View Dashboard
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))}
+                            {/* Card Top */}
+                            <div>
+                                {/* Row 1: Icon, Name, and Status Badge */}
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                            <Church className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3
+                                                className="font-bold text-foreground text-base tracking-tight truncate"
+                                                title={church.name}
+                                            >
+                                                {church.name}
+                                            </h3>
+                                            <p className="text-xs text-secondary-500 font-medium truncate">
+                                                Parish community
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Status Badge: Gold if verified, Green if active, Gray if inactive */}
+                                    {church.isVerified ? (
+                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                             Verified
+                                         </span>
+                                     ) : isActive ? (
+                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                             Active
+                                         </span>
+                                     ) : (
+                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-secondary-100 text-secondary-600 border border-secondary-200">
+                                             <span className="w-1.5 h-1.5 rounded-full bg-secondary-400" />
+                                             Inactive
+                                         </span>
+                                     )}
+                                 </div>
+
+                                 {/* Metric Tiles (Strictly members & appointments; zero financial metrics) */}
+                                 <div className="grid grid-cols-2 gap-3 my-4">
+                                     {/* Tile 1: Members */}
+                                     <div className="p-3 rounded-xl bg-secondary-50/70 border border-border/60 flex flex-col justify-center">
+                                         <span className="text-lg font-bold text-foreground leading-tight">
+                                             {church.memberCount.toLocaleString()}
+                                         </span>
+                                         <span className="text-xs font-medium text-secondary-500 mt-0.5">
+                                             Members
+                                         </span>
+                                     </div>
+
+                                     {/* Tile 2: Appointments */}
+                                     <div className="p-3 rounded-xl bg-secondary-50/70 border border-border/60 flex flex-col justify-center">
+                                         <span className="text-lg font-bold text-foreground leading-tight">
+                                             {church.eventCount.toLocaleString()}
+                                         </span>
+                                         <span className="text-xs font-medium text-secondary-500 mt-0.5">
+                                             Appointments
+                                         </span>
+                                     </div>
+                                 </div>
+                            </div>
+
+                            {/* Card Bottom: View Dashboard CTA (Switches diocese view to this parish) */}
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onSelectChurch) {
+                                            onSelectChurch(church.id);
+                                        } else {
+                                            navigate(`/dashboard?church=${church.id}`);
+                                        }
+                                    }}
+                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-xs transition-all active:scale-[0.99] cursor-pointer"
+                                >
+                                    <span>View Dashboard</span>
+                                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

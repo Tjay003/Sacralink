@@ -21,6 +21,7 @@ import KnowledgeBasePage from './pages/admin/KnowledgeBasePage.tsx';
 import ApplyParishPage from './pages/churches/ApplyParishPage.tsx';
 import ParishApplicationsPage from './pages/admin/ParishApplicationsPage.tsx';
 import MessagingPage from './pages/messages/MessagingPage.tsx';
+import LiturgicalCalendarPage from './pages/calendar/LiturgicalCalendarPage.tsx';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout.tsx';
@@ -93,6 +94,7 @@ function AppRoutes() {
       <Route path="/" element={<DashboardLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="calendar" element={<LiturgicalCalendarPage />} />
         <Route path="profile" element={<ProfilePage />} />
 
         {/* Admin-only routes */}

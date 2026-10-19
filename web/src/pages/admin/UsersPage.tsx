@@ -21,6 +21,7 @@ import {
     ShieldCheck,
     Cross,
     Users,
+    RotateCcw,
     X
 } from 'lucide-react';
 
@@ -383,6 +384,24 @@ export default function UsersPage() {
 
     const isSuperOrDioceseAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
+    const hasActiveFilters = Boolean(
+        searchQuery.trim() ||
+        roleFilter !== 'all' ||
+        (isSuperOrDioceseAdmin && churchFilter !== 'all') ||
+        sortField !== 'role' ||
+        sortOrder !== 'asc'
+    );
+
+    const handleResetFilters = () => {
+        setSearchQuery('');
+        setRoleFilter('all');
+        if (isSuperOrDioceseAdmin) {
+            setChurchFilter('all');
+        }
+        setSortField('role');
+        setSortOrder('asc');
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -454,19 +473,19 @@ export default function UsersPage() {
 
             {/* Directory Category Segmented Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-1.5 p-1 bg-secondary-100 dark:bg-secondary-800/60 rounded-xl border border-border">
+                <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 dark:bg-secondary-800/60 border border-border/60 gap-1 overflow-x-auto scrollbar-none max-w-full">
                     <button
                         type="button"
                         onClick={() => setDirectoryTab('staff')}
-                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                             directoryTab === 'staff'
-                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-xs'
                                 : 'text-muted hover:text-foreground'
                         }`}
                     >
                         <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                         <span>Parish Staff & Clergy</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold ${
                             directoryTab === 'staff'
                                 ? 'bg-primary/10 text-primary'
                                 : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
@@ -477,15 +496,15 @@ export default function UsersPage() {
                     <button
                         type="button"
                         onClick={() => setDirectoryTab('parishioners')}
-                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                             directoryTab === 'parishioners'
-                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-xs'
                                 : 'text-muted hover:text-foreground'
                         }`}
                     >
                         <Users className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         <span>Parishioners</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold ${
                             directoryTab === 'parishioners'
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                                 : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
@@ -496,15 +515,15 @@ export default function UsersPage() {
                     <button
                         type="button"
                         onClick={() => setDirectoryTab('all')}
-                        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                             directoryTab === 'all'
-                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-sm'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-xs'
                                 : 'text-muted hover:text-foreground'
                         }`}
                     >
                         <List className="w-3.5 h-3.5 text-muted" />
                         <span>All Accounts</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold ${
                             directoryTab === 'all'
                                 ? 'bg-secondary-200 text-foreground dark:bg-secondary-600'
                                 : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
@@ -515,119 +534,154 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Filters Bar */}
-            <div className="card p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Search */}
-                    <div className="sm:col-span-2 lg:col-span-1">
-                        <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-                            Search Users
-                        </label>
-                        <div className="relative">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-                            <input
-                                type="text"
-                                placeholder="Search by name or email..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="input !pl-10 w-full text-sm"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Role Filter */}
-                    <div>
-                        <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-                            Filter by Role
-                        </label>
-                        <select
-                            value={roleFilter}
-                            onChange={(e) => setRoleFilter(e.target.value)}
-                            className="input w-full text-sm"
-                        >
-                            <option value="all">All Roles</option>
-                            <option value="super_admin">Super Admin (Platform Owner)</option>
-                            <option value="admin">Diocese Admin</option>
-                            <option value="church_admin">Church Admin</option>
-                            <option value="priest">Priest</option>
-                            <option value="volunteer">Volunteer</option>
-                            <option value="user">Parishioner / User</option>
-                        </select>
-                    </div>
-
-                    {/* Church Filter */}
-                    <div>
-                        <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-                            Filter by Parish
-                        </label>
-                        <select
-                            value={churchFilter}
-                            onChange={(e) => setChurchFilter(e.target.value)}
-                            className="input w-full text-sm disabled:opacity-75 disabled:cursor-not-allowed"
-                            disabled={!isSuperOrDioceseAdmin}
-                        >
-                            {isSuperOrDioceseAdmin && (
-                                <>
-                                    <option value="all">All Parishes / Churches</option>
-                                    <option value="unassigned">No Church Assigned (Unassigned)</option>
-                                </>
-                            )}
-                            {churches.map((church) => (
-                                <option key={church.id} value={church.id}>
-                                    {church.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <div>
-                        <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-                            Sort Users
-                        </label>
-                        <div className="flex gap-2">
-                            <select
-                                value={sortField}
-                                onChange={(e) => setSortField(e.target.value as SortField)}
-                                className="input w-full text-sm"
+            {/* Pristine Modern Filter & Search Toolbar */}
+            <div className="space-y-3">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+                    {/* Search Input (Pill Style) */}
+                    <div className="relative flex-1 max-w-full lg:max-w-md">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Search by name, email, or parish..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 rounded-full border border-border text-xs sm:text-sm bg-white dark:bg-secondary-800 text-foreground placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs transition-shadow"
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 dark:hover:text-secondary-200 cursor-pointer p-0.5 rounded-full transition-colors"
+                                aria-label="Clear search"
                             >
-                                <option value="role">Role Priority</option>
-                                <option value="church">Assigned Parish</option>
-                                <option value="name">Full Name</option>
-                                <option value="created_at">Registration Date</option>
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter Dropdowns (Clean Rounded-Full Pills) */}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                        {/* Role Dropdown */}
+                        <div className="relative inline-block shrink-0">
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => setRoleFilter(e.target.value)}
+                                aria-label="Filter by role"
+                                className={`appearance-none rounded-full pl-3.5 pr-8 py-2 text-xs sm:text-sm font-medium shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors ${
+                                    roleFilter !== 'all'
+                                        ? 'border border-primary/50 text-primary font-semibold bg-blue-50/30 dark:bg-primary/10 dark:text-blue-300'
+                                        : 'bg-white dark:bg-secondary-800 border border-border text-secondary-700 dark:text-secondary-200 hover:bg-secondary-50 dark:hover:bg-secondary-700/60'
+                                }`}
+                            >
+                                <option value="all">All Roles (Default)</option>
+                                <option value="super_admin">Super Admin (Platform Owner)</option>
+                                <option value="admin">Diocese Admin</option>
+                                <option value="church_admin">Church Admin</option>
+                                <option value="priest">Priest</option>
+                                <option value="volunteer">Volunteer</option>
+                                <option value="user">Parishioner / User</option>
                             </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
+                        </div>
+
+                        {/* Parish Dropdown */}
+                        <div className="relative inline-block shrink-0 max-w-[200px] sm:max-w-[240px]">
+                            <select
+                                value={churchFilter}
+                                onChange={(e) => setChurchFilter(e.target.value)}
+                                aria-label="Filter by parish"
+                                disabled={!isSuperOrDioceseAdmin}
+                                className={`w-full truncate appearance-none rounded-full pl-3.5 pr-8 py-2 text-xs sm:text-sm font-medium shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${
+                                    churchFilter !== 'all'
+                                        ? 'border border-primary/50 text-primary font-semibold bg-blue-50/30 dark:bg-primary/10 dark:text-blue-300'
+                                        : 'bg-white dark:bg-secondary-800 border border-border text-secondary-700 dark:text-secondary-200 hover:bg-secondary-50 dark:hover:bg-secondary-700/60'
+                                }`}
+                            >
+                                {isSuperOrDioceseAdmin && (
+                                    <>
+                                        <option value="all">All Parishes (Default)</option>
+                                        <option value="unassigned">No Church Assigned (Unassigned)</option>
+                                    </>
+                                )}
+                                {churches.map((church) => (
+                                    <option key={church.id} value={church.id}>
+                                        {church.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
+                        </div>
+
+                        {/* Sort Dropdown + Order Button */}
+                        <div className={`inline-flex items-center shrink-0 rounded-full shadow-2xs focus-within:ring-2 focus-within:ring-primary/20 transition-colors ${
+                            sortField !== 'role' || sortOrder !== 'asc'
+                                ? 'border border-primary/50 bg-blue-50/30 dark:bg-primary/10'
+                                : 'bg-white dark:bg-secondary-800 border border-border'
+                        }`}>
+                            <div className="relative">
+                                <select
+                                    value={sortField}
+                                    onChange={(e) => setSortField(e.target.value as SortField)}
+                                    aria-label="Sort users by"
+                                    className={`appearance-none bg-transparent pl-3.5 pr-7 py-2 text-xs sm:text-sm font-medium hover:bg-secondary-50 dark:hover:bg-secondary-700/60 cursor-pointer focus:outline-none rounded-l-full transition-colors ${
+                                        sortField !== 'role' || sortOrder !== 'asc'
+                                            ? 'text-primary font-semibold dark:text-blue-300'
+                                            : 'text-secondary-700 dark:text-secondary-200'
+                                    }`}
+                                >
+                                    <option value="role">Sort: Role Priority (Default)</option>
+                                    <option value="church">Sort: Assigned Parish</option>
+                                    <option value="name">Sort: Full Name</option>
+                                    <option value="created_at">Sort: Registration Date</option>
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
+                            </div>
+                            <div className="h-4 w-px bg-border/80" />
                             <button
                                 type="button"
                                 onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                title={sortOrder === 'asc' ? 'Ascending Order' : 'Descending Order'}
-                                className="px-3 py-2 border border-border rounded-xl hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors text-muted hover:text-foreground flex-shrink-0"
+                                title={sortOrder === 'asc' ? 'Ascending Order (Default)' : 'Descending Order (Click to return to Ascending - Default)'}
+                                aria-label={sortOrder === 'asc' ? 'Ascending order' : 'Descending order'}
+                                className="px-2.5 py-2 text-secondary-600 dark:text-secondary-300 hover:text-foreground hover:bg-secondary-50 dark:hover:bg-secondary-700/60 rounded-r-full transition-colors flex items-center justify-center cursor-pointer"
                             >
-                                {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                                {sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
                             </button>
                         </div>
+
+                        {/* Reset Filters Button */}
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                onClick={handleResetFilters}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-secondary-100/80 hover:bg-secondary-200/80 dark:bg-secondary-800 dark:hover:bg-secondary-700 text-secondary-700 dark:text-secondary-200 text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                                title="Reset all filters and sorting to defaults"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5 text-secondary-500" />
+                                <span>Reset to defaults</span>
+                            </button>
+                        )}
                     </div>
                 </div>
 
                 {/* Filter Summary Status */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs text-muted">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
                     <span>
-                        Showing <strong className="text-foreground">{paginatedUsers.length}</strong> of{' '}
+                        Showing <strong className="text-foreground">{viewMode === 'table' ? paginatedUsers.length : filteredUsers.length}</strong> of{' '}
                         <strong className="text-foreground">{filteredUsers.length}</strong>{' '}
                         {directoryTab === 'staff' ? 'parish staff & clergy' : directoryTab === 'parishioners' ? 'parishioners' : 'users'}
                         {filteredUsers.length !== users.length && (
                             <span className="text-muted/70"> ({users.length} total accessible)</span>
                         )}
                     </span>
-                    {(searchQuery || roleFilter !== 'all' || (isSuperOrDioceseAdmin && churchFilter !== 'all')) && (
+                    {hasActiveFilters && (
                         <button
-                            onClick={() => {
-                                setSearchQuery('');
-                                setRoleFilter('all');
-                                if (isSuperOrDioceseAdmin) setChurchFilter('all');
-                            }}
-                            className="text-primary hover:underline font-medium"
+                            type="button"
+                            onClick={handleResetFilters}
+                            className="sm:hidden text-xs font-semibold text-secondary-500 hover:text-foreground inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Reset all filters and sorting to defaults"
                         >
-                            Reset filters
+                            <RotateCcw className="w-3.5 h-3.5 text-secondary-400" />
+                            <span>Reset to defaults</span>
                         </button>
                     )}
                 </div>

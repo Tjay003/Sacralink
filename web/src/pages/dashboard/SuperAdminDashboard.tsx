@@ -1,14 +1,18 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { ShieldAlert, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ShieldAlert, X, ShieldCheck, Megaphone, Plus } from 'lucide-react';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchSelectorDropdown from '../../components/dashboard/ChurchSelectorDropdown';
 import DioceseStatsCards from '../../components/dashboard/DioceseStatsCards';
 import SystemAnnouncementsManagement from '../../components/dashboard/SystemAnnouncementsManagement';
+import ChurchPerformanceGrid from '../../components/dashboard/ChurchPerformanceGrid';
+import RecentActivityWidget from '../../components/dashboard/RecentActivityWidget';
 import ChurchAdminDashboard from './ChurchAdminDashboard';
+import NeedsYourAttentionWidget from '../../components/dashboard/NeedsYourAttentionWidget';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import { useAuth } from '../../contexts/AuthContext';
 import { isFeatureEnabled } from '../../config/featureFlags';
+import { getDailyReadings } from '../../lib/liturgy';
 
 /**
  * SuperAdminDashboard - Dashboard for super administrators
@@ -17,7 +21,8 @@ import { isFeatureEnabled } from '../../config/featureFlags';
  * - Diocese-wide view (All Churches)
  * - Individual church dashboard view
  * - System announcements management
- * - Church performance comparison
+ * - Church performance comparison (Privacy-preserving: No donation amounts)
+ * - Recent sacrament bookings across parishes
  * 
  * Security Blindspot Policy:
  * - Super Admins are strictly prohibited from viewing parish financial metrics,
@@ -27,10 +32,39 @@ import { isFeatureEnabled } from '../../config/featureFlags';
 export default function SuperAdminDashboard() {
     const { profile } = useAuth();
     const location = useLocation();
-    const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const churchParam = searchParams.get('church');
+    const [selectedChurchId, setSelectedChurchId] = useState<string | null>(churchParam);
+
+    // Sync state when URL search param changes
+    useEffect(() => {
+        setSelectedChurchId(churchParam);
+    }, [churchParam]);
+
+    const handleChurchSelect = (churchId: string | null) => {
+        setSelectedChurchId(churchId);
+        if (churchId) {
+            setSearchParams({ church: churchId });
+        } else {
+            setSearchParams({});
+        }
+    };
+
     const [notice, setNotice] = useState<string | null>(
         (location.state as { notice?: string })?.notice || null
     );
+
+    const currentHour = new Date().getHours();
+    const isEvening = currentHour >= 18;
+    const isAfternoon = currentHour >= 12 && currentHour < 18;
+    const timeGreeting = isEvening ? 'Magandang gabi' : isAfternoon ? 'Magandang hapon' : 'Magandang araw';
+    const timeOfDay = isEvening ? 'evening' : isAfternoon ? 'afternoon' : 'morning';
+    const adminName = profile?.full_name?.split(' ')[0] || 'Admin';
+
+    const todayReadings = getDailyReadings(new Date());
+    const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+    const liturgicalBadge = `${dayOfWeek} · ${todayReadings.title.toUpperCase()}`;
 
     const noticeBanner = notice ? (
         <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 shadow-sm" role="alert">
@@ -61,10 +95,10 @@ export default function SuperAdminDashboard() {
                 {/* Back to Diocese View */}
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setSelectedChurchId(null)}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        onClick={() => handleChurchSelect(null)}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 cursor-pointer"
                     >
-                        ← Back to Diocese View
+                        <span>← Back to Diocese View</span>
                     </button>
                 </div>
 
@@ -81,39 +115,102 @@ export default function SuperAdminDashboard() {
             {/* System Announcements Banner */}
             {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsBanner />}
 
-            {/* Header with Church Selector */}
-            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-600 to-blue-400 text-white border-none">
-                <h1 className="text-2xl font-bold mb-2">
-                    Welcome Back, {profile?.full_name?.split(' ')[0] || 'Admin'}!
-                </h1>
-                <p className="text-white/90 opacity-90 mb-4">
-                    Diocese Dashboard - Manage all churches and system-wide settings
-                </p>
+            {/* Super Admin Welcome & Operations Card */}
+            <div className="relative rounded-2xl bg-gradient-to-r from-blue-50/50 via-white via-45% to-amber-100/60 border border-amber-200/60 shadow-sm p-6 sm:p-7 z-20">
+                {/* Subtle Vatican Gold Radiant Glow on the Right Side */}
+                <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-amber-200/25 via-amber-100/10 to-transparent pointer-events-none rounded-r-2xl" />
 
-                {/* Church Selector */}
-                {isFeatureEnabled('churchSelector') && (
-                    <ChurchSelectorDropdown
-                        selectedChurchId={selectedChurchId}
-                        onChurchSelect={setSelectedChurchId}
-                    />
-                )}
+                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+                    {/* Left Column: Liturgical tag + Heading + Subtitle */}
+                    <div className="space-y-1.5 sm:space-y-2">
+                        {/* Liturgical Tag */}
+                        <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-50/90 border border-amber-200 px-3 py-1 rounded-full shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                            <span className="text-amber-800">{liturgicalBadge}</span>
+                        </div>
+
+                        {/* Large Editorial Heading */}
+                        <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground tracking-tight leading-tight">
+                            {timeGreeting}, {adminName}
+                        </h1>
+
+                        {/* Subtitle */}
+                        <p className="text-xs sm:text-sm text-secondary-600 font-medium">
+                            Here is how the Diocese of San Jose del Monte is doing this {timeOfDay}.
+                        </p>
+                    </div>
+
+                    {/* Right Column: Dropdown (Top) + Action Buttons (Bottom) - aligned to the left of its container */}
+                    <div className="flex flex-col items-start gap-3 flex-shrink-0">
+                        {isFeatureEnabled('churchSelector') && (
+                            <div className="w-full sm:w-80 lg:w-[380px] xl:w-[420px] max-w-full relative z-30">
+                                <ChurchSelectorDropdown
+                                    selectedChurchId={selectedChurchId}
+                                    onChurchSelect={handleChurchSelect}
+                                    variant="light"
+                                    allLabel="All parishes"
+                                />
+                            </div>
+                        )}
+
+                        {/* Action Buttons Row */}
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 relative z-10">
+                            <button
+                                onClick={() => navigate('/admin/applications')}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold bg-primary hover:bg-blue-700 text-white shadow-xs transition-colors"
+                            >
+                                <ShieldCheck className="w-4 h-4" />
+                                <span>Review applications</span>
+                            </button>
+
+                            {isFeatureEnabled('systemAnnouncements') && (
+                                <button
+                                    onClick={() => navigate('/admin/system-announcements')}
+                                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold bg-white hover:bg-secondary-50 text-secondary-800 border border-border shadow-xs transition-colors"
+                                >
+                                    <Megaphone className="w-4 h-4 text-secondary-600" />
+                                    <span>New announcement</span>
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => navigate('/churches')}
+                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold bg-white hover:bg-secondary-50 text-secondary-800 border border-border shadow-xs transition-colors"
+                            >
+                                <Plus className="w-4 h-4 text-secondary-600" />
+                                <span>Add parish</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Diocese-Wide Stats */}
+            {/* Diocese-Wide Stats (Includes Total Sacraments Celebrated, strictly no Giving) */}
             <DioceseStatsCards selectedChurchId={selectedChurchId} />
 
-            {/* Main Content Grid */}
+            {/* Needs Your Attention & Daily Verse Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column (2/3 width) */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* System Announcements Management */}
-                    {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsManagement />}
+                <div className="lg:col-span-2">
+                    <NeedsYourAttentionWidget />
+                </div>
+                <div>
+                    <DailyVerse variant="parchment" />
+                </div>
+            </div>
+
+            {/* Parish Performance Grid (Members & Active Events, strictly no Giving) */}
+            <ChurchPerformanceGrid onSelectChurch={handleChurchSelect} />
+
+            {/* Main Content Grid: Recent Activity & Announcements */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                {/* Left Column (2/3 width) - Recent Activity Stream */}
+                <div className="lg:col-span-2 h-full flex flex-col">
+                    <RecentActivityWidget churchId={selectedChurchId} />
                 </div>
 
-                {/* Right Column (1/3 width) */}
-                <div className="space-y-6">
-                    {/* Daily Verse */}
-                    {isFeatureEnabled('dailyVerse') && <DailyVerse />}
+                {/* Right Column (1/3 width) - System Announcements Management */}
+                <div className="h-full flex flex-col">
+                    {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsManagement />}
                 </div>
             </div>
         </div>

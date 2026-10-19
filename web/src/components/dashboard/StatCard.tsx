@@ -96,7 +96,7 @@ export default function StatCard({
                         {title}
                     </p>
                     <h3 className={`
-                        text-4xl font-bold mb-3 transition-colors duration-300
+                        font-serif text-3xl sm:text-4xl font-bold tracking-tight mb-2.5 transition-colors duration-300
                         ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}
                     `}
                     >

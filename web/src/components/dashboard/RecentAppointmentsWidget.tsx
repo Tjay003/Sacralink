@@ -10,25 +10,30 @@ import {
 } from '../../lib/supabase/appointments';
 
 interface RecentAppointmentsWidgetProps {
-    churchId: string | null;
+    churchId?: string | null;
     limit?: number;
+    title?: string;
+    subtitle?: string;
 }
 
 /**
- * RecentAppointmentsWidget - Shows latest appointments for the church
+ * RecentAppointmentsWidget - Shows latest appointments for a church or the whole diocese
  */
-export default function RecentAppointmentsWidget({ churchId, limit = 5 }: RecentAppointmentsWidgetProps) {
+export default function RecentAppointmentsWidget({
+    churchId = null,
+    limit = 5,
+    title = 'Recent Appointments',
+    subtitle = 'Latest sacrament requests'
+}: RecentAppointmentsWidgetProps) {
     const navigate = useNavigate();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchAppointments = async () => {
-        if (!churchId) return;
-
         try {
             setLoading(true);
             const { data, error } = await getAppointments({
-                churchId,
+                ...(churchId ? { churchId } : {}),
                 limit,
                 orderBy: 'created_at',
                 ascending: false,
@@ -44,15 +49,13 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
     };
 
     useEffect(() => {
-        if (churchId) {
+        fetchAppointments();
+        const unsubscribe = subscribeToAppointments(churchId ? { churchId } : {}, () => {
             fetchAppointments();
-            const unsubscribe = subscribeToAppointments({ churchId }, () => {
-                fetchAppointments();
-            });
-            return () => {
-                unsubscribe();
-            };
-        }
+        });
+        return () => {
+            unsubscribe();
+        };
     }, [churchId, limit]);
 
     // Status config: colors and left-border accent
@@ -67,8 +70,6 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
     const getStatus = (status: string) =>
         statusConfig[status] ?? { badge: 'bg-gray-100 text-gray-600', border: 'border-l-gray-300' };
 
-    if (!churchId) return null;
-
     return (
         <div className="bg-card border rounded-lg p-6">
             {/* Header */}
@@ -78,8 +79,8 @@ export default function RecentAppointmentsWidget({ churchId, limit = 5 }: Recent
                         <Calendar className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-gray-800">Recent Appointments</h3>
-                        <p className="text-sm text-gray-500">Latest requests</p>
+                        <h3 className="font-semibold text-gray-800">{title}</h3>
+                        <p className="text-sm text-gray-500">{subtitle}</p>
                     </div>
                 </div>
 

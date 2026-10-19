@@ -160,24 +160,24 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
         <div className="card p-6 space-y-5 border border-border shadow-sm">
             {/* Header with Live Status indicator */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all ${
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all ${
                         isLive
                             ? 'bg-red-500/15 border border-red-500/30 text-red-600 animate-pulse'
                             : 'bg-secondary-100 text-secondary-600 border border-border'
                     }`}>
                         <Radio className="w-5 h-5" />
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-bold text-base text-foreground">Live Broadcast Manager</h3>
                             {isLive ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-xs animate-pulse">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-xs animate-pulse shrink-0">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                                     LIVE NOW
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-600 border border-border">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-600 border border-border shrink-0">
                                     Standby / Offline
                                 </span>
                             )}
@@ -192,7 +192,7 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     href={`/churches/${churchId}#virtual-sanctuary`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary-50 hover:bg-white dark:hover:bg-secondary-800 text-xs font-medium text-foreground transition-colors group self-start sm:self-auto shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary-50 hover:bg-white dark:hover:bg-secondary-800 text-xs font-medium text-foreground transition-colors group shrink-0 self-start sm:self-auto shadow-xs"
                 >
                     <span>Preview Sanctuary</span>
                     <ExternalLink className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
@@ -200,14 +200,14 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
             </div>
 
             {/* Quick Live Toggle Switch Banner */}
-            <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-center justify-between gap-4 ${
+            <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                 isLive
                     ? 'bg-red-50/80 dark:bg-red-950/20 border-red-200 dark:border-red-900/40'
                     : 'bg-secondary-50 dark:bg-secondary-900/30 border-border'
             }`}>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <div className={`w-3 h-3 rounded-full ${isLive ? 'bg-red-600 animate-ping' : 'bg-secondary-400'}`} />
-                    <div>
+                <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${isLive ? 'bg-red-600 animate-ping' : 'bg-secondary-400'}`} />
+                    <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-foreground">
                             {isLive ? 'Broadcasting to Virtual Sanctuary' : 'Stream is currently offline'}
                         </p>
@@ -219,18 +219,18 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end shrink-0">
                     <button
                         type="button"
                         onClick={() => handleToggleLive(!isLive)}
                         disabled={saving || (!isLive && !streamUrl.trim())}
-                        className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer ${
+                        className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
                             isLive
                                 ? 'bg-secondary-900 hover:bg-black text-white'
                                 : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
                         } disabled:opacity-50`}
                     >
-                        <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-secondary-400' : 'bg-white animate-ping'}`} />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isLive ? 'bg-secondary-400' : 'bg-white animate-ping'}`} />
                         <span>{isLive ? 'Stop Broadcast' : '🔴 Go Live Now'}</span>
                     </button>
                 </div>

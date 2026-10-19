@@ -201,7 +201,11 @@ export default function BookAppointmentPage() {
         setUploadedDocumentIds(newUploadedIds);
     };
 
+    // Testing bypass for document requirements
+    const [bypassDocsForTesting, setBypassDocsForTesting] = useState(false);
+
     const validateRequiredDocuments = (): boolean => {
+        if (bypassDocsForTesting) return true;
         const requiredReqs = requirements.filter(r => r.is_required);
         for (const req of requiredReqs) {
             if (!documents.has(req.id)) {
@@ -610,13 +614,30 @@ export default function BookAppointmentPage() {
                         </div>
                     ) : requirements.length > 0 ? (
                         <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Upload className="w-5 h-5 text-primary" />
-                                <h3 className="text-lg font-semibold">Required Documents</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Upload className="w-5 h-5 text-primary" />
+                                    <h3 className="text-lg font-semibold">Required Documents</h3>
+                                </div>
+                                <label className="flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors select-none shadow-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={bypassDocsForTesting}
+                                        onChange={(e) => setBypassDocsForTesting(e.target.checked)}
+                                        className="rounded border-amber-400 text-amber-600 focus:ring-amber-500 w-4 h-4"
+                                    />
+                                    <span>🧪 Skip for Testing</span>
+                                </label>
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                Please upload the following documents for your {SERVICE_TYPES.find(t => t.value === formData.service_type)?.label} request:
-                            </p>
+                            {bypassDocsForTesting ? (
+                                <div className="p-3 mb-4 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                                    ⚠️ <strong>Testing Mode Active:</strong> Document requirement validation is disabled. You can submit this appointment without uploading files to test slot conflicts.
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                    Please upload the following documents for your {SERVICE_TYPES.find(t => t.value === formData.service_type)?.label} request:
+                                </p>
+                            )}
 
                             <div className="space-y-4">
                                 {requirements.map((req) => (

@@ -426,6 +426,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []); // Empty array = run once when component mounts, cleanup when it unmounts
 
     /**
+     * Realtime Profile Sync
+     * 
+     * Subscribes to changes on the user's row in public.profiles.
+     * When an UPDATE event occurs (e.g. role change, assigned_church_id update, is_priest flag change),
+     * immediately updates the local profile state without requiring logout or page reload.
+     */
+    useEffect(() => {
+        if (!user?.id) return;
+
+        console.log(`🔌 Subscribing to realtime profile updates for user ${user.id}`);
+        const channelName = `user-profile-sync-${user.id}`;
+        const channel = supabase
+            .channel(channelName)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${user.id}`,
+                },
+                (payload) => {
+                    console.log('⚡ Realtime profile update received:', payload.new);
+                    if (payload.new) {
+                        setProfile(payload.new as Profile);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            console.log(`🔌 Unsubscribing from realtime profile updates for user ${user.id}`);
+            void supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
+
+    /**
      * Provide the Context
      * 
      * This makes all our auth data and functions available to child components.

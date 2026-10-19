@@ -9,6 +9,8 @@ export interface PaginationProps {
     pageSizeOptions?: number[];
     itemName?: string;
     className?: string;
+    variant?: 'card' | 'flat';
+    showItemCount?: boolean;
 }
 
 function getPageNumbers(currentPage: number, totalPages: number): (number | '...')[] {
@@ -33,24 +35,33 @@ export default function Pagination({
     pageSizeOptions = [10, 25, 50],
     itemName = 'items',
     className = '',
+    variant = 'card',
+    showItemCount = true,
 }: PaginationProps) {
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
     const endItem = Math.min(currentPage * pageSize, totalItems);
     const pageNumbers = getPageNumbers(currentPage, totalPages);
 
+    const baseContainer =
+        variant === 'flat'
+            ? 'flex flex-col sm:flex-row items-center justify-between gap-3 w-full'
+            : 'card p-4 flex flex-col sm:flex-row items-center justify-between gap-4';
+
     return (
-        <div className={`card p-4 flex flex-col sm:flex-row items-center justify-between gap-4 ${className}`}>
+        <div className={`${baseContainer} ${className}`}>
             {/* Left side: Item count indicator & optional page size dropdown */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
-                <div className="text-xs sm:text-sm text-muted">
-                    Showing <span className="font-semibold text-foreground">{startItem}</span> to{' '}
-                    <span className="font-semibold text-foreground">{endItem}</span> of{' '}
-                    <span className="font-semibold text-foreground">{totalItems}</span> {itemName}
-                </div>
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-muted">
+                {showItemCount && (
+                    <div>
+                        Showing <span className="font-semibold text-foreground">{startItem}</span> to{' '}
+                        <span className="font-semibold text-foreground">{endItem}</span> of{' '}
+                        <span className="font-semibold text-foreground">{totalItems}</span> {itemName}
+                    </div>
+                )}
 
                 {onPageSizeChange && (
-                    <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted">
+                    <div className="flex items-center gap-1.5">
                         <span>Show</span>
                         <div className="relative inline-block">
                             <select
@@ -72,22 +83,22 @@ export default function Pagination({
                 )}
             </div>
 
-            {/* Right side: Prev, Numeric buttons with ellipsis, Next */}
-            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* Right side: Prev, Numeric buttons / Page X of Y, Next */}
+            <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
                 {/* Previous Button */}
                 <button
                     type="button"
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={currentPage <= 1}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-border bg-white text-foreground hover:bg-secondary-50 shadow-xs hover:shadow-sm active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:shadow-none"
+                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-border bg-white text-foreground hover:bg-secondary-50 shadow-xs hover:shadow-sm active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:shadow-none shrink-0"
                     aria-label="Previous page"
                 >
-                    <ChevronLeft className="w-4 h-4" />
-                    <span>Previous</span>
+                    <ChevronLeft className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline">Previous</span>
                 </button>
 
-                {/* Numeric Page Buttons */}
-                <div className="flex items-center gap-1">
+                {/* Numeric Page Buttons - visible on sm+ screens */}
+                <div className="hidden sm:flex items-center gap-1">
                     {pageNumbers.map((p, idx) => {
                         if (p === '...') {
                             return (
@@ -120,16 +131,22 @@ export default function Pagination({
                     })}
                 </div>
 
+                {/* Compact Page X of Y - visible on mobile screens */}
+                <div className="sm:hidden px-2 text-xs font-medium text-secondary-600 whitespace-nowrap">
+                    Page <span className="font-semibold text-foreground">{currentPage}</span> of{' '}
+                    <span className="font-semibold text-foreground">{totalPages}</span>
+                </div>
+
                 {/* Next Button */}
                 <button
                     type="button"
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={currentPage >= totalPages || totalItems === 0}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-border bg-white text-foreground hover:bg-secondary-50 shadow-xs hover:shadow-sm active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:shadow-none"
+                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-border bg-white text-foreground hover:bg-secondary-50 shadow-xs hover:shadow-sm active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none disabled:shadow-none shrink-0"
                     aria-label="Next page"
                 >
-                    <span>Next</span>
-                    <ChevronRight className="w-4 h-4" />
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight className="w-4 h-4 shrink-0" />
                 </button>
             </div>
         </div>

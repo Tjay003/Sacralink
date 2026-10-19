@@ -6,7 +6,15 @@ interface Verse {
     reference: string;
 }
 
+export interface DailyVerseProps {
+    variant?: 'parchment' | 'blue';
+}
+
 const FALLBACK_VERSES = [
+    {
+        text: "Come to me, all who labor and are heavy laden, and I will give you rest.",
+        reference: "Matthew 11:28"
+    },
     {
         text: "For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope.",
         reference: "Jeremiah 29:11"
@@ -29,7 +37,7 @@ const FALLBACK_VERSES = [
     }
 ];
 
-export default function DailyVerse() {
+export default function DailyVerse({ variant = 'parchment' }: DailyVerseProps) {
     const [verse, setVerse] = useState<Verse | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -45,7 +53,7 @@ export default function DailyVerse() {
                 text: data.text.trim(),
                 reference: data.reference
             });
-        } catch (err) {
+        } catch {
             // Fallback to local list
             const random = FALLBACK_VERSES[Math.floor(Math.random() * FALLBACK_VERSES.length)];
             setVerse(random);
@@ -58,42 +66,105 @@ export default function DailyVerse() {
         fetchVerse();
     }, []);
 
+    if (variant === 'parchment') {
+        return (
+            <div className="rounded-2xl p-6 bg-amber-50/70 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between h-full">
+                {/* Background Cross / Book Watermark */}
+                <div className="absolute -top-4 -right-4 p-4 opacity-5 pointer-events-none text-amber-900">
+                    <BookOpen className="w-36 h-36" />
+                </div>
+
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                    <div>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">📖</span>
+                                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                                    DAILY VERSE
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={fetchVerse}
+                                disabled={loading}
+                                className="p-1.5 text-amber-700 hover:text-amber-900 hover:bg-amber-100/80 rounded-full transition-colors cursor-pointer"
+                                title="Get new verse"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+
+                        {/* Verse Quote */}
+                        {verse ? (
+                            <div className="space-y-4 animate-in fade-in duration-500">
+                                <p className="font-serif text-lg sm:text-xl text-amber-950 font-medium leading-relaxed italic">
+                                    "{verse.text}"
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="h-28 flex flex-col justify-center gap-2">
+                                <div className="animate-pulse bg-amber-200/60 h-4 w-full rounded"></div>
+                                <div className="animate-pulse bg-amber-200/60 h-4 w-4/5 rounded"></div>
+                                <div className="animate-pulse bg-amber-200/60 h-4 w-2/3 rounded"></div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Reference */}
+                    {verse && (
+                        <p className="text-xs sm:text-sm font-semibold text-amber-800 text-right mt-4 tracking-tight">
+                            — {verse.reference}
+                        </p>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Default 'blue' variant
     return (
-        <div className="rounded-lg shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden">
+        <div className="rounded-2xl shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden flex flex-col justify-between h-full">
             {/* Background Pattern */}
-            <div className="absolute top-0 right-0 p-4 opacity-10">
+            <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                 <BookOpen className="w-32 h-32" />
             </div>
 
-            <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 text-white/80">
-                        <BookOpen className="w-4 h-4" />
-                        <span className="text-xs font-medium uppercase tracking-wider">Daily Verse</span>
+            <div className="relative z-10 flex flex-col justify-between h-full">
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-white/80">
+                            <BookOpen className="w-4 h-4" />
+                            <span className="text-xs font-medium uppercase tracking-wider">Daily Verse</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={fetchVerse}
+                            disabled={loading}
+                            className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                            title="Get new verse"
+                        >
+                            <RefreshCw className={`w-4 h-4 text-white/80 ${loading ? 'animate-spin' : ''}`} />
+                        </button>
                     </div>
-                    <button
-                        onClick={fetchVerse}
-                        disabled={loading}
-                        className="p-1 hover:bg-white/20 rounded-full transition-colors"
-                        title="Get new verse"
-                    >
-                        <RefreshCw className={`w-4 h-4 text-white/80 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
+
+                    {verse ? (
+                        <div className="space-y-4 animate-in fade-in duration-500">
+                            <p className="text-lg md:text-xl font-serif leading-relaxed opacity-95 italic">
+                                "{verse.text}"
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="h-28 flex items-center justify-center">
+                            <div className="animate-pulse bg-blue-800 h-4 w-3/4 rounded"></div>
+                        </div>
+                    )}
                 </div>
 
-                {verse ? (
-                    <div className="space-y-4 animate-in fade-in duration-500">
-                        <p className="text-lg md:text-xl font-serif leading-relaxed opacity-95">
-                            "{verse.text}"
-                        </p>
-                        <p className="text-sm font-medium text-white/80 text-right">
-                            — {verse.reference}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="h-32 flex items-center justify-center">
-                        <div className="animate-pulse bg-blue-800 h-4 w-3/4 rounded"></div>
-                    </div>
+                {verse && (
+                    <p className="text-sm font-medium text-white/80 text-right mt-4">
+                        — {verse.reference}
+                    </p>
                 )}
             </div>
         </div>
