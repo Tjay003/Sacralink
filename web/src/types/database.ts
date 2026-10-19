@@ -1172,28 +1172,37 @@ export type Database = {
       }
       conversations: {
         Row: {
+          category?: string | null
           church_id: string | null
           created_at: string
           created_by: string | null
           id: string
+          status?: string | null
+          ticket_number?: string | null
           title: string | null
           type: string
           updated_at: string
         }
         Insert: {
+          category?: string | null
           church_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          status?: string | null
+          ticket_number?: string | null
           title?: string | null
           type?: string
           updated_at?: string
         }
         Update: {
+          category?: string | null
           church_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          status?: string | null
+          ticket_number?: string | null
           title?: string | null
           type?: string
           updated_at?: string

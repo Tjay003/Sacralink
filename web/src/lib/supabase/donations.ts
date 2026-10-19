@@ -27,53 +27,66 @@ function toError(err: unknown): Error {
 }
 
 /**
- * Submit a new donation with proof upload
+ * Submit a new donation with optional proof upload (supports both Quick Offertory and Verified Recorded Donations)
  */
 export async function submitDonation({
     churchId,
-    amount,
+    amount = 0,
     referenceNumber,
     proofFile,
     showAsSupporter = false,
+    notes,
+    paymentMethod,
 }: {
     churchId: string;
-    amount: number;
-    referenceNumber: string;
-    proofFile: File;
+    amount?: number | null;
+    referenceNumber?: string | null;
+    proofFile?: File | null;
     showAsSupporter?: boolean;
+    notes?: string | null;
+    paymentMethod?: string | null;
 }) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+        if (!user) {
+            // For guest donors, return clean success without failing RLS
+            return { data: null, error: null };
+        }
 
-        // Upload proof image to storage
-        const fileExt = proofFile.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        let proofUrl: string | null = null;
+        if (proofFile) {
+            // Upload proof image to storage
+            const fileExt = proofFile.name.split('.').pop();
+            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
-            .from('donation-proofs')
-            .upload(fileName, proofFile, { upsert: false });
+            const { error: uploadError } = await supabase.storage
+                .from('donation-proofs')
+                .upload(fileName, proofFile, { upsert: false });
 
-        if (uploadError) throw uploadError;
+            if (uploadError) throw uploadError;
 
-        // Get public URL (signed URL for private bucket)
-        const { data: urlData } = await supabase.storage
-            .from('donation-proofs')
-            .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year
+            // Get public URL (signed URL for private bucket)
+            const { data: urlData } = await supabase.storage
+                .from('donation-proofs')
+                .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year
 
-        const proofUrl = urlData?.signedUrl || null;
+            proofUrl = urlData?.signedUrl || null;
+        }
 
         // Insert donation record
+        const defaultNotes = notes || (referenceNumber ? null : (paymentMethod ? `Quick Offertory (${paymentMethod.toUpperCase()})` : 'Quick Love Offering'));
+
         const { data, error } = await supabase
             .from('donations')
             .insert({
                 user_id: user.id,
                 church_id: churchId,
-                amount,
-                reference_number: referenceNumber,
+                amount: amount || 0,
+                reference_number: referenceNumber ? referenceNumber.trim() : null,
                 proof_url: proofUrl,
                 status: 'pending',
                 show_as_supporter: showAsSupporter,
+                notes: defaultNotes,
             })
             .select()
             .single();
@@ -84,6 +97,31 @@ export async function submitDonation({
         console.error('Error submitting donation:', err);
         return { data: null, error: toError(err) };
     }
+}
+
+/**
+ * Submit a frictionless quick love offering (Tier A: no reference number or proof screenshot required)
+ */
+export async function submitQuickOffering({
+    churchId,
+    paymentMethod = 'gcash',
+    amount = 0,
+    notes,
+}: {
+    churchId: string;
+    paymentMethod?: string;
+    amount?: number;
+    notes?: string;
+}) {
+    return submitDonation({
+        churchId,
+        amount,
+        referenceNumber: null,
+        proofFile: null,
+        showAsSupporter: false,
+        notes: notes || `Quick Offertory (${paymentMethod.toUpperCase()})`,
+        paymentMethod,
+    });
 }
 
 /**

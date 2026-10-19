@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Building2,
@@ -32,12 +32,14 @@ import {
     Download,
     Compass,
     EyeOff,
-    CheckCircle
+    CheckCircle,
+    UserMinus,
+    MoreVertical
 } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { getOrCreateDirectConversation } from '../../lib/supabase/messaging';
+import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
 import FacebookFeed from '../../components/social/FacebookFeed';
@@ -57,6 +59,9 @@ import ChurchChatbot from '../../components/ai/ChurchChatbot';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
 import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
+import AssignStaffModal from '../../components/admin/AssignStaffModal';
+import EditRoleModal from '../../components/admin/EditRoleModal';
+import { directUpdateProfile } from '../../lib/directApi';
 import type { Profile, Database } from '../../types/database';
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
@@ -74,10 +79,8 @@ type TabType = 'overview' | 'liturgy' | 'media' | 'livestream' | 'announcements'
 export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user, profile } = useAuth();
+    const { user, profile, session } = useAuth();
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
-
-    const [contactLoading, setContactLoading] = useState(false);
 
     // Main Tab Navigation
     const [currentTab, setCurrentTab] = useState<TabType>('overview');
@@ -125,6 +128,16 @@ export default function ChurchDetailPage() {
     const [staffList, setStaffList] = useState<Profile[]>([]);
     const [loadingStaff, setLoadingStaff] = useState<boolean>(false);
     const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+
+    // Staff Assignment & Management Modals
+    const [showAssignStaffModal, setShowAssignStaffModal] = useState<boolean>(false);
+    const [editingStaffMember, setEditingStaffMember] = useState<Profile | null>(null);
+    const [unassignStaffMember, setUnassignStaffMember] = useState<Profile | null>(null);
+    const [unassignLoading, setUnassignLoading] = useState<boolean>(false);
+    const [activeStaffDropdownId, setActiveStaffDropdownId] = useState<string | null>(null);
+
+    // Parish Office Inquiry Modal
+    const [showInquiryModal, setShowInquiryModal] = useState<boolean>(false);
 
     const [searchParams] = useSearchParams();
     const deepLinkAnnouncementId = searchParams.get('announcement');
@@ -184,6 +197,21 @@ export default function ChurchDetailPage() {
         };
     }, [adminMenuOpen]);
 
+    // Close staff action dropdown on outside click
+    useEffect(() => {
+        const handleCloseStaffDropdown = (e: MouseEvent) => {
+            if (!(e.target as HTMLElement).closest('.staff-menu-container')) {
+                setActiveStaffDropdownId(null);
+            }
+        };
+        if (activeStaffDropdownId) {
+            document.addEventListener('mousedown', handleCloseStaffDropdown);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleCloseStaffDropdown);
+        };
+    }, [activeStaffDropdownId]);
+
     // Load follow state
     useEffect(() => {
         if (id && profile) {
@@ -208,57 +236,128 @@ export default function ChurchDetailPage() {
     const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
 
     // Fetch dynamic live metrics & staff members
-    useEffect(() => {
+    const fetchMetricsAndStaff = useCallback(async () => {
         if (!id) return;
 
-        const fetchMetricsAndStaff = async () => {
-            try {
-                setLoadingStaff(true);
-                // 1. Members count (profiles assigned to this church)
-                const { count: membersCount } = await supabase
-                    .from('profiles')
-                    .select('*', { count: 'exact', head: true })
-                    .or(`church_id.eq.${id},assigned_church_id.eq.${id}`);
-                setRegisteredMembersCount(membersCount || 0);
+        try {
+            setLoadingStaff(true);
+            // 1. Members count (profiles assigned to this church)
+            const { count: membersCount } = await supabase
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .or(`church_id.eq.${id},assigned_church_id.eq.${id}`);
+            setRegisteredMembersCount(membersCount || 0);
 
-                // 2. Pending requests count (appointments with status = 'pending')
-                const { count: pendingCount } = await supabase
-                    .from('appointments')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('church_id', id)
-                    .eq('status', 'pending');
-                setPendingRequestsCount(pendingCount || 0);
+            // 2. Pending requests count (appointments with status = 'pending')
+            const { count: pendingCount } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .eq('church_id', id)
+                .eq('status', 'pending');
+            setPendingRequestsCount(pendingCount || 0);
 
-                // 3. Staff team members (priests, church_admins, volunteers)
-                const { data: staffData } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
-                    .in('role', ['church_admin', 'priest', 'volunteer', 'admin'])
-                    .limit(10);
-                if (staffData) {
-                    setStaffList(staffData as Profile[]);
-                }
-
-                // 4. Audit activity logs for governance
-                const { data: logs } = await supabase
-                    .from('activity_logs')
-                    .select('*')
-                    .eq('entity_id', id)
-                    .order('created_at', { ascending: false })
-                    .limit(8);
-                if (logs) {
-                    setActivityLogs(logs);
-                }
-            } catch (err) {
-                console.error('Error fetching church metrics:', err);
-            } finally {
-                setLoadingStaff(false);
+            // 3. Staff team members (priests, church_admins, volunteers)
+            const { data: staffData } = await supabase
+                .from('profiles')
+                .select('*')
+                .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
+                .in('role', ['church_admin', 'priest', 'volunteer', 'admin'])
+                .limit(50);
+            if (staffData) {
+                setStaffList(staffData as Profile[]);
             }
-        };
 
-        fetchMetricsAndStaff();
+            // 4. Audit activity logs for governance
+            const { data: logs } = await supabase
+                .from('activity_logs')
+                .select('*')
+                .eq('entity_id', id)
+                .order('created_at', { ascending: false })
+                .limit(8);
+            if (logs) {
+                setActivityLogs(logs);
+            }
+        } catch (err) {
+            console.error('Error fetching church metrics:', err);
+        } finally {
+            setLoadingStaff(false);
+        }
     }, [id]);
+
+    useEffect(() => {
+        fetchMetricsAndStaff();
+    }, [fetchMetricsAndStaff]);
+
+    // Unassign staff member from this parish
+    const handleUnassignConfirm = async () => {
+        if (!unassignStaffMember || !id) return;
+
+        if (unassignStaffMember.role === 'super_admin') {
+            setActionFeedback({
+                type: 'error',
+                message: 'Cannot unassign Platform Owner (Super Admin).',
+            });
+            setUnassignStaffMember(null);
+            return;
+        }
+
+        setUnassignLoading(true);
+        try {
+            const token = session?.access_token || '';
+            const isOrdained = Boolean(unassignStaffMember.is_priest);
+
+            const result = await directUpdateProfile(
+                unassignStaffMember.id,
+                {
+                    assigned_church_id: null,
+                    church_id: null,
+                    role: 'user',
+                    is_priest: isOrdained, // Preserves ordination status for clergy
+                },
+                token
+            );
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to unassign staff member.');
+            }
+
+            // Record activity log for chancery governance
+            if (profile?.id) {
+                try {
+                    await supabase.from('activity_logs').insert({
+                        user_id: profile.id,
+                        action: 'unassign_parish_staff',
+                        entity_type: 'churches',
+                        entity_id: id,
+                        metadata: {
+                            unassigned_user_id: unassignStaffMember.id,
+                            unassigned_user_name: unassignStaffMember.full_name,
+                            previous_role: unassignStaffMember.role,
+                            church_name: church?.name,
+                        },
+                    });
+                } catch (auditErr) {
+                    console.warn('Could not record activity log:', auditErr);
+                }
+            }
+
+            setActionFeedback({
+                type: 'success',
+                message: `${unassignStaffMember.full_name || 'Staff member'} was successfully unassigned from ${church?.name || 'this parish'}.`,
+            });
+
+            await fetchMetricsAndStaff();
+            setUnassignStaffMember(null);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to unassign staff member';
+            setActionFeedback({
+                type: 'error',
+                message,
+            });
+        } finally {
+            setUnassignLoading(false);
+        }
+    };
 
     // Fetch gallery images
     const fetchGallery = async () => {
@@ -426,7 +525,7 @@ export default function ChurchDetailPage() {
 
 
 
-    const handleContactParish = async () => {
+    const handleContactParish = () => {
         if (!user) {
             navigate('/login');
             return;
@@ -434,62 +533,22 @@ export default function ChurchDetailPage() {
 
         if (!id) return;
 
-        try {
-            setContactLoading(true);
-            const { data: staffMembers, error: staffError } = await supabase
-                .from('profiles')
-                .select('id, full_name, role, is_priest')
-                .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
-                .eq('role', 'church_admin');
-
-            if (staffError) throw staffError;
-
-            const staffUser = staffMembers && staffMembers.length > 0
-                ? (staffMembers.find((s) => !s.is_priest) || staffMembers[0])
-                : null;
-
-            if (!staffUser) {
-                setActionFeedback({
-                    type: 'error',
-                    message: 'No parish office administrator is currently assigned to this church. Opening Messages directory...',
-                });
-                setTimeout(() => {
-                    navigate('/messages', {
-                        state: { info: 'No parish staff member is currently assigned to this church office.' },
-                    });
-                }, 1000);
-                return;
-            }
-
-            if (staffUser.id === user.id) {
-                navigate('/messages');
-                return;
-            }
-
-            const { conversationId, error: convError } = await getOrCreateDirectConversation(
-                user.id,
-                staffUser.id
-            );
-
-            if (convError) throw convError;
-
-            if (conversationId) {
-                navigate(`/messages?conv=${conversationId}`);
-            } else {
-                navigate('/messages', {
-                    state: { info: `Started direct conversation with ${staffUser.full_name || 'Parish Office'}.` },
-                });
-            }
-        } catch (err: unknown) {
-            console.error('Error contacting parish:', err);
-            const message = err instanceof Error ? err.message : 'Failed to start conversation with parish office.';
+        // Check if church has assigned staff members
+        const hasStaff = staffList.length > 0;
+        if (!hasStaff) {
             setActionFeedback({
                 type: 'error',
-                message,
+                message: 'Parish office online desk not yet activated for this church.',
             });
-        } finally {
-            setContactLoading(false);
+            return;
         }
+
+        setShowInquiryModal(true);
+    };
+
+    const handleInquirySuccess = (conversationId: string) => {
+        setShowInquiryModal(false);
+        navigate(`/messages?conv=${conversationId}`, { state: { conversationId } });
     };
 
     const formatTime = (time: string) => {
@@ -700,19 +759,20 @@ export default function ChurchDetailPage() {
                             )}
 
                             {/* Message Office */}
-                            <button
-                                onClick={handleContactParish}
-                                disabled={contactLoading}
-                                title="Message the parish office"
-                                className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-60"
-                            >
-                                {contactLoading ? (
-                                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
-                                ) : (
-                                    <MessageSquare className="w-4 h-4 text-secondary-500" />
-                                )}
-                                <span>Message office</span>
-                            </button>
+                            {(() => {
+                                const isUnstaffed = !loadingStaff && staffList.length === 0;
+                                return (
+                                    <button
+                                        onClick={handleContactParish}
+                                        disabled={isUnstaffed}
+                                        title={isUnstaffed ? "Parish office online desk not yet activated" : "Message the parish office"}
+                                        className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                    >
+                                        <MessageSquare className="w-4 h-4 text-secondary-500" />
+                                        <span>Message office</span>
+                                    </button>
+                                );
+                            })()}
 
                             {/* Follow / Bookmark */}
                             {profile && (
@@ -1148,7 +1208,7 @@ export default function ChurchDetailPage() {
                                 <h3 className="text-base font-bold text-foreground">Parish team</h3>
                                 {canManage() && (
                                     <button
-                                        onClick={() => navigate('/admin/users')}
+                                        onClick={() => setCurrentTab('governance')}
                                         className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                                     >
                                         Manage staff
@@ -1835,24 +1895,40 @@ export default function ChurchDetailPage() {
                         2. Audit trail
                         ─────────────────────────────────────────────────────────── */}
                     <div className="lg:col-span-4 space-y-6">
-                        {/* 1. Assigned administrators card */}
+                        {/* 1. Parish Office & Clergy Management Card */}
                         <div className="card p-6 bg-white border border-border/80 rounded-2xl shadow-xs space-y-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-base font-bold text-foreground">Assigned administrators</h3>
-                                    <p className="text-xs text-secondary-500 mt-0.5">Can edit this parish profile</p>
+                                    <h3 className="text-base font-bold text-foreground">Parish Office & Clergy</h3>
+                                    <p className="text-xs text-secondary-500 mt-0.5">Assigned administrators, priests, and parish staff</p>
                                 </div>
-                                <button
-                                    onClick={() => navigate('/admin/users')}
-                                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
-                                >
-                                    <span>+ Assign</span>
-                                </button>
+                                {(canManage() || isSuperAdmin) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAssignStaffModal(true)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        <span>Assign</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="space-y-3 pt-1">
                                 {staffList.length === 0 ? (
-                                    <p className="text-xs text-muted italic">No administrators currently assigned.</p>
+                                    <div className="text-center py-6 text-muted bg-secondary-50/50 rounded-xl border border-dashed border-border">
+                                        <p className="text-xs italic">No clergy or staff members currently assigned to this parish.</p>
+                                        {(canManage() || isSuperAdmin) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAssignStaffModal(true)}
+                                                className="mt-2 text-xs font-bold text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                                <span>Assign first staff member</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 ) : (
                                     staffList.map((member) => {
                                         const initials = (member.full_name || member.email || 'A')
@@ -1864,27 +1940,94 @@ export default function ChurchDetailPage() {
 
                                         const isPriest = member.role === 'priest' || member.is_priest;
                                         const isChurchAdmin = member.role === 'church_admin' || member.role === 'admin';
+                                        const isSuperAdminMember = member.role === 'super_admin';
+                                        const isMenuOpen = activeStaffDropdownId === member.id;
 
                                         return (
-                                            <div key={member.id} className="flex items-center justify-between gap-3 text-xs">
+                                            <div key={member.id} className="relative flex items-center justify-between gap-3 text-xs p-2 rounded-xl hover:bg-secondary-50/60 transition-colors border border-transparent hover:border-border/60">
                                                 <div className="flex items-center gap-2.5 min-w-0">
-                                                    <div className="w-8 h-8 rounded-full bg-secondary-100 flex items-center justify-center font-bold text-[11px] text-secondary-700 shrink-0">
-                                                        {initials}
+                                                    <div className="w-8 h-8 rounded-full bg-secondary-100 border border-border flex items-center justify-center font-bold text-[11px] text-secondary-700 shrink-0 overflow-hidden">
+                                                        {member.avatar_url ? (
+                                                            <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            initials
+                                                        )}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-bold text-foreground truncate">{member.full_name || 'Staff User'}</p>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="font-bold text-foreground truncate">{member.full_name || 'Staff User'}</p>
+                                                            {isPriest && (
+                                                                <span title="Ordained Catholic Priest" className="text-amber-600 shrink-0">
+                                                                    <Cross className="w-3 h-3 text-amber-500" />
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[11px] text-muted truncate">{member.email}</p>
                                                     </div>
                                                 </div>
-                                                <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                                    isPriest
-                                                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                                        : isChurchAdmin
-                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                        : 'bg-secondary-100 text-secondary-700 border-secondary-200'
-                                                }`}>
-                                                    {isPriest ? 'Priest' : isChurchAdmin ? 'Church Admin' : 'Volunteer'}
-                                                </span>
+
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                        isSuperAdminMember
+                                                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                            : isPriest
+                                                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                            : isChurchAdmin
+                                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    }`}>
+                                                        {isSuperAdminMember ? 'Platform Owner' : isPriest ? 'Priest' : isChurchAdmin ? 'Church Admin' : 'Volunteer'}
+                                                    </span>
+
+                                                    {(canManage() || isSuperAdmin) && !isSuperAdminMember && (
+                                                        <div className="relative staff-menu-container">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveStaffDropdownId(isMenuOpen ? null : member.id);
+                                                                }}
+                                                                className={`p-1.5 rounded-lg border text-secondary-500 hover:text-foreground transition-all cursor-pointer ${
+                                                                    isMenuOpen ? 'bg-secondary-100 border-secondary-300' : 'bg-white border-border/80 hover:bg-secondary-50'
+                                                                }`}
+                                                                title="Manage member"
+                                                                aria-label="Manage member"
+                                                            >
+                                                                <MoreVertical className="w-3.5 h-3.5" />
+                                                            </button>
+
+                                                            {isMenuOpen && (
+                                                                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-border shadow-xl py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setActiveStaffDropdownId(null);
+                                                                            setEditingStaffMember(member);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-secondary-50 text-left font-medium transition-colors cursor-pointer"
+                                                                    >
+                                                                        <Edit className="w-3.5 h-3.5 text-muted shrink-0" />
+                                                                        <span>Edit Role / Assignment</span>
+                                                                    </button>
+
+                                                                    <div className="border-t border-border/60 my-1" />
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setActiveStaffDropdownId(null);
+                                                                            setUnassignStaffMember(member);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-red-50 text-left font-medium transition-colors cursor-pointer"
+                                                                    >
+                                                                        <UserMinus className="w-3.5 h-3.5 text-destructive shrink-0" />
+                                                                        <span>Unassign from Parish</span>
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })
@@ -2130,6 +2273,65 @@ export default function ChurchDetailPage() {
                     </div>
                 </Modal>
             )}
+
+            {/* Parish Office Inquiry Modal */}
+            {user && (
+                <ParishInquiryModal
+                    isOpen={showInquiryModal}
+                    onClose={() => setShowInquiryModal(false)}
+                    churchId={church.id}
+                    churchName={church.name}
+                    churchImage={church.featured_image_url}
+                    userId={user.id}
+                    onSuccess={handleInquirySuccess}
+                />
+            )}
+
+            {/* Assign Staff & Clergy Modal */}
+            {showAssignStaffModal && church && (
+                <AssignStaffModal
+                    isOpen={showAssignStaffModal}
+                    onClose={() => setShowAssignStaffModal(false)}
+                    churchId={church.id}
+                    churchName={church.name}
+                    onSuccess={() => {
+                        fetchMetricsAndStaff();
+                        setActionFeedback({
+                            type: 'success',
+                            message: 'Staff member successfully assigned to parish.',
+                        });
+                    }}
+                />
+            )}
+
+            {/* Edit Role / Assignment Modal */}
+            {editingStaffMember && (
+                <EditRoleModal
+                    user={editingStaffMember}
+                    onClose={() => setEditingStaffMember(null)}
+                    onSuccess={() => {
+                        setEditingStaffMember(null);
+                        fetchMetricsAndStaff();
+                        setActionFeedback({
+                            type: 'success',
+                            message: 'Staff assignment and roles successfully updated.',
+                        });
+                    }}
+                />
+            )}
+
+            {/* Unassign Staff Member Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={Boolean(unassignStaffMember)}
+                title="Unassign Staff Member"
+                message={`Are you sure you want to unassign ${unassignStaffMember?.full_name || 'this staff member'} from ${church?.name}? Their parish assignment will be cleared and role set to parishioner.`}
+                confirmLabel="Unassign from Parish"
+                cancelLabel="Cancel"
+                variant="danger"
+                loading={unassignLoading}
+                onConfirm={handleUnassignConfirm}
+                onCancel={() => setUnassignStaffMember(null)}
+            />
 
             {/* AI Parish Assistant Chatbot - floating widget */}
             {featureFlags.parishionerChatbot.enabled && (

@@ -418,8 +418,8 @@ export default function UsersPage() {
             {/* Header & View Mode Switcher */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">User Management</h1>
-                    <p className="text-sm text-muted">Audit roles, permissions, and church assignments across the diocese</p>
+                    <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">User Management</h1>
+                    <p className="text-xs sm:text-sm text-secondary-500 font-normal mt-1">Audit roles, permissions, and church assignments across the diocese</p>
                 </div>
 
                 {/* View Switcher Toggle */}
@@ -666,12 +666,19 @@ export default function UsersPage() {
                 {/* Filter Summary Status */}
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-muted">
                     <span>
-                        Showing <strong className="text-foreground">{viewMode === 'table' ? paginatedUsers.length : filteredUsers.length}</strong> of{' '}
-                        <strong className="text-foreground">{filteredUsers.length}</strong>{' '}
-                        {directoryTab === 'staff' ? 'parish staff & clergy' : directoryTab === 'parishioners' ? 'parishioners' : 'users'}
-                        {filteredUsers.length !== users.length && (
-                            <span className="text-muted/70"> ({users.length} total accessible)</span>
-                        )}
+                        {viewMode === 'grouped' ? (
+                            <>
+                                Showing <strong className="text-foreground">{filteredUsers.length}</strong>{' '}
+                                {directoryTab === 'staff' ? 'parish staff & clergy' : directoryTab === 'parishioners' ? 'parishioners' : 'users'}
+                                {filteredUsers.length !== users.length && (
+                                    <span className="text-muted/70"> ({users.length} total accessible)</span>
+                                )}
+                            </>
+                        ) : filteredUsers.length !== users.length ? (
+                            <span className="text-secondary-600 dark:text-secondary-300 font-medium">
+                                Filtered view: <strong className="text-foreground">{filteredUsers.length}</strong> matching of <span className="text-muted/80">{users.length} total accessible</span>
+                            </span>
+                        ) : null}
                     </span>
                     {hasActiveFilters && (
                         <button

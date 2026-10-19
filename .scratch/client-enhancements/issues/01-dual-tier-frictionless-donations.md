@@ -1,7 +1,7 @@
 # Issue 01: Dual-Tier Frictionless Donations (Quick Offertory vs. Recorded Acknowledgment)
 
 Type: feature
-Status: proposed
+Status: resolved
 Blocked by: 
 
 ---
@@ -21,7 +21,7 @@ To solve this:
 ---
 
 ## 2. Acceptance Criteria
-- [ ] Donation modal renders parish QR code with "Copy Number" and "Save QR" utility buttons.
-- [ ] Default state allows zero-input completion ("I have sent my offering") with spiritual blessing animation.
-- [ ] Opt-in checkbox expands form for donor acknowledgment, amount chips, and receipt upload.
-- [ ] Builds and passes TypeScript validation cleanly (`tsc -b`).
+- [x] Donation modal renders parish QR code with "Copy Number" and "Save QR" utility buttons.
+- [x] Default state allows zero-input completion ("I have sent my offering") with spiritual blessing animation.
+- [x] Opt-in checkbox expands form for donor acknowledgment, amount chips, and receipt upload.
+- [x] Builds and passes TypeScript validation cleanly (`tsc -b`).

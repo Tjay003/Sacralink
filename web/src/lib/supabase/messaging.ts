@@ -99,6 +99,9 @@ export interface ConversationWithDetails extends Conversation {
     church?: Church | null;
     otherParticipant?: Profile | null; // For 1-on-1 direct chats
     ministry?: MinistryDefinition | null; // For ministry group channels
+    category?: string | null;
+    status?: string | null;
+    ticket_number?: string | null;
 }
 
 export interface ContactProfile extends Profile {
@@ -112,18 +115,31 @@ export interface ContactProfile extends Profile {
 const LOCAL_MINISTRY_STORAGE_KEY = 'sacralink_local_ministry_convs';
 const LOCAL_MINISTRY_MESSAGES_KEY = 'sacralink_local_ministry_messages';
 
-interface LocalMinistryConv {
+export interface LocalMinistryConv {
     id: string;
     title: string;
     type: string;
     church_id: string;
+    church_name?: string;
     created_by: string;
     created_at: string;
     updated_at: string;
     participants: string[];
+    category?: string | null;
+    status?: string | null;
+    ticket_number?: string | null;
 }
 
-function getLocalMinistryConvs(churchId?: string): LocalMinistryConv[] {
+export function isLocalConversation(conversationId: string): boolean {
+    if (!conversationId) return false;
+    return (
+        conversationId.startsWith('ministry-') ||
+        conversationId.startsWith('inquiry-') ||
+        conversationId.startsWith('local-')
+    );
+}
+
+export function getLocalMinistryConvs(churchId?: string): LocalMinistryConv[] {
     if (typeof window === 'undefined' || !window.sessionStorage) return [];
     try {
         const raw = window.sessionStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY);
@@ -137,7 +153,12 @@ function getLocalMinistryConvs(churchId?: string): LocalMinistryConv[] {
     }
 }
 
-function saveLocalMinistryConv(conv: LocalMinistryConv): void {
+export function getLocalConversationById(conversationId: string): LocalMinistryConv | null {
+    const list = getLocalMinistryConvs();
+    return list.find((c) => c.id === conversationId) || null;
+}
+
+export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
     if (typeof window === 'undefined' || !window.sessionStorage) return;
     try {
         const list = getLocalMinistryConvs();
@@ -147,7 +168,12 @@ function saveLocalMinistryConv(conv: LocalMinistryConv): void {
         if (existingIdx >= 0) {
             const existing = list[existingIdx];
             const mergedParticipants = Array.from(new Set([...existing.participants, ...conv.participants]));
-            list[existingIdx] = { ...existing, ...conv, participants: mergedParticipants };
+            list[existingIdx] = { 
+                ...existing, 
+                ...conv, 
+                church_name: conv.church_name || existing.church_name,
+                participants: mergedParticipants 
+            };
         } else {
             list.push(conv);
         }
@@ -157,7 +183,7 @@ function saveLocalMinistryConv(conv: LocalMinistryConv): void {
     }
 }
 
-function getLocalMinistryMessages(conversationId: string): MessageWithSender[] {
+export function getLocalMinistryMessages(conversationId: string): MessageWithSender[] {
     if (typeof window === 'undefined' || !window.sessionStorage) return [];
     try {
         const raw = window.sessionStorage.getItem(`${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}`);
@@ -198,13 +224,27 @@ export async function fetchUserConversations(userId: string): Promise<{
     error: Error | null;
 }> {
     try {
-        // 1. Get all conversation IDs that user is participant in
+        let enrichedConversations: ConversationWithDetails[] = [];
+
+        // 0. Query profile of current user to know their role and assigned church
+        const { data: myProfile } = await supabase
+            .from('profiles')
+            .select('role, assigned_church_id, church_id')
+            .eq('id', userId)
+            .maybeSingle();
+
+        const staffChurchId = myProfile?.assigned_church_id || myProfile?.church_id || null;
+        const isStaffOrClergy = ['super_admin', 'admin', 'church_admin', 'priest', 'volunteer'].includes(myProfile?.role || '');
+
+        // 1. Get all conversation IDs that user is participant in from Supabase
         const { data: participantRows, error: participantError } = await supabase
             .from('conversation_participants')
             .select('conversation_id, last_read_at')
             .eq('user_id', userId);
 
-        if (participantError) throw participantError;
+        if (participantError) {
+            console.warn('⚠️ [Messaging] Could not fetch Supabase participants:', participantError);
+        }
 
         const conversationIds = (participantRows || []).map((p) => p.conversation_id);
         const lastReadMap = new Map<string, string | null>();
@@ -212,130 +252,185 @@ export async function fetchUserConversations(userId: string): Promise<{
             lastReadMap.set(p.conversation_id, p.last_read_at);
         });
 
-        if (conversationIds.length === 0) {
-            return { data: [], error: null };
-        }
-
         // 2. Fetch conversation rows with associated church
-        const { data: conversations, error: convError } = await supabase
-            .from('conversations')
-            .select('*, church:churches(*)')
-            .in('id', conversationIds)
-            .order('updated_at', { ascending: false });
+        // If user is staff/clergy, query conversations where they are a participant OR
+        // conversations belonging to their assigned church with type in ('channel', 'group')
+        let conversations: any[] | null = null;
+        let convError: any = null;
 
-        if (convError) throw convError;
+        if (isStaffOrClergy && staffChurchId) {
+            let convQuery = supabase
+                .from('conversations')
+                .select('*, church:churches(*)');
 
-        if (!conversations || conversations.length === 0) {
-            return { data: [], error: null };
+            if (conversationIds.length > 0) {
+                convQuery = convQuery.or(
+                    `id.in.(${conversationIds.join(',')}),and(church_id.eq.${staffChurchId},type.in.(channel,group))`
+                );
+            } else {
+                convQuery = convQuery
+                    .eq('church_id', staffChurchId)
+                    .in('type', ['channel', 'group']);
+            }
+
+            const res = await convQuery.order('updated_at', { ascending: false });
+            conversations = res.data;
+            convError = res.error;
+        } else if (conversationIds.length > 0) {
+            const res = await supabase
+                .from('conversations')
+                .select('*, church:churches(*)')
+                .in('id', conversationIds)
+                .order('updated_at', { ascending: false });
+            conversations = res.data;
+            convError = res.error;
         }
 
-        // 3. Fetch all participants for these conversations
-        const { data: allParticipants, error: allPartError } = await supabase
-            .from('conversation_participants')
-            .select('*')
-            .in('conversation_id', conversationIds);
+        if (convError) {
+            console.warn('⚠️ [Messaging] Could not fetch Supabase conversations:', convError);
+        }
 
-        if (allPartError) throw allPartError;
+        if (conversations && conversations.length > 0) {
+            const fetchedConvIds = conversations.map((c: any) => c.id);
 
-        // 3b. Fetch profiles for all participant user_ids
-        const participantUserIds = Array.from(new Set((allParticipants || []).map((p: any) => p.user_id).filter(Boolean)));
-        const profileMap = new Map<string, Profile>();
-        if (participantUserIds.length > 0) {
-            const { data: profilesData } = await supabase
-                .from('profiles')
+            // 3. Fetch all participants for these conversations
+            const { data: allParticipants, error: allPartError } = await supabase
+                .from('conversation_participants')
                 .select('*')
-                .in('id', participantUserIds);
-            (profilesData || []).forEach((prof: any) => {
-                profileMap.set(prof.id, prof);
+                .in('conversation_id', fetchedConvIds);
+
+            if (allPartError) {
+                console.warn('⚠️ [Messaging] Could not fetch Supabase participant details:', allPartError);
+            }
+
+            // 3b. Fetch profiles for all participant user_ids
+            const participantUserIds = Array.from(new Set((allParticipants || []).map((p: any) => p.user_id).filter(Boolean)));
+            const profileMap = new Map<string, Profile>();
+            if (participantUserIds.length > 0) {
+                const { data: profilesData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .in('id', participantUserIds);
+                (profilesData || []).forEach((prof: any) => {
+                    profileMap.set(prof.id, prof);
+                });
+            }
+
+            // Group participants by conversation_id
+            const participantsByConv = new Map<string, ParticipantWithProfile[]>();
+            (allParticipants || []).forEach((part: any) => {
+                const list = participantsByConv.get(part.conversation_id) || [];
+                list.push({
+                    ...part,
+                    profile: profileMap.get(part.user_id) || null,
+                });
+                participantsByConv.set(part.conversation_id, list);
             });
+
+            // 4. Fetch the latest messages for each conversation and compute unread counts
+            // Ensure profiles of all message senders are properly joined so msg.sender details are present
+            enrichedConversations = await Promise.all(
+                conversations.map(async (conv: any) => {
+                    const parts = participantsByConv.get(conv.id) || [];
+                    const userLastRead = lastReadMap.get(conv.id);
+
+                    // Fetch latest message joined with sender profile
+                    const { data: latestMessages } = await supabase
+                        .from('messages')
+                        .select('*, sender:profiles(*)')
+                        .eq('conversation_id', conv.id)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    let lastMsg: MessageWithSender | null = null;
+                    if (latestMessages && latestMessages.length > 0) {
+                        const rawMsg = latestMessages[0] as any;
+                        let senderProfile = rawMsg.sender || profileMap.get(rawMsg.sender_id) || null;
+                        if (!senderProfile && rawMsg.sender_id) {
+                            const { data: singleSender } = await supabase
+                                .from('profiles')
+                                .select('*')
+                                .eq('id', rawMsg.sender_id)
+                                .maybeSingle();
+                            if (singleSender) {
+                                senderProfile = singleSender;
+                                profileMap.set(rawMsg.sender_id, singleSender);
+                            }
+                        }
+                        lastMsg = {
+                            ...rawMsg,
+                            sender: senderProfile,
+                        };
+                    }
+
+                    // Count unread messages (newer than last_read_at and not sent by current user)
+                    let unreadCount = 0;
+                    if (userLastRead) {
+                        const { count } = await supabase
+                            .from('messages')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('conversation_id', conv.id)
+                            .neq('sender_id', userId)
+                            .gt('created_at', userLastRead);
+                        unreadCount = count || 0;
+                    } else {
+                        const { count } = await supabase
+                            .from('messages')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('conversation_id', conv.id)
+                            .neq('sender_id', userId);
+                        unreadCount = count || 0;
+                    }
+
+                    // Determine other participant for 1-on-1 chats
+                    const otherPart = parts.find((p) => p.user_id !== userId)?.profile || null;
+                    const ministryDef = conv.type === 'group'
+                        ? PARISH_MINISTRIES.find((m) => m.name === conv.title) || null
+                        : null;
+
+                    return {
+                        ...conv,
+                        category: conv.category || 'general',
+                        status: conv.status || 'open',
+                        ticket_number: conv.ticket_number || null,
+                        participants: parts,
+                        lastMessage: lastMsg,
+                        unreadCount,
+                        church: conv.church || null,
+                        otherParticipant: otherPart,
+                        ministry: ministryDef,
+                    };
+                })
+            );
         }
 
-        // Group participants by conversation_id
-        const participantsByConv = new Map<string, ParticipantWithProfile[]>();
-        (allParticipants || []).forEach((part: any) => {
-            const list = participantsByConv.get(part.conversation_id) || [];
-            list.push({
-                ...part,
-                profile: profileMap.get(part.user_id) || null,
-            });
-            participantsByConv.set(part.conversation_id, list);
-        });
-
-        // 4. Fetch the latest messages for each conversation and compute unread counts
-        const enrichedConversations: ConversationWithDetails[] = await Promise.all(
-            conversations.map(async (conv: any) => {
-                const parts = participantsByConv.get(conv.id) || [];
-                const userLastRead = lastReadMap.get(conv.id);
-
-                // Fetch latest message
-                const { data: latestMessages } = await supabase
-                    .from('messages')
-                    .select('*')
-                    .eq('conversation_id', conv.id)
-                    .order('created_at', { ascending: false })
-                    .limit(1);
-
-                let lastMsg: MessageWithSender | null = null;
-                if (latestMessages && latestMessages.length > 0) {
-                    const rawMsg = latestMessages[0] as any;
-                    lastMsg = {
-                        ...rawMsg,
-                        sender: profileMap.get(rawMsg.sender_id) || null,
-                    };
-                }
-
-                // Count unread messages (newer than last_read_at and not sent by current user)
-                let unreadCount = 0;
-                if (userLastRead) {
-                    const { count } = await supabase
-                        .from('messages')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('conversation_id', conv.id)
-                        .neq('sender_id', userId)
-                        .gt('created_at', userLastRead);
-                    unreadCount = count || 0;
-                } else {
-                    const { count } = await supabase
-                        .from('messages')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('conversation_id', conv.id)
-                        .neq('sender_id', userId);
-                    unreadCount = count || 0;
-                }
-
-                // Determine other participant for 1-on-1 chats
-                const otherPart = parts.find((p) => p.user_id !== userId)?.profile || null;
-                const ministryDef = conv.type === 'group'
-                    ? PARISH_MINISTRIES.find((m) => m.name === conv.title) || null
-                    : null;
-
-                return {
-                    ...conv,
-                    participants: parts,
-                    lastMessage: lastMsg,
-                    unreadCount,
-                    church: conv.church || null,
-                    otherParticipant: otherPart,
-                    ministry: ministryDef,
-                };
-            })
-        );
-
-        // Merge any local fallback ministry conversations the user is a participant in
+        // Merge any local fallback conversations (ministries & parish inquiries) the user is part of
         const localConvs = getLocalMinistryConvs();
-        const userLocalConvs = localConvs.filter((lc) => lc.participants.includes(userId));
+        const userLocalConvs = localConvs.filter(
+            (lc) => lc.participants.includes(userId) || lc.created_by === userId
+        );
         userLocalConvs.forEach((lc) => {
             if (!enrichedConversations.some((c) => c.id === lc.id)) {
                 const localMsgs = getLocalMinistryMessages(lc.id);
                 const lastMsg = localMsgs.length > 0 ? localMsgs[localMsgs.length - 1] : null;
+                const churchObj: Church | null = lc.church_id
+                    ? ({
+                          id: lc.church_id,
+                          name: lc.church_name || 'Parish Office',
+                      } as unknown as Church)
+                    : null;
+
                 enrichedConversations.push({
                     id: lc.id,
                     title: lc.title,
-                    type: lc.type,
+                    type: lc.type as any,
                     church_id: lc.church_id,
                     created_by: lc.created_by,
                     created_at: lc.created_at,
                     updated_at: lc.updated_at,
+                    category: lc.category || 'general',
+                    status: lc.status || 'open',
+                    ticket_number: lc.ticket_number || null,
                     participants: lc.participants.map((pid) => ({
                         id: `part-${pid}`,
                         conversation_id: lc.id,
@@ -346,7 +441,7 @@ export async function fetchUserConversations(userId: string): Promise<{
                     })),
                     lastMessage: lastMsg,
                     unreadCount: 0,
-                    church: null,
+                    church: churchObj,
                     otherParticipant: null,
                     ministry: PARISH_MINISTRIES.find((m) => m.name === lc.title) || null,
                 });
@@ -361,21 +456,33 @@ export async function fetchUserConversations(userId: string): Promise<{
         return { data: enrichedConversations, error: null };
     } catch (err: any) {
         console.error('❌ Error fetching user conversations:', err);
-        // Robust fallback: return user's local ministry conversations if any exist
+        // Robust fallback: return user's local conversations if any exist
         const localConvs = getLocalMinistryConvs();
-        const userLocalConvs = localConvs.filter((lc) => lc.participants.includes(userId));
+        const userLocalConvs = localConvs.filter(
+            (lc) => lc.participants.includes(userId) || lc.created_by === userId
+        );
         if (userLocalConvs.length > 0) {
             const fallbackList: ConversationWithDetails[] = userLocalConvs.map((lc) => {
                 const localMsgs = getLocalMinistryMessages(lc.id);
                 const lastMsg = localMsgs.length > 0 ? localMsgs[localMsgs.length - 1] : null;
+                const churchObj: Church | null = lc.church_id
+                    ? ({
+                          id: lc.church_id,
+                          name: lc.church_name || 'Parish Office',
+                      } as unknown as Church)
+                    : null;
+
                 return {
                     id: lc.id,
                     title: lc.title,
-                    type: lc.type,
+                    type: lc.type as any,
                     church_id: lc.church_id,
                     created_by: lc.created_by,
                     created_at: lc.created_at,
                     updated_at: lc.updated_at,
+                    category: lc.category || 'general',
+                    status: lc.status || 'open',
+                    ticket_number: lc.ticket_number || null,
                     participants: lc.participants.map((pid) => ({
                         id: `part-${pid}`,
                         conversation_id: lc.id,
@@ -386,7 +493,7 @@ export async function fetchUserConversations(userId: string): Promise<{
                     })),
                     lastMessage: lastMsg,
                     unreadCount: 0,
-                    church: null,
+                    church: churchObj,
                     otherParticipant: null,
                     ministry: PARISH_MINISTRIES.find((m) => m.name === lc.title) || null,
                 };
@@ -405,7 +512,7 @@ export async function fetchMessages(conversationId: string): Promise<{
     error: Error | null;
 }> {
     try {
-        if (conversationId.startsWith('ministry-')) {
+        if (isLocalConversation(conversationId)) {
             const localMsgs = getLocalMinistryMessages(conversationId);
             return { data: localMsgs, error: null };
         }
@@ -469,7 +576,7 @@ export async function sendMessage(
 }> {
     const now = new Date().toISOString();
     try {
-        if (conversationId.startsWith('ministry-')) {
+        if (isLocalConversation(conversationId)) {
             const { data: senderProf } = await supabase
                 .from('profiles')
                 .select('*')
@@ -489,6 +596,15 @@ export async function sendMessage(
 
             saveLocalMinistryMessage(localMsg);
             notifyLocalMessage(localMsg);
+
+            // Also update local conversation updated_at
+            const localConvs = getLocalMinistryConvs();
+            const conv = localConvs.find((c) => c.id === conversationId);
+            if (conv) {
+                conv.updated_at = now;
+                saveLocalMinistryConv(conv);
+            }
+
             return { data: localMsg, error: null };
         }
 
@@ -541,6 +657,15 @@ export async function sendMessage(
 
         saveLocalMinistryMessage(localMsg);
         notifyLocalMessage(localMsg);
+
+        // Also update local conversation updated_at
+        const localConvs = getLocalMinistryConvs();
+        const conv = localConvs.find((c) => c.id === conversationId);
+        if (conv) {
+            conv.updated_at = now;
+            saveLocalMinistryConv(conv);
+        }
+
         return { data: localMsg, error: null };
     }
 }
@@ -1043,6 +1168,10 @@ export async function markConversationAsRead(
     userId: string
 ): Promise<{ error: Error | null }> {
     try {
+        if (isLocalConversation(conversationId)) {
+            return { error: null };
+        }
+
         const { error } = await supabase
             .from('conversation_participants')
             .update({ last_read_at: new Date().toISOString() })
@@ -1093,6 +1222,12 @@ export async function fetchAvailableContacts(
             .neq('id', currentUserId)
             .order('full_name', { ascending: true });
 
+        // Strict Gateway for parishioners: push role filtering directly to DB query
+        // before applying limit(100) so staff are not starved out by parishioners
+        if (resolvedRole === 'user') {
+            query = query.in('role', ['super_admin', 'admin', 'church_admin']);
+        }
+
         if (churchId) {
             query = query.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
         }
@@ -1126,6 +1261,10 @@ export async function fetchAvailableContacts(
                 .select('*')
                 .neq('id', currentUserId)
                 .order('full_name', { ascending: true });
+
+            if (resolvedRole === 'user') {
+                fallbackQuery = fallbackQuery.in('role', ['super_admin', 'admin', 'church_admin']);
+            }
 
             if (churchId) {
                 fallbackQuery = fallbackQuery.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
@@ -1187,6 +1326,23 @@ export function subscribeToMessages(
     conversationId: string,
     onMessage: (message: MessageWithSender) => void
 ) {
+    if (isLocalConversation(conversationId)) {
+        const localHandler = (e: Event) => {
+            const customEvent = e as CustomEvent<MessageWithSender>;
+            if (customEvent.detail && customEvent.detail.conversation_id === conversationId) {
+                onMessage(customEvent.detail);
+            }
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('sacralink:local_message', localHandler);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('sacralink:local_message', localHandler);
+            }
+        };
+    }
+
     const channelName = `realtime:messages:${conversationId}`;
 
     const channel = supabase
@@ -1327,8 +1483,8 @@ export async function deleteConversationForMe(
             .eq('id', conversationId)
             .single();
 
-        if (convError && !conversationId.startsWith('ministry-')) throw convError;
-        if (conv?.type === 'channel' || conv?.type === 'group' || conversationId.startsWith('ministry-')) {
+        if (convError && !isLocalConversation(conversationId)) throw convError;
+        if (conv?.type === 'channel' || conv?.type === 'group' || isLocalConversation(conversationId)) {
             throw new Error('Parish staff channels and ministry group channels are permanent and cannot be deleted.');
         }
 
@@ -1360,8 +1516,8 @@ export async function deleteConversationForEveryone(
             .eq('id', conversationId)
             .single();
 
-        if (convError && !conversationId.startsWith('ministry-')) throw convError;
-        if (conv?.type === 'channel' || conv?.type === 'group' || conversationId.startsWith('ministry-')) {
+        if (convError && !isLocalConversation(conversationId)) throw convError;
+        if (conv?.type === 'channel' || conv?.type === 'group' || isLocalConversation(conversationId)) {
             throw new Error('Parish staff channels and ministry group channels are permanent and cannot be deleted.');
         }
 
@@ -1377,4 +1533,200 @@ export async function deleteConversationForEveryone(
         return { error: err };
     }
 }
+
+export interface SubmitParishOfficeInquiryParams {
+    churchId: string;
+    userId: string;
+    subject: string;
+    message: string;
+    category?: string;
+    churchName?: string;
+}
+
+/**
+ * Submit an inquiry ticket to a parish office.
+ * Creates or links a shared group conversation tagged with church_id,
+ * adds the inquiring user and all parish office administrators/staff/priests as participants,
+ * and inserts the initial inquiry message with category and ticket_number.
+ */
+export async function submitParishOfficeInquiry({
+    churchId,
+    userId,
+    subject,
+    message,
+    category,
+    churchName,
+}: SubmitParishOfficeInquiryParams): Promise<{
+    conversationId: string | null;
+    error: Error | null;
+}> {
+    try {
+        if (!churchId || !userId) {
+            throw new Error('Church ID and User ID are required to submit an inquiry');
+        }
+        if (!subject || subject.trim().length < 3) {
+            throw new Error('Subject must be at least 3 characters long');
+        }
+        if (!message || message.trim().length < 10) {
+            throw new Error('Message must be at least 10 characters long');
+        }
+
+        console.log(`[Messaging] Submitting parish office inquiry for church: ${churchId}, user: ${userId}`);
+
+        // 1. Fetch church name if not provided
+        let resolvedChurchName = churchName;
+        if (!resolvedChurchName) {
+            const { data: churchData } = await supabase
+                .from('churches')
+                .select('name')
+                .eq('id', churchId)
+                .maybeSingle();
+            resolvedChurchName = churchData?.name || 'Parish';
+        }
+
+        // 2. Find all active staff and priests for the church (church_admin, admin, super_admin, priest)
+        const [staffQuery1, staffQuery2] = await Promise.all([
+            supabase
+                .from('profiles')
+                .select('id, role, is_priest')
+                .eq('church_id', churchId)
+                .or('role.in.(church_admin,admin,super_admin,priest),is_priest.eq.true'),
+            supabase
+                .from('profiles')
+                .select('id, role, is_priest')
+                .eq('assigned_church_id', churchId)
+                .or('role.in.(church_admin,admin,super_admin,priest),is_priest.eq.true'),
+        ]);
+
+        const staffIds = new Set<string>();
+        (staffQuery1.data || []).forEach((p: any) => staffIds.add(p.id));
+        (staffQuery2.data || []).forEach((p: any) => staffIds.add(p.id));
+
+        const now = new Date().toISOString();
+        const convTitle = `Inquiry: ${subject.trim()}`;
+        const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
+        const ticketCategory = category || 'general';
+
+        // 3. Create a shared conversation tagged with church_id, ticket_number, status, and category
+        const { data: newConv, error: createError } = await supabase
+            .from('conversations')
+            .insert({
+                title: convTitle,
+                type: 'group',
+                church_id: churchId,
+                created_by: userId,
+                category: ticketCategory,
+                status: 'open',
+                ticket_number: ticketNumber,
+                created_at: now,
+                updated_at: now,
+            } as any)
+            .select('id')
+            .single();
+
+        let conversationId = newConv?.id;
+
+        if (createError || !conversationId) {
+            console.warn('⚠️ [Messaging] Supabase insert failed, checking fallback:', createError);
+            // Local fallback for offline/demo environments
+            conversationId = `inquiry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const allParticipants = Array.from(new Set([userId, ...staffIds]));
+            saveLocalMinistryConv({
+                id: conversationId,
+                title: convTitle,
+                type: 'group',
+                church_id: churchId,
+                church_name: resolvedChurchName,
+                created_by: userId,
+                category: ticketCategory,
+                status: 'open',
+                ticket_number: ticketNumber,
+                created_at: now,
+                updated_at: now,
+                participants: allParticipants,
+            });
+        } else {
+            // 4. Ensure inquiring user and all parish staff are added as conversation participants
+            const allParticipants = Array.from(new Set([userId, ...staffIds]));
+            const participantInserts = allParticipants.map((uid) => ({
+                conversation_id: conversationId!,
+                user_id: uid,
+                created_at: now,
+                last_read_at: uid === userId ? now : null,
+            }));
+
+            const { error: partError } = await supabase
+                .from('conversation_participants')
+                .insert(participantInserts as any);
+
+            if (partError) {
+                console.warn('⚠️ [Messaging] Could not insert all participants in Supabase:', partError);
+            }
+        }
+
+        // 5. Insert initial message with the inquiry format and ticket metadata
+        const initialContent = `[Inquiry: ${subject.trim()}]\n\n${message.trim()}`;
+        const { error: msgError } = await sendMessage(
+            conversationId,
+            userId,
+            initialContent,
+            'text',
+            {
+                inquiry_subject: subject.trim(),
+                church_id: churchId,
+                category: ticketCategory,
+                ticket_number: ticketNumber,
+            }
+        );
+
+        if (msgError) {
+            console.warn('⚠️ [Messaging] Could not post initial inquiry message:', msgError);
+        }
+
+        return { conversationId, error: null };
+    } catch (err: any) {
+        console.error('❌ Error submitting parish office inquiry:', err);
+        return { conversationId: null, error: err };
+    }
+}
+
+/**
+ * Update the status of a ticket conversation (open, in_progress, resolved, closed)
+ */
+export async function updateTicketStatus(
+    conversationId: string,
+    status: 'open' | 'in_progress' | 'resolved' | 'closed'
+): Promise<{
+    error: Error | null;
+}> {
+    try {
+        const now = new Date().toISOString();
+
+        if (isLocalConversation(conversationId)) {
+            const localConvs = getLocalMinistryConvs();
+            const conv = localConvs.find((c) => c.id === conversationId);
+            if (conv) {
+                conv.status = status;
+                conv.updated_at = now;
+                saveLocalMinistryConv(conv);
+            }
+            return { error: null };
+        }
+
+        const { error } = await supabase
+            .from('conversations')
+            .update({
+                status,
+                updated_at: now,
+            } as any)
+            .eq('id', conversationId);
+
+        if (error) throw error;
+        return { error: null };
+    } catch (err: any) {
+        console.error('❌ Error updating ticket status:', err);
+        return { error: err };
+    }
+}
+
 

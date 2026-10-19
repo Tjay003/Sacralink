@@ -34,6 +34,11 @@ import {
     subscribeToUserConversations,
     deleteConversationForMe,
     deleteConversationForEveryone,
+    updateTicketStatus,
+    isLocalConversation,
+    getLocalConversationById,
+    getLocalMinistryMessages,
+    PARISH_MINISTRIES,
     type ConversationWithDetails,
     type MessageWithSender,
     type ContactProfile,
@@ -143,9 +148,43 @@ const formatConversationDate = (isoString?: string | null) => {
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 };
 
+// Category styling helper
+const getCategoryBadge = (category?: string | null) => {
+    switch (category) {
+        case 'baptism':
+            return { label: 'Baptism', emoji: '🕊️', className: 'bg-blue-50 text-blue-700 border-blue-200' };
+        case 'wedding':
+            return { label: 'Wedding', emoji: '💍', className: 'bg-rose-50 text-rose-700 border-rose-200' };
+        case 'funeral':
+            return { label: 'Funeral', emoji: '🕯️', className: 'bg-purple-50 text-purple-700 border-purple-200' };
+        case 'mass_intention':
+            return { label: 'Mass Intention', emoji: '🙏', className: 'bg-amber-50 text-amber-700 border-amber-200' };
+        case 'certificate':
+            return { label: 'Certificate', emoji: '📜', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        case 'general':
+        default:
+            return { label: 'General Inquiry', emoji: '💬', className: 'bg-secondary-50 text-secondary-700 border-secondary-200' };
+    }
+};
+
+// Ticket status badge helper
+const getStatusBadge = (status?: string | null) => {
+    switch (status) {
+        case 'in_progress':
+            return { label: 'In Progress', className: 'bg-amber-50 text-amber-700 border-amber-200' };
+        case 'resolved':
+            return { label: 'Resolved', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        case 'closed':
+            return { label: 'Closed', className: 'bg-secondary-100 text-secondary-600 border-secondary-200' };
+        case 'open':
+        default:
+            return { label: 'Open', className: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
+};
+
 export default function MessagingPage() {
     const { user, profile } = useAuth();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
     // Permissions: regular parishioners cannot access staff channels
@@ -168,8 +207,10 @@ export default function MessagingPage() {
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
+    const [updatingTicketStatus, setUpdatingTicketStatus] = useState(false);
 
     // Filter & search
+    const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(convParam));
 
@@ -207,9 +248,48 @@ export default function MessagingPage() {
     const [inputContent, setInputContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    const activeConversationIdRef = useRef<string | null>(activeConversationId);
+    activeConversationIdRef.current = activeConversationId;
+
     // Active conversation object
     const activeConversation = useMemo(() => {
-        return conversations.find((c) => c.id === activeConversationId) || null;
+        const found = conversations.find((c) => c.id === activeConversationId);
+        if (found) return found;
+
+        // Instant local resolution if activeConversationId is a local conversation
+        if (activeConversationId && isLocalConversation(activeConversationId)) {
+            const local = getLocalConversationById(activeConversationId);
+            if (local) {
+                const localMsgs = getLocalMinistryMessages(local.id);
+                const lastMsg = localMsgs.length > 0 ? localMsgs[localMsgs.length - 1] : null;
+                return {
+                    id: local.id,
+                    title: local.title,
+                    type: local.type as any,
+                    church_id: local.church_id,
+                    created_by: local.created_by,
+                    created_at: local.created_at,
+                    updated_at: local.updated_at,
+                    participants: local.participants.map((pid) => ({
+                        id: `part-${pid}`,
+                        conversation_id: local.id,
+                        user_id: pid,
+                        created_at: local.created_at,
+                        last_read_at: local.updated_at,
+                        profile: null,
+                    })),
+                    lastMessage: lastMsg,
+                    unreadCount: 0,
+                    church: local.church_id
+                        ? ({ id: local.church_id, name: local.church_name || 'Parish Office' } as any)
+                        : null,
+                    otherParticipant: null,
+                    ministry: PARISH_MINISTRIES.find((m) => m.name === local.title) || null,
+                } as ConversationWithDetails;
+            }
+        }
+
+        return null;
     }, [conversations, activeConversationId]);
 
     // Load conversations for the user
@@ -226,7 +306,7 @@ export default function MessagingPage() {
             if (directConvId) {
                 setActiveConversationId(directConvId);
                 setMobileChatOpen(true);
-            } else if (selectFirst && convs.length > 0 && !activeConversationId) {
+            } else if (selectFirst && convs.length > 0 && !activeConversationIdRef.current) {
                 setActiveConversationId(convs[0].id);
             }
         } catch (err) {
@@ -234,7 +314,7 @@ export default function MessagingPage() {
         } finally {
             setLoadingConversations(false);
         }
-    }, [user, activeConversationId, navState?.conversationId]);
+    }, [user, navState?.conversationId]);
 
     // Initial load
     useEffect(() => {
@@ -242,11 +322,13 @@ export default function MessagingPage() {
     }, [loadConversations]);
 
     // Sync activeConversationId if convParam changes in URL / navigation
+    const handledConvParamRef = useRef<string | null>(null);
     useEffect(() => {
         if (convParam) {
             setActiveConversationId(convParam);
             setMobileChatOpen(true);
-            if (user && !conversations.some((c) => c.id === convParam)) {
+            if (user && handledConvParamRef.current !== convParam && !conversations.some((c) => c.id === convParam)) {
+                handledConvParamRef.current = convParam;
                 loadConversations(false);
             }
         }
@@ -257,7 +339,8 @@ export default function MessagingPage() {
         if (!user) return;
 
         const unsubscribe = subscribeToUserConversations(user.id, (incomingMsg) => {
-            const isForActiveChat = incomingMsg.conversation_id === activeConversationId;
+            const currentActiveId = activeConversationIdRef.current;
+            const isForActiveChat = incomingMsg.conversation_id === currentActiveId;
 
             if (isForActiveChat) {
                 // Append message to active chat if not already present
@@ -307,7 +390,7 @@ export default function MessagingPage() {
         return () => {
             unsubscribe();
         };
-    }, [user, activeConversationId, loadConversations]);
+    }, [user, loadConversations]);
 
     // Load churches for Super Admin / Diocese Admin Parish Staff Channel selector
     useEffect(() => {
@@ -334,7 +417,7 @@ export default function MessagingPage() {
             const { data, error } = await fetchMessages(activeConversationId);
             if (error) {
                 console.error('Error fetching messages:', error);
-            } else if (isSubscribed) {
+            } else if (isSubscribed && activeConversationIdRef.current === activeConversationId) {
                 setMessages(data || []);
                 // Mark conversation as read
                 await markConversationAsRead(activeConversationId, user.id);
@@ -345,7 +428,9 @@ export default function MessagingPage() {
                     )
                 );
             }
-            if (isSubscribed) setLoadingMessages(false);
+            if (isSubscribed && activeConversationIdRef.current === activeConversationId) {
+                setLoadingMessages(false);
+            }
         };
 
         loadActiveMessages();
@@ -395,6 +480,9 @@ export default function MessagingPage() {
     const getDisplayName = useCallback((conv: ConversationWithDetails) => {
         if (conv.type === 'channel') {
             return conv.title || (conv.church?.name ? `${conv.church.name} Staff Channel` : 'Parish Staff Channel');
+        }
+        if (conv.type === 'group' && conv.title) {
+            return conv.title;
         }
         const other = getParticipantProfile(conv);
         if (other?.full_name?.trim()) return other.full_name.trim();
@@ -725,8 +813,18 @@ export default function MessagingPage() {
     const filteredConversations = useMemo(() => {
         let list = conversations;
         if (!isStaff) {
-            list = list.filter((c) => c.type === 'direct');
+            list = list.filter((c) => c.type === 'direct' || c.type === 'group' || isLocalConversation(c.id));
         }
+
+        // Apply Tab Filter
+        if (activeTab === 'tickets') {
+            list = list.filter((c) => c.type === 'group' || (c as any).category || (c as any).ticket_number);
+        } else if (activeTab === 'direct') {
+            list = list.filter((c) => c.type === 'direct');
+        } else if (activeTab === 'staff') {
+            list = list.filter((c) => c.type === 'channel');
+        }
+
         if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase();
         return list.filter((c) => {
@@ -735,14 +833,16 @@ export default function MessagingPage() {
             const email = other?.email;
             const churchName = c.church?.name;
             const lastMsg = c.lastMessage?.content;
+            const ticketNum = (c as any).ticket_number;
             return (
                 (title && title.toLowerCase().includes(q)) ||
                 (email && email.toLowerCase().includes(q)) ||
                 (churchName && churchName.toLowerCase().includes(q)) ||
-                (lastMsg && lastMsg.toLowerCase().includes(q))
+                (lastMsg && lastMsg.toLowerCase().includes(q)) ||
+                (ticketNum && ticketNum.toLowerCase().includes(q))
             );
         });
-    }, [conversations, searchQuery, isStaff, getDisplayName, getParticipantProfile]);
+    }, [conversations, activeTab, searchQuery, isStaff, getDisplayName, getParticipantProfile]);
 
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
@@ -851,16 +951,66 @@ export default function MessagingPage() {
                     }`}
                 >
                     {/* Search Input */}
-                    <div className="p-3.5 border-b border-border/70 flex-shrink-0">
+                    <div className="p-3.5 border-b border-border/70 flex-shrink-0 space-y-2.5">
                         <div className="relative">
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                             <input
                                 type="text"
-                                placeholder="Search conversations"
+                                placeholder="Search conversations or tickets..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                             />
+                        </div>
+
+                        {/* Category & Type Filter Tabs */}
+                        <div className="flex items-center gap-1 p-1 bg-secondary-100/60 rounded-xl overflow-x-auto text-[11px] font-semibold">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('all')}
+                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                    activeTab === 'all'
+                                        ? 'bg-white text-primary shadow-2xs font-bold'
+                                        : 'text-secondary-600 hover:text-foreground'
+                                }`}
+                            >
+                                All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('tickets')}
+                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                    activeTab === 'tickets'
+                                        ? 'bg-white text-primary shadow-2xs font-bold'
+                                        : 'text-secondary-600 hover:text-foreground'
+                                }`}
+                            >
+                                Tickets
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('direct')}
+                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                    activeTab === 'direct'
+                                        ? 'bg-white text-primary shadow-2xs font-bold'
+                                        : 'text-secondary-600 hover:text-foreground'
+                                }`}
+                            >
+                                Direct
+                            </button>
+                            {isStaff && (
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('staff')}
+                                    className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                        activeTab === 'staff'
+                                            ? 'bg-white text-primary shadow-2xs font-bold'
+                                            : 'text-secondary-600 hover:text-foreground'
+                                    }`}
+                                >
+                                    Staff
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -895,11 +1045,14 @@ export default function MessagingPage() {
                             filteredConversations.map((conv) => {
                                 const isSelected = conv.id === activeConversationId;
                                 const isChannel = conv.type === 'channel';
+                                const isGroup = conv.type === 'group';
                                 const displayName = getDisplayName(conv);
                                 const otherProf = getParticipantProfile(conv);
-                                const initials = isChannel ? 'CH' : getInitials(displayName, otherProf?.email);
+                                const initials = isChannel ? 'CH' : isGroup ? 'IN' : getInitials(displayName, otherProf?.email);
                                 const avatarColor = isChannel
                                     ? 'bg-blue-100 text-blue-700'
+                                    : isGroup
+                                    ? 'bg-amber-100 text-amber-700'
                                     : getAvatarColor(initials, conv.id || displayName);
                                 const lastMsg = conv.lastMessage;
                                 const isCallInvite = lastMsg?.message_type === 'call_invite';
@@ -917,6 +1070,7 @@ export default function MessagingPage() {
                                         onClick={() => {
                                             setActiveConversationId(conv.id);
                                             setMobileChatOpen(true);
+                                            setSearchParams({ conv: conv.id });
                                         }}
                                         className={`p-3.5 flex items-start gap-3 cursor-pointer transition-colors w-full min-w-0 ${
                                             isSelected
@@ -929,6 +1083,10 @@ export default function MessagingPage() {
                                             {isChannel ? (
                                                 <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shadow-xs">
                                                     <Church className="w-5 h-5" />
+                                                </div>
+                                            ) : isGroup ? (
+                                                <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shadow-xs">
+                                                    <MessageSquare className="w-5 h-5 text-amber-700" />
                                                 </div>
                                             ) : otherProf?.avatar_url ? (
                                                 <img
@@ -956,7 +1114,28 @@ export default function MessagingPage() {
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center justify-between gap-2 mt-0.5 min-w-0">
+                                            {/* Ticket Category & Status Badge Row */}
+                                            {((conv as any).ticket_number || (conv as any).category) && (
+                                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                    {(conv as any).ticket_number && (
+                                                        <span className="font-mono text-[9px] font-bold text-secondary-500 bg-secondary-100/70 px-1.5 py-0.5 rounded">
+                                                            {(conv as any).ticket_number}
+                                                        </span>
+                                                    )}
+                                                    {(conv as any).category && (
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getCategoryBadge((conv as any).category).className}`}>
+                                                            {getCategoryBadge((conv as any).category).emoji} {getCategoryBadge((conv as any).category).label}
+                                                        </span>
+                                                    )}
+                                                    {(conv as any).status && (
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getStatusBadge((conv as any).status).className}`}>
+                                                            {getStatusBadge((conv as any).status).label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center justify-between gap-2 mt-1 min-w-0">
                                                 <p className="text-xs text-secondary-500 truncate line-clamp-1 flex-1">
                                                     {lastMsgText}
                                                 </p>
@@ -999,11 +1178,14 @@ export default function MessagingPage() {
                                     {/* Header Participant Details */}
                                     {(() => {
                                         const isChannel = activeConversation.type === 'channel';
+                                        const isGroup = activeConversation.type === 'group';
                                         const otherProf = getParticipantProfile(activeConversation);
                                         const headerTitle = getDisplayName(activeConversation);
-                                        const initials = isChannel ? 'CH' : getInitials(headerTitle, otherProf?.email);
+                                        const initials = isChannel ? 'CH' : isGroup ? 'IN' : getInitials(headerTitle, otherProf?.email);
                                         const avatarColor = isChannel
                                             ? 'bg-blue-100 text-blue-700'
+                                            : isGroup
+                                            ? 'bg-amber-100 text-amber-700'
                                             : getAvatarColor(initials, activeConversation.id || headerTitle);
                                         const roleBadge = getRoleBadge(otherProf?.role);
                                         const otherContact = otherProf as ContactProfile | null;
@@ -1011,9 +1193,11 @@ export default function MessagingPage() {
                                             activeConversation.church?.name ||
                                             otherContact?.assigned_church?.name ||
                                             otherContact?.church?.name ||
-                                            'Our Lady of Perpetual Help';
+                                            'Parish Community';
                                         const headerSubtitle = isChannel
                                             ? `${activeConversation.participants?.length || 1} staff participants · ${churchName}`
+                                            : isGroup
+                                            ? `Parish Office Inquiry · ${churchName}`
                                             : `${roleBadge.label} · ${churchName}`;
 
                                         return (
@@ -1022,6 +1206,10 @@ export default function MessagingPage() {
                                                     {isChannel ? (
                                                         <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shadow-xs">
                                                             <Church className="w-5 h-5" />
+                                                        </div>
+                                                    ) : isGroup ? (
+                                                        <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shadow-xs">
+                                                            <MessageSquare className="w-5 h-5 text-amber-700" />
                                                         </div>
                                                     ) : otherProf?.avatar_url ? (
                                                         <img
@@ -1039,9 +1227,16 @@ export default function MessagingPage() {
                                                 </div>
 
                                                 <div className="min-w-0 flex-1">
-                                                    <h2 className="font-bold text-foreground text-sm sm:text-base truncate leading-tight">
-                                                        {headerTitle}
-                                                    </h2>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <h2 className="font-bold text-foreground text-sm sm:text-base truncate leading-tight">
+                                                            {headerTitle}
+                                                        </h2>
+                                                        {(activeConversation as any).ticket_number && (
+                                                            <span className="font-mono text-[10px] font-bold text-secondary-600 bg-secondary-100 px-2 py-0.5 rounded-md border border-secondary-200">
+                                                                {(activeConversation as any).ticket_number}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-secondary-500 truncate mt-0.5">
                                                         {headerSubtitle}
                                                     </p>
@@ -1053,6 +1248,49 @@ export default function MessagingPage() {
 
                                 {/* Right Actions: Start Video Call & Responsive Delete */}
                                 <div className="flex items-center gap-2 shrink-0">
+                                    {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner */}
+                                    {((activeConversation as any).ticket_number || (activeConversation as any).category) && (
+                                        <div className="flex items-center gap-1.5">
+                                            {isStaff ? (
+                                                <div className="relative">
+                                                    <select
+                                                        disabled={updatingTicketStatus}
+                                                        value={(activeConversation as any).status || 'open'}
+                                                        onChange={async (e) => {
+                                                            const newStatus = e.target.value as 'open' | 'in_progress' | 'resolved' | 'closed';
+                                                            setUpdatingTicketStatus(true);
+                                                            try {
+                                                                await updateTicketStatus(activeConversation.id, newStatus);
+                                                                // Update local state in conversations and activeConversation
+                                                                setConversations((prev) =>
+                                                                    prev.map((c) =>
+                                                                        c.id === activeConversation.id
+                                                                            ? { ...c, status: newStatus } as any
+                                                                            : c
+                                                                    )
+                                                                );
+                                                            } catch (err) {
+                                                                console.error('Failed to update ticket status:', err);
+                                                            } finally {
+                                                                setUpdatingTicketStatus(false);
+                                                            }
+                                                        }}
+                                                        className="text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <option value="open">🔵 Open</option>
+                                                        <option value="in_progress">🟡 In Progress</option>
+                                                        <option value="resolved">🟢 Resolved</option>
+                                                        <option value="closed">⚪ Closed</option>
+                                                    </select>
+                                                </div>
+                                            ) : (
+                                                <span className={`text-xs px-2.5 py-1 rounded-xl font-semibold border ${getStatusBadge((activeConversation as any).status).className}`}>
+                                                    {getStatusBadge((activeConversation as any).status).label}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
                                     <button
                                         type="button"
                                         onClick={() => handleStartVideoCall(activeConversation)}
@@ -1146,15 +1384,46 @@ export default function MessagingPage() {
                                         }
 
                                         if (isCurrentUser) {
+                                            const isMultiParty = activeConversation.type === 'group' || activeConversation.type === 'channel';
+                                            const myName = profile?.full_name?.trim() || user.email?.split('@')[0] || 'You';
+                                            const myInitials = getInitials(myName, user.email);
+                                            const myRoleInfo = getRoleBadge(profile?.is_priest ? 'priest' : profile?.role);
+
                                             return (
                                                 <div
                                                     key={msg.id}
                                                     className="flex flex-col items-end self-end max-w-[85%] sm:max-w-md ml-auto"
                                                 >
-                                                    <div className="bg-primary text-white rounded-2xl rounded-br-sm px-4 py-2.5 shadow-2xs">
-                                                        <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
-                                                            {msg.content}
-                                                        </p>
+                                                    <div className="flex items-end gap-2.5 min-w-0 w-full justify-end">
+                                                        <div className="bg-primary text-white rounded-2xl rounded-br-sm px-4 py-2.5 shadow-2xs min-w-0">
+                                                            {isMultiParty && (
+                                                                <div className="flex items-center gap-1.5 justify-end mb-1">
+                                                                    <span className="font-bold text-[11px] text-blue-100 truncate">
+                                                                        {myName}
+                                                                    </span>
+                                                                    <span className="text-[9px] px-1.5 py-0.2 rounded-full font-semibold bg-white/20 text-white">
+                                                                        {myRoleInfo.label}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                            <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed text-left">
+                                                                {msg.content}
+                                                            </p>
+                                                        </div>
+
+                                                        {isMultiParty && (
+                                                            profile?.avatar_url ? (
+                                                                <img
+                                                                    src={profile.avatar_url}
+                                                                    alt={myName}
+                                                                    className="w-7 h-7 rounded-full object-cover shrink-0 shadow-2xs"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary font-bold text-[10px] flex items-center justify-center shrink-0 border border-primary/30">
+                                                                    {myInitials}
+                                                                </div>
+                                                            )
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-1 text-[10px] text-secondary-400 mt-1 pr-1">
                                                         <span>{formatMessageTime(msg.created_at)}</span>
@@ -1251,6 +1520,11 @@ export default function MessagingPage() {
                                 </form>
                             </div>
                         </>
+                    ) : loadingConversations && activeConversationId ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto" />
+                            <p className="text-xs text-secondary-500 font-medium">Opening conversation...</p>
+                        </div>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
                             <div className="w-12 h-12 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center">
@@ -1343,16 +1617,58 @@ export default function MessagingPage() {
                                         <span className="truncate">{email}</span>
                                     </div>
 
-                                    {/* LINKED REQUEST section */}
-                                    <div className="mb-6">
-                                        <p className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase mb-2">
-                                            LINKED REQUEST
-                                        </p>
-                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/80 bg-secondary-50/70 text-xs font-medium text-secondary-700 max-w-full">
-                                            <Calendar className="w-3.5 h-3.5 text-secondary-500 shrink-0" />
-                                            <span className="truncate">{linkedRequest || 'Baptism · Nov 11, 2026'}</span>
+                                    {/* LINKED REQUEST / TICKET DETAILS section */}
+                                    {((activeConversation as any).ticket_number || (activeConversation as any).category) ? (
+                                        <div className="mb-6 space-y-3 p-3.5 rounded-xl border border-border/80 bg-secondary-50/50">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-[11px] font-bold text-secondary-500 uppercase tracking-wider">
+                                                    TICKET INFORMATION
+                                                </span>
+                                                {(activeConversation as any).ticket_number && (
+                                                    <span className="font-mono text-[10px] font-bold text-primary bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                        {(activeConversation as any).ticket_number}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span className="text-secondary-400">Category:</span>
+                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getCategoryBadge((activeConversation as any).category).className}`}>
+                                                        {getCategoryBadge((activeConversation as any).category).emoji} {getCategoryBadge((activeConversation as any).category).label}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span className="text-secondary-400">Status:</span>
+                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getStatusBadge((activeConversation as any).status).className}`}>
+                                                        {getStatusBadge((activeConversation as any).status).label}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span className="text-secondary-400">Opened:</span>
+                                                    <span className="font-medium text-foreground">
+                                                        {new Date(activeConversation.created_at).toLocaleDateString([], {
+                                                            month: 'short',
+                                                            day: 'numeric',
+                                                            year: 'numeric',
+                                                        })}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="mb-6">
+                                            <p className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase mb-2">
+                                                LINKED REQUEST
+                                            </p>
+                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/80 bg-secondary-50/70 text-xs font-medium text-secondary-700 max-w-full">
+                                                <Calendar className="w-3.5 h-3.5 text-secondary-500 shrink-0" />
+                                                <span className="truncate">{linkedRequest || 'Baptism · Nov 11, 2026'}</span>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Bottom Action: Delete conversation (Direct Chats Only) */}
                                     {!isChannel && (

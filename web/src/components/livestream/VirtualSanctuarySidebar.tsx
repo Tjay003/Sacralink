@@ -14,9 +14,11 @@ import {
     Lock,
     ExternalLink,
     X,
+    Download,
+    FileText,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { submitDonation } from '../../lib/supabase/donations';
+import { submitDonation, submitQuickOffering } from '../../lib/supabase/donations';
 import { getDailyReadings, ACT_OF_SPIRITUAL_COMMUNION, type LiturgicalDay } from '../../lib/liturgy';
 import { useNavigate } from 'react-router-dom';
 import type { Church } from '../../hooks/useChurches';
@@ -92,7 +94,40 @@ export default function VirtualSanctuarySidebar({
     const [donationError, setDonationError] = useState<string | null>(null);
     const [donationSuccess, setDonationSuccess] = useState(false);
     const [showAsSupporter, setShowAsSupporter] = useState(true);
+    const [requestOfficialReceipt, setRequestOfficialReceipt] = useState(false);
+    const [isQuickBlessing, setIsQuickBlessing] = useState(false);
+    const [copiedOffertoryNumber, setCopiedOffertoryNumber] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const activeOffertoryNumber = paymentMethod === 'gcash' ? church.gcash_number : church.maya_number;
+    const activeOffertoryQr = paymentMethod === 'gcash' ? church.gcash_qr_url : church.maya_qr_url;
+    const activeOffertoryLabel = paymentMethod === 'gcash' ? 'GCash' : 'Maya';
+
+    const handleCopyOffertoryNumber = async () => {
+        if (!activeOffertoryNumber) return;
+        try {
+            await navigator.clipboard.writeText(activeOffertoryNumber);
+            setCopiedOffertoryNumber(true);
+            setTimeout(() => setCopiedOffertoryNumber(false), 2000);
+        } catch {
+            // Fallback
+        }
+    };
+
+    const handleDownloadOffertoryQr = () => {
+        if (!activeOffertoryQr) return;
+        try {
+            const link = document.createElement('a');
+            link.href = activeOffertoryQr;
+            link.download = `${church.name.replace(/[^a-zA-Z0-9]/g, '_')}_${activeOffertoryLabel}_QR.png`;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch {
+            window.open(activeOffertoryQr, '_blank');
+        }
+    };
 
     // Fetch mass intentions for church
     useEffect(() => {
@@ -184,36 +219,63 @@ export default function VirtualSanctuarySidebar({
         e.preventDefault();
         setDonationError(null);
 
-        const amountNum = parseFloat(offertoryAmount);
-        if (isNaN(amountNum) || amountNum <= 0) {
-            setDonationError('Please enter a valid donation amount.');
-            return;
-        }
-
-        if (!offertoryRef.trim()) {
-            setDonationError('Please enter the GCash/Maya transaction reference number.');
-            return;
-        }
-
-        if (!offertoryProof) {
-            setDonationError('Please upload a screenshot of your payment confirmation.');
+        if (isUnverified) {
+            setDonationError('Cashless offertory is temporarily locked pending diocese verification.');
             return;
         }
 
         setSubmittingDonation(true);
         try {
-            const result = await submitDonation({
-                churchId: church.id,
-                amount: amountNum,
-                referenceNumber: offertoryRef.trim(),
-                proofFile: offertoryProof,
-                showAsSupporter,
-            });
+            if (!requestOfficialReceipt) {
+                // Tier A: Frictionless Quick Love Offering (Zero required inputs)
+                const result = await submitQuickOffering({
+                    churchId: church.id,
+                    paymentMethod,
+                    amount: parseFloat(offertoryAmount) || 0,
+                });
 
-            if (result.error) {
-                setDonationError(result.error.message || 'Failed to submit donation.');
+                if (result.error) {
+                    setDonationError(result.error.message || 'Failed to submit love offering.');
+                } else {
+                    setIsQuickBlessing(true);
+                    setDonationSuccess(true);
+                }
             } else {
-                setDonationSuccess(true);
+                // Tier B: Recorded Official Acknowledgment
+                const amountNum = parseFloat(offertoryAmount);
+                if (isNaN(amountNum) || amountNum <= 0) {
+                    setDonationError('Please enter a valid donation amount.');
+                    setSubmittingDonation(false);
+                    return;
+                }
+
+                if (!offertoryRef.trim()) {
+                    setDonationError('Please enter the GCash/Maya transaction reference number.');
+                    setSubmittingDonation(false);
+                    return;
+                }
+
+                if (!offertoryProof) {
+                    setDonationError('Please upload a screenshot of your payment confirmation.');
+                    setSubmittingDonation(false);
+                    return;
+                }
+
+                const result = await submitDonation({
+                    churchId: church.id,
+                    amount: amountNum,
+                    referenceNumber: offertoryRef.trim(),
+                    proofFile: offertoryProof,
+                    showAsSupporter,
+                    paymentMethod,
+                });
+
+                if (result.error) {
+                    setDonationError(result.error.message || 'Failed to submit donation.');
+                } else {
+                    setIsQuickBlessing(false);
+                    setDonationSuccess(true);
+                }
             }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
@@ -530,29 +592,67 @@ export default function VirtualSanctuarySidebar({
                                 </p>
                             </div>
                         ) : donationSuccess ? (
-                            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-3xl p-6 text-center space-y-3">
-                                <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
-                                    <CheckCircle2 className="w-7 h-7" />
+                            isQuickBlessing ? (
+                                <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-3xl p-6 text-center space-y-3.5 animate-in">
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mx-auto text-amber-500 shadow-xs relative">
+                                        <Sparkles className="w-7 h-7 animate-pulse" />
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white border-2 border-white shadow-xs">
+                                            <Check className="w-3 h-3 stroke-[3]" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 mb-1.5">
+                                            Spiritual Blessing
+                                        </span>
+                                        <h4 className="text-base font-bold text-foreground">Love Offering Received 🙏</h4>
+                                        <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                                            Thank you for your generous heart! Your digital love offering has been received to sustain this parish's broadcast and altar ministries.
+                                        </p>
+                                        <p className="text-[11px] text-muted italic mt-2.5 bg-white/70 dark:bg-card/70 p-2.5 rounded-xl border border-border leading-relaxed">
+                                            &ldquo;Each of you should give what you have decided in your heart to give, for God loves a cheerful giver.&rdquo;
+                                            <span className="block mt-0.5 font-semibold not-italic text-secondary-600 dark:text-secondary-400">
+                                                — 2 Corinthians 9:7
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDonationSuccess(false);
+                                        }}
+                                        className="w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs transition-all shadow-xs active:scale-95 cursor-pointer"
+                                    >
+                                        Amen 🙏
+                                    </button>
                                 </div>
-                                <h4 className="text-base font-bold text-foreground">Blessing & Gratitude!</h4>
-                                <p className="text-xs text-muted leading-relaxed">
-                                    Your love offering of ₱{parseFloat(offertoryAmount || '0').toLocaleString()} has been received and logged for verification by the parish office.
-                                </p>
-                                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-bold">
-                                    Ref: {offertoryRef}
-                                </p>
-                                <button
-                                    onClick={() => {
-                                        setDonationSuccess(false);
-                                        setOffertoryRef('');
-                                        setOffertoryProof(null);
-                                        setProofPreview(null);
-                                    }}
-                                    className="px-4 py-2 rounded-xl bg-secondary-100 hover:bg-secondary-200 dark:bg-secondary-800 dark:hover:bg-secondary-700 text-foreground font-bold text-xs transition-colors"
-                                >
-                                    Make Another Offering
-                                </button>
-                            </div>
+                            ) : (
+                                <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-3xl p-6 text-center space-y-3 animate-in">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
+                                        <CheckCircle2 className="w-7 h-7" />
+                                    </div>
+                                    <h4 className="text-base font-bold text-foreground">Blessing & Gratitude!</h4>
+                                    <p className="text-xs text-muted leading-relaxed">
+                                        Your love offering of ₱{parseFloat(offertoryAmount || '0').toLocaleString()} has been received and logged for official verification by the parish office.
+                                    </p>
+                                    {offertoryRef && (
+                                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-bold">
+                                            Ref: {offertoryRef}
+                                        </p>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDonationSuccess(false);
+                                            setOffertoryRef('');
+                                            setOffertoryProof(null);
+                                            setProofPreview(null);
+                                        }}
+                                        className="px-4 py-2 rounded-xl bg-secondary-100 hover:bg-secondary-200 dark:bg-secondary-800 dark:hover:bg-secondary-700 text-foreground font-bold text-xs transition-colors cursor-pointer"
+                                    >
+                                        Make Another Offering
+                                    </button>
+                                </div>
+                            )
                         ) : (
                             <form onSubmit={handleDonationSubmit} className="space-y-4">
                                 {/* Parish QR & Payment Method Switcher */}
@@ -562,7 +662,7 @@ export default function VirtualSanctuarySidebar({
                                             <button
                                                 type="button"
                                                 onClick={() => setPaymentMethod('gcash')}
-                                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                                     paymentMethod === 'gcash'
                                                         ? 'bg-blue-600 text-white shadow-xs'
                                                         : 'bg-white dark:bg-secondary-800 border border-border text-muted hover:text-foreground'
@@ -575,7 +675,7 @@ export default function VirtualSanctuarySidebar({
                                             <button
                                                 type="button"
                                                 onClick={() => setPaymentMethod('maya')}
-                                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                                     paymentMethod === 'maya'
                                                         ? 'bg-emerald-600 text-white shadow-xs'
                                                         : 'bg-white dark:bg-secondary-800 border border-border text-muted hover:text-foreground'
@@ -588,18 +688,22 @@ export default function VirtualSanctuarySidebar({
 
                                     {/* QR Image Display */}
                                     <div className="py-1">
-                                        {paymentMethod === 'gcash' && church.gcash_qr_url ? (
-                                            <img
-                                                src={church.gcash_qr_url}
-                                                alt="GCash QR"
-                                                className="w-40 h-40 mx-auto rounded-xl object-contain border border-border bg-white p-2 shadow-sm"
-                                            />
-                                        ) : paymentMethod === 'maya' && church.maya_qr_url ? (
-                                            <img
-                                                src={church.maya_qr_url}
-                                                alt="Maya QR"
-                                                className="w-40 h-40 mx-auto rounded-xl object-contain border border-border bg-white p-2 shadow-sm"
-                                            />
+                                        {activeOffertoryQr ? (
+                                            <div className="space-y-2">
+                                                <img
+                                                    src={activeOffertoryQr}
+                                                    alt={`${activeOffertoryLabel} QR`}
+                                                    className="w-40 h-40 mx-auto rounded-xl object-contain border border-border bg-white p-2 shadow-sm"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleDownloadOffertoryQr}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-white dark:bg-secondary-800 border border-border hover:bg-secondary-50 dark:hover:bg-secondary-700 text-foreground transition-all active:scale-95 shadow-xs cursor-pointer"
+                                                >
+                                                    <Download className="w-3 h-3 text-muted" />
+                                                    <span>Save QR Image</span>
+                                                </button>
+                                            </div>
                                         ) : (
                                             <div className="w-40 h-40 mx-auto rounded-xl border border-dashed border-border flex flex-col items-center justify-center text-muted p-3 text-center bg-white dark:bg-secondary-900/40">
                                                 <QrCode className="w-8 h-8 mb-1 opacity-50 text-muted" />
@@ -608,17 +712,36 @@ export default function VirtualSanctuarySidebar({
                                         )}
                                     </div>
 
-                                    {/* Account Number */}
-                                    <div className="text-xs">
-                                        <span className="text-muted">
-                                            {paymentMethod === 'gcash' ? 'GCash No:' : 'Maya No:'}{' '}
-                                        </span>
-                                        <span className="font-mono font-bold text-foreground">
-                                            {paymentMethod === 'gcash'
-                                                ? church.gcash_number || 'Official Church GCash'
-                                                : church.maya_number || 'Official Church Maya'}
-                                        </span>
-                                    </div>
+                                    {/* Account Number with 1-Tap Copy */}
+                                    {activeOffertoryNumber && (
+                                        <div className="bg-white dark:bg-card border border-border/80 rounded-xl p-2.5 text-center shadow-xs">
+                                            <div className="text-xs">
+                                                <span className="text-muted">{activeOffertoryLabel} No: </span>
+                                                <span className="font-mono font-bold text-foreground">
+                                                    {activeOffertoryNumber}
+                                                </span>
+                                            </div>
+                                            <div className="mt-1.5 flex items-center justify-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCopyOffertoryNumber}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-secondary-50 dark:bg-secondary-800 border border-border hover:bg-secondary-100 dark:hover:bg-secondary-700 text-foreground transition-all active:scale-95 shadow-xs cursor-pointer"
+                                                >
+                                                    {copiedOffertoryNumber ? (
+                                                        <>
+                                                            <Check className="w-3 h-3 text-emerald-600" />
+                                                            <span className="text-emerald-600 font-bold">Copied!</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="w-3 h-3 text-muted" />
+                                                            <span>Copy Number</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Preset Amount Buttons */}
@@ -652,66 +775,139 @@ export default function VirtualSanctuarySidebar({
                                     />
                                 </div>
 
-                                {/* Reference Number */}
-                                <div>
-                                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                                        Transaction Reference Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={offertoryRef}
-                                        onChange={(e) => setOffertoryRef(e.target.value)}
-                                        placeholder="e.g., GCash/Maya Ref (12+ digits)"
-                                        className="input text-xs w-full font-mono"
-                                        required
-                                    />
-                                </div>
-
-                                {/* Proof of Payment File Upload */}
-                                <div>
-                                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                                        Upload Payment Screenshot
-                                    </label>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleProofFileChange}
-                                        accept="image/*"
-                                        className="hidden"
-                                    />
-                                    {proofPreview ? (
-                                        <div className="relative rounded-2xl overflow-hidden border border-border max-h-36 group">
-                                            <img src={proofPreview} alt="Proof" className="w-full h-36 object-cover" />
-                                            <button
-                                                type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-semibold transition-opacity"
-                                            >
-                                                Change Screenshot
-                                            </button>
+                                {/* ── DUAL-TIER TOGGLE: Request Official Acknowledgment ── */}
+                                <div className="border-t border-border pt-3">
+                                    <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-border bg-secondary-50/50 hover:bg-secondary-50 cursor-pointer transition-colors select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={requestOfficialReceipt}
+                                            onChange={(e) => {
+                                                setRequestOfficialReceipt(e.target.checked);
+                                                setDonationError(null);
+                                            }}
+                                            className="mt-0.5 w-3.5 h-3.5 rounded text-primary accent-primary flex-shrink-0 cursor-pointer"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                                                <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                Request Recorded Acknowledgment
+                                            </span>
+                                            <p className="text-[11px] text-muted mt-0.5 leading-snug">
+                                                Check this to submit reference numbers & proof screenshots for official parish records.
+                                            </p>
                                         </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full py-3 bg-white dark:bg-secondary-800 border border-dashed border-border rounded-xl flex items-center justify-center gap-2 text-xs text-muted hover:text-foreground hover:border-primary transition-colors"
-                                        >
-                                            <Upload className="w-4 h-4" />
-                                            <span>Attach Receipt Screenshot</span>
-                                        </button>
-                                    )}
+                                    </label>
                                 </div>
 
-                                {/* Supporter wall option */}
-                                <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={showAsSupporter}
-                                        onChange={(e) => setShowAsSupporter(e.target.checked)}
-                                        className="rounded border-border text-primary focus:ring-primary"
-                                    />
-                                    <span>Display on parish donor & supporter honor roll</span>
-                                </label>
+                                {/* ── TIER A: 1-TAP FRICTIONLESS OFFERING BUTTON (Default) ── */}
+                                {!requestOfficialReceipt && (
+                                    <div className="space-y-2 pt-1">
+                                        <button
+                                            type="submit"
+                                            disabled={submittingDonation || (!hasGcash && !hasMaya)}
+                                            className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                        >
+                                            {submittingDonation ? (
+                                                <>
+                                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    <span>Recording Offering...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Heart className="w-4 h-4 fill-white" />
+                                                    <span>I have sent my offering 🙏</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <p className="text-[10px] text-center text-muted">
+                                            1-tap offertory · No transaction reference or screenshot required
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* ── TIER B: OFFICIAL VERIFICATION INPUTS (Opt-in) ── */}
+                                {requestOfficialReceipt && (
+                                    <div className="space-y-3.5 pt-1 animate-in">
+                                        {/* Reference Number */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-foreground mb-1.5">
+                                                Transaction Reference Number <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={offertoryRef}
+                                                onChange={(e) => setOffertoryRef(e.target.value)}
+                                                placeholder="e.g., GCash/Maya Ref (12+ digits)"
+                                                className="input text-xs w-full font-mono"
+                                                required
+                                            />
+                                        </div>
+
+                                        {/* Proof of Payment File Upload */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-foreground mb-1.5">
+                                                Upload Payment Screenshot <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleProofFileChange}
+                                                accept="image/*"
+                                                className="hidden"
+                                            />
+                                            {proofPreview ? (
+                                                <div className="relative rounded-2xl overflow-hidden border border-border max-h-36 group">
+                                                    <img src={proofPreview} alt="Proof" className="w-full h-36 object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-semibold transition-opacity"
+                                                    >
+                                                        Change Screenshot
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full py-3 bg-white dark:bg-secondary-800 border border-dashed border-border rounded-xl flex items-center justify-center gap-2 text-xs text-muted hover:text-foreground hover:border-primary transition-colors cursor-pointer"
+                                                >
+                                                    <Upload className="w-4 h-4" />
+                                                    <span>Attach Receipt Screenshot</span>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Supporter wall option */}
+                                        <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                checked={showAsSupporter}
+                                                onChange={(e) => setShowAsSupporter(e.target.checked)}
+                                                className="rounded border-border text-primary focus:ring-primary"
+                                            />
+                                            <span>Display on parish donor & supporter honor roll</span>
+                                        </label>
+
+                                        <button
+                                            type="submit"
+                                            disabled={submittingDonation}
+                                            className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                        >
+                                            {submittingDonation ? (
+                                                <>
+                                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    <span>Submitting...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-4 h-4" />
+                                                    <span>Submit for Official Verification</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
 
                                 {donationError && (
                                     <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
@@ -719,15 +915,6 @@ export default function VirtualSanctuarySidebar({
                                         <span>{donationError}</span>
                                     </div>
                                 )}
-
-                                <button
-                                    type="submit"
-                                    disabled={submittingDonation}
-                                    className="w-full py-3 rounded-xl btn-primary font-bold text-xs shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:shadow-md"
-                                >
-                                    <Heart className="w-4 h-4 fill-white" />
-                                    <span>{submittingDonation ? 'Transmitting Offering...' : 'Submit In-Stream Offertory'}</span>
-                                </button>
                             </form>
                         )}
                     </div>

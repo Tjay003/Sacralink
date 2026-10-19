@@ -11,6 +11,7 @@ interface ChurchPerformance {
     isVerified: boolean;
     memberCount: number;
     eventCount: number;
+    imageUrl?: string | null;
 }
 
 interface ChurchPerformanceGridProps {
@@ -18,11 +19,38 @@ interface ChurchPerformanceGridProps {
 }
 
 /**
+ * ChurchPerformanceThumbnail - Displays parish photo with graceful fallback to church icon
+ */
+function ChurchPerformanceThumbnail({ imageUrl, churchName }: { imageUrl?: string | null; churchName: string }) {
+    const [imageError, setImageError] = useState(false);
+
+    if (imageUrl && !imageError) {
+        return (
+            <div className="w-11 h-11 rounded-2xl overflow-hidden bg-blue-50 border border-blue-100 flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <img
+                    src={imageUrl}
+                    alt={churchName}
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                    loading="lazy"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+            <Church className="w-5 h-5 text-primary" />
+        </div>
+    );
+}
+
+/**
  * ChurchPerformanceGrid - Grid of parish cards showing comparative performance
  * 
  * Aligned with SacraLink Vatican & Apple aesthetic:
  * - Editorial serif header with "All parishes →" navigation
- * - Soft-blue church icon container
+ * - Parish photo thumbnail with soft-blue church icon fallback
  * - Modern 2-tile metric display (Members, Appointments)
  * - Badges: Sacred Gold for "Verified" parishes, Emerald for "Active" parishes
  * - Strict financial privacy: NO donation or giving metrics
@@ -41,24 +69,48 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
         try {
             setLoading(true);
 
-            // Fetch all churches with status & active state
+            // Fetch all churches with status, active state, and featured photo
             const { data: churchesData, error: churchesError } = await supabase
                 .from('churches')
-                .select('id, name, is_active, status');
+                .select('id, name, is_active, status, featured_image_url');
 
             if (churchesError) throw churchesError;
 
-            // Fetch member counts and appointment counts for each church
+            // Fetch member counts, appointment counts, and fallback gallery image if needed
             const performanceData: ChurchPerformance[] = await Promise.all(
                 (churchesData || []).map(async (church) => {
                     // Count members registered under this church
-                    const { count: memberCount } = await supabase
+                    const memberCountPromise = supabase
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
                         .eq('assigned_church_id', church.id);
 
                     // Count approved future appointments/events via appointments domain module
-                    const { upcomingApprovedCount } = await getDashboardAppointmentCounts(church.id);
+                    const appointmentCountPromise = getDashboardAppointmentCounts(church.id);
+
+                    // If featured_image_url is not set, attempt to fetch the first image from church_images
+                    let resolvedImageUrl = church.featured_image_url || null;
+                    if (!resolvedImageUrl) {
+                        try {
+                            const { data: galleryImages } = await supabase
+                                .from('church_images')
+                                .select('image_url')
+                                .eq('church_id', church.id)
+                                .order('display_order', { ascending: true })
+                                .limit(1);
+
+                            if (galleryImages && galleryImages.length > 0 && galleryImages[0].image_url) {
+                                resolvedImageUrl = galleryImages[0].image_url;
+                            }
+                        } catch {
+                            // Fallback gracefully if church_images table is inaccessible
+                        }
+                    }
+
+                    const [{ count: memberCount }, { upcomingApprovedCount }] = await Promise.all([
+                        memberCountPromise,
+                        appointmentCountPromise,
+                    ]);
 
                     const isVerified = church.status === 'verified_active';
 
@@ -69,6 +121,7 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                         isVerified,
                         memberCount: memberCount || 0,
                         eventCount: upcomingApprovedCount,
+                        imageUrl: resolvedImageUrl,
                     };
                 })
             );
@@ -189,9 +242,10 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                                 {/* Row 1: Icon, Name, and Status Badge */}
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                                            <Church className="w-5 h-5 text-primary" />
-                                        </div>
+                                        <ChurchPerformanceThumbnail
+                                            imageUrl={church.imageUrl}
+                                            churchName={church.name}
+                                        />
                                         <div className="min-w-0">
                                             <h3
                                                 className="font-bold text-foreground text-base tracking-tight truncate"
