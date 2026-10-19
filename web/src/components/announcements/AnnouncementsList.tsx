@@ -77,23 +77,21 @@ export default function AnnouncementsList({
 
     if (announcements.length === 0) {
         return (
-            <div className="card p-8">
-                <div className="flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 rounded-full bg-secondary-100 flex items-center justify-center mb-4">
-                        <Megaphone className="w-8 h-8 text-muted" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2 text-foreground">No announcements yet</h3>
-                    <p className="text-muted max-w-sm text-sm">
-                        {emptyMessage || 'There are no announcements to display at this time.'}
-                    </p>
+            <div className="text-center py-12 text-muted bg-secondary-50/50 rounded-2xl border border-dashed border-border mt-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-3 mx-auto">
+                    <Megaphone className="w-6 h-6 text-primary" />
                 </div>
+                <h3 className="font-serif text-lg font-bold text-foreground mb-1">No announcements yet</h3>
+                <p className="text-secondary-500 max-w-sm text-xs sm:text-sm mx-auto">
+                    {emptyMessage || 'There are no announcements to display at this time.'}
+                </p>
             </div>
         );
     }
 
     return (
         <>
-            <div className="space-y-4">
+            <div className="divide-y divide-border/60 border-t border-border/60 mt-4">
                 {paginated.map((announcement) => {
                     const itemCanEdit = onEdit && (!canEditItem || canEditItem(announcement));
                     const itemCanDelete = onDelete && (!canDeleteItem || canDeleteItem(announcement));

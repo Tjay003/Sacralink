@@ -36,8 +36,12 @@ export default function ChurchesPage() {
     // Filter churches by search query and status
     const filteredChurches = churches.filter(church => {
         // Search filter
-        const matchesSearch = church.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            church.address.toLowerCase().includes(searchQuery.toLowerCase());
+        const query = searchQuery.toLowerCase().trim();
+        const matchesSearch = !query ||
+            church.name.toLowerCase().includes(query) ||
+            church.address.toLowerCase().includes(query) ||
+            (church.description ? church.description.toLowerCase().includes(query) : false) ||
+            (church.email ? church.email.toLowerCase().includes(query) : false);
 
         // Status filter - hide inactive churches from regular users
         const isVisibleToUser = church.status !== 'inactive' || hasAdminAccess;
@@ -69,69 +73,80 @@ export default function ChurchesPage() {
         );
     }
 
+    const countWords: Record<number, string> = {
+        1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten'
+    };
+    const parishCountWord = countWords[churches.length] || `${churches.length}`;
+
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold">Churches</h1>
-                    <p className="text-muted">Manage parishes in your diocese</p>
+                    <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Parishes</h1>
+                    <p className="text-xs sm:text-sm text-secondary-500 font-normal mt-1">
+                        Manage the {parishCountWord} parishes of the Diocese of San Jose del Monte
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                     <button
+                        type="button"
                         onClick={() => navigate('/churches/apply')}
-                        className="btn-secondary flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
+                        className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
                     >
-                        <ShieldCheck className="w-4 h-4 text-primary" />
-                        Onboard Parish
+                        <ShieldCheck className="w-4 h-4 text-secondary-500" />
+                        <span>Onboard parish</span>
                     </button>
                     {canAddChurch && (
                         <button
+                            type="button"
                             onClick={() => navigate('/churches/add')}
-                            className="btn-primary flex items-center justify-center gap-2 rounded-lg px-4 py-2"
+                            className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-2xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                             <Plus className="w-4 h-4" />
-                            Add Church
+                            <span>Add parish</span>
                         </button>
                     )}
                 </div>
             </div>
 
             {/* Search and Toggle */}
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative flex-1 w-full max-w-md">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                <div className="relative w-full sm:w-72 md:w-80">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search churches..."
+                        placeholder="Search parishes or priests"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="input w-full !pl-10"
+                        className="w-full pl-9 pr-4 py-2 rounded-2xl border border-border bg-white text-xs sm:text-sm text-foreground placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs transition-shadow"
                     />
                 </div>
                 
-                <div className="flex items-center bg-secondary-50 p-1 rounded-lg border border-border sm:ml-auto w-full sm:w-auto">
+                <div className="inline-flex items-center p-1 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1 self-start sm:self-auto">
                     <button
+                        type="button"
                         onClick={() => setViewMode('grid')}
-                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                             viewMode === 'grid' 
-                                ? 'bg-white text-primary shadow-sm ring-1 ring-border/50' 
-                                : 'text-muted hover:text-foreground hover:bg-secondary-100'
+                                ? 'bg-white text-foreground shadow-xs border border-border/70 font-bold' 
+                                : 'text-secondary-500 hover:text-foreground'
                         }`}
                     >
                         <LayoutGrid className="w-4 h-4" />
-                        <span className="sm:hidden md:inline">Grid</span>
+                        <span>Grid</span>
                     </button>
                     <button
+                        type="button"
                         onClick={() => setViewMode('list')}
-                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                             viewMode === 'list' 
-                                ? 'bg-white text-primary shadow-sm ring-1 ring-border/50' 
-                                : 'text-muted hover:text-foreground hover:bg-secondary-100'
+                                ? 'bg-white text-foreground shadow-xs border border-border/70 font-bold' 
+                                : 'text-secondary-500 hover:text-foreground'
                         }`}
                     >
                         <List className="w-4 h-4" />
-                        <span className="sm:hidden md:inline">List</span>
+                        <span>List</span>
                     </button>
                 </div>
             </div>
@@ -167,8 +182,8 @@ export default function ChurchesPage() {
                                     <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mb-3">
                                         <Search className="w-6 h-6 text-muted" />
                                     </div>
-                                    <p className="text-foreground font-medium">No churches found</p>
-                                    <p className="text-muted text-sm mt-1">We couldn't find any churches matching "{searchQuery}"</p>
+                                    <p className="text-foreground font-medium">No parishes found</p>
+                                    <p className="text-muted text-sm mt-1">We couldn't find any parishes matching "{searchQuery}"</p>
                                 </div>
                             ) : (
                                 filteredChurches.map((church) => (

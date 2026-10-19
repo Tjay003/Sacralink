@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, Calendar } from 'lucide-react';
+import { Building2, Users, Calendar, Award } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 import StatCard from './StatCard';
@@ -19,6 +19,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
         totalMembers: 0,
         activeEvents: 0,
         newMembers: 0,
+        celebratedSacraments: 0,
     });
     const [loading, setLoading] = useState(true);
 
@@ -62,7 +63,19 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
             const { upcomingApprovedCount } = await getDashboardAppointmentCounts(selectedChurchId);
             const activeEvents = upcomingApprovedCount;
 
-            // 4. New Members (last 30 days) — filtered by church if one is selected
+            // 4. Total Sacraments Celebrated (completed or approved appointments)
+            let celebratedQuery = supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .in('status', ['completed', 'approved']);
+
+            if (selectedChurchId) {
+                celebratedQuery = celebratedQuery.eq('church_id', selectedChurchId);
+            }
+
+            const { count: celebratedCount } = await celebratedQuery;
+
+            // 5. New Members (last 30 days) — filtered by church if one is selected
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -84,6 +97,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 totalMembers: totalMembers || 0,
                 activeEvents: activeEvents || 0,
                 newMembers: newMembers || 0,
+                celebratedSacraments: celebratedCount || 0,
             });
 
         } catch (err) {
@@ -99,7 +113,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
         : '0.0';
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Churches */}
             <StatCard
                 title="Total Churches"
@@ -151,6 +165,24 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 gradientFrom="from-blue-600"
                 gradientTo="to-blue-400"
                 gradientDirection="to-bl"
+                loading={loading}
+            />
+
+            {/* Total Sacraments Celebrated */}
+            <StatCard
+                title="Sacraments Celebrated"
+                value={loading ? '...' : stats.celebratedSacraments}
+                icon={Award}
+                trend={{
+                    value: stats.celebratedSacraments,
+                    isUp: true,
+                    label: 'Completed & approved rites'
+                }}
+                iconBgColor="bg-amber-100"
+                iconColor="text-amber-600"
+                gradientFrom="from-amber-600"
+                gradientTo="to-amber-400"
+                gradientDirection="to-br"
                 loading={loading}
             />
 

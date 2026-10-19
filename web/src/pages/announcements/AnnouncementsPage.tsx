@@ -512,7 +512,7 @@ export default function AnnouncementsPage() {
                         </span>
                     </button>
 
-                    {/* Tab: System */}
+                    {/* Tab: System / Diocese Advisories */}
                     <button
                         onClick={() => {
                             setActiveTab('system');
@@ -525,7 +525,7 @@ export default function AnnouncementsPage() {
                         }`}
                     >
                         <Megaphone className="w-4 h-4" />
-                        <span>System Notices</span>
+                        <span>Diocese Advisories</span>
                         <span
                             className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 activeTab === 'system' ? 'bg-primary/10 text-primary' : 'bg-secondary-100 text-muted'

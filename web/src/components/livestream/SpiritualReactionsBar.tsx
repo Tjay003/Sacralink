@@ -71,6 +71,12 @@ export default function SpiritualReactionsBar({
             .on('broadcast', { event: 'spiritual_reaction' }, ({ payload }) => {
                 triggerLocalReaction(payload.label, payload.icon, payload.color);
             })
+            .on('broadcast', { event: 'candle_lit' }, ({ payload }) => {
+                if (payload && typeof payload.newCount === 'number') {
+                    setCandleCount(payload.newCount);
+                    onCandleCountChange?.(payload.newCount);
+                }
+            })
             .on(
                 'postgres_changes',
                 {
@@ -137,6 +143,19 @@ export default function SpiritualReactionsBar({
         setJustLit(true);
         triggerLocalReaction('Candle Lit in Prayer', '🕯️', 'from-amber-400 to-amber-600');
 
+        // Immediate broadcast to peers viewing the same sanctuary
+        try {
+            if (channelRef.current) {
+                void channelRef.current.send({
+                    type: 'broadcast',
+                    event: 'candle_lit',
+                    payload: { churchId: church.id, newCount: nextCount },
+                });
+            }
+        } catch {
+            // Non-critical fallback
+        }
+
         try {
             const { data, error } = await supabase.rpc('light_church_candle', {
                 target_church_id: church.id,
@@ -148,6 +167,15 @@ export default function SpiritualReactionsBar({
             } else if (typeof data === 'number') {
                 setCandleCount(data);
                 onCandleCountChange?.(data);
+
+                // Broadcast confirmed authoritative count if different
+                if (data !== nextCount && channelRef.current) {
+                    void channelRef.current.send({
+                        type: 'broadcast',
+                        event: 'candle_lit',
+                        payload: { churchId: church.id, newCount: data },
+                    });
+                }
             }
         } catch (err) {
             console.error('RPC Error:', err);
