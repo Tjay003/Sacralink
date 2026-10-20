@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock, Building2 } from 'lucide-react';
+import { Megaphone, Church, CalendarDays, AlertTriangle, Bell, Pin, Clock, Building2, Eye, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
     createChurchAnnouncement,
@@ -7,6 +7,7 @@ import {
     createSystemAnnouncement,
     updateSystemAnnouncement,
     type AnnouncementCategory,
+    type AnnouncementAudience,
     type SystemAnnouncementType,
     type ChurchAnnouncement,
     type SystemAnnouncement,
@@ -73,6 +74,7 @@ export default function AnnouncementForm({
         content: '',
         isPinned: false,
         category: 'general' as AnnouncementCategory,
+        targetAudience: 'everyone' as AnnouncementAudience,
         scheduledAt: '',
         announcementType: 'info' as SystemAnnouncementType,
         expiresAt: '',
@@ -94,6 +96,7 @@ export default function AnnouncementForm({
                 content: announcement.content || '',
                 isPinned: isChurchAnnouncement ? Boolean(churchAnn.is_pinned) : false,
                 category: isChurchAnnouncement ? (churchAnn.category || 'general') : 'general',
+                targetAudience: isChurchAnnouncement ? (churchAnn.target_audience || 'everyone') : 'everyone',
                 scheduledAt: isChurchAnnouncement && churchAnn.scheduled_at
                     ? new Date(churchAnn.scheduled_at).toISOString().slice(0, 16)
                     : '',
@@ -135,6 +138,7 @@ export default function AnnouncementForm({
                         content: formData.content.trim(),
                         category: formData.category,
                         isPinned: formData.isPinned,
+                        targetAudience: formData.targetAudience,
                         scheduledAt: isScheduled && formData.scheduledAt ? formData.scheduledAt : null,
                     });
                     if (updateError) throw updateError;
@@ -146,6 +150,7 @@ export default function AnnouncementForm({
                         content: formData.content.trim(),
                         category: formData.category,
                         isPinned: formData.isPinned,
+                        targetAudience: formData.targetAudience,
                         scheduledAt: isScheduled && formData.scheduledAt ? formData.scheduledAt : null,
                     });
                     if (createError) throw createError;
@@ -289,6 +294,65 @@ export default function AnnouncementForm({
                                         </button>
                                     );
                                 })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Target Audience (Church only) */}
+                    {isChurchAnnouncement && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1.5 text-foreground">
+                                Target Audience <span className="text-red-500">*</span>
+                            </label>
+                            <p className="text-xs text-muted mb-2.5">
+                                Choose who can see this announcement on the parish page.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, targetAudience: 'everyone' })}
+                                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                        formData.targetAudience === 'everyone'
+                                            ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                                            : 'border-border hover:bg-secondary-50 text-foreground'
+                                    }`}
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                                        <Eye className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="font-semibold text-sm flex items-center gap-1.5">
+                                            <span>Everyone</span>
+                                            <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-md bg-secondary-100 text-secondary-600">Public</span>
+                                        </div>
+                                        <div className="text-xs text-muted mt-0.5">
+                                            Visible to all visitors and parishioners
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, targetAudience: 'parishioners' })}
+                                    className={`p-3.5 rounded-xl border text-left transition-all flex items-start gap-3 cursor-pointer ${
+                                        formData.targetAudience === 'parishioners'
+                                            ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
+                                            : 'border-border hover:bg-secondary-50 text-foreground'
+                                    }`}
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Users className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="font-semibold text-sm flex items-center gap-1.5">
+                                            <span>Parishioners only</span>
+                                            <span className="text-[10px] font-medium px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-800">Members</span>
+                                        </div>
+                                        <div className="text-xs text-muted mt-0.5">
+                                            Visible only to parish community members
+                                        </div>
+                                    </div>
+                                </button>
                             </div>
                         </div>
                     )}

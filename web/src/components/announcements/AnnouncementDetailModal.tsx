@@ -1,4 +1,4 @@
-import { Pin, Calendar, Building2, Clock, Megaphone, Church, CalendarDays, AlertTriangle, Bell, X } from 'lucide-react';
+import { Pin, Calendar, Building2, Clock, Megaphone, Church, CalendarDays, AlertTriangle, Bell, X, Eye, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type {
     ChurchAnnouncement,
@@ -78,6 +78,21 @@ export default function AnnouncementDetailModal({ announcement, type = 'all', on
                             {isChurch && Boolean(churchAnn.is_pinned) && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                                     <Pin className="w-3 h-3" /> Pinned
+                                </span>
+                            )}
+                        {isChurch && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border border-secondary-200 bg-secondary-50 text-secondary-700">
+                                    {churchAnn.target_audience === 'parishioners' ? (
+                                        <>
+                                            <Users className="w-3 h-3 text-secondary-500" />
+                                            <span>Parishioners only</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye className="w-3 h-3 text-secondary-500" />
+                                            <span>Everyone</span>
+                                        </>
+                                    )}
                                 </span>
                             )}
                         </div>

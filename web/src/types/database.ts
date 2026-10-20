@@ -264,6 +264,7 @@ export type Database = {
           id: string
           is_pinned: boolean | null
           scheduled_at: string | null
+          target_audience: 'everyone' | 'parishioners'
           title: string
           updated_at: string | null
         }
@@ -276,6 +277,7 @@ export type Database = {
           id?: string
           is_pinned?: boolean | null
           scheduled_at?: string | null
+          target_audience?: 'everyone' | 'parishioners'
           title: string
           updated_at?: string | null
         }
@@ -288,6 +290,7 @@ export type Database = {
           id?: string
           is_pinned?: boolean | null
           scheduled_at?: string | null
+          target_audience?: 'everyone' | 'parishioners'
           title?: string
           updated_at?: string | null
         }
@@ -906,37 +909,52 @@ export type Database = {
       }
       priest_availability: {
         Row: {
-          available_date: string
-          church_id: string
+          available_date: string | null
+          blackout_end: string | null
+          blackout_start: string | null
+          church_id: string | null
           created_at: string | null
-          end_time: string
+          day_of_week: number | null
+          end_time: string | null
           id: string
           is_blocked: boolean | null
           notes: string | null
           priest_id: string
-          start_time: string
+          reason: string
+          start_time: string | null
+          updated_at: string | null
         }
         Insert: {
-          available_date: string
-          church_id: string
+          available_date?: string | null
+          blackout_end?: string | null
+          blackout_start?: string | null
+          church_id?: string | null
           created_at?: string | null
-          end_time: string
+          day_of_week?: number | null
+          end_time?: string | null
           id?: string
           is_blocked?: boolean | null
           notes?: string | null
           priest_id: string
-          start_time: string
+          reason?: string
+          start_time?: string | null
+          updated_at?: string | null
         }
         Update: {
-          available_date?: string
-          church_id?: string
+          available_date?: string | null
+          blackout_end?: string | null
+          blackout_start?: string | null
+          church_id?: string | null
           created_at?: string | null
-          end_time?: string
+          day_of_week?: number | null
+          end_time?: string | null
           id?: string
           is_blocked?: boolean | null
           notes?: string | null
           priest_id?: string
-          start_time?: string
+          reason?: string
+          start_time?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1338,6 +1356,16 @@ export type Database = {
       refresh_church_stats: { Args: never; Returns: undefined }
       transfer_super_admin: {
         Args: { target_user_id: string }
+        Returns: Json
+      }
+      update_church_livestream: {
+        Args: {
+          p_church_id: string
+          p_is_live?: boolean | null
+          p_livestream_url?: string | null
+          p_livestream_title?: string | null
+          p_livestream_platform?: string | null
+        }
         Returns: Json
       }
     }

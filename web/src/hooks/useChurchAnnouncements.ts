@@ -25,6 +25,7 @@ export function useChurchAnnouncements(
     const effectiveChurchId = churchId && churchId.trim().length > 0 ? churchId.trim() : undefined;
     const searchOption = options?.search;
     const limitOption = options?.limit;
+    const audienceOption = options?.audience;
 
     const fetchAnnouncements = useCallback(async () => {
         try {
@@ -34,6 +35,7 @@ export function useChurchAnnouncements(
             const { data, error: fetchError } = await getChurchAnnouncements(effectiveChurchId, {
                 search: searchOption,
                 limit: limitOption,
+                audience: audienceOption,
             });
 
             if (fetchError) {
@@ -48,7 +50,7 @@ export function useChurchAnnouncements(
         } finally {
             setLoading(false);
         }
-    }, [effectiveChurchId, searchOption, limitOption]);
+    }, [effectiveChurchId, searchOption, limitOption, audienceOption]);
 
     useEffect(() => {
         void fetchAnnouncements();

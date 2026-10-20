@@ -2,6 +2,8 @@ import { supabase } from '../supabase';
 import type { Database } from '../../types/database';
 import { notifyFollowersOfAnnouncement } from './notifications';
 
+export type AnnouncementAudience = 'everyone' | 'parishioners';
+
 export type AnnouncementCategory =
     | 'general'
     | 'mass_schedule'
@@ -29,6 +31,7 @@ export interface ChurchAnnouncement {
     category: AnnouncementCategory;
     is_pinned: boolean | null;
     scheduled_at: string | null;
+    target_audience: AnnouncementAudience;
     created_by: string | null;
     created_at: string | null;
     updated_at: string | null;
@@ -65,6 +68,7 @@ export type UnifiedAnnouncement = UnifiedChurchAnnouncement | UnifiedSystemAnnou
 
 export interface GetChurchAnnouncementsOptions {
     search?: string;
+    audience?: AnnouncementAudience | 'all';
     limit?: number;
     page?: number;
     pageSize?: number;
@@ -94,6 +98,7 @@ export interface CreateChurchAnnouncementInput {
     category?: AnnouncementCategory;
     isPinned?: boolean;
     scheduledAt?: string | null;
+    targetAudience?: AnnouncementAudience;
     churchName?: string;
 }
 
@@ -103,6 +108,7 @@ export interface UpdateChurchAnnouncementInput {
     category?: AnnouncementCategory;
     isPinned?: boolean;
     scheduledAt?: string | null;
+    targetAudience?: AnnouncementAudience;
 }
 
 export interface CreateSystemAnnouncementInput {
@@ -170,6 +176,7 @@ export async function getChurchAnnouncements(
                 category,
                 is_pinned,
                 scheduled_at,
+                target_audience,
                 created_by,
                 created_at,
                 updated_at,
@@ -180,6 +187,10 @@ export async function getChurchAnnouncements(
 
         if (churchId) {
             query = query.eq('church_id', churchId);
+        }
+
+        if (options.audience && options.audience !== 'all') {
+            query = query.eq('target_audience', options.audience);
         }
 
         if (options.search && options.search.trim().length > 0) {
@@ -206,6 +217,7 @@ export async function getChurchAnnouncements(
             category: (row.category as AnnouncementCategory) || 'general',
             is_pinned: row.is_pinned,
             scheduled_at: row.scheduled_at,
+            target_audience: (row.target_audience as AnnouncementAudience) || 'everyone',
             created_by: row.created_by,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -464,6 +476,7 @@ export async function createChurchAnnouncement(
             category: input.category || 'general',
             is_pinned: input.isPinned ?? false,
             scheduled_at: input.scheduledAt ? new Date(input.scheduledAt).toISOString() : null,
+            target_audience: input.targetAudience || 'everyone',
             created_by: user?.id || null,
         };
 
@@ -478,12 +491,13 @@ export async function createChurchAnnouncement(
                 category,
                 is_pinned,
                 scheduled_at,
+                target_audience,
                 created_by,
                 created_at,
                 updated_at,
                 church:churches(id, name, status)
-            `)
-            .single();
+                `)
+                .single();
 
         if (error) throw error;
 
@@ -495,6 +509,7 @@ export async function createChurchAnnouncement(
             category: (data.category as AnnouncementCategory) || 'general',
             is_pinned: data.is_pinned,
             scheduled_at: data.scheduled_at,
+            target_audience: (data.target_audience as AnnouncementAudience) || 'everyone',
             created_by: data.created_by,
             created_at: data.created_at,
             updated_at: data.updated_at,
@@ -521,6 +536,16 @@ export async function createChurchAnnouncement(
 /**
  * Update an existing church announcement by ID.
  */
+
+/**
+ * Immediately publish a scheduled church announcement by setting scheduled_at to null.
+ */
+export async function publishChurchAnnouncement(
+    id: string
+): Promise<{ data: ChurchAnnouncement | null; error: Error | null }> {
+    return updateChurchAnnouncement(id, { scheduledAt: null });
+}
+
 export async function updateChurchAnnouncement(
     id: string,
     input: UpdateChurchAnnouncementInput
@@ -534,6 +559,7 @@ export async function updateChurchAnnouncement(
         if (input.scheduledAt !== undefined) {
             updatePayload.scheduled_at = input.scheduledAt ? new Date(input.scheduledAt).toISOString() : null;
         }
+        if (input.targetAudience !== undefined) updatePayload.target_audience = input.targetAudience;
 
         const { data, error } = await supabase
             .from('church_announcements')
@@ -547,12 +573,13 @@ export async function updateChurchAnnouncement(
                 category,
                 is_pinned,
                 scheduled_at,
+                target_audience,
                 created_by,
                 created_at,
                 updated_at,
                 church:churches(id, name, status)
-            `)
-            .single();
+                `)
+                .single();
 
         if (error) throw error;
 
@@ -564,6 +591,7 @@ export async function updateChurchAnnouncement(
             category: (data.category as AnnouncementCategory) || 'general',
             is_pinned: data.is_pinned,
             scheduled_at: data.scheduled_at,
+            target_audience: (data.target_audience as AnnouncementAudience) || 'everyone',
             created_by: data.created_by,
             created_at: data.created_at,
             updated_at: data.updated_at,

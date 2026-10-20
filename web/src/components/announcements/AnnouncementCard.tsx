@@ -1,4 +1,4 @@
-import { Pin, Edit, Trash2, Building2, Megaphone, Clock } from 'lucide-react';
+import { Pin, Edit, Trash2, Building2, Megaphone, Clock, Eye, Users } from 'lucide-react';
 import type {
     ChurchAnnouncement,
     SystemAnnouncement,
@@ -92,6 +92,23 @@ export default function AnnouncementCard({
                     {isChurchAnnouncement && (
                         <span className="bg-secondary-100 text-secondary-700 text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize">
                             {category.replace('_', ' ')}
+                        </span>
+                    )}
+
+                    {/* Target Audience badge */}
+                    {isChurchAnnouncement && (
+                        <span className="inline-flex items-center gap-1 bg-secondary-50 text-secondary-600 border border-secondary-200 text-[11px] font-medium px-2 py-0.5 rounded-full">
+                            {churchAnn.target_audience === 'parishioners' ? (
+                                <>
+                                    <Users className="w-3 h-3 text-secondary-500" />
+                                    <span>Parishioners only</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Eye className="w-3 h-3 text-secondary-500" />
+                                    <span>Everyone</span>
+                                </>
+                            )}
                         </span>
                     )}
 
