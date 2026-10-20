@@ -8,6 +8,9 @@ interface Verse {
 
 export interface DailyVerseProps {
     variant?: 'parchment' | 'blue';
+    /** Parchment variant only: heading and text of the closing reflection */
+    reflectionLabel?: string;
+    reflectionText?: string;
 }
 
 const FALLBACK_VERSES = [
@@ -37,7 +40,11 @@ const FALLBACK_VERSES = [
     }
 ];
 
-export default function DailyVerse({ variant = 'parchment' }: DailyVerseProps) {
+export default function DailyVerse({
+    variant = 'parchment',
+    reflectionLabel = 'Reflection',
+    reflectionText = 'Pause before the first Mass of the day and offer your parish work as a prayer.',
+}: DailyVerseProps) {
     const [verse, setVerse] = useState<Verse | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -121,10 +128,10 @@ export default function DailyVerse({ variant = 'parchment' }: DailyVerseProps) {
                     {/* Reflection Section */}
                     <div className="mt-4 pt-3 border-t border-amber-200/60">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
-                            REFLECTION
+                            {reflectionLabel}
                         </span>
                         <p className="text-xs text-amber-950/80 leading-relaxed font-sans">
-                            Pause before the first Mass of the day and offer your parish work as a prayer.
+                            {reflectionText}
                         </p>
                     </div>
                 </div>

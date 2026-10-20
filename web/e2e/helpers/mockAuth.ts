@@ -4,7 +4,8 @@ export interface MockUser {
   id: string;
   email: string;
   full_name: string;
-  role: 'super_admin' | 'admin' | 'church_admin' | 'volunteer' | 'user';
+  role: 'super_admin' | 'admin' | 'church_admin' | 'volunteer' | 'user' | 'priest';
+  is_priest?: boolean;
   assigned_church_id?: string | null;
   church_id?: string | null;
 }
@@ -30,6 +31,14 @@ export const MOCK_USERS: Record<string, MockUser> = {
     full_name: 'Parishioner User',
     role: 'user',
     church_id: 'church-1',
+  },
+  priest: {
+    id: 'user-id-priest-5',
+    email: 'user5@gmail.com',
+    full_name: 'Fr. Juan dela Cruz',
+    role: 'priest',
+    assigned_church_id: 'church-1',
+    is_priest: true,
   },
 };
 
@@ -214,6 +223,52 @@ export const MOCK_APPOINTMENTS = [
       email: 'user6@gmail.com',
     },
   },
+  {
+    id: 'apt-3',
+    user_id: 'user-id-parishioner-6',
+    church_id: 'church-1',
+    priest_id: 'user-id-priest-5',
+    service_type: 'Pastoral Counseling',
+    status: 'pending',
+    appointment_date: '2026-10-25',
+    appointment_time: '03:00 PM',
+    contact_number: '+63 912 345 6789',
+    contact_email: 'user6@gmail.com',
+    notes: 'Spiritual direction session with Father',
+    created_at: '2026-01-03T00:00:00Z',
+    church: {
+      id: 'church-1',
+      name: 'San Sebastian Cathedral',
+    },
+    user: {
+      id: 'user-id-parishioner-6',
+      full_name: 'Parishioner User',
+      email: 'user6@gmail.com',
+    },
+  },
+  {
+    id: 'apt-4',
+    user_id: 'user-id-parishioner-6',
+    church_id: 'church-1',
+    priest_id: 'user-id-priest-5',
+    service_type: 'Wedding',
+    status: 'pending',
+    appointment_date: '2026-10-28',
+    appointment_time: '09:00 AM',
+    contact_number: '+63 912 345 6789',
+    contact_email: 'user6@gmail.com',
+    notes: 'Canonical pre-nuptial examination',
+    created_at: '2026-01-04T00:00:00Z',
+    church: {
+      id: 'church-1',
+      name: 'San Sebastian Cathedral',
+    },
+    user: {
+      id: 'user-id-parishioner-6',
+      full_name: 'Parishioner User',
+      email: 'user6@gmail.com',
+    },
+  },
 ];
 
 /**
@@ -230,6 +285,8 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
       matchedUser = MOCK_USERS.super_admin;
     } else if (email === 'user2@gmail.com' && (password === 'lolgamers123' || password === 'password123')) {
       matchedUser = MOCK_USERS.church_admin;
+    } else if (email === 'user5@gmail.com' && (password === 'lolgamers123' || password === 'password123')) {
+      matchedUser = MOCK_USERS.priest;
     } else if (email === 'user6@gmail.com' && (password === 'lolgamers123' || password === 'password123')) {
       matchedUser = MOCK_USERS.parishioner;
     }
@@ -322,6 +379,7 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
               role: u.role,
               assigned_church_id: u.assigned_church_id || null,
               church_id: u.church_id || null,
+              is_priest: u.is_priest ?? false,
               avatar_url: null,
               created_at: '2026-01-01T00:00:00.000Z',
               updated_at: '2026-01-01T00:00:00.000Z',
@@ -359,7 +417,8 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
       full_name: u.full_name,
       role: u.role,
       assigned_church_id: u.assigned_church_id || null,
-      church_id: u.church_id || null,
+              church_id: u.church_id || null,
+              is_priest: u.is_priest ?? false,
       avatar_url: null,
       created_at: '2026-01-01T00:00:00.000Z',
       updated_at: '2026-01-01T00:00:00.000Z',
@@ -560,10 +619,42 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
 
   // 8. Priest availability REST route
   await page.route('**/rest/v1/priest_availability*', async (route) => {
+    const method = route.request().method();
+    if (method === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      const newAvail = { id: `avail-${Date.now()}`, ...body, created_at: new Date().toISOString() };
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify([newAvail]) });
+    }
+    if (method === 'DELETE') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    }
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([]),
+      body: JSON.stringify([
+        {
+          id: 'avail-1',
+          priest_id: 'user-id-priest-5',
+          church_id: 'church-1',
+          day_of_week: 1,
+          blackout_start: null,
+          blackout_end: null,
+          reason: 'Weekly Day of Rest',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+        },
+        {
+          id: 'avail-2',
+          priest_id: 'user-id-priest-5',
+          church_id: 'church-1',
+          day_of_week: null,
+          blackout_start: '2026-11-10',
+          blackout_end: '2026-11-15',
+          reason: 'Diocesan Clergy Annual Retreat',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+        }
+      ]),
     });
   });
 
@@ -789,7 +880,6 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
   // 14. Parish Applications REST route
   await page.route('**/rest/v1/parish_applications*', async (route) => {
     const method = route.request().method();
-    const url = route.request().url();
 
     if (method === 'POST') {
       const body = route.request().postDataJSON() || {};
@@ -847,7 +937,7 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
 /**
  * Helper to authenticate directly into a specific role before page load
  */
-export async function authenticateAs(page: Page, role: 'super_admin' | 'church_admin' | 'parishioner') {
+export async function authenticateAs(page: Page, role: 'super_admin' | 'church_admin' | 'parishioner' | 'priest') {
   const user = MOCK_USERS[role];
 
   await setupSupabaseMocks(page, user);

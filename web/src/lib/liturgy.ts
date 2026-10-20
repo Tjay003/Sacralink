@@ -157,3 +157,105 @@ export function getDailyReadings(date: Date = new Date()): LiturgicalDay {
         date: formattedDate,
     };
 }
+
+export interface LiturgicalSeasonInfo {
+    season: string;
+    week: number | null;
+    label: string;
+    liturgicalColor: LiturgicalDay['liturgicalColor'];
+    colorName: string;
+}
+
+const MS_PER_DAY = 86400000;
+
+// Whole-day index in UTC so DST shifts never skew week arithmetic
+function dayIndex(year: number, month: number, day: number): number {
+    return Date.UTC(year, month, day) / MS_PER_DAY;
+}
+
+function weekdayOf(index: number): number {
+    return new Date(index * MS_PER_DAY).getUTCDay();
+}
+
+// Anonymous Gregorian computus
+function easterIndex(year: number): number {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return dayIndex(year, month, day);
+}
+
+const COLOR_NAMES: Record<LiturgicalDay['liturgicalColor'], string> = {
+    green: 'Green',
+    purple: 'Violet',
+    red: 'Red',
+    white: 'White',
+    rose: 'Rose',
+};
+
+function seasonInfo(season: string, week: number | null, color: LiturgicalDay['liturgicalColor']): LiturgicalSeasonInfo {
+    return {
+        season,
+        week,
+        label: week ? `${season} · Week ${week}` : season,
+        liturgicalColor: color,
+        colorName: COLOR_NAMES[color],
+    };
+}
+
+/**
+ * Computes the liturgical season, week and vestment color for a date
+ * (General Roman Calendar; feasts and memorials are not included).
+ */
+export function getLiturgicalSeason(date: Date = new Date()): LiturgicalSeasonInfo {
+    const year = date.getFullYear();
+    const today = dayIndex(year, date.getMonth(), date.getDate());
+
+    const easter = easterIndex(year);
+    const ashWednesday = easter - 46;
+    const firstSundayOfLent = easter - 42;
+    const palmSunday = easter - 7;
+    const holyThursday = easter - 3;
+    const goodFriday = easter - 2;
+    const pentecost = easter + 49;
+
+    const christmas = dayIndex(year, 11, 25);
+    const sundayBeforeChristmas = christmas - (weekdayOf(christmas) || 7);
+    const firstSundayOfAdvent = sundayBeforeChristmas - 21;
+    const christTheKing = firstSundayOfAdvent - 7;
+
+    const epiphany = dayIndex(year, 0, 6);
+    const baptismOfTheLord = epiphany + (7 - weekdayOf(epiphany));
+
+    if (today >= christmas) return seasonInfo('Christmas', null, 'white');
+    if (today >= firstSundayOfAdvent) {
+        return seasonInfo('Advent', Math.floor((today - firstSundayOfAdvent) / 7) + 1, 'purple');
+    }
+    if (today <= baptismOfTheLord) return seasonInfo('Christmas', null, 'white');
+    if (today < ashWednesday) {
+        return seasonInfo('Ordinary Time', Math.floor((today - baptismOfTheLord) / 7) + 1, 'green');
+    }
+    if (today < firstSundayOfLent) return seasonInfo('Lent', null, 'purple');
+    if (today < palmSunday) {
+        return seasonInfo('Lent', Math.floor((today - firstSundayOfLent) / 7) + 1, 'purple');
+    }
+    if (today < holyThursday) return seasonInfo('Holy Week', null, today === palmSunday ? 'red' : 'purple');
+    if (today < easter) return seasonInfo('Paschal Triduum', null, today === goodFriday ? 'red' : 'white');
+    if (today < pentecost) return seasonInfo('Easter', Math.floor((today - easter) / 7) + 1, 'white');
+    if (today === pentecost) return seasonInfo('Pentecost', null, 'red');
+
+    // Ordinary Time after Pentecost counts back from Christ the King (Week 34)
+    const sundayOnOrBefore = today - weekdayOf(today);
+    return seasonInfo('Ordinary Time', 34 - (christTheKing - sundayOnOrBefore) / 7, 'green');
+}

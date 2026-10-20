@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, AlertCircle, AlertTriangle, Wrench, CheckCircle } from 'lucide-react';
+import { X, AlertCircle, AlertTriangle, Wrench, CheckCircle, Megaphone } from 'lucide-react';
 import { useSystemAnnouncements } from '../../hooks/useSystemAnnouncements';
 import { featureFlags } from '../../config/featureFlags';
-import type { SystemAnnouncementType } from '../../lib/supabase/announcements';
+import AnnouncementDetailModal from './AnnouncementDetailModal';
+import type { SystemAnnouncement, SystemAnnouncementType } from '../../lib/supabase/announcements';
+
+export interface SystemAnnouncementsBannerProps {
+    /** 'circular' renders a compact strip with Read/Dismiss actions (priest dashboard) */
+    variant?: 'default' | 'circular';
+}
 
 /**
  * SystemAnnouncementsBanner - Display active system announcements on dashboard
@@ -14,8 +20,9 @@ import type { SystemAnnouncementType } from '../../lib/supabase/announcements';
  * - Auto-hides when all announcements dismissed
  * - Real-time updates via Supabase subscription
  */
-export default function SystemAnnouncementsBanner() {
+export default function SystemAnnouncementsBanner({ variant = 'default' }: SystemAnnouncementsBannerProps) {
     const { announcements, loading } = useSystemAnnouncements();
+    const [openAnnouncement, setOpenAnnouncement] = useState<SystemAnnouncement | null>(null);
     const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
         try {
             const stored = localStorage.getItem('dismissedSystemAnnouncements');
@@ -47,6 +54,55 @@ export default function SystemAnnouncementsBanner() {
     // Don't render anything if loading or no visible announcements
     if (loading || visibleAnnouncements.length === 0) {
         return null;
+    }
+
+    if (variant === 'circular') {
+        return (
+            <div className="space-y-3">
+                {visibleAnnouncements.map((announcement) => (
+                    <div
+                        key={announcement.id}
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3.5 rounded-2xl border border-blue-200 bg-blue-50/70 animate-in fade-in slide-in-from-top-2 duration-300"
+                    >
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <Megaphone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-primary truncate">
+                                    {announcement.title}
+                                </p>
+                                <p className="text-sm text-secondary-700 line-clamp-2">
+                                    {announcement.content}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
+                            <button
+                                type="button"
+                                onClick={() => setOpenAnnouncement(announcement)}
+                                className="px-3 py-1.5 rounded-lg border border-border bg-white hover:bg-secondary-50 text-xs font-semibold text-foreground shadow-2xs transition-colors cursor-pointer"
+                            >
+                                Read circular
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDismiss(announcement.id)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-secondary-500 hover:text-foreground hover:bg-white/70 transition-colors cursor-pointer"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                ))}
+
+                {openAnnouncement && (
+                    <AnnouncementDetailModal
+                        announcement={openAnnouncement}
+                        type="system"
+                        onClose={() => setOpenAnnouncement(null)}
+                    />
+                )}
+            </div>
+        );
     }
 
     // Type configurations
