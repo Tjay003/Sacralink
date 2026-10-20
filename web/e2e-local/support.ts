@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Page } from '@playwright/test';
+import { test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
 
 export const LOCAL_URL = 'http://127.0.0.1:54321';
 // Public local-demo keys printed by `npx supabase start`
@@ -76,8 +76,16 @@ export function isoDate(daysFromToday: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Inserts an approved Baptism assigned to `priest` and returns its id. Clears earlier test data first. */
-export async function createApprovedAppointment(opts: { daysFromToday?: number; time?: string; celebrant?: Role | null } = {}) {
+export interface AppointmentOptions {
+  daysFromToday?: number;
+  time?: string;
+  /** Role of the assigned celebrant; `null` leaves the appointment unassigned. Defaults to `priest`. */
+  celebrant?: Role | null;
+  serviceType?: string;
+}
+
+/** Inserts a Baptism for the seeded parishioner in the given status and returns its id. */
+async function insertAppointment(status: 'approved' | 'pending', opts: AppointmentOptions) {
   const seed = await getSeed();
   const db = serviceClient();
   const celebrant = opts.celebrant === undefined ? 'priest' : opts.celebrant;
@@ -86,10 +94,10 @@ export async function createApprovedAppointment(opts: { daysFromToday?: number; 
     .insert({
       user_id: seed.ids.parishioner,
       church_id: seed.churchId,
-      service_type: 'Baptism',
+      service_type: opts.serviceType ?? 'Baptism',
       appointment_date: isoDate(opts.daysFromToday ?? 14),
       appointment_time: opts.time ?? '10:00:00',
-      status: 'approved',
+      status,
       priest_id: celebrant ? seed.ids[celebrant] : null,
     })
     .select('id')
@@ -98,12 +106,83 @@ export async function createApprovedAppointment(opts: { daysFromToday?: number; 
   return data.id as string;
 }
 
+/** Inserts an approved Baptism assigned to `priest` and returns its id. */
+export async function createApprovedAppointment(opts: AppointmentOptions = {}) {
+  return insertAppointment('approved', opts);
+}
+
+/** Inserts a pending Baptism request (no celebrant unless asked for) and returns its id. */
+export async function createPendingAppointment(opts: AppointmentOptions = {}) {
+  return insertAppointment('pending', { celebrant: null, ...opts });
+}
+
 /** Wipes appointments, history and notifications so each test starts clean. */
 export async function resetAppointmentData() {
   const db = serviceClient();
   await db.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await db.from('appointment_changes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   await db.from('appointments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+}
+
+/** Removes every day off, leave and blackout row so celebrants start fully available. */
+export async function resetPriestAvailability() {
+  const { error } = await serviceClient().from('priest_availability').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw error;
+}
+
+/** A recurring weekly day off (0 = Sunday ... 6 = Saturday) for a seeded priest. */
+export async function addWeeklyDayOff(role: Role, dayOfWeek: number, reason: string) {
+  const seed = await getSeed();
+  const { error } = await serviceClient()
+    .from('priest_availability')
+    .insert({ priest_id: seed.ids[role], church_id: seed.churchId, day_of_week: dayOfWeek, reason });
+  if (error) throw error;
+}
+
+/** A leave period (inclusive dates, YYYY-MM-DD) for a seeded priest. */
+export async function addLeave(role: Role, start: string, end: string, reason: string) {
+  const seed = await getSeed();
+  const { error } = await serviceClient()
+    .from('priest_availability')
+    .insert({ priest_id: seed.ids[role], church_id: seed.churchId, blackout_start: start, blackout_end: end, reason });
+  if (error) throw error;
+}
+
+/** Weekday index (0 = Sunday) of a YYYY-MM-DD date, read as a local calendar date like the app does. */
+export function dayOfWeek(date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+/** First offset at or after `fromDays` whose date is not a Sunday (Canon 905 allows three on Sundays, two otherwise). */
+export function firstWeekdayOffset(fromDays: number): number {
+  let offset = fromDays;
+  while (dayOfWeek(isoDate(offset)) === 0) offset += 1;
+  return offset;
+}
+
+/** Opens the Edit modal of the office appointments table row that contains `rowText`. */
+export async function openEdit(page: Page, rowText = 'Baptism') {
+  await page.goto('/appointments');
+  const row = page.locator('table').locator('tr', { hasText: rowText });
+  await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  return { row, dialog: page.getByRole('dialog') };
+}
+
+/**
+ * Saves a PNG under e2e-screenshots (outside test-results, which Playwright wipes on every run) for the visual review. Full page by default; pass
+ * `fullPage: false` to capture only the viewport (needed when a fixed tooltip is anchored to a chip).
+ */
+export async function capture(page: Page, name: string, fullPage = true) {
+  await page.screenshot({ path: `e2e-screenshots/${name}.png`, fullPage });
+}
+
+/** A fresh browser context signed in as `role`, so one test can look at the same data as several roles. */
+export async function pageAs(browser: Browser, role: Role, options: BrowserContextOptions = {}) {
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, ...options });
+  const page = await context.newPage();
+  await loginAs(page, role);
+  return page;
 }
 
 /** Signs in through the real login form. */

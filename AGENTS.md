@@ -24,6 +24,10 @@ Canonical 5-role triage vocabulary. See `docs/agents/triage-labels.md`.
 
 Single-context repository. See `docs/agents/domain.md`.
 
+### Backend testing
+
+Test backend changes (database functions, RLS, notifications, migrations) against the local Docker Supabase with the real Playwright suite in `web/e2e-local`. **Never test backend changes against the production Supabase in `web/.env`.** See `docs/agents/local-testing.md`.
+
 ---
 
 ## Design System & UI Color Palette (MANDATORY FOR ALL UI CREATION)

@@ -33,4 +33,5 @@ dist-ssr
 test-results/
 playwright-report/
 blob-report/
+e2e-screenshots/
 .playwright/
