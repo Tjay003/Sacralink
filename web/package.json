@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:local": "playwright test -c playwright.local.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
