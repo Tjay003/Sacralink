@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, ExternalLink, Building2, Calendar } from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, Building2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import PriestDashboard from './PriestDashboard';
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
 import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
+import ParishAttentionWidget from '../../components/dashboard/ParishAttentionWidget';
+import ChurchDonationsSummaryCard from '../../components/dashboard/ChurchDonationsSummaryCard';
 import ChurchAnnouncementsManagement from '../../components/dashboard/ChurchAnnouncementsManagement';
 import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
 import RecentAppointmentsWidget from '../../components/dashboard/RecentAppointmentsWidget';
+import RecentActivityWidget from '../../components/dashboard/RecentActivityWidget';
 import DailyVerse from '../../components/dashboard/DailyVerse';
+import AnnouncementForm from '../../components/announcements/AnnouncementForm';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { supabase } from '../../lib/supabase';
 
@@ -27,6 +31,9 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
     const [lastSynced, setLastSynced] = useState<string | null>(null);
 
     const isPriest = Boolean(profile?.is_priest);
+
+    const isChurchAdmin = profile?.role === 'church_admin';
+    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
 
     const handleSyncAI = async () => {
         if (!churchId || isSyncing) return;
@@ -66,7 +73,7 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
         return (
             <div className="space-y-6">
                 {isPriest && (
-                    <div className="flex items-center gap-2 border-b border-border pb-3">
+                    <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => setActiveTab('operations')}
@@ -107,7 +114,7 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
     return (
         <div className="space-y-6">
             {isPriest && (
-                <div className="flex items-center gap-2 border-b border-border pb-3">
+                <div className="flex items-center gap-2">
                     <button
                         type="button"
                         onClick={() => setActiveTab('operations')}
@@ -138,92 +145,140 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
             {isPriest && activeTab === 'schedule' ? (
                 <PriestDashboard churchId={churchId} />
             ) : (
-                <>
+                <div className="space-y-6">
                     <SystemAnnouncementsBanner />
                     {churchId && (
                         <>
-                            <ChurchHeader churchId={churchId} />
+                            <ChurchHeader
+                                churchId={churchId}
+                                onNewAnnouncement={() => setShowAnnouncementModal(true)}
+                            />
                             <ChurchStatsCards churchId={churchId} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column */}
-                <div className="lg:col-span-2 space-y-6">
-                    <LiveBroadcastManager churchId={churchId} />
-                    <ChurchAnnouncementsManagement churchId={churchId} />
-                    {isFeatureEnabled('churchRecentAppointments') && (
-                        <RecentAppointmentsWidget churchId={churchId} limit={5} />
-                    )}
-                </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                                {/* Left Column: 7 cols */}
+                                <div className="lg:col-span-7 space-y-6">
+                                    {/* 1. Needs Parish Attention */}
+                                    <ParishAttentionWidget churchId={churchId} />
 
-                {/* Right Column */}
-                <div className="space-y-6">
-                    <DailyVerse />
+                                    {/* 2. Live Broadcast & Virtual Sanctuary */}
+                                    <LiveBroadcastManager churchId={churchId} />
 
-                    {/* AI Knowledge Sync — hidden in demo mode */}
-                    {isFeatureEnabled('churchAiSync') && (
-                        <div className="bg-card border rounded-lg p-6 space-y-4">
-                            <div className="flex items-center gap-2">
-                                <Bot className="w-5 h-5 text-primary" />
-                                <h3 className="font-semibold text-foreground">AI Parish Assistant</h3>
+                                    {/* 3. Recent Sacrament Requests */}
+                                    {isFeatureEnabled('churchRecentAppointments') && (
+                                        <RecentAppointmentsWidget churchId={churchId} limit={5} />
+                                    )}
+                                </div>
+
+                                {/* Right Column: 5 cols */}
+                                <div className="lg:col-span-5 space-y-6">
+                                    {/* 1. Word for Today (Parchment variant with Reflection) */}
+                                    <DailyVerse variant="parchment" />
+
+                                    {/* 2. AI Parish Assistant */}
+                                    {isFeatureEnabled('churchAiSync') && (
+                                        <div className="bg-white border border-border rounded-2xl p-6 shadow-xs space-y-4">
+                                            <div className="flex items-center justify-between pb-3 border-b border-border/70">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-primary flex items-center justify-center border border-blue-100">
+                                                        <Bot className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-serif text-lg font-bold text-foreground">AI parish assistant</h3>
+                                                        <p className="text-xs text-secondary-500 font-medium">Knowledge base for parishioner questions</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Metrics Row */}
+                                            <div className="space-y-2 py-1 text-xs">
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span>Sections</span>
+                                                    <span className="font-bold text-foreground">7</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span>Last synced</span>
+                                                    <span className="font-medium text-foreground">{lastSynced || 'Oct 13, 2026'}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-secondary-600">
+                                                    <span>Status</span>
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                                        Needs a sync
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="space-y-2 pt-2">
+                                                <button
+                                                    id="sync-ai-knowledge-btn"
+                                                    onClick={handleSyncAI}
+                                                    disabled={isSyncing}
+                                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                                                >
+                                                    {isSyncing ? (
+                                                        <>
+                                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                            <span>Syncing...</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Bot className="w-4 h-4" />
+                                                            <span>Sync AI knowledge</span>
+                                                        </>
+                                                    )}
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate('/knowledge')}
+                                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground text-xs sm:text-sm font-semibold shadow-2xs transition-colors cursor-pointer"
+                                                >
+                                                    <BookOpen className="w-4 h-4 text-secondary-600" />
+                                                    <span>Manage knowledge base</span>
+                                                </button>
+                                            </div>
+
+                                            {syncStatus === 'success' && (
+                                                <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                                                    <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                                                    <span>{syncMessage}</span>
+                                                </div>
+                                            )}
+                                            {syncStatus === 'error' && (
+                                                <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
+                                                    <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                                                    <span>{syncMessage}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* 3. Donations Summary Card (STRICTLY Church Admin only) */}
+                                    {isChurchAdmin && (
+                                        <ChurchDonationsSummaryCard churchId={churchId} />
+                                    )}
+
+                                    {/* 4. Recent Activity Widget */}
+                                    <RecentActivityWidget churchId={churchId} />
+
+                                    {/* 5. Parish Announcements Bulletin List */}
+                                    <ChurchAnnouncementsManagement churchId={churchId} />
+                                </div>
                             </div>
-                            <p className="text-xs text-muted leading-relaxed">
-                                Sync your church data and custom knowledge sections so the AI can accurately answer parishioner questions in English and Filipino.
-                            </p>
 
-                            {/* Knowledge Base link */}
-                            <button
-                                onClick={() => navigate('/knowledge')}
-                                className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-secondary-200 bg-secondary-50/50 hover:bg-white hover:border-primary/40 transition-all text-sm group"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <BookOpen className="w-4 h-4 text-primary" />
-                                    <span className="font-medium text-foreground">Manage Knowledge Base</span>
-                                </div>
-                                <ExternalLink className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
-                            </button>
-
-                            {/* Sync button */}
-                            <button
-                                id="sync-ai-knowledge-btn"
-                                onClick={handleSyncAI}
-                                disabled={isSyncing}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-                            >
-                                {isSyncing ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Syncing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Bot className="w-4 h-4" />
-                                        Sync AI Knowledge Base
-                                    </>
-                                )}
-                            </button>
-
-                            {syncStatus === 'success' && (
-                                <div className="flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
-                                    <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                                    <p className="text-xs text-green-700">{syncMessage}</p>
-                                </div>
+                            {/* New Announcement Form Modal */}
+                            {showAnnouncementModal && (
+                                <AnnouncementForm
+                                    type="church"
+                                    churchId={churchId}
+                                    onSuccess={() => setShowAnnouncementModal(false)}
+                                    onCancel={() => setShowAnnouncementModal(false)}
+                                />
                             )}
-                            {syncStatus === 'error' && (
-                                <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                                    <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                                    <p className="text-xs text-red-700">{syncMessage}</p>
-                                </div>
-                            )}
-                            {lastSynced && (
-                                <p className="text-xs text-muted text-center">Last synced at {lastSynced}</p>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </div>
                         </>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

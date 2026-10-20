@@ -140,9 +140,10 @@ export function isLocalConversation(conversationId: string): boolean {
 }
 
 export function getLocalMinistryConvs(churchId?: string): LocalMinistryConv[] {
-    if (typeof window === 'undefined' || !window.sessionStorage) return [];
+    if (typeof window === 'undefined') return [];
     try {
-        const raw = window.sessionStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY);
+        const raw = (window.localStorage && window.localStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY)) ||
+            (window.sessionStorage && window.sessionStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY));
         const list: LocalMinistryConv[] = raw ? JSON.parse(raw) : [];
         if (churchId) {
             return list.filter((c) => c.church_id === churchId);
@@ -159,7 +160,7 @@ export function getLocalConversationById(conversationId: string): LocalMinistryC
 }
 
 export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
-    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    if (typeof window === 'undefined') return;
     try {
         const list = getLocalMinistryConvs();
         const existingIdx = list.findIndex(
@@ -177,16 +178,23 @@ export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
         } else {
             list.push(conv);
         }
-        window.sessionStorage.setItem(LOCAL_MINISTRY_STORAGE_KEY, JSON.stringify(list));
+        if (window.localStorage) {
+            window.localStorage.setItem(LOCAL_MINISTRY_STORAGE_KEY, JSON.stringify(list));
+        }
+        if (window.sessionStorage) {
+            window.sessionStorage.setItem(LOCAL_MINISTRY_STORAGE_KEY, JSON.stringify(list));
+        }
     } catch (e) {
         console.warn('Could not save local ministry conv:', e);
     }
 }
 
 export function getLocalMinistryMessages(conversationId: string): MessageWithSender[] {
-    if (typeof window === 'undefined' || !window.sessionStorage) return [];
+    if (typeof window === 'undefined') return [];
     try {
-        const raw = window.sessionStorage.getItem(`${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}`);
+        const key = `${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}`;
+        const raw = (window.localStorage && window.localStorage.getItem(key)) ||
+            (window.sessionStorage && window.sessionStorage.getItem(key));
         return raw ? JSON.parse(raw) : [];
     } catch {
         return [];
@@ -194,12 +202,18 @@ export function getLocalMinistryMessages(conversationId: string): MessageWithSen
 }
 
 function saveLocalMinistryMessage(msg: MessageWithSender): void {
-    if (typeof window === 'undefined' || !window.sessionStorage) return;
+    if (typeof window === 'undefined') return;
     try {
         const list = getLocalMinistryMessages(msg.conversation_id);
         if (!list.some((m) => m.id === msg.id)) {
             list.push(msg);
-            window.sessionStorage.setItem(`${LOCAL_MINISTRY_MESSAGES_KEY}_${msg.conversation_id}`, JSON.stringify(list));
+            const key = `${LOCAL_MINISTRY_MESSAGES_KEY}_${msg.conversation_id}`;
+            if (window.localStorage) {
+                window.localStorage.setItem(key, JSON.stringify(list));
+            }
+            if (window.sessionStorage) {
+                window.sessionStorage.setItem(key, JSON.stringify(list));
+            }
         }
     } catch (e) {
         console.warn('Could not save local ministry message:', e);
@@ -253,29 +267,50 @@ export async function fetchUserConversations(userId: string): Promise<{
         });
 
         // 2. Fetch conversation rows with associated church
-        // If user is staff/clergy, query conversations where they are a participant OR
+        // If user is staff/clergy, query conversations where they are a participant AND
         // conversations belonging to their assigned church with type in ('channel', 'group')
         let conversations: any[] | null = null;
         let convError: any = null;
 
         if (isStaffOrClergy && staffChurchId) {
-            let convQuery = supabase
-                .from('conversations')
-                .select('*, church:churches(*)');
+            const queryPromises: Promise<any>[] = [];
 
+            // Query A: Conversations where user is an explicit participant
             if (conversationIds.length > 0) {
-                convQuery = convQuery.or(
-                    `id.in.(${conversationIds.join(',')}),and(church_id.eq.${staffChurchId},type.in.(channel,group))`
+                queryPromises.push(
+                    Promise.resolve(
+                        supabase
+                            .from('conversations')
+                            .select('*, church:churches(*)')
+                            .in('id', conversationIds)
+                    )
                 );
-            } else {
-                convQuery = convQuery
-                    .eq('church_id', staffChurchId)
-                    .in('type', ['channel', 'group']);
             }
 
-            const res = await convQuery.order('updated_at', { ascending: false });
-            conversations = res.data;
-            convError = res.error;
+            // Query B: Church-wide channels and group tickets/inquiries belonging to their assigned church
+            queryPromises.push(
+                Promise.resolve(
+                    supabase
+                        .from('conversations')
+                        .select('*, church:churches(*)')
+                        .eq('church_id', staffChurchId)
+                        .in('type', ['channel', 'group'])
+                )
+            );
+
+            const results = await Promise.all(queryPromises);
+            const combinedMap = new Map<string, any>();
+
+            results.forEach((res) => {
+                if (res.error) {
+                    convError = res.error;
+                }
+                (res.data || []).forEach((c: any) => {
+                    combinedMap.set(c.id, c);
+                });
+            });
+
+            conversations = Array.from(combinedMap.values());
         } else if (conversationIds.length > 0) {
             const res = await supabase
                 .from('conversations')
@@ -388,10 +423,13 @@ export async function fetchUserConversations(userId: string): Promise<{
                         ? PARISH_MINISTRIES.find((m) => m.name === conv.title) || null
                         : null;
 
+                    // Only assign ticket category/status if conversation has a ticket number or is an inquiry
+                    const isTicket = Boolean(conv.ticket_number);
+
                     return {
                         ...conv,
-                        category: conv.category || 'general',
-                        status: conv.status || 'open',
+                        category: isTicket ? (conv.category || 'general') : (conv.category || null),
+                        status: isTicket ? (conv.status || 'open') : (conv.status || null),
                         ticket_number: conv.ticket_number || null,
                         participants: parts,
                         lastMessage: lastMsg,
@@ -405,10 +443,13 @@ export async function fetchUserConversations(userId: string): Promise<{
         }
 
         // Merge any local fallback conversations (ministries & parish inquiries) the user is part of
+        // or belongs to the staff member's assigned church
         const localConvs = getLocalMinistryConvs();
-        const userLocalConvs = localConvs.filter(
-            (lc) => lc.participants.includes(userId) || lc.created_by === userId
-        );
+        const userLocalConvs = localConvs.filter((lc) => {
+            const isParticipantOrCreator = lc.participants.includes(userId) || lc.created_by === userId;
+            const isAssignedStaff = isStaffOrClergy && staffChurchId && lc.church_id === staffChurchId;
+            return isParticipantOrCreator || isAssignedStaff;
+        });
         userLocalConvs.forEach((lc) => {
             if (!enrichedConversations.some((c) => c.id === lc.id)) {
                 const localMsgs = getLocalMinistryMessages(lc.id);
@@ -420,6 +461,8 @@ export async function fetchUserConversations(userId: string): Promise<{
                       } as unknown as Church)
                     : null;
 
+                const isTicket = Boolean(lc.ticket_number);
+
                 enrichedConversations.push({
                     id: lc.id,
                     title: lc.title,
@@ -428,8 +471,8 @@ export async function fetchUserConversations(userId: string): Promise<{
                     created_by: lc.created_by,
                     created_at: lc.created_at,
                     updated_at: lc.updated_at,
-                    category: lc.category || 'general',
-                    status: lc.status || 'open',
+                    category: isTicket ? (lc.category || 'general') : (lc.category || null),
+                    status: isTicket ? (lc.status || 'open') : (lc.status || null),
                     ticket_number: lc.ticket_number || null,
                     participants: lc.participants.map((pid) => ({
                         id: `part-${pid}`,
@@ -1383,21 +1426,35 @@ export function subscribeToMessages(
             }
         });
 
-    // Also listen to local window event for offline/demo messages
+    // Also listen to local window and storage events for offline/demo messages across tabs
     const localHandler = (e: Event) => {
         const customEvent = e as CustomEvent<MessageWithSender>;
         if (customEvent.detail && customEvent.detail.conversation_id === conversationId) {
             onMessage(customEvent.detail);
         }
     };
+    const storageHandler = (e: StorageEvent) => {
+        if (e.key === `${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}` && e.newValue) {
+            try {
+                const parsed: MessageWithSender[] = JSON.parse(e.newValue);
+                if (parsed.length > 0) {
+                    onMessage(parsed[parsed.length - 1]);
+                }
+            } catch (err) {
+                console.warn('Could not parse storage event for message:', err);
+            }
+        }
+    };
     if (typeof window !== 'undefined') {
         window.addEventListener('sacralink:local_message', localHandler);
+        window.addEventListener('storage', storageHandler);
     }
 
     return () => {
         supabase.removeChannel(channel);
         if (typeof window !== 'undefined') {
             window.removeEventListener('sacralink:local_message', localHandler);
+            window.removeEventListener('storage', storageHandler);
         }
     };
 }
@@ -1455,14 +1512,28 @@ export function subscribeToUserConversations(
             onNewMessage(customEvent.detail);
         }
     };
+    const storageHandler = (e: StorageEvent) => {
+        if (e.key && e.key.startsWith(LOCAL_MINISTRY_MESSAGES_KEY) && e.newValue) {
+            try {
+                const parsed: MessageWithSender[] = JSON.parse(e.newValue);
+                if (parsed.length > 0) {
+                    onNewMessage(parsed[parsed.length - 1]);
+                }
+            } catch (err) {
+                console.warn('Could not parse storage event for message stream:', err);
+            }
+        }
+    };
     if (typeof window !== 'undefined') {
         window.addEventListener('sacralink:local_message', localHandler);
+        window.addEventListener('storage', storageHandler);
     }
 
     return () => {
         supabase.removeChannel(channel);
         if (typeof window !== 'undefined') {
             window.removeEventListener('sacralink:local_message', localHandler);
+            window.removeEventListener('storage', storageHandler);
         }
     };
 }

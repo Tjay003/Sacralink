@@ -1248,8 +1248,8 @@ export default function MessagingPage() {
 
                                 {/* Right Actions: Start Video Call & Responsive Delete */}
                                 <div className="flex items-center gap-2 shrink-0">
-                                    {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner */}
-                                    {((activeConversation as any).ticket_number || (activeConversation as any).category) && (
+                                    {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner (Only for inquiries/tickets) */}
+                                    {Boolean((activeConversation as any).ticket_number) && (
                                         <div className="flex items-center gap-1.5">
                                             {isStaff ? (
                                                 <div className="relative">
@@ -1291,14 +1291,17 @@ export default function MessagingPage() {
                                         </div>
                                     )}
 
-                                    <button
-                                        type="button"
-                                        onClick={() => handleStartVideoCall(activeConversation)}
-                                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
-                                    >
-                                        <Video className="w-3.5 h-3.5" />
-                                        <span className="hidden sm:inline">Start video call</span>
-                                    </button>
+                                    {/* Video call restricted to staff & clergy only */}
+                                    {isStaff && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleStartVideoCall(activeConversation)}
+                                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
+                                        >
+                                            <Video className="w-3.5 h-3.5" />
+                                            <span className="hidden sm:inline">Start video call</span>
+                                        </button>
+                                    )}
 
                                     {/* Responsive delete button for screen sizes where Column 3 is hidden */}
                                     {activeConversation.type !== 'channel' && (
@@ -1500,14 +1503,17 @@ export default function MessagingPage() {
                                         className="flex-1 py-2.5 px-4 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                     />
 
-                                    <button
-                                        type="button"
-                                        onClick={() => handleStartVideoCall(activeConversation)}
-                                        className="p-2.5 rounded-xl border border-border text-secondary-500 hover:text-foreground hover:bg-secondary-50 transition-colors shrink-0 cursor-pointer"
-                                        title="Start video meeting"
-                                    >
-                                        <Video className="w-4 h-4" />
-                                    </button>
+                                    {/* Video call restricted to staff & clergy only */}
+                                    {isStaff && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleStartVideoCall(activeConversation)}
+                                            className="p-2.5 rounded-xl border border-border text-secondary-500 hover:text-foreground hover:bg-secondary-50 transition-colors shrink-0 cursor-pointer"
+                                            title="Start video meeting"
+                                        >
+                                            <Video className="w-4 h-4" />
+                                        </button>
+                                    )}
 
                                     <button
                                         type="submit"

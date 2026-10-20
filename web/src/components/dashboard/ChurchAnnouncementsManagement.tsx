@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Megaphone, Plus, Edit2, Trash2, ArrowRight } from 'lucide-react';
+import { Megaphone, Plus, Edit2, Trash2 } from 'lucide-react';
 import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import AnnouncementForm from '../announcements/AnnouncementForm';
 import ConfirmationModal from '../modals/ConfirmationModal';
@@ -22,7 +21,6 @@ interface ChurchAnnouncementsManagementProps {
  * - Links to church detail page
  */
 export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnouncementsManagementProps) {
-    const navigate = useNavigate();
     const { announcements, loading, refetch } = useChurchAnnouncements(churchId || undefined);
     const [showForm, setShowForm] = useState(false);
     const [editingAnnouncement, setEditingAnnouncement] = useState<ChurchAnnouncement | null>(null);
@@ -86,17 +84,12 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
 
     return (
         <>
-            <div className="bg-card border rounded-lg p-6">
+            <div className="bg-white border border-border rounded-2xl p-6 shadow-xs">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                            <Megaphone className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-foreground">Church Announcements</h3>
-                            <p className="text-sm text-gray-500">Manage your parish updates</p>
-                        </div>
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/60">
+                    <div>
+                        <h3 className="font-serif text-lg font-bold text-foreground">Parish announcements</h3>
+                        <p className="text-xs text-secondary-500 font-medium">Fiesta alerts, bulletins and pastoral letters</p>
                     </div>
 
                     <button
@@ -104,10 +97,10 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                             setEditingAnnouncement(null);
                             setShowForm(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white"
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-all text-xs font-semibold bg-primary hover:bg-primary/95 text-white shadow-xs cursor-pointer active:scale-95"
                     >
-                        <Plus className="w-4 h-4" />
-                        New Announcement
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>New announcement</span>
                     </button>
                 </div>
 
@@ -115,68 +108,72 @@ export default function ChurchAnnouncementsManagement({ churchId }: ChurchAnnoun
                 {loading ? (
                     <div className="space-y-3">
                         {[1, 2, 3].map(i => (
-                            <div key={i} className="p-4 bg-muted rounded-lg animate-pulse">
-                                <div className="h-4 bg-muted-foreground/20 rounded w-3/4 mb-2" />
-                                <div className="h-3 bg-muted-foreground/20 rounded w-1/2" />
+                            <div key={i} className="p-4 bg-secondary-50/60 rounded-xl animate-pulse">
+                                <div className="h-4 bg-secondary-200 rounded w-3/4 mb-2" />
+                                <div className="h-3 bg-secondary-200 rounded w-1/2" />
                             </div>
                         ))}
                     </div>
                 ) : latestAnnouncements.length === 0 ? (
-                    <div className="text-center py-10">
-                        <div className="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Megaphone className="w-7 h-7 text-orange-300" />
+                    <div className="text-center py-8">
+                        <div className="w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-2.5">
+                            <Megaphone className="w-6 h-6 text-amber-600" />
                         </div>
-                        <p className="text-sm font-medium text-gray-700">No announcements yet</p>
-                        <p className="text-xs mt-1 text-gray-400">Click "New Announcement" to create one</p>
+                        <p className="text-sm font-bold text-foreground">No parish announcements yet</p>
+                        <p className="text-xs text-secondary-500 mt-0.5">Post schedules, fiesta notices, or liturgical updates.</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="divide-y divide-border/60">
                         {latestAnnouncements.map((announcement) => (
                             <div
                                 key={announcement.id}
-                                className="group flex items-start justify-between gap-3 p-4 bg-white border border-gray-100 rounded-xl hover:border-orange-200 hover:shadow-sm transition-all duration-200"
+                                className="group py-3.5 flex items-center justify-between gap-3 hover:bg-secondary-50/40 rounded-xl px-2 transition-colors"
                             >
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-2 flex-shrink-0" />
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 border border-amber-200/60">
+                                        <Megaphone className="w-4 h-4" />
+                                    </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-semibold text-gray-800 mb-0.5 line-clamp-1">
+                                        <h4 className="font-bold text-foreground text-sm line-clamp-1">
                                             {announcement.title}
                                         </h4>
-                                        <p className="text-xs text-gray-400">
+                                        <p className="text-xs text-secondary-500 font-medium">
                                             Posted {formatRelativeTime(announcement.created_at || new Date().toISOString())}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => handleEdit(announcement)}
-                                        title="Edit"
-                                        className="p-1.5 rounded-lg transition-colors hover:bg-blue-50 text-gray-400 hover:text-blue-600"
-                                    >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={() => setDeleteConfirmation({ show: true, announcement })}
-                                        title="Delete"
-                                        className="p-1.5 rounded-lg transition-colors hover:bg-red-50 text-gray-400 hover:text-red-600"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    {announcement.is_pinned ? (
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                            Pinned
+                                        </span>
+                                    ) : (
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-700">
+                                            General
+                                        </span>
+                                    )}
+
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => handleEdit(announcement)}
+                                            title="Edit"
+                                            className="p-1 rounded-lg hover:bg-blue-50 text-secondary-400 hover:text-primary transition-colors cursor-pointer"
+                                        >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteConfirmation({ show: true, announcement })}
+                                            title="Delete"
+                                            className="p-1 rounded-lg hover:bg-red-50 text-secondary-400 hover:text-red-600 transition-colors cursor-pointer"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
                     </div>
-                )}
-
-                {/* View All Link */}
-                {latestAnnouncements.length > 0 && (
-                    <button
-                        onClick={() => navigate(`/churches/${churchId}`)}
-                        className="mt-4 w-full text-center text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center gap-1"
-                    >
-                        View all announcements
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
                 )}
             </div>
 

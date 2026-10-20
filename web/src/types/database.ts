@@ -402,6 +402,7 @@ export type Database = {
       }
       churches: {
         Row: {
+          accept_cashless: boolean | null
           address: string
           candle_count: number | null
           contact_number: string | null
@@ -431,6 +432,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          accept_cashless?: boolean | null
           address: string
           candle_count?: number | null
           contact_number?: string | null
@@ -460,6 +462,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          accept_cashless?: boolean | null
           address?: string
           candle_count?: number | null
           contact_number?: string | null

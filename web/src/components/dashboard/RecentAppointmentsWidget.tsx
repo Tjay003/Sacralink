@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, User, ArrowRight } from 'lucide-react';
+import { Calendar, ArrowRight, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     getAppointments,
@@ -22,8 +22,8 @@ interface RecentAppointmentsWidgetProps {
 export default function RecentAppointmentsWidget({
     churchId = null,
     limit = 5,
-    title = 'Recent Appointments',
-    subtitle = 'Latest sacrament requests'
+    title = 'Recent sacrament requests',
+    subtitle = 'The latest five bookings'
 }: RecentAppointmentsWidgetProps) {
     const navigate = useNavigate();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -58,99 +58,103 @@ export default function RecentAppointmentsWidget({
         };
     }, [churchId, limit]);
 
-    // Status config: colors and left-border accent
-    const statusConfig: Record<string, { badge: string; border: string }> = {
-        approved:   { badge: 'bg-emerald-100 text-emerald-700', border: 'border-l-emerald-400' },
-        pending:    { badge: 'bg-amber-100  text-amber-700',    border: 'border-l-amber-400'   },
-        rejected:   { badge: 'bg-red-100    text-red-700',      border: 'border-l-red-400'     },
-        completed:  { badge: 'bg-blue-100   text-blue-700',     border: 'border-l-blue-400'    },
-        cancelled:  { badge: 'bg-gray-100   text-gray-600',     border: 'border-l-gray-300'    },
+    // Status config: clean pills matching Sacralink theme
+    const statusConfig: Record<string, { badge: string }> = {
+        approved:   { badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+        pending:    { badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
+        rejected:   { badge: 'bg-red-50 text-red-700 border border-red-200' },
+        completed:  { badge: 'bg-blue-50 text-primary border border-blue-200' },
+        cancelled:  { badge: 'bg-secondary-50 text-secondary-600 border border-border' },
     };
 
     const getStatus = (status: string) =>
-        statusConfig[status] ?? { badge: 'bg-gray-100 text-gray-600', border: 'border-l-gray-300' };
+        statusConfig[status] ?? { badge: 'bg-secondary-50 text-secondary-600 border border-border' };
+
+    // Format service type into clean human label
+    const formatServiceName = (type: string) => {
+        const clean = type.toLowerCase().replace(/_/g, ' ');
+        if (clean.includes('mass') || clean.includes('intention')) return 'Mass intention';
+        if (clean.includes('baptism')) return 'Baptism';
+        if (clean.includes('wedding') || clean.includes('marriage')) return 'Wedding';
+        if (clean.includes('funeral') || clean.includes('burial')) return 'Funeral';
+        if (clean.includes('blessing')) return 'Blessing';
+        return type.charAt(0).toUpperCase() + type.slice(1);
+    };
 
     return (
-        <div className="bg-card border rounded-lg p-6">
+        <div className="bg-white border border-border rounded-2xl p-6 shadow-xs">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-800">{title}</h3>
-                        <p className="text-sm text-gray-500">{subtitle}</p>
-                    </div>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-border/60">
+                <div>
+                    <h3 className="font-serif text-lg font-bold text-foreground">{title}</h3>
+                    <p className="text-xs text-secondary-500 font-medium">{subtitle}</p>
                 </div>
 
-                {appointments.length > 0 && (
-                    <button
-                        onClick={() => navigate('/appointments')}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
-                    >
-                        View All
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                )}
+                <button
+                    onClick={() => navigate('/appointments')}
+                    className="text-xs text-primary hover:text-primary/80 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                    <span>View all</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                </button>
             </div>
 
             {/* Appointments List */}
             {loading ? (
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="p-4 bg-gray-50 rounded-xl animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                            <div className="h-3 bg-gray-200 rounded w-1/2" />
+                        <div key={i} className="p-4 bg-secondary-50/60 rounded-xl animate-pulse">
+                            <div className="h-4 bg-secondary-200 rounded w-3/4 mb-2" />
+                            <div className="h-3 bg-secondary-200 rounded w-1/2" />
                         </div>
                     ))}
                 </div>
             ) : appointments.length === 0 ? (
                 <div className="text-center py-10">
-                    <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Calendar className="w-7 h-7 text-blue-300" />
+                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-2.5">
+                        <Calendar className="w-6 h-6 text-primary" />
                     </div>
-                    <p className="text-sm font-medium text-gray-700">No appointments yet</p>
-                    <p className="text-xs mt-1 text-gray-400">Appointments will appear here once booked</p>
+                    <p className="text-sm font-bold text-foreground">No sacrament requests yet</p>
+                    <p className="text-xs text-secondary-500 mt-0.5">Bookings will appear here as parishioners schedule them.</p>
                 </div>
             ) : (
-                <div className="space-y-2">
+                <div className="divide-y divide-border/60">
                     {appointments.map((appointment) => {
-                        const { badge, border } = getStatus(appointment.status);
+                        const { badge } = getStatus(appointment.status);
+                        const applicantName = appointment.profile?.full_name || 'Parishioner';
+                        const appointmentDate = new Date(appointment.appointment_date);
+                        const formattedDate = !isNaN(appointmentDate.getTime())
+                            ? format(appointmentDate, 'MMM d')
+                            : 'Date TBA';
+
                         return (
                             <div
                                 key={appointment.id}
-                                className={`flex items-center justify-between gap-3 p-4 bg-white border border-l-4 ${border} border-gray-100 rounded-xl hover:shadow-sm transition-all duration-200`}
+                                className="py-3.5 flex items-center justify-between gap-3 hover:bg-secondary-50/40 rounded-xl px-2 transition-colors cursor-pointer"
+                                onClick={() => navigate('/appointments')}
                             >
-                                <div className="flex-1 min-w-0">
-                                    {/* Name row */}
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                        <User className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                        <span className="text-xs text-gray-500 truncate">
-                                            {appointment.profile?.full_name || 'Unknown User'}
-                                        </span>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-50 text-primary flex items-center justify-center flex-shrink-0 border border-blue-100">
+                                        <Plus className="w-4 h-4 stroke-[2.5]" />
                                     </div>
-                                    {/* Service type */}
-                                    <h4 className="font-semibold text-gray-800 text-sm mb-1 capitalize">
-                                        {appointment.service_type.replace(/_/g, ' ')}
-                                    </h4>
-                                    {/* Date & time */}
-                                    <div className="flex items-center gap-3 text-xs text-gray-400">
-                                        <div className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            {format(new Date(appointment.appointment_date), 'MMM dd, yyyy')}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {formatAppointmentTime(appointment.appointment_time)}
-                                        </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-foreground truncate">
+                                            {applicantName}
+                                        </p>
+                                        <p className="text-xs text-secondary-500 font-medium truncate mt-0.5">
+                                            {formattedDate} · {formatAppointmentTime(appointment.appointment_time)}
+                                        </p>
                                     </div>
                                 </div>
 
-                                {/* Status badge */}
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize flex-shrink-0 ${badge}`}>
-                                    {appointment.status}
-                                </span>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-700">
+                                        {formatServiceName(appointment.service_type)}
+                                    </span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${badge}`}>
+                                        {appointment.status}
+                                    </span>
+                                </div>
                             </div>
                         );
                     })}
@@ -159,3 +163,4 @@ export default function RecentAppointmentsWidget({
         </div>
     );
 }
+

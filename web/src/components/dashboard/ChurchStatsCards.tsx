@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Calendar, TrendingUp } from 'lucide-react';
+import { Users, Calendar, Award } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 import StatCard from './StatCard';
@@ -9,24 +9,25 @@ interface ChurchStatsCardsProps {
 }
 
 /**
- * ChurchStatsCards - Display church-specific statistics
- * 
- * Shows:
- * - Total Members (users assigned to this church)
- * - Pending Appointments
- * - Upcoming Events (approved future appointments)
+ * ChurchStatsCards - 4 KPI stat cards with interactive hover gradients matching DioceseStatsCards:
+ * 1. Total Parishioners (purple icon, blue to-tr gradient)
+ * 2. Pending Sacraments (yellow icon, amber to-br gradient)
+ * 3. Scheduled Celebrations (blue icon, blue to-bl gradient)
+ * 4. Sacraments Celebrated (amber icon, blue to-tl gradient)
  */
 export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
     const [stats, setStats] = useState({
         members: 0,
+        newMembers: 0,
         pending: 0,
-        upcoming: 0
+        upcoming: 0,
+        celebrated: 0,
     });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (churchId) {
-            fetchStats();
+            void fetchStats();
         }
     }, [churchId]);
 
@@ -36,19 +37,38 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
         try {
             setLoading(true);
 
-            // 1. Total Members
-            const { count: memberCount } = await supabase
-                .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .eq('assigned_church_id', churchId);
+            // 1. Total Members & New Members (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-            // 2 & 3. Pending & Upcoming Appointments via deep module
+            const [membersRes, newMembersRes] = await Promise.all([
+                supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('assigned_church_id', churchId),
+                supabase
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('assigned_church_id', churchId)
+                    .gte('created_at', thirtyDaysAgo.toISOString()),
+            ]);
+
+            // 2 & 3. Pending & Upcoming Appointments
             const { pendingCount, upcomingApprovedCount } = await getDashboardAppointmentCounts(churchId);
 
+            // 4. Celebrated Sacraments (completed or approved)
+            const { count: celebratedCount } = await supabase
+                .from('appointments')
+                .select('*', { count: 'exact', head: true })
+                .eq('church_id', churchId)
+                .in('status', ['completed', 'approved']);
+
             setStats({
-                members: memberCount || 0,
-                pending: pendingCount,
-                upcoming: upcomingApprovedCount
+                members: membersRes.count || 0,
+                newMembers: newMembersRes.count || 0,
+                pending: pendingCount || 0,
+                upcoming: upcomingApprovedCount || 0,
+                celebrated: celebratedCount || 0,
             });
         } catch (err) {
             console.error('Error fetching church stats:', err);
@@ -57,45 +77,79 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
         }
     };
 
-    if (!churchId) {
-        return null;
-    }
+    if (!churchId) return null;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 1. Total Parishioners */}
             <StatCard
-                title="Total Members"
+                title="Total Parishioners"
                 value={stats.members}
                 icon={Users}
-                iconBgColor="bg-blue-100"
-                iconColor="text-blue-600"
-                gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
-                gradientDirection="to-br"
-                loading={loading}
-            />
-
-            <StatCard
-                title="Pending Appointments"
-                value={stats.pending}
-                icon={Calendar}
-                iconBgColor="bg-yellow-100"
-                iconColor="text-yellow-600"
+                trend={{
+                    value: stats.newMembers,
+                    isUp: true,
+                    label: `${stats.newMembers} new this month`,
+                }}
+                iconBgColor="bg-purple-100"
+                iconColor="text-purple-600"
                 gradientFrom="from-blue-600"
                 gradientTo="to-blue-400"
                 gradientDirection="to-tr"
                 loading={loading}
             />
 
+            {/* 2. Pending Sacraments */}
             <StatCard
-                title="Upcoming Events"
+                title="Pending Sacraments"
+                value={stats.pending}
+                icon={Calendar}
+                trend={{
+                    value: stats.pending,
+                    isUp: false,
+                    label: stats.pending > 0 ? 'Urgent attention' : 'All clear',
+                }}
+                iconBgColor="bg-yellow-100"
+                iconColor="text-yellow-600"
+                gradientFrom="from-amber-600"
+                gradientTo="to-amber-400"
+                gradientDirection="to-br"
+                loading={loading}
+            />
+
+            {/* 3. Scheduled Celebrations */}
+            <StatCard
+                title="Scheduled Celebrations"
                 value={stats.upcoming}
-                icon={TrendingUp}
-                iconBgColor="bg-green-100"
-                iconColor="text-green-600"
+                icon={Calendar}
+                trend={{
+                    value: stats.upcoming,
+                    isUp: true,
+                    label: 'Approved this week',
+                }}
+                iconBgColor="bg-blue-100"
+                iconColor="text-blue-600"
                 gradientFrom="from-blue-600"
                 gradientTo="to-blue-400"
                 gradientDirection="to-bl"
+                loading={loading}
+            />
+
+            {/* 4. Sacraments Celebrated */}
+            <StatCard
+                title="Sacraments Celebrated"
+                value={stats.celebrated}
+                icon={Award}
+                trend={{
+                    value: stats.celebrated,
+                    isUp: true,
+                    label: 'Completed rites',
+                }}
+                iconBgColor="bg-amber-100"
+                iconColor="text-amber-600"
+                gradientFrom="from-blue-600"
+                gradientTo="to-blue-400"
+                gradientDirection="to-tl"
                 loading={loading}
             />
         </div>

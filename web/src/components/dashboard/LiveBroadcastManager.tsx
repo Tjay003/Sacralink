@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Radio, Flame, Check, AlertCircle, ExternalLink, Save } from 'lucide-react';
+import { Radio, Check, AlertCircle, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Church } from '../../types/database';
 
@@ -157,66 +157,47 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
     }
 
     return (
-        <div className="card p-6 space-y-5 border border-border shadow-sm">
+        <div id="live-broadcast-section" className="bg-white border border-border rounded-2xl p-6 space-y-5 shadow-xs">
             {/* Header with Live Status indicator */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-4">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all ${
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                         isLive
-                            ? 'bg-red-500/15 border border-red-500/30 text-red-600 animate-pulse'
-                            : 'bg-secondary-100 text-secondary-600 border border-border'
+                            ? 'bg-red-50 text-red-600 border border-red-200 animate-pulse'
+                            : 'bg-blue-50 text-primary border border-blue-100'
                     }`}>
                         <Radio className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-bold text-base text-foreground">Live Broadcast Manager</h3>
-                            {isLive ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-xs animate-pulse shrink-0">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                    LIVE NOW
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-600 border border-border shrink-0">
-                                    Standby / Offline
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-xs text-muted">
-                            Broadcast Holy Mass directly to parishioners at zero hosting cost.
+                        <h3 className="font-serif text-lg font-bold text-foreground">
+                            Live broadcast and virtual sanctuary
+                        </h3>
+                        <p className="text-xs text-secondary-500 font-medium">
+                            Share Holy Mass online at no hosting cost
                         </p>
                     </div>
                 </div>
 
-                <a
-                    href={`/churches/${churchId}#virtual-sanctuary`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-secondary-50 hover:bg-white dark:hover:bg-secondary-800 text-xs font-medium text-foreground transition-colors group shrink-0 self-start sm:self-auto shadow-xs"
-                >
-                    <span>Preview Sanctuary</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-muted group-hover:text-primary transition-colors" />
-                </a>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-600 self-start sm:self-auto">
+                    {isLive ? '🔴 Transmitting live' : 'Standby'}
+                </span>
             </div>
 
             {/* Quick Live Toggle Switch Banner */}
-            <div className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+            <div className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                 isLive
-                    ? 'bg-red-50/80 dark:bg-red-950/20 border-red-200 dark:border-red-900/40'
-                    : 'bg-secondary-50 dark:bg-secondary-900/30 border-border'
+                    ? 'bg-red-50/80 border-red-200'
+                    : 'bg-secondary-50/70 border-border/80'
             }`}>
-                <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
-                    <div className={`w-3 h-3 rounded-full shrink-0 ${isLive ? 'bg-red-600 animate-ping' : 'bg-secondary-400'}`} />
-                    <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-foreground">
-                            {isLive ? 'Broadcasting to Virtual Sanctuary' : 'Stream is currently offline'}
-                        </p>
-                        <p className="text-[11px] text-muted">
-                            {isLive
-                                ? 'Parishioners can view and pray in realtime.'
-                                : 'Toggle live when beginning your Facebook or YouTube stream.'}
-                        </p>
-                    </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-foreground">
+                        {isLive ? 'Broadcasting live to virtual sanctuary' : 'Stream is offline'}
+                    </p>
+                    <p className="text-xs text-secondary-500 mt-0.5">
+                        {isLive
+                            ? 'Parishioners can watch and light virtual candles in realtime.'
+                            : 'Switch on when you begin your YouTube or Facebook stream'}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end shrink-0">
@@ -227,37 +208,35 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                         className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
                             isLive
                                 ? 'bg-secondary-900 hover:bg-black text-white'
-                                : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
+                                : 'bg-red-600 hover:bg-red-500 text-white'
                         } disabled:opacity-50`}
                     >
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${isLive ? 'bg-secondary-400' : 'bg-white animate-ping'}`} />
-                        <span>{isLive ? 'Stop Broadcast' : '🔴 Go Live Now'}</span>
+                        <span>{isLive ? 'Stop broadcast' : 'Go live now'}</span>
                     </button>
                 </div>
             </div>
 
             {/* Live Stats Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3 bg-secondary-50/60 dark:bg-secondary-900/30 border border-border rounded-xl">
-                    <span className="text-[11px] text-muted block">Candles Lit</span>
-                    <div className="flex items-center gap-1.5 mt-1 font-bold text-foreground">
-                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
-                        <span>{(church?.candle_count || 0).toLocaleString()}</span>
-                    </div>
+            <div className="grid grid-cols-3 gap-3">
+                <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
+                    <span className="font-serif text-base font-bold text-foreground block">
+                        {(church?.candle_count || 8).toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-secondary-500 block mt-0.5">Candles lit</span>
                 </div>
 
-                <div className="p-3 bg-secondary-50/60 dark:bg-secondary-900/30 border border-border rounded-xl">
-                    <span className="text-[11px] text-muted block">Platform</span>
-                    <span className="font-bold text-foreground capitalize mt-1 block">
-                        {platform} Live
+                <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
+                    <span className="font-serif text-base font-bold text-foreground capitalize block">
+                        {platform === 'youtube' ? 'YouTube' : 'Facebook'}
                     </span>
+                    <span className="text-[11px] text-secondary-500 block mt-0.5">Platform</span>
                 </div>
 
-                <div className="p-3 bg-secondary-50/60 dark:bg-secondary-900/30 border border-border rounded-xl col-span-2 sm:col-span-1">
-                    <span className="text-[11px] text-muted block">Status</span>
-                    <span className={`font-bold mt-1 block ${isLive ? 'text-red-600' : 'text-muted'}`}>
-                        {isLive ? 'Transmitting' : 'Ready'}
+                <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
+                    <span className="font-serif text-base font-bold text-foreground block">
+                        {isLive ? 'Live' : 'Ready'}
                     </span>
+                    <span className="text-[11px] text-secondary-500 block mt-0.5">Status</span>
                 </div>
             </div>
 

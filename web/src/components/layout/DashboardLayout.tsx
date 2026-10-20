@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -8,6 +8,7 @@ import {
     Calendar,
     MessageSquare,
     Megaphone,
+    Heart,
     LogOut,
     Menu,
     X,
@@ -21,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../notifications/NotificationBell';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { featureFlags } from '../../config/featureFlags';
+import { supabase } from '../../lib/supabase';
 import logo from '../../assets/logo.png';
 
 interface NavigationItem {
@@ -32,6 +34,7 @@ interface NavigationItem {
     adminOnly?: boolean;
     superAdminOnly?: boolean;
     staffOnly?: boolean;
+    churchAdminOnly?: boolean;
 }
 
 interface NavSection {
@@ -49,6 +52,50 @@ export default function DashboardLayout() {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [largeTextMode, setLargeTextMode] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [pendingDonationsCount, setPendingDonationsCount] = useState<number>(0);
+
+    const isChurchAdmin = profile?.role === 'church_admin';
+    const churchId = profile?.assigned_church_id || profile?.church_id;
+
+    useEffect(() => {
+        if (!isChurchAdmin || !churchId) {
+            setPendingDonationsCount(0);
+            return;
+        }
+
+        const fetchPendingDonations = async () => {
+            try {
+                const { count, error } = await supabase
+                    .from('donations')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('church_id', churchId)
+                    .eq('status', 'pending');
+
+                if (!error && count !== null) {
+                    setPendingDonationsCount(count);
+                }
+            } catch (err) {
+                console.error('Error fetching pending donations count:', err);
+            }
+        };
+
+        void fetchPendingDonations();
+
+        const channel = supabase
+            .channel(`layout-donations-${churchId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'donations', filter: `church_id=eq.${churchId}` },
+                () => {
+                    void fetchPendingDonations();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [isChurchAdmin, churchId]);
 
     const handleSignOutClick = () => {
         setShowLogoutModal(true);
@@ -62,7 +109,6 @@ export default function DashboardLayout() {
     };
 
     // Navigation sections matching the redesigned mockup: OVERVIEW, DIOCESE, OPERATIONS
-    // Notice: Donations is completely excluded as requested.
     const navSections: NavSection[] = [
         {
             title: 'OVERVIEW',
@@ -101,6 +147,14 @@ export default function DashboardLayout() {
                     badge: 12,
                 },
                 {
+                    name: 'Donations',
+                    href: '/donations',
+                    icon: Heart,
+                    featureKey: 'donations',
+                    churchAdminOnly: true,
+                    badge: pendingDonationsCount > 0 ? pendingDonationsCount : undefined,
+                },
+                {
                     name: 'Messages',
                     href: '/messages',
                     icon: MessageSquare,
@@ -119,6 +173,9 @@ export default function DashboardLayout() {
     ];
 
     const canRenderItem = (item: NavigationItem) => {
+        if (item.churchAdminOnly && profile?.role !== 'church_admin') {
+            return false;
+        }
         if (item.superAdminOnly && !['admin', 'super_admin'].includes(profile?.role || '')) {
             return false;
         }

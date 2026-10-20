@@ -113,10 +113,20 @@ export default function DailyVerse({ variant = 'parchment' }: DailyVerseProps) {
 
                     {/* Reference */}
                     {verse && (
-                        <p className="text-xs sm:text-sm font-semibold text-amber-800 text-right mt-4 tracking-tight">
-                            — {verse.reference}
+                        <p className="text-xs sm:text-sm font-semibold text-amber-800 text-left mt-3 tracking-tight">
+                            {verse.reference}
                         </p>
                     )}
+
+                    {/* Reflection Section */}
+                    <div className="mt-4 pt-3 border-t border-amber-200/60">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
+                            REFLECTION
+                        </span>
+                        <p className="text-xs text-amber-950/80 leading-relaxed font-sans">
+                            Pause before the first Mass of the day and offer your parish work as a prayer.
+                        </p>
+                    </div>
                 </div>
             </div>
         );

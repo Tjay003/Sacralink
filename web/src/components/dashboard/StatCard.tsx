@@ -8,6 +8,7 @@ interface StatCardProps {
         value: number;
         isUp: boolean;
         label?: string;
+        showPercentage?: boolean;
     };
     iconBgColor?: string;
     iconColor?: string;
@@ -120,15 +121,17 @@ export default function StatCard({
                                     ${isActive ? 'text-white' : 'text-red-500 group-hover:text-white'}
                                 `} />
                             )}
-                            <span className={`
-                                text-sm font-semibold flex-shrink-0 transition-colors duration-300
-                                ${isActive
-                                    ? 'text-white'
-                                    : `${trend.isUp ? 'text-emerald-500' : 'text-red-500'} group-hover:text-white`
-                                }
-                            `}>
-                                {Math.abs(trend.value)}%
-                            </span>
+                            {trend.showPercentage !== false && (!trend.label || !trend.label.includes(`${Math.abs(trend.value)}%`)) && (
+                                <span className={`
+                                    text-sm font-semibold flex-shrink-0 transition-colors duration-300
+                                    ${isActive
+                                        ? 'text-white'
+                                        : `${trend.isUp ? 'text-emerald-500' : 'text-red-500'} group-hover:text-white`
+                                    }
+                                `}>
+                                    {Math.abs(trend.value)}%
+                                </span>
+                            )}
                             <span className={`
                                 text-sm transition-colors duration-300
                                 ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}
