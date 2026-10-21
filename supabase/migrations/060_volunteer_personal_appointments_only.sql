@@ -32,8 +32,10 @@ USING (
 DROP POLICY IF EXISTS "Admins and volunteers can update their church" ON public.churches;
 DROP POLICY IF EXISTS "Admins, priests, and volunteers can update their church" ON public.churches;
 DROP POLICY IF EXISTS "Admins and priests can update their church" ON public.churches;
+DROP POLICY IF EXISTS "Admins can update own church" ON public.churches;
+DROP POLICY IF EXISTS "Admins can update their church" ON public.churches;
 
-CREATE POLICY "Admins and priests can update their church"
+CREATE POLICY "Admins can update their church"
 ON public.churches FOR UPDATE
 TO authenticated
 USING (
@@ -43,7 +45,7 @@ USING (
     AND (
       profiles.role = 'super_admin'
       OR (
-        profiles.role IN ('admin', 'church_admin', 'priest')
+        profiles.role IN ('admin', 'church_admin')
         AND COALESCE(profiles.assigned_church_id, profiles.church_id) = churches.id
       )
     )
@@ -56,7 +58,7 @@ WITH CHECK (
     AND (
       profiles.role = 'super_admin'
       OR (
-        profiles.role IN ('admin', 'church_admin', 'priest')
+        profiles.role IN ('admin', 'church_admin')
         AND COALESCE(profiles.assigned_church_id, profiles.church_id) = churches.id
       )
     )
