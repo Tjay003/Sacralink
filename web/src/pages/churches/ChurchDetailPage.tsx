@@ -906,31 +906,21 @@ export default function ChurchDetailPage() {
                     </div>
                 </div>
 
-                {/* Part C: Integrated 4-Column Metric Strip (Bottom of the same card) */}
-                <div className="border-t border-border/80 divide-y sm:divide-y-0 sm:divide-x divide-border/80 grid grid-cols-2 md:grid-cols-4 bg-white rounded-b-3xl overflow-hidden">
-                    <div className="px-6 py-4">
+                {/* Part C: Integrated 3-Column Metric Strip (Bottom of the same card), real counts only */}
+                <div className="border-t border-border/80 divide-x divide-border/80 grid grid-cols-3 bg-white rounded-b-3xl overflow-hidden">
+                    <div className="px-4 sm:px-6 py-4">
                         <p className="text-lg sm:text-xl font-bold text-foreground">
-                            {registeredMembersCount > 0 ? registeredMembersCount.toLocaleString() : '9'}
+                            {registeredMembersCount.toLocaleString()}
                         </p>
                         <p className="text-xs text-secondary-500 mt-0.5">Registered members</p>
                     </div>
-                    <div className="px-6 py-4">
-                        <p className="text-lg sm:text-xl font-bold text-foreground">
-                            {pendingRequestsCount > 0 ? pendingRequestsCount : '4'}
-                        </p>
+                    <div className="px-4 sm:px-6 py-4">
+                        <p className="text-lg sm:text-xl font-bold text-foreground">{pendingRequestsCount}</p>
                         <p className="text-xs text-secondary-500 mt-0.5">Pending requests</p>
                     </div>
-                    <div className="px-6 py-4">
-                        <p className="text-lg sm:text-xl font-bold text-foreground">
-                            {massSchedulesCount > 0 ? massSchedulesCount : '6'}
-                        </p>
+                    <div className="px-4 sm:px-6 py-4">
+                        <p className="text-lg sm:text-xl font-bold text-foreground">{massSchedulesCount}</p>
                         <p className="text-xs text-secondary-500 mt-0.5">Mass schedules</p>
-                    </div>
-                    <div className="px-6 py-4">
-                        <p className="text-lg sm:text-xl font-bold text-foreground">
-                            {church.facebook_url ? '222,649' : 'Not linked'}
-                        </p>
-                        <p className="text-xs text-secondary-500 mt-0.5">Facebook followers</p>
                     </div>
                 </div>
             </div>
