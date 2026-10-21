@@ -14,7 +14,6 @@ import {
     X,
     ChevronDown,
     User,
-    Search,
     Type,
     type LucideIcon,
 } from 'lucide-react';
@@ -52,7 +51,6 @@ export default function DashboardLayout() {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
         const [largeTextMode, setLargeTextMode] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const [pendingDonationsCount, setPendingDonationsCount] = useState<number>(0);
     const sidebarCounts = useSidebarCounts(profile);
 
@@ -382,23 +380,8 @@ export default function DashboardLayout() {
                             </button>
                         </div>
 
-                        {/* Middle: Universal Search Bar with Ctrl+K */}
-                        <div className="flex-1 max-w-xl">
-                            <div className="relative">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400" />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search parishes, people, appointments..."
-                                    className="w-full pl-10 pr-16 py-2 bg-secondary-50/70 border border-border rounded-xl text-xs sm:text-sm text-foreground placeholder:text-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                                />
-                                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-border text-[10px] font-medium text-muted shadow-2xs">
-                                    <span>Ctrl</span>
-                                    <span>K</span>
-                                </div>
-                            </div>
-                        </div>
+                        {/* Universal search bar is hidden for now (client request); this spacer keeps the actions right-aligned */}
+                        <div className="flex-1" />
 
                         {/* Right: Actions & User Dropdown */}
                         <div className="flex items-center gap-3">
