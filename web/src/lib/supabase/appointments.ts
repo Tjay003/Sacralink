@@ -18,6 +18,7 @@ export interface HydratedAppointment {
     created_at: string;
     updated_at?: string | null;
     priest_id?: string | null;
+    requested_priest_id?: string | null;
     admin_feedback?: string | null;
     church?: {
         id?: string;
@@ -33,6 +34,11 @@ export interface HydratedAppointment {
         id: string;
         full_name: string | null;
         email?: string | null;
+    } | null;
+    /** The priest the parishioner asked for at booking; a preference, not the assignment. */
+    requested_priest?: {
+        id: string;
+        full_name: string | null;
     } | null;
 }
 
@@ -64,6 +70,8 @@ export interface CreateAppointmentInput {
     notes?: string | null;
     userName?: string;
     documents?: Map<string, File> | Array<{ requirementId: string; file: File }>;
+    /** Optional priest of the parish the parishioner asks for; the office still assigns the celebrant. */
+    requestedPriestId?: string | null;
 }
 
 export interface UpdateAppointmentStatusMetadata {
@@ -87,6 +95,7 @@ interface RawAppointmentQueryResult {
     created_at: string | null;
     updated_at: string | null;
     priest_id?: string | null;
+    requested_priest_id?: string | null;
     admin_feedback?: string | null;
     church: {
         id: string;
@@ -102,6 +111,10 @@ interface RawAppointmentQueryResult {
         id: string;
         full_name: string | null;
         email: string | null;
+    } | null;
+    requested_priest?: {
+        id: string;
+        full_name: string | null;
     } | null;
 }
 
@@ -132,7 +145,8 @@ export async function getAppointments(
                 *,
                 church:churches(id, name),
                 profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
-                priest:profiles!appointments_priest_id_fkey(id, full_name, email)
+                priest:profiles!appointments_priest_id_fkey(id, full_name, email),
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name)
             `, { count: 'exact' });
 
         // Church scoping filter
@@ -221,10 +235,12 @@ export async function getAppointments(
             created_at: row.created_at ?? '',
             updated_at: row.updated_at,
             priest_id: row.priest_id ?? null,
+            requested_priest_id: row.requested_priest_id ?? null,
             admin_feedback: row.admin_feedback ?? null,
             church: row.church ? { id: row.church.id, name: row.church.name } : null,
             profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, email: row.profile.email, phone_number: row.profile.phone_number } : null,
             priest: row.priest ? { id: row.priest.id, full_name: row.priest.full_name, email: row.priest.email } : null,
+            requested_priest: row.requested_priest ? { id: row.requested_priest.id, full_name: row.requested_priest.full_name } : null,
         }));
 
         // Search query filter (by parishioner name or service type)
@@ -259,7 +275,8 @@ export async function getAppointmentById(
                 *,
                 church:churches(id, name),
                 profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
-                priest:profiles!appointments_priest_id_fkey(id, full_name, email)
+                priest:profiles!appointments_priest_id_fkey(id, full_name, email),
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name)
             `)
             .eq('id', id)
             .single()
@@ -280,10 +297,12 @@ export async function getAppointmentById(
             created_at: data.created_at ?? '',
             updated_at: data.updated_at,
             priest_id: data.priest_id ?? null,
+            requested_priest_id: data.requested_priest_id ?? null,
             admin_feedback: data.admin_feedback ?? null,
             church: data.church ? { id: data.church.id, name: data.church.name } : null,
             profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, email: data.profile.email, phone_number: data.profile.phone_number } : null,
             priest: data.priest ? { id: data.priest.id, full_name: data.priest.full_name, email: data.priest.email } : null,
+            requested_priest: data.requested_priest ? { id: data.requested_priest.id, full_name: data.requested_priest.full_name } : null,
         };
 
         return { data: appointment, error: null };
@@ -393,6 +412,7 @@ export async function createAppointmentWithDocuments(
                 appointment_time: input.appointmentTime,
                 notes: input.notes || null,
                 status: 'pending',
+                requested_priest_id: input.requestedPriestId || null,
             })
             .select()
             .single();

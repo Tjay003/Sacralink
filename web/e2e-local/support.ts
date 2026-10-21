@@ -82,6 +82,8 @@ export interface AppointmentOptions {
   /** Role of the assigned celebrant; `null` leaves the appointment unassigned. Defaults to `priest`. */
   celebrant?: Role | null;
   serviceType?: string;
+  /** Role of the priest the parishioner asked for at booking; omitted leaves the request empty. */
+  requestedPriest?: Role;
 }
 
 /** Inserts a Baptism for the seeded parishioner in the given status and returns its id. */
@@ -99,6 +101,7 @@ async function insertAppointment(status: 'approved' | 'pending', opts: Appointme
       appointment_time: opts.time ?? '10:00:00',
       status,
       priest_id: celebrant ? seed.ids[celebrant] : null,
+      requested_priest_id: opts.requestedPriest ? seed.ids[opts.requestedPriest] : null,
     })
     .select('id')
     .single();

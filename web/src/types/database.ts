@@ -190,6 +190,7 @@ export type Database = {
           id: string
           notes: string | null
           priest_id: string | null
+          requested_priest_id: string | null
           service_type: string
           status: string
           updated_at: string | null
@@ -204,6 +205,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priest_id?: string | null
+          requested_priest_id?: string | null
           service_type: string
           status?: string
           updated_at?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           id?: string
           notes?: string | null
           priest_id?: string | null
+          requested_priest_id?: string | null
           service_type?: string
           status?: string
           updated_at?: string | null
@@ -241,6 +244,13 @@ export type Database = {
           {
             foreignKeyName: "appointments_priest_id_fkey"
             columns: ["priest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_requested_priest_id_fkey"
+            columns: ["requested_priest_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

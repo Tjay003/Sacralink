@@ -12,11 +12,13 @@ import {
     AlertTriangle,
     ShieldAlert,
     Sparkles,
+    UserCheck,
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { getChurchPriests } from '../../lib/supabase/profiles';
 import { formatAppointmentTime, type HydratedAppointment } from '../../lib/supabase/appointments';
 import { evaluateParishCelebrants, type CelebrantEvaluation } from '../../lib/liturgicalScheduler';
+import { getRequestedPriestLabel } from '../../lib/requestedPriest';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile } from '../../types/database';
 
@@ -78,7 +80,8 @@ export default function ApproveAppointmentModal({
             return;
         }
 
-        setSelectedPriestId(appointment.priest_id || '');
+        // The priest the parishioner asked for is the starting choice; the office can pick someone else
+        setSelectedPriestId(appointment.priest_id || appointment.requested_priest_id || '');
         setAdminFeedback(appointment.admin_feedback || '');
 
         let isMounted = true;
@@ -157,6 +160,7 @@ export default function ApproveAppointmentModal({
     if (!isOpen || !appointment) return null;
 
     const isAlreadyApproved = appointment.status === 'approved';
+    const requestedPriestLabel = getRequestedPriestLabel(appointment);
     const selectedEvaluation = selectedPriestId ? celebrantEvaluations[selectedPriestId] : null;
     const isSelectedPriestIneligible = Boolean(selectedPriestId && selectedEvaluation && !selectedEvaluation.eligible);
 
@@ -185,10 +189,11 @@ export default function ApproveAppointmentModal({
         const baseName = formatPriestName(priest);
         const isSelf = currentUser && priest.id === currentUser.id;
         const selfSuffix = isSelf ? ' (Myself)' : '';
+        const requestedSuffix = priest.id === appointment.requested_priest_id ? ' (Requested)' : '';
         const evaluation = celebrantEvaluations[priest.id];
 
         if (!evaluation) {
-            return `${baseName}${selfSuffix}`;
+            return `${baseName}${selfSuffix}${requestedSuffix}`;
         }
 
         let statusIndicator = '🟢';
@@ -198,7 +203,7 @@ export default function ApproveAppointmentModal({
             statusIndicator = '⚠️';
         }
 
-        return `${statusIndicator} ${baseName}${selfSuffix} — ${evaluation.badgeText}`;
+        return `${statusIndicator} ${baseName}${selfSuffix}${requestedSuffix} — ${evaluation.badgeText}`;
     };
 
     return (
@@ -367,6 +372,20 @@ export default function ApproveAppointmentModal({
                             )}
                         </div>
                     </div>
+
+                    {requestedPriestLabel && (
+                        <div
+                            data-testid="requested-priest-banner"
+                            className="flex items-start gap-2 text-xs text-primary-800 bg-primary-50 p-2.5 rounded-lg border border-primary-200"
+                        >
+                            <UserCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>
+                                The parishioner requested <span className="font-semibold">{requestedPriestLabel}</span>.
+                                {selectedPriestId !== appointment.requested_priest_id &&
+                                    ' Approving with a different celebrant lets the parishioner know the request could not be assigned.'}
+                            </span>
+                        </div>
+                    )}
 
                     <div className="relative">
                         <select

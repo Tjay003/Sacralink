@@ -1,7 +1,7 @@
 # Issue 15: Optional Priest Request at Booking
 
 Type: feature
-Status: ready-for-agent
+Status: resolved
 Blocked by: 12 (done)
 
 ---
@@ -30,10 +30,38 @@ A parishioner can optionally request a specific priest when booking an appointme
 ---
 
 ## 2. Acceptance Criteria
-- [ ] Parishioner can pick a preferred priest or leave "Any available priest".
-- [ ] Unavailable requested priest shows a non-blocking warning without revealing why.
-- [ ] Office approval modal pre-selects the requested priest and can override it; override notifies the parishioner.
-- [ ] Request visible to office, the requested priest and the parishioner.
-- [ ] Parishes with no priests do not show the select.
-- [ ] Mobile booking and existing appointment flows unaffected.
-- [ ] Full `web/e2e-local` suite passes; `tsc -b` is clean; migration applied and verified on production.
+- [x] Parishioner can pick a preferred priest or leave "Any available priest".
+- [x] Unavailable requested priest shows a non-blocking warning without revealing why.
+- [x] Office approval modal pre-selects the requested priest and can override it; override notifies the parishioner.
+- [x] Request visible to office, the requested priest and the parishioner.
+- [x] Parishes with no priests do not show the select.
+- [x] Mobile booking and existing appointment flows unaffected.
+- [x] Full `web/e2e-local` suite passes; `tsc -b` is clean.
+- [ ] Migration 055 applied and verified on production.
+
+Production: migration NOT yet applied (parent session will apply)
+
+---
+
+## Resolution
+
+Built and verified on the local Docker Supabase only. Production is untouched; migration 055 has not been applied to it. Production: migration NOT yet applied (parent session will apply).
+
+### What was built
+- **Migration `supabase/migrations/055_requested_priest_at_booking.sql`** (highest existing number was 054; appended to `APPLY_ALL_MIGRATIONS.sql`). ASCII only, additive and idempotent.
+  - `appointments.requested_priest_id uuid null references profiles(id) on delete set null`, with a partial index. Existing rows and clients that never send it (mobile) are unaffected.
+  - Trigger `validate_requested_priest` (BEFORE INSERT OR UPDATE OF requested_priest_id, church_id, SECURITY DEFINER): the requested priest must be a priest of the appointment's parish (same membership rule as `get_parish_clergy`), otherwise SQLSTATE 22023. No RLS change was needed: the parishioner INSERT policy (`auth.uid() = user_id`) and the own-pending UPDATE policy already allow the column.
+  - `approve_appointment(uuid, uuid, text)`: same signature, checks, history row and notifications as migration 052. Only the parishioner's approval message changes, and only when a priest was requested and the approved celebrant is someone else (or nobody): "Your Baptism appointment has been approved! The priest you requested (Fr. X) could not be assigned; Fr. Y will preside instead." (or ", and the parish office will confirm the celebrant." when no celebrant was assigned). No leave reason is read.
+- **Booking form** (`BookAppointmentPage.tsx`): optional "Preferred priest" select (`#preferred_priest`), default "Any available priest", options from `useParishClergy` / `celebrantLabel` (`get_parish_clergy`); hidden when the parish has no priests; the request is dropped when the church changes (Select This Parish). When a date and time are set, `evaluateParishPool` (`evaluate_parish_celebrants`) decides eligibility of the requested priest; if ineligible a non-blocking amber warning appears ("Rev. Fr. X is not available at this time. You can still submit..."), never the reason or Canon text. The any-priest `check_parish_slot` flow is unchanged. `createAppointmentWithDocuments` takes optional `requestedPriestId`.
+- **Approval** (`ApproveAppointmentModal.tsx`): pre-selects the requested priest (unless a celebrant is already set), shows a "The parishioner requested Fr. X" banner (with a note that choosing someone else tells the parishioner), labels the option "(Requested)". If the requested priest is ineligible at the slot, the existing conflict block applies and the office must pick someone else.
+- **Display**: new `RequestedPriestNote` chip ("Requested: Fr. X", `data-testid="requested-priest"`) and `lib/requestedPriest.ts`; shown on the office appointments table and mobile cards, the parishioner dashboard card, and the priest dashboard (timeline card and Details modal). `getAppointments` / `getAppointmentById` join `requested_priest` (id, full_name) and expose `requested_priest_id`.
+- **Types**: `web/src/types/database.ts` hand-merged (`appointments` Row/Insert/Update and the FK).
+
+### Notes
+- `CelebrantPicker.tsx` (the Edit modal's change-celebrant list) is untracked work in progress and was not touched; it does not label the requested priest. The approve flow was the target of this ticket.
+- Appointment change history does not record the request (per the ticket); the approve history row is unchanged.
+
+### Tests
+- New `web/e2e-local/booking-priest-request.spec.ts` (17 tests, written first and seen failing, then passing): request saved with `priest_id` null, default saves null, warning for a priest on leave or a weekly day off with no reason text and submit still working, select hidden for an empty-pool parish, cross-parish request rejected by the trigger, mobile-style insert without the column, profile deletion clears the request, approval pre-selects and labels, approving the requested priest sends the unchanged message, approving a different priest or nobody notifies the parishioner, ineligible requested priest blocks approval until changed, request visible to office (table), parishioner (card) and priest (timeline and Details).
+- `support.ts` `createPendingAppointment` / `createApprovedAppointment` accept `requestedPriest`.
+- Full local suite: 122 tests, 122 passed (previously 105). `tsc -b` clean; eslint clean on touched files (one pre-existing `exhaustive-deps` warning in `UserDashboard.tsx`, not from this change).

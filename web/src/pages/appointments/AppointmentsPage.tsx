@@ -24,6 +24,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import ApproveAppointmentModal from '../../components/appointments/ApproveAppointmentModal';
+import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
 import Modal from '../../components/ui/Modal';
 import Pagination from '../../components/common/Pagination';
 
@@ -743,6 +744,7 @@ export default function AppointmentsPage() {
                                                         Not assigned
                                                     </span>
                                                 )}
+                                                <RequestedPriestNote appointment={appointment} className="mt-1" />
                                             </td>
 
                                             {/* STATUS */}
@@ -990,6 +992,12 @@ export default function AppointmentsPage() {
                                                 )}
                                             </span>
                                         </div>
+
+                                        {appointment.requested_priest_id && (
+                                            <div className="flex justify-end">
+                                                <RequestedPriestNote appointment={appointment} />
+                                            </div>
+                                        )}
 
                                         {appointment.notes && candidate !== appointment.notes && (
                                             <div className="text-[11px] text-secondary-400 italic bg-secondary-50/70 p-2 rounded-lg border border-border/40 mt-1">

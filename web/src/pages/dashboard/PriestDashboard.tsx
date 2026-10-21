@@ -28,6 +28,7 @@ import {
     type SacramentKey,
 } from '../../lib/sacramentMeta';
 import { format } from 'date-fns';
+import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
 import {
     Calendar,
     CalendarClock,
@@ -680,6 +681,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                     <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}>
                                                         {status.label}
                                                     </span>
+                                                    <RequestedPriestNote appointment={appt} />
                                                 </div>
                                                 <h3 className="text-sm font-bold text-foreground">
                                                     {meta.title} · {appt.profile?.full_name || 'Parishioner'}
@@ -1055,6 +1057,13 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                     </p>
                                 </div>
                             </div>
+
+                            {selectedAppointment.requested_priest_id && (
+                                <div className="pt-2 border-t border-border">
+                                    <span className="text-muted text-xs block mb-0.5">Parishioner&apos;s Priest Request:</span>
+                                    <RequestedPriestNote appointment={selectedAppointment} />
+                                </div>
+                            )}
 
                             {selectedAppointment.notes && (
                                 <div className="pt-2 border-t border-border">

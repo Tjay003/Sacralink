@@ -16,6 +16,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getRequirements } from '../../lib/supabase/requirements';
 import { createAppointmentWithDocuments } from '../../lib/supabase/appointments';
+import { evaluateParishPool } from '../../lib/supabase/priestAvailability';
+import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 import {
     evaluateSlotAndRecommendations,
     formatDateDisplay,
@@ -49,6 +51,11 @@ export default function BookAppointmentPage() {
     // Availability & Recommender State
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [availabilityResult, setAvailabilityResult] = useState<AvailabilityCheckResult | null>(null);
+
+    // Optional priest request: a preference only, the parish office still assigns the celebrant
+    const { clergy } = useParishClergy(id);
+    const [requestedPriestId, setRequestedPriestId] = useState('');
+    const [priestCheck, setPriestCheck] = useState<{ key: string; unavailable: boolean } | null>(null);
 
     // Initial state from navigation if passed
     const locationState = location.state as { date?: string; time?: string; service_type?: string } | undefined;
@@ -195,6 +202,33 @@ export default function BookAppointmentPage() {
         };
     }, [church, formData.service_type, formData.appointment_date, formData.appointment_time, runAvailabilityCheck]);
 
+    // Only a priest of the church being booked counts, so a request never follows the parishioner to another parish
+    const requestedPriest = clergy.find((member) => member.priestId === requestedPriestId) ?? null;
+    const requestedPriestKey = requestedPriest && id && formData.appointment_date && formData.appointment_time
+        ? `${id}|${requestedPriest.priestId}|${formData.appointment_date}|${formData.appointment_time}`
+        : null;
+
+    // Ask the database whether the requested priest is eligible at the chosen slot (day off, leave, collision, Canon 905)
+    useEffect(() => {
+        if (!requestedPriestKey || !requestedPriest || !id) return;
+
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            void evaluateParishPool(id, formData.appointment_date, formData.appointment_time).then(({ data }) => {
+                if (cancelled) return;
+                const verdict = data.find((entry) => entry.priestId === requestedPriest.priestId);
+                setPriestCheck({ key: requestedPriestKey, unavailable: Boolean(verdict && !verdict.eligible) });
+            });
+        }, 300);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [requestedPriestKey, requestedPriest, id, formData.appointment_date, formData.appointment_time]);
+
+    const requestedPriestUnavailable = Boolean(requestedPriestKey && priestCheck?.key === requestedPriestKey && priestCheck.unavailable);
+
     const handleFileSelect = (requirementId: string, file: File) => {
         const newDocs = new Map(documents);
         newDocs.set(requirementId, file);
@@ -280,6 +314,7 @@ export default function BookAppointmentPage() {
                 appointmentDate: formData.appointment_date,
                 appointmentTime: formData.appointment_time,
                 notes: formData.notes,
+                requestedPriestId: requestedPriest?.priestId ?? null,
                 userName: user.user_metadata?.full_name || 'A user',
                 documents,
             });
@@ -597,6 +632,44 @@ export default function BookAppointmentPage() {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Optional priest request */}
+                    {clergy.length > 0 && (
+                        <div>
+                            <label htmlFor="preferred_priest" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Preferred priest <span className="text-xs font-normal text-muted">(Optional)</span>
+                            </label>
+                            <select
+                                id="preferred_priest"
+                                value={requestedPriest?.priestId ?? ''}
+                                onChange={(e) => setRequestedPriestId(e.target.value)}
+                                className="input w-full"
+                            >
+                                <option value="">Any available priest</option>
+                                {clergy.map((member) => (
+                                    <option key={member.priestId} value={member.priestId}>
+                                        {celebrantLabel(member)}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-muted mt-1">
+                                This is a request only. The parish office confirms who will preside.
+                            </p>
+                            {requestedPriest && requestedPriestUnavailable && (
+                                <div
+                                    data-testid="preferred-priest-warning"
+                                    role="status"
+                                    className="mt-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900"
+                                >
+                                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                                    <span>
+                                        <span className="font-semibold">{celebrantLabel(requestedPriest)}</span> is not available at this time.
+                                        You can still submit your request; the parish office will confirm the celebrant.
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 
