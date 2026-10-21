@@ -14,12 +14,14 @@
 - [x] `11-in-place-staff-assignment-modal.md`
 - [x] `12-celebrant-eligibility-foundation.md`
 - [ ] `13-mobile-celebrant-and-clergy-parity.md`
+- [x] `14-remove-parish-clergy-section-from-church-page.md`
+- [ ] `15-optional-priest-request-at-booking.md`
 
 ## Tasks
 1. `01-dual-tier-frictionless-donations.md` (Type: feature, Status: resolved)
 2. `02-super-admin-system-announcements-feed.md` (Type: feature, Status: resolved)
 3. `03-presiding-priest-liturgy-visibility.md` (Type: feature, Status: resolved, Blocked by: 12)
-4. `04-church-clergy-roster-and-status.md` (Type: feature, Status: resolved, Blocked by: 12, 03)
+4. `04-church-clergy-roster-and-status.md` (Type: feature, Status: resolved, Blocked by: 12, 03; its church-page UI was removed by 14, the RPC and hook remain)
 5. `05-booking-celebrant-pool-check.md` (Type: feature, Status: resolved, Blocked by: 12)
 6. `06-customizable-sacrament-requirements-and-funeral.md` (Type: feature, Status: proposed)
 7. `07-hide-raw-coordinates-on-church-page.md` (Type: bug, Status: resolved)
@@ -29,6 +31,8 @@
 11. `11-in-place-staff-assignment-modal.md` (Type: feature, Status: resolved)
 12. `12-celebrant-eligibility-foundation.md` (Type: feature, Status: resolved)
 13. `13-mobile-celebrant-and-clergy-parity.md` (Type: feature, Status: needs-triage, Blocked by: 12, 03, 04)
+14. `14-remove-parish-clergy-section-from-church-page.md` (Type: feature, Status: resolved)
+15. `15-optional-priest-request-at-booking.md` (Type: feature, Status: ready-for-agent, Blocked by: 12)
 
 ## Decisions so far (grilling of 03/04/05, 2026-10-21)
 - Booking "priest-aware" = parish pool check (no priest picker, no LLM). Empty pool skips the priest check.
@@ -41,3 +45,4 @@
 - Ticket 03 shipped (web, local only): celebrant badge on schedule cards, Presiding priest select in Add/Edit modals, celebrant in livestream standby. Streams have no link to a Mass schedule, so the live view shows none. Reusable for 04: `useParishClergy` / `celebrantLabel` in `web/src/hooks/useParishClergy.ts`. Found: Edit modal wrote a nonexistent `mass_type` column (removed) and `mass_schedules` RLS excludes `church_admin`. See the ticket Resolution.
 - Ticket 05 shipped (web, local only): booking slot check and both recommendation cards now use `check_parish_slot` (pool check, empty pool unchanged, no leave reasons). Scans capped: 6 calls in parallel, 7-day horizon, 3 nearest parishes, at most 133 calls per check, stale scans aborted. Needs migration 054 on production first or checks fail open. See the ticket Resolution.
 - Ticket 04 shipped (web, local only): "Parish Clergy" cards (name with title, designation, Available / In Mass / On Leave badge, "Book with Father" to the existing booking flow) from `get_parish_clergy` only; hidden for parishes without priests. The "Fr. Second Priest" header line was an arbitrary direct `profiles` read and now comes from the roster (name, "N priests", or hidden); logged-out web access is still blocked by the `/login` redirect so that criterion is proved at the anon RPC level. See the ticket Resolution.
+- Ticket 14 (2026-10-21): Tyrone rejected the public Parish Clergy cards, so the church page no longer shows a clergy roster, "Book with Father" or roster-driven priest lines (header, quick facts and Pastor of record are back to the staff lookup, hidden when no priest). Priests surface at booking instead as an optional, non-binding request (ticket 15, deliberately reversing 05's "no priest picker"). `get_parish_clergy`, `useParishClergy` and `celebrantLabel` stay for 03 and 15.

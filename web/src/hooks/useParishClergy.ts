@@ -9,19 +9,10 @@ interface LoadedClergy {
 /**
  * Honorific plus name as parishioners read it, e.g. "Rev. Fr. Juan Dela Cruz".
  * Single place for the celebrant display so the schedule badge, the livestream player,
- * the modals and the clergy roster all print the same text.
+ * and the modals all print the same text.
  */
 export function celebrantLabel(member: Pick<ParishClergyMember, 'title' | 'name'>): string {
     return `${member.title} ${member.name}`.trim();
-}
-
-/**
- * One-line description of a parish's priests for headers and fact lists: the priest's labelled name when
- * there is one, a count when there are several, and null when the parish has none.
- */
-export function parishPriestSummary(clergy: ParishClergyMember[]): string | null {
-    if (clergy.length === 0) return null;
-    return clergy.length === 1 ? celebrantLabel(clergy[0]) : `${clergy.length} priests`;
 }
 
 /**

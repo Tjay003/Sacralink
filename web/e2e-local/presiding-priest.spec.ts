@@ -78,6 +78,23 @@ test.describe('Celebrant badge on the Liturgy tab', () => {
   });
 });
 
+test.describe('The church page has no priest roster', () => {
+  test.use({ viewport: { width: 1280, height: 1000 } });
+
+  test('a parish with priests shows no Parish Clergy section, no Book with Father button and no invented priest name', async ({ page }) => {
+    const seed = await getSeed();
+    await loginAs(page, 'parishioner');
+    await page.goto(`/churches/${seed.churchId}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Parish team' })).toBeVisible();
+
+    await expect(page.getByRole('heading', { name: 'Parish Clergy' })).toHaveCount(0);
+    await expect(page.getByTestId('parish-clergy-section')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Book with Father' })).toHaveCount(0);
+    await expect(page.getByText('Assigned Clergy')).toHaveCount(0);
+  });
+});
+
 test('the roster behind the badge resolves names for a logged-out client', async () => {
   const seed = await getSeed();
   const anon = createClient(LOCAL_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
