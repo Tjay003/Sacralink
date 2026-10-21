@@ -70,7 +70,7 @@ jobs:
 
       - name: Start local Supabase
         # Studio, postgres-meta and the mail inbox are not used by the tests.
-        run: supabase start -x studio,postgres-meta,mailpit
+        run: supabase start -x studio,postgres-meta
 
       - name: Apply the database schema
         run: pwsh -File scripts/local-db-setup.ps1 -Reset -AllowFailures "$LEGACY_MIGRATION_FAILURES"
