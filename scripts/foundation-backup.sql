@@ -1,5 +1,7 @@
 -- Foundation backup query for the PRODUCTION Supabase project (read-only: SELECTs only).
--- Run it through the Supabase MCP `execute_sql`, then:  node scripts/split-mcp-backup.mjs <saved-result> backups/foundation
+-- Run it through the Supabase MCP `execute_sql`, then:
+--   node scripts/split-mcp-backup.mjs <saved-result> backups/foundation --mirror-schema supabase/foundation/schema.sql
+-- (backups/ is gitignored and holds the data; supabase/foundation/schema.sql is the git-tracked, data-free schema copy)
 -- Returns: schema_sql, functions_sql, data_sql, expected_counts.
 -- Foundation rows = reference/configuration data and staff accounts. User activity is NOT included
 -- (appointments, appointment_changes, appointment_documents, messages, conversations, participants, donations,
