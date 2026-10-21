@@ -1,18 +1,19 @@
 import { supabase } from '../supabase';
 import type { Database } from '@/types/database';
+import { seedDefaultServiceTypes } from './serviceTypes';
 
 type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
 type InsertSacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Insert'];
+type UpdateSacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Update'];
 
 /**
- * Fetch all requirements for a specific church and service type
+ * Fetch the checklist of one service of a parish by the service's id (a rename never loses it)
  */
-export async function getRequirements(churchId: string, serviceType: string) {
+export async function getRequirementsForService(serviceTypeId: string) {
     const { data, error } = await supabase
         .from('sacrament_requirements')
         .select('*')
-        .eq('church_id', churchId)
-        .eq('service_type', serviceType as any)
+        .eq('service_type_id', serviceTypeId)
         .order('display_order', { ascending: true });
 
     if (error) throw error;
@@ -23,12 +24,11 @@ export async function getRequirements(churchId: string, serviceType: string) {
  * Create a new requirement
  */
 export async function createRequirement(requirement: InsertSacramentRequirement) {
-    // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase
+    const { data, error } = await supabase
         .from('sacrament_requirements')
-        .insert(requirement as any)
+        .insert(requirement)
         .select()
-        .single() as any);
+        .single();
 
     if (error) throw error;
     return data as SacramentRequirement;
@@ -37,14 +37,13 @@ export async function createRequirement(requirement: InsertSacramentRequirement)
 /**
  * Update an existing requirement
  */
-export async function updateRequirement(id: string, updates: any) {
-    const { data, error } = await (supabase
+export async function updateRequirement(id: string, updates: UpdateSacramentRequirement) {
+    const { data, error } = await supabase
         .from('sacrament_requirements')
-        // @ts-ignore - Supabase type inference issue
-        .update(updates as any)
+        .update(updates)
         .eq('id', id)
         .select()
-        .single() as any);
+        .single();
 
     if (error) throw error;
     return data as SacramentRequirement;
@@ -63,34 +62,64 @@ export async function deleteRequirement(id: string) {
 }
 
 /**
- * Bulk seed default requirements for a new church
- * Called when a new church is created
+ * The starter checklists, keyed by the kind of the starter service they belong to
+ */
+const DEFAULT_CHECKLISTS: Record<string, Array<{ name: string; required: boolean }>> = {
+    baptism: [
+        { name: 'Birth Certificate', required: true },
+        { name: 'Godparent Certificate', required: true },
+        { name: 'Parent Marriage Certificate', required: false },
+    ],
+    wedding: [
+        { name: 'Baptismal Certificate (Bride)', required: true },
+        { name: 'Baptismal Certificate (Groom)', required: true },
+        { name: 'Confirmation Certificate', required: true },
+        { name: 'CENOMAR (Certificate of No Marriage)', required: true },
+        { name: 'Pre-Cana Certificate', required: true },
+    ],
+    confirmation: [
+        { name: 'Baptismal Certificate', required: true },
+        { name: 'First Communion Certificate', required: true },
+        { name: 'Sponsor Certificate', required: true },
+    ],
+};
+
+/**
+ * Bulk seed the starter services and their default checklists for a new church
+ * Called when a new church is created. A service that already has documents is left alone.
  */
 export async function seedDefaultRequirements(churchId: string) {
-    const defaultRequirements: InsertSacramentRequirement[] = [
-        // Baptism
-        { church_id: churchId, service_type: 'baptism', requirement_name: 'Birth Certificate', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'baptism', requirement_name: 'Godparent Certificate', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'baptism', requirement_name: 'Parent Marriage Certificate', is_required: false, display_order: 3 },
+    const services = await seedDefaultServiceTypes(churchId);
 
-        // Wedding
-        { church_id: churchId, service_type: 'wedding', requirement_name: 'Baptismal Certificate (Bride)', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'wedding', requirement_name: 'Baptismal Certificate (Groom)', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'wedding', requirement_name: 'Confirmation Certificate', is_required: true, display_order: 3 },
-        { church_id: churchId, service_type: 'wedding', requirement_name: 'CENOMAR (Certificate of No Marriage)', is_required: true, display_order: 4 },
-        { church_id: churchId, service_type: 'wedding', requirement_name: 'Pre-Cana Certificate', is_required: true, display_order: 5 },
-
-        // Confirmation
-        { church_id: churchId, service_type: 'confirmation', requirement_name: 'Baptismal Certificate', is_required: true, display_order: 1 },
-        { church_id: churchId, service_type: 'confirmation', requirement_name: 'First Communion Certificate', is_required: true, display_order: 2 },
-        { church_id: churchId, service_type: 'confirmation', requirement_name: 'Sponsor Certificate', is_required: true, display_order: 3 },
-    ];
-
-    // @ts-ignore - Supabase type inference issue
-    const { data, error } = await (supabase
+    const { data: existing, error: existingError } = await supabase
         .from('sacrament_requirements')
-        .insert(defaultRequirements as any)
-        .select() as any);
+        .select('service_type_id')
+        .eq('church_id', churchId);
+    if (existingError) throw existingError;
+    const alreadyHasChecklist = new Set((existing ?? []).map((row) => row.service_type_id));
+
+    const defaultRequirements: InsertSacramentRequirement[] = [];
+    for (const service of services) {
+        const checklist = service.kind ? DEFAULT_CHECKLISTS[service.kind] : undefined;
+        if (!checklist || alreadyHasChecklist.has(service.id)) continue;
+        checklist.forEach((item, index) => {
+            defaultRequirements.push({
+                church_id: churchId,
+                service_type_id: service.id,
+                service_type: service.name.toLowerCase(),
+                requirement_name: item.name,
+                is_required: item.required,
+                display_order: index + 1,
+            });
+        });
+    }
+
+    if (defaultRequirements.length === 0) return [] as SacramentRequirement[];
+
+    const { data, error } = await supabase
+        .from('sacrament_requirements')
+        .insert(defaultRequirements)
+        .select();
 
     if (error) throw error;
     return data as SacramentRequirement[];

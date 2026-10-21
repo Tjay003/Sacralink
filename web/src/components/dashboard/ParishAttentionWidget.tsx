@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Heart, FileText, Calendar, Cross, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getAppointments, type HydratedAppointment } from '../../lib/supabase/appointments';
+import { isFuneralService } from '../../lib/supabase/serviceTypes';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface ParishAttentionProps {
@@ -87,8 +88,10 @@ export default function ParishAttentionWidget({ churchId }: ParishAttentionProps
     const totalOpenCount = (isChurchAdmin && donationsSummary.count > 0 ? 1 : 0) + pendingAppointments.length;
 
     // Helper to format service type label
-    const formatServiceName = (type: string) => {
+    const formatServiceName = (type: string, kind?: string | null) => {
         const clean = type.toLowerCase().replace(/_/g, ' ');
+        // A starter service the parish renamed (or any custom one) keeps the parish's own wording
+        if (kind && clean !== kind) return type;
         if (clean.includes('baptism')) return 'Baptism';
         if (clean.includes('wedding') || clean.includes('marriage')) return 'Wedding';
         if (clean.includes('mass') || clean.includes('intention')) return 'Mass intention';
@@ -100,7 +103,7 @@ export default function ParishAttentionWidget({ churchId }: ParishAttentionProps
     // Dynamic action button label and icon based on appointment service type
     const getActionDetails = (appt: HydratedAppointment) => {
         const type = appt.service_type.toLowerCase();
-        if (type.includes('baptism')) {
+        if (appt.service_kind === 'baptism' || type.includes('baptism')) {
             return {
                 label: 'Review documents',
                 subtext: 'Awaiting document check · 3 of 4 attached',
@@ -116,7 +119,7 @@ export default function ParishAttentionWidget({ churchId }: ParishAttentionProps
                 iconBg: 'bg-amber-50 text-amber-600',
             };
         }
-        if (type.includes('funeral') || type.includes('burial')) {
+        if (isFuneralService(appt.service_kind, appt.service_type)) {
             return {
                 label: 'Assign celebrant',
                 subtext: 'Urgent · no celebrant assigned yet',
@@ -264,7 +267,7 @@ export default function ParishAttentionWidget({ churchId }: ParishAttentionProps
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                                        {formatServiceName(appt.service_type)} for {applicantName}
+                                        {formatServiceName(appt.service_type, appt.service_kind)} for {applicantName}
                                     </p>
                                     <p className="text-[11px] sm:text-xs text-secondary-500 font-medium truncate mt-0.5">
                                         {action.subtext}

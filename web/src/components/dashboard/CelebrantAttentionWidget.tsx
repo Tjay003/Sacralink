@@ -184,20 +184,19 @@ export default function CelebrantAttentionWidget({
                 }
             }
 
-            // Required document counts per church + sacrament, for "3 of 6 documents"
+            // Required document counts per service, for "3 of 6 documents"
             const requiredCountMap: Record<string, number> = {};
             const churchIds = Array.from(new Set(appts.map((a) => a.church_id).filter(Boolean)));
             if (churchIds.length > 0) {
                 const { data: reqData, error: reqErr } = await supabase
                     .from('sacrament_requirements')
-                    .select('church_id, service_type, is_required')
+                    .select('service_type_id, is_required')
                     .in('church_id', churchIds);
 
                 if (!reqErr && reqData) {
                     for (const req of reqData) {
-                        if (req.is_required === false) continue;
-                        const key = `${req.church_id}:${req.service_type}`;
-                        requiredCountMap[key] = (requiredCountMap[key] || 0) + 1;
+                        if (req.is_required === false || !req.service_type_id) continue;
+                        requiredCountMap[req.service_type_id] = (requiredCountMap[req.service_type_id] || 0) + 1;
                     }
                 }
             }
@@ -220,7 +219,7 @@ export default function CelebrantAttentionWidget({
                     timeLabel: formatAppointmentTime(appt.appointment_time),
                     hasDocuments: hasDocs,
                     documentCount: docCount,
-                    requiredDocumentCount: requiredCountMap[`${appt.church_id}:${serviceClean}`] || 0,
+                    requiredDocumentCount: (appt.service_type_id && requiredCountMap[appt.service_type_id]) || 0,
                     isDueSoon: daysUntil(appt.appointment_date) <= DUE_SOON_DAYS,
                 };
 
@@ -229,7 +228,7 @@ export default function CelebrantAttentionWidget({
                     serviceClean.includes('prenup') ||
                     serviceClean.includes('pre-nuptial') ||
                     serviceClean.includes('inquiry') ||
-                    (serviceClean.includes('wed') &&
+                    ((appt.service_kind === 'wedding' || serviceClean.includes('wed')) &&
                         (/\b(interview|inquiry|canonical|exam|pre-cana)\b/i.test(notesClean) ||
                             /\b(interview|inquiry|canonical|exam|pre-cana)\b/i.test(feedbackClean)));
 

@@ -192,6 +192,7 @@ export type Database = {
           priest_id: string | null
           requested_priest_id: string | null
           service_type: string
+          service_type_id: string | null
           status: string
           updated_at: string | null
           user_id: string
@@ -207,6 +208,7 @@ export type Database = {
           priest_id?: string | null
           requested_priest_id?: string | null
           service_type: string
+          service_type_id?: string | null
           status?: string
           updated_at?: string | null
           user_id: string
@@ -222,6 +224,7 @@ export type Database = {
           priest_id?: string | null
           requested_priest_id?: string | null
           service_type?: string
+          service_type_id?: string | null
           status?: string
           updated_at?: string | null
           user_id?: string
@@ -253,6 +256,13 @@ export type Database = {
             columns: ["requested_priest_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_type_id_fkey"
+            columns: ["service_type_id"]
+            isOneToOne: false
+            referencedRelation: "church_service_types"
             referencedColumns: ["id"]
           },
           {
@@ -324,6 +334,57 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      church_service_types: {
+        Row: {
+          church_id: string
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_hidden: boolean
+          kind: string | null
+          name: string
+        }
+        Insert: {
+          church_id: string
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_hidden?: boolean
+          kind?: string | null
+          name: string
+        }
+        Update: {
+          church_id?: string
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_hidden?: boolean
+          kind?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "church_service_types_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "church_stats"
+            referencedColumns: ["church_id"]
+          },
+          {
+            foreignKeyName: "church_service_types_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
             referencedColumns: ["id"]
           },
         ]
@@ -1087,7 +1148,8 @@ export type Database = {
           id: string
           is_required: boolean | null
           requirement_name: string
-          service_type: Database["public"]["Enums"]["sacrament_type"]
+          service_type: string
+          service_type_id: string | null
         }
         Insert: {
           allowed_file_types?: string[] | null
@@ -1098,7 +1160,8 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           requirement_name: string
-          service_type: Database["public"]["Enums"]["sacrament_type"]
+          service_type: string
+          service_type_id?: string | null
         }
         Update: {
           allowed_file_types?: string[] | null
@@ -1109,7 +1172,8 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           requirement_name?: string
-          service_type?: Database["public"]["Enums"]["sacrament_type"]
+          service_type?: string
+          service_type_id?: string | null
         }
         Relationships: [
           {
@@ -1124,6 +1188,13 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sacrament_requirements_service_type_id_fkey"
+            columns: ["service_type_id"]
+            isOneToOne: false
+            referencedRelation: "church_service_types"
             referencedColumns: ["id"]
           },
         ]
@@ -1402,6 +1473,28 @@ export type Database = {
           has_eligible_priest: boolean
           priest_count: number
           slot_taken: boolean
+        }[]
+      }
+      can_manage_church_services: {
+        Args: { p_church_id: string }
+        Returns: boolean
+      }
+      delete_church_service_type: {
+        Args: { p_service_type_id: string }
+        Returns: string
+      }
+      seed_church_service_types: {
+        Args: { p_church_id: string }
+        Returns: {
+          church_id: string
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_hidden: boolean
+          kind: string | null
+          name: string
         }[]
       }
       light_church_candle: {

@@ -11,6 +11,10 @@ export interface HydratedAppointment {
     user_id: string;
     church_id: string;
     service_type: string;
+    /** The parish service this appointment is for; null only on rows older than the link. */
+    service_type_id?: string | null;
+    /** Stable kind of that service (for example 'funeral'); it survives a rename. */
+    service_kind?: string | null;
     appointment_date: string;
     appointment_time: string;
     notes: string | null;
@@ -65,6 +69,8 @@ export interface CreateAppointmentInput {
     userId: string;
     churchId: string;
     serviceType: string;
+    /** The parish service chosen on the booking form; the database fills it from serviceType when omitted. */
+    serviceTypeId?: string | null;
     appointmentDate: string;
     appointmentTime: string;
     notes?: string | null;
@@ -88,6 +94,7 @@ interface RawAppointmentQueryResult {
     user_id: string;
     church_id: string;
     service_type: string;
+    service_type_id?: string | null;
     appointment_date: string;
     appointment_time: string;
     notes: string | null;
@@ -115,6 +122,9 @@ interface RawAppointmentQueryResult {
     requested_priest?: {
         id: string;
         full_name: string | null;
+    } | null;
+    service?: {
+        kind: string | null;
     } | null;
 }
 
@@ -146,7 +156,8 @@ export async function getAppointments(
                 church:churches(id, name),
                 profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
                 priest:profiles!appointments_priest_id_fkey(id, full_name, email),
-                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name)
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name),
+                service:church_service_types!appointments_service_type_id_fkey(kind)
             `, { count: 'exact' });
 
         // Church scoping filter
@@ -228,6 +239,8 @@ export async function getAppointments(
             user_id: row.user_id,
             church_id: row.church_id,
             service_type: row.service_type,
+            service_type_id: row.service_type_id ?? null,
+            service_kind: row.service?.kind ?? null,
             appointment_date: row.appointment_date,
             appointment_time: row.appointment_time,
             notes: row.notes,
@@ -276,7 +289,8 @@ export async function getAppointmentById(
                 church:churches(id, name),
                 profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
                 priest:profiles!appointments_priest_id_fkey(id, full_name, email),
-                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name)
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name),
+                service:church_service_types!appointments_service_type_id_fkey(kind)
             `)
             .eq('id', id)
             .single()
@@ -290,6 +304,8 @@ export async function getAppointmentById(
             user_id: data.user_id,
             church_id: data.church_id,
             service_type: data.service_type,
+            service_type_id: data.service_type_id ?? null,
+            service_kind: data.service?.kind ?? null,
             appointment_date: data.appointment_date,
             appointment_time: data.appointment_time,
             notes: data.notes,
@@ -408,6 +424,7 @@ export async function createAppointmentWithDocuments(
                 user_id: input.userId,
                 church_id: input.churchId,
                 service_type: input.serviceType,
+                service_type_id: input.serviceTypeId ?? null,
                 appointment_date: input.appointmentDate,
                 appointment_time: input.appointmentTime,
                 notes: input.notes || null,

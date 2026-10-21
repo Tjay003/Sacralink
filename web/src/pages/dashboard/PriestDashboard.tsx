@@ -273,7 +273,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                     .in('appointment_id', pending.map((a) => a.id)),
                 supabase
                     .from('sacrament_requirements')
-                    .select('church_id, service_type, is_required')
+                    .select('service_type_id, is_required')
                     .in('church_id', churchIds),
             ]);
 
@@ -284,9 +284,8 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
 
             const required: Record<string, number> = {};
             for (const req of reqsRes.data || []) {
-                if (req.is_required === false) continue;
-                const key = `${req.church_id}:${req.service_type}`;
-                required[key] = (required[key] || 0) + 1;
+                if (req.is_required === false || !req.service_type_id) continue;
+                required[req.service_type_id] = (required[req.service_type_id] || 0) + 1;
             }
 
             setUploadedDocCounts(uploaded);
@@ -412,7 +411,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
 
     const isDocumentsPending = useCallback(
         (appt: HydratedAppointment) => {
-            const required = requiredDocCounts[`${appt.church_id}:${(appt.service_type || '').toLowerCase()}`] || 0;
+            const required = (appt.service_type_id && requiredDocCounts[appt.service_type_id]) || 0;
             return required > 0 && (uploadedDocCounts[appt.id] || 0) < required;
         },
         [requiredDocCounts, uploadedDocCounts]

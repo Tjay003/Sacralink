@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { getRequirements } from '../../lib/supabase/requirements';
+import { getRequirementsForService } from '../../lib/supabase/requirements';
+import { findServiceByName, getBookableServiceTypes, type ServiceType } from '../../lib/supabase/serviceTypes';
 import { createAppointmentWithDocuments } from '../../lib/supabase/appointments';
 import { evaluateParishPool } from '../../lib/supabase/priestAvailability';
 import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
@@ -39,6 +40,8 @@ export default function BookAppointmentPage() {
     // State
     const [church, setChurch] = useState<Church | null>(null);
     const [allChurches, setAllChurches] = useState<Church[]>([]);
+    const [services, setServices] = useState<ServiceType[]>([]);
+    const [loadingServices, setLoadingServices] = useState(true);
     const [requirements, setRequirements] = useState<SacramentRequirement[]>([]);
     const [documents, setDocuments] = useState<Map<string, File>>(new Map());
     const [uploadedDocumentIds, setUploadedDocumentIds] = useState<Map<string, string>>(new Map());
@@ -62,20 +65,47 @@ export default function BookAppointmentPage() {
 
     // Form Data
     const [formData, setFormData] = useState({
-        service_type: locationState?.service_type || 'Baptism',
+        service_type_id: '',
         appointment_date: locationState?.date || '',
         appointment_time: locationState?.time || '',
         notes: ''
     });
 
-    const SERVICE_TYPES = [
-        { value: 'Baptism', label: 'Baptism' },
-        { value: 'Wedding', label: 'Wedding' },
-        { value: 'Funeral', label: 'Funeral' },
-        { value: 'Confirmation', label: 'Confirmation' },
-        { value: 'Blessing', label: 'Blessing' },
-        { value: 'Other', label: 'Other' },
-    ];
+    // The name of the service the parishioner wants, so it survives a switch to another parish's own list
+    const preferredServiceName = useRef(locationState?.service_type || '');
+    const selectedService = services.find((service) => service.id === formData.service_type_id) ?? null;
+    const selectedServiceName = selectedService?.name ?? '';
+
+    // Fetch the services this parish offers (visible and not deleted, in the parish's own order)
+    useEffect(() => {
+        let cancelled = false;
+
+        async function fetchServices() {
+            if (!id) return;
+
+            setLoadingServices(true);
+            try {
+                const list = await getBookableServiceTypes(id);
+                if (cancelled) return;
+                setServices(list);
+                const keep = findServiceByName(list, preferredServiceName.current) ?? list[0];
+                setFormData((prev) => ({ ...prev, service_type_id: keep?.id ?? '' }));
+            } catch (err) {
+                console.error('Error fetching services:', err);
+                if (!cancelled) {
+                    setServices([]);
+                    setFormData((prev) => ({ ...prev, service_type_id: '' }));
+                }
+            } finally {
+                if (!cancelled) setLoadingServices(false);
+            }
+        }
+
+        fetchServices();
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
 
     // Fetch All Active Churches for Cross-Parish Recommendations
     useEffect(() => {
@@ -125,11 +155,14 @@ export default function BookAppointmentPage() {
     // Fetch Requirements when service type or church changes
     useEffect(() => {
         async function fetchRequirements() {
-            if (!id || !formData.service_type) return;
+            if (!id || !formData.service_type_id) {
+                setRequirements([]);
+                return;
+            }
 
             setLoadingRequirements(true);
             try {
-                const reqs = await getRequirements(id, formData.service_type.toLowerCase());
+                const reqs = await getRequirementsForService(formData.service_type_id);
                 setRequirements(reqs);
                 // Clear documents when service type changes
                 setDocuments(new Map());
@@ -142,7 +175,7 @@ export default function BookAppointmentPage() {
         }
 
         fetchRequirements();
-    }, [id, formData.service_type]);
+    }, [id, formData.service_type_id]);
 
     // Real-Time Availability Check & Recommender Engine
     const runAvailabilityCheck = useCallback(async (
@@ -189,7 +222,7 @@ export default function BookAppointmentPage() {
         const timer = setTimeout(() => {
             runAvailabilityCheck(
                 church,
-                formData.service_type,
+                selectedServiceName,
                 formData.appointment_date,
                 formData.appointment_time,
                 controller.signal
@@ -200,7 +233,7 @@ export default function BookAppointmentPage() {
             clearTimeout(timer);
             controller.abort();
         };
-    }, [church, formData.service_type, formData.appointment_date, formData.appointment_time, runAvailabilityCheck]);
+    }, [church, selectedServiceName, formData.appointment_date, formData.appointment_time, runAvailabilityCheck]);
 
     // Only a priest of the church being booked counts, so a request never follows the parishioner to another parish
     const requestedPriest = clergy.find((member) => member.priestId === requestedPriestId) ?? null;
@@ -283,14 +316,14 @@ export default function BookAppointmentPage() {
             state: {
                 date: rec.date,
                 time: rec.time,
-                service_type: formData.service_type
+                service_type: selectedServiceName
             }
         });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !id) return;
+        if (!user || !id || !selectedService) return;
         if (submitting) return; // Prevent double submit from rapid clicks
 
         if (availabilityResult && !availabilityResult.isAvailable) {
@@ -310,7 +343,8 @@ export default function BookAppointmentPage() {
             const { error: bookingError } = await createAppointmentWithDocuments({
                 userId: user.id,
                 churchId: id,
-                serviceType: formData.service_type,
+                serviceType: selectedService.name,
+                serviceTypeId: selectedService.id,
                 appointmentDate: formData.appointment_date,
                 appointmentTime: formData.appointment_time,
                 notes: formData.notes,
@@ -374,7 +408,7 @@ export default function BookAppointmentPage() {
                     </div>
                     <h2 className="text-2xl font-bold text-green-700 dark:text-green-400">Request Sent!</h2>
                     <p className="text-gray-600 dark:text-gray-300">
-                        Your request for a <strong>{SERVICE_TYPES.find(t => t.value === formData.service_type)?.label}</strong> at {church.name} has been submitted.
+                        Your request for a <strong>{selectedServiceName}</strong> at {church.name} has been submitted.
                     </p>
                     <p className="text-sm text-gray-500">
                         The church admin will review your request and documents shortly. You will be redirected back to the church details...
@@ -385,6 +419,35 @@ export default function BookAppointmentPage() {
     }
 
     const isSlotConflict = availabilityResult && !availabilityResult.isAvailable;
+
+    if (!loadingServices && services.length === 0) {
+        return (
+            <div className="max-w-3xl mx-auto space-y-6">
+                <button
+                    type="button"
+                    onClick={() => navigate(`/churches/${id}`)}
+                    className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to {church.name}
+                </button>
+
+                <div className="card p-6">
+                    <h1 className="text-2xl font-bold mb-2">Book an Appointment</h1>
+                    <div
+                        data-testid="no-services-message"
+                        className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm flex items-start gap-3"
+                        role="status"
+                    >
+                        <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                        <p className="leading-relaxed">
+                            {church.name} is not accepting online appointment requests for any service right now. Please contact the parish office to arrange a sacrament or service.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
@@ -435,14 +498,23 @@ export default function BookAppointmentPage() {
                         <select
                             id="service_type"
                             required
-                            value={formData.service_type}
-                            onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
+                            value={formData.service_type_id}
+                            onChange={(e) => {
+                                const next = services.find((service) => service.id === e.target.value);
+                                preferredServiceName.current = next?.name ?? '';
+                                setFormData({ ...formData, service_type_id: e.target.value });
+                            }}
                             className="input w-full"
                         >
-                            {SERVICE_TYPES.map(type => (
-                                <option key={type.value} value={type.value}>{type.label}</option>
+                            {services.map(service => (
+                                <option key={service.id} value={service.id}>{service.name}</option>
                             ))}
                         </select>
+                        {selectedService?.description && (
+                            <p data-testid="service-description" className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                {selectedService.description}
+                            </p>
+                        )}
                     </div>
 
                     {/* Date & Time */}
@@ -718,7 +790,7 @@ export default function BookAppointmentPage() {
                                 </div>
                             ) : (
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                    Please upload the following documents for your {SERVICE_TYPES.find(t => t.value === formData.service_type)?.label} request:
+                                    Please upload the following documents for your {selectedServiceName} request:
                                 </p>
                             )}
 

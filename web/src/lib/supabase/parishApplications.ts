@@ -329,7 +329,7 @@ export async function approveParishApplication(
       if (churchError) throw churchError;
       finalChurchId = newChurch.id;
 
-      // Seed default sacrament requirements for the newly created church
+      // Seed the starter services and their default requirements for the newly created church
       try {
         await seedDefaultRequirements(finalChurchId);
       } catch (seedErr) {

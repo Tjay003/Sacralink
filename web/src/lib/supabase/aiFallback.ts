@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { getServiceTypeByKind } from './serviceTypes';
 
 export interface FallbackResponse {
   reply: string;
@@ -292,12 +293,15 @@ export async function generateFallbackResponse(
           serviceType = 'confirmation';
         }
 
-        const { data: reqs } = await supabase
-          .from('sacrament_requirements')
-          .select('requirement_name, description, is_required')
-          .eq('church_id', churchId)
-          .eq('service_type', serviceType)
-          .order('display_order', { ascending: true });
+        // The parish's own service of that kind (it may have been renamed), then its checklist by id
+        const service = await getServiceTypeByKind(churchId, serviceType);
+        const { data: reqs } = service
+          ? await supabase
+              .from('sacrament_requirements')
+              .select('requirement_name, description, is_required')
+              .eq('service_type_id', service.id)
+              .order('display_order', { ascending: true })
+          : { data: null };
 
         if (reqs && reqs.length > 0) {
           const reqLines = reqs

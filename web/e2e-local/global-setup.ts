@@ -19,6 +19,12 @@ export default async function globalSetup() {
   const churchId = await upsertChurch('Local Test Parish');
   const otherChurchId = await upsertChurch('Other Test Parish');
 
+  // Every parish starts with the six starter services (the same call the web seeders make)
+  for (const id of [churchId, otherChurchId]) {
+    const { error } = await db.rpc('seed_church_service_types', { p_church_id: id });
+    if (error) throw error;
+  }
+
   const profileFor: Record<Role, { role: string; church: string | null; is_priest?: boolean }> = {
     church_admin: { role: 'church_admin', church: churchId },
     priest: { role: 'priest', church: churchId, is_priest: true },

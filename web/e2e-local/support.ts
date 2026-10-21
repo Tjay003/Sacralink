@@ -211,6 +211,41 @@ export async function pageAs(browser: Browser, role: Role, options: BrowserConte
   return page;
 }
 
+/** The six starter services every parish begins with, in booking order. */
+export const STARTER_SERVICES = ['Baptism', 'Wedding', 'Funeral', 'Confirmation', 'Blessing', 'Other'];
+
+/** The live service type row of a seeded parish by case-insensitive name (deleted rows excluded). */
+export async function serviceTypeByName(churchId: string, name: string) {
+  const { data, error } = await serviceClient()
+    .from('church_service_types')
+    .select('*')
+    .eq('church_id', churchId)
+    .is('deleted_at', null)
+    .ilike('name', name)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Puts both seeded parishes back to the six starter services with no checklists, so service type specs
+ * never leak renamed, hidden or deleted services into the specs that book a plain Baptism.
+ */
+export async function resetServiceTypes() {
+  await resetAppointmentData();
+  const seed = await getSeed();
+  const db = serviceClient();
+  const churchIds = [seed.churchId, seed.otherChurchId];
+  const { error: reqErr } = await db.from('sacrament_requirements').delete().in('church_id', churchIds);
+  if (reqErr) throw reqErr;
+  const { error: typeErr } = await db.from('church_service_types').delete().in('church_id', churchIds);
+  if (typeErr) throw typeErr;
+  for (const churchId of churchIds) {
+    const { error } = await db.rpc('seed_church_service_types', { p_church_id: churchId });
+    if (error) throw error;
+  }
+}
+
 /** Signs in through the real login form. */
 export async function loginAs(page: Page, role: Role) {
   await page.goto('/login');

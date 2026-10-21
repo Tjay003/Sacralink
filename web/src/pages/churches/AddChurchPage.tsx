@@ -146,11 +146,11 @@ export default function AddChurchPage() {
             console.log('✅ Church created:', data);
 
             if (data?.id) {
-                // Seed default sacrament requirements for the new church
+                // Seed the starter services and their default requirements for the new church
                 // (non-fatal — log warning if it fails)
                 try {
                     await seedDefaultRequirements(data.id);
-                    console.log('✅ Default requirements seeded for new church');
+                    console.log('✅ Default services and requirements seeded for new church');
                 } catch (seedErr) {
                     console.warn('⚠️ Could not seed default requirements:', seedErr);
                 }

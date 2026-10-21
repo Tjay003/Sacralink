@@ -20,6 +20,7 @@ import {
     type HydratedAppointment as Appointment,
     type AppointmentStatus,
 } from '../../lib/supabase/appointments';
+import { isFuneralService } from '../../lib/supabase/serviceTypes';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
@@ -663,9 +664,7 @@ export default function AppointmentsPage() {
                                 </tr>
                             ) : (
                                 appointments.map((appointment) => {
-                                    const isFuneral =
-                                        appointment.service_type.toLowerCase().includes('funeral') ||
-                                        appointment.service_type.toLowerCase().includes('burial');
+                                    const isFuneral = isFuneralService(appointment.service_kind, appointment.service_type);
                                     const candidate = getCandidateDisplay(appointment);
 
                                     return (
@@ -888,9 +887,7 @@ export default function AppointmentsPage() {
                 ) : (
                     <>
                         {appointments.map((appointment) => {
-                            const isFuneral =
-                                appointment.service_type.toLowerCase().includes('funeral') ||
-                                appointment.service_type.toLowerCase().includes('burial');
+                            const isFuneral = isFuneralService(appointment.service_kind, appointment.service_type);
                             const candidate = getCandidateDisplay(appointment);
 
                             return (
