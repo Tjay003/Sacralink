@@ -1,7 +1,7 @@
 # Issue 06: Services & Documents Manager and Funeral Default
 
 Type: feature
-Status: ready-for-agent
+Status: built-pending-production
 Blocked by: 16
 
 ---
@@ -30,10 +30,41 @@ Settled in grilling with Tyrone (2026-10-21):
 ---
 
 ## 2. Acceptance Criteria
-- [ ] Church admin can add, rename, describe, reorder, hide and delete services in Edit Church.
-- [ ] Church admin can add, edit, reorder and delete documents per service, with Required/Optional.
-- [ ] New parishes get the six services with their checklists, including Funeral's Death Certificate; existing parishes without a Funeral checklist get it once via migration.
-- [ ] Booking shows the parish's customized checklist and enforces required uploads.
-- [ ] Other roles cannot see or use the section; RLS blocks their writes.
-- [ ] Local e2e covers the manager end to end plus booking with a custom service and checklist.
-- [ ] Builds and passes TypeScript validation cleanly (`tsc -b`); migration applied and verified on production after a backup.
+- [x] Church admin can add, rename, describe, reorder, hide and delete services in Edit Church.
+- [x] Church admin can add, edit, reorder and delete documents per service, with Required/Optional.
+- [x] New parishes get the six services with their checklists, including Funeral's Death Certificate; existing parishes without a Funeral checklist get it once via migration.
+- [x] Booking shows the parish's customized checklist and enforces required uploads.
+- [x] Other roles cannot see or use the section; RLS blocks their writes.
+- [x] Local e2e covers the manager end to end plus booking with a custom service and checklist.
+- [x] Builds and passes TypeScript validation cleanly (`tsc -b`).
+- [ ] Migration applied and verified on production after a backup.
+
+Production: migration NOT yet applied (parent session will apply)
+
+## Resolution
+
+Built and verified on the local Docker Supabase only (full suite 170 tests, 170 passed; 154 before plus 16 new). Production is untouched: migration 057 has not been applied to it. The web code is on `main` only.
+
+### Design as built
+- **`web/src/components/churches/ServicesAndDocumentsManager.tsx`** (new), rendered as card 7 in the left column of `EditChurchPage` for `church_admin`, `admin` and `super_admin` only (the parish priest can open Edit Church but never gets the section; RLS from ticket 16 is the real guard). Every change saves right away, not with the page's "Save changes" (the card says so). The mini forms never submit the surrounding page form (Enter saves the open mini form).
+  - **Services**: one card row per live service (hidden ones included, deleted ones not) with icon buttons Move up / Move down, Hide / Show, Edit (name and optional description in one inline form), Delete; a "Hidden" badge; "Add service" at the top (new services go to the end). A duplicate name (any case, surrounding spaces ignored; Postgres unique violation 23505) shows an inline error and keeps the form open. Delete asks first in an inline confirmation: a count of the service's appointments picks the wording ("Existing appointments keep this service; it will no longer be offered." when there are any, otherwise "... removed permanently together with its documents"); the actual soft-vs-hard decision stays in `delete_church_service_type()`.
+  - **Documents**: each service has a "Documents (n)" disclosure with its checklist: name, optional description, Required / Optional badge, Move up / down, Edit, Delete (inline confirmation), and "Add document" (name, description, Required / Optional segmented control). Writes go through `createRequirement` / `updateRequirement` / `deleteRequirement` and always set `service_type_id` (the lowercased service name goes in the legacy text column, ticket 16's trigger keeps it right). Allowed file types keep the table default.
+  - Reordering rewrites `display_order` as 1..n for the rows that moved. At 375px it is a single column, buttons wrap inside the row, no horizontal scroll (e2e checked, screenshot reviewed).
+- **`requirements.ts`**: `getRequirementsForChurch(churchId)` (one query for the manager); the starter checklists now include Funeral = required "Death Certificate", so `seedDefaultRequirements` (Add Church and parish applications) gives new parishes the six services with their checklists including it. Parish applications and Add Church already called the seeder, so nothing changed there.
+- **Booking**: `BookAppointmentPage` already read the checklist by id and blocked submission on missing required documents (verified, logic unchanged). New: the document description written by the office is shown under each document on the booking form (`DocumentUploader` got an optional `description`). A service with no documents shows no upload section.
+- **Migration `supabase/migrations/057_funeral_default_requirement.sql`** (next free number; appended to `APPLY_ALL_MIGRATIONS.sql`). ASCII only, `BEGIN`/`COMMIT`, additive:
+  1. `backfill_funeral_death_certificate()` (SECURITY DEFINER, service_role only) inserts a required "Death Certificate" (display_order 1, legacy text = lowercased service name) for each live service of kind `funeral` (whatever it is called now) that has no `sacrament_requirements` rows at all. Parishes with their own Funeral checklist (even optional-only) are untouched, documents only on other services do not count, and parishes that deleted Funeral are skipped. The migration calls it only the first time it is applied (it records whether the function already existed), so re-running the file or `APPLY_ALL_MIGRATIONS.sql` never resurrects a Death Certificate a parish deleted on purpose; calling the function directly is still idempotent (second call adds 0).
+  2. Addition beyond the written scope, needed for "delete documents": `appointment_documents.requirement_id` referenced `sacrament_requirements` with no ON DELETE action, so a checklist document a parishioner had already uploaded a file for could never be deleted (FK violation 23503, found while testing). The FK becomes `ON DELETE SET NULL` (column already nullable, idempotent, found by columns, no row changes). Uploaded files stay on their appointment; the viewers already fall back to the label "Document". The verify SQL checks the FK and nullability.
+- **Verification SQL (read-only)**: `supabase/verify/057_funeral_default_before.sql` (run BEFORE applying: totals, how many parishes will get the Death Certificate and which, how many keep their own checklist, current FK and column nullability) and `supabase/verify/057_funeral_default_verify.sql` (run AFTER: one result set with an `ok` column: no live Funeral service without a checklist row, no duplicate Death Certificate, no null service links, FK is ON DELETE SET NULL, column nullable, function present and not callable by anon / authenticated, plus totals to compare with the before snapshot: requirements_total = before + parishes counted, appointment_documents_total identical).
+- No schema or type change, so `web/src/types/database.ts` was not touched.
+
+### Tests
+- New `web/e2e-local/services-documents-manager.spec.ts` (16 tests, written first and seen failing, then passing): services (list in order and add custom with description; rename follows appointments, edit and clear description; duplicate name inline on add and rename, case/space-insensitive; reorder up/down persisted and is the booking order; hide/show reflected on the booking form; delete unused with confirmation removes it; delete with appointments warns, keeps history, frees the name); documents (add / edit name, description, Required flag / reorder / delete with confirmation; survive a service rename; a document already uploaded against can be deleted); Funeral default (a parish created through the real Add Church form gets the six services and a required Death Certificate; the backfill rule on four fabricated parishes, idempotent second run, service_role only); who can use it (church admin, admin, super admin see it; priest, parishioner and the other parish's admin do not; RLS blocks priest, parishioner, other-parish admin and volunteer writes to services and documents); booking (custom service plus custom checklist built through the manager, exact checklist and descriptions shown, no upload section for a service without documents, a required document blocks submission until uploaded, the upload requests carry exactly the checklist ids; flipping a document to Optional lets the booking through); layout at 375px.
+- Local booking uploads use a mocked storage object and `appointment_documents` POST (the local database has neither the `appointment-documents` bucket nor policies on that table); the appointment itself is real.
+- Full local suite: 170 tests, 170 passed (previously 154). `tsc -b` clean; eslint clean on every touched file (two pre-existing errors in files I edited were fixed: an unused `_requirementId` in `DocumentUploader` and an `any` cast in `EditChurchPage`).
+- Migration rehearsal on the local database: applied once (backfilled); deleting a Death Certificate and re-running the file left it deleted ("already applied"); the verify SQL returned every `ok` true except check 2 after that deliberate deletion (expected, noted in the file header).
+
+### Deviations
+- Added the FK change above (not in the ticket text). If production should stay untouched there, drop that section of the migration; deleting a document that has uploads then fails with a raw FK error.
+- The pre-existing "Skip for Testing" checkbox on the booking form still bypasses the required-document check (out of scope, flagged).
+- Deleting a document is confirmed inline (not in the ticket).

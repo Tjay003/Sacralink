@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDocumentsManager';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
 
@@ -43,6 +44,8 @@ export default function EditChurchPage() {
     const [success, setSuccess] = useState('');
 
     const isSuperAdmin = profile?.role === 'super_admin';
+    // Services & Documents: the parish church admin, admin and super admin (row level security is the real guard)
+    const canManageServices = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin';
 
     // Form state
     const [formData, setFormData] = useState({
@@ -98,7 +101,7 @@ export default function EditChurchPage() {
         if (church) {
             setFormData({
                 name: church.name || '',
-                patron_saint: (church as any).patron_saint || church.name || '',
+                patron_saint: (church as { patron_saint?: string | null }).patron_saint || church.name || '',
                 address: church.address || '',
                 contact_number: church.contact_number || '',
                 email: church.email || '',
@@ -951,6 +954,9 @@ export default function EditChurchPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* 7. Services & Documents Card */}
+                        {canManageServices && id && <ServicesAndDocumentsManager churchId={id} />}
 
                     </div>
 

@@ -6,7 +6,7 @@
 - [x] `03-presiding-priest-liturgy-visibility.md`
 - [x] `04-church-clergy-roster-and-status.md`
 - [x] `05-booking-celebrant-pool-check.md`
-- [ ] `06-customizable-sacrament-requirements-and-funeral.md`
+- [x] `06-customizable-sacrament-requirements-and-funeral.md`
 - [x] `07-hide-raw-coordinates-on-church-page.md`
 - [x] `08-fix-livestream-toggle-switch-overlap.md`
 - [x] `09-parish-office-inquiry-modal-and-routing.md`
@@ -24,7 +24,7 @@
 3. `03-presiding-priest-liturgy-visibility.md` (Type: feature, Status: resolved, Blocked by: 12)
 4. `04-church-clergy-roster-and-status.md` (Type: feature, Status: resolved, Blocked by: 12, 03; its church-page UI was removed by 14, the RPC and hook remain)
 5. `05-booking-celebrant-pool-check.md` (Type: feature, Status: resolved, Blocked by: 12)
-6. `06-customizable-sacrament-requirements-and-funeral.md` (Type: feature, Status: ready-for-agent, Blocked by: 16)
+6. `06-customizable-sacrament-requirements-and-funeral.md` (Type: feature, Status: built-pending-production, migration 057 not yet applied to production, Blocked by: 16)
 7. `07-hide-raw-coordinates-on-church-page.md` (Type: bug, Status: resolved)
 8. `08-fix-livestream-toggle-switch-overlap.md` (Type: bug, Status: resolved)
 9. `09-parish-office-inquiry-modal-and-routing.md` (Type: feature, Status: resolved)
@@ -50,3 +50,4 @@
 - Ticket 14 (2026-10-21): Tyrone rejected the public Parish Clergy cards, so the church page no longer shows a clergy roster, "Book with Father" or roster-driven priest lines (header, quick facts and Pastor of record are back to the staff lookup, hidden when no priest). Priests surface at booking instead as an optional, non-binding request (ticket 15, deliberately reversing 05's "no priest picker"). `get_parish_clergy`, `useParishClergy` and `celebrantLabel` stay for 03 and 15.
 - Ticket 15 shipped (web, local only): optional "Preferred priest" at booking (`appointments.requested_priest_id`, migration 055 with a same-parish trigger and an `approve_appointment` message that tells the parishioner when the requested priest could not be assigned). Non-blocking warning from `evaluate_parish_celebrants` without any reason; approval modal pre-selects and labels the request; chip shown to office, priest and parishioner. Migration 055 still has to be applied to production. See the ticket Resolution.
 - Ticket 16 shipped (web, local only): every parish owns its list of services (`church_service_types`, migration 056) seeded with the six starters; appointments and checklists link by id (`service_type_id`) while the text columns stay in step for mobile; rename follows everywhere, hide and soft delete keep history, old clients are auto-linked by trigger. The booking form lists the parish's own visible services with descriptions. The management UI is ticket 06, which can now start. The migration backfills production rows and has a read-only before and verify SQL under `supabase/verify`. See the ticket Resolution.
+- Ticket 06 shipped (web, local only): "Services & Documents" card in Edit Church (`ServicesAndDocumentsManager`) for the parish church admin, admin and super admin: add, rename, describe, reorder, hide and delete services (soft rule from 16, with the appointments confirmation) and add, edit, reorder and delete each service's documents (Required/Optional). Funeral now ships with a required Death Certificate (seeder for new parishes and applications; migration 057 backfills existing parishes whose Funeral has no checklist, once). Booking shows the saved checklist with the document descriptions and blocks until required files are attached. Migration 057 also makes `appointment_documents.requirement_id` ON DELETE SET NULL so a document with uploads can be deleted. Read-only before/verify SQL under `supabase/verify/057_*`. See the ticket Resolution.

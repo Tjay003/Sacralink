@@ -5,6 +5,7 @@ interface DocumentUploaderProps {
     requirementId: string;
     requirementName: string;
     isRequired: boolean;
+    description?: string | null;
     allowedFileTypes?: string[];
     onFileSelect: (file: File) => void;
     onFileRemove: () => void;
@@ -13,9 +14,9 @@ interface DocumentUploaderProps {
 }
 
 export default function DocumentUploader({
-    requirementId: _requirementId,
     requirementName,
     isRequired,
+    description,
     allowedFileTypes = ['pdf', 'jpg', 'jpeg', 'png'],
     onFileSelect,
     onFileRemove,
@@ -117,6 +118,7 @@ export default function DocumentUploader({
                 {requirementName}
                 {isRequired && <span className="text-red-500 ml-1">*</span>}
             </label>
+            {description && <p className="text-xs text-gray-500">{description}</p>}
 
             {!uploadedFile ? (
                 <div

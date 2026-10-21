@@ -21,6 +21,21 @@ export async function getRequirementsForService(serviceTypeId: string) {
 }
 
 /**
+ * Fetch the checklists of every service of a parish in one query (the Services & Documents manager)
+ */
+export async function getRequirementsForChurch(churchId: string) {
+    const { data, error } = await supabase
+        .from('sacrament_requirements')
+        .select('*')
+        .eq('church_id', churchId)
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data as SacramentRequirement[];
+}
+
+/**
  * Create a new requirement
  */
 export async function createRequirement(requirement: InsertSacramentRequirement) {
@@ -76,6 +91,9 @@ const DEFAULT_CHECKLISTS: Record<string, Array<{ name: string; required: boolean
         { name: 'Confirmation Certificate', required: true },
         { name: 'CENOMAR (Certificate of No Marriage)', required: true },
         { name: 'Pre-Cana Certificate', required: true },
+    ],
+    funeral: [
+        { name: 'Death Certificate', required: true },
     ],
     confirmation: [
         { name: 'Baptismal Certificate', required: true },

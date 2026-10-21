@@ -801,6 +801,7 @@ export default function BookAppointmentPage() {
                                         requirementId={req.id}
                                         requirementName={req.requirement_name}
                                         isRequired={Boolean(req.is_required)}
+                                        description={req.description}
                                         allowedFileTypes={req.allowed_file_types || undefined}
                                         onFileSelect={(file) => handleFileSelect(req.id, file)}
                                         onFileRemove={() => handleFileRemove(req.id)}
