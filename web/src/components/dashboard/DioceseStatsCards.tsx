@@ -113,7 +113,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
         : '0.0';
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Churches */}
             <StatCard
                 title="Total Churches"
@@ -127,7 +127,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 iconBgColor="bg-blue-100"
                 iconColor="text-blue-600"
                 gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                gradientTo="to-blue-500"
                 gradientDirection="to-br"
                 loading={loading}
             />
@@ -144,8 +144,8 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 }}
                 iconBgColor="bg-purple-100"
                 iconColor="text-purple-600"
-                gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                gradientFrom="from-purple-600"
+                gradientTo="to-indigo-600"
                 gradientDirection="to-tr"
                 loading={loading}
             />
@@ -160,10 +160,10 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                     isUp: true,
                     label: 'Upcoming appointments'
                 }}
-                iconBgColor="bg-yellow-100"
-                iconColor="text-yellow-600"
-                gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                iconBgColor="bg-amber-100"
+                iconColor="text-amber-600"
+                gradientFrom="from-amber-500"
+                gradientTo="to-amber-600"
                 gradientDirection="to-bl"
                 loading={loading}
             />
@@ -178,10 +178,10 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                     isUp: true,
                     label: 'Completed & approved rites'
                 }}
-                iconBgColor="bg-amber-100"
-                iconColor="text-amber-600"
-                gradientFrom="from-amber-600"
-                gradientTo="to-amber-400"
+                iconBgColor="bg-emerald-100"
+                iconColor="text-emerald-600"
+                gradientFrom="from-emerald-600"
+                gradientTo="to-teal-600"
                 gradientDirection="to-br"
                 loading={loading}
             />
@@ -198,8 +198,8 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 }}
                 iconBgColor="bg-emerald-100"
                 iconColor="text-emerald-600"
-                gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                gradientFrom="from-purple-600"
+                gradientTo="to-blue-500"
                 gradientDirection="to-tl"
                 loading={loading}
             /> */}

@@ -64,3 +64,20 @@ export async function getChurchFollowerIds(churchId: string): Promise<string[]> 
 
     return (data || []).map((row: any) => row.user_id);
 }
+
+/**
+ * Get all church IDs favorited by a user.
+ */
+export async function getUserFavoriteChurchIds(userId: string): Promise<string[]> {
+    const { data, error } = await supabase
+        .from('church_favorites')
+        .select('church_id')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching user favorite churches:', error);
+        return [];
+    }
+
+    return (data || []).map((row: any) => row.church_id);
+}

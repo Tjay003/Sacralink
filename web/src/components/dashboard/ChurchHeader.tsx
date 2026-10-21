@@ -64,12 +64,10 @@ export default function ChurchHeader({ churchId, onNewAnnouncement }: ChurchHead
     }
 
     return (
-        <div className="relative rounded-3xl bg-gradient-to-r from-blue-50/60 via-white via-50% to-amber-50/70 border border-border/80 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
-            {/* Subtle Faith Blue ambient radiant glow on top-left */}
-            <div className="absolute -top-16 -left-16 w-72 h-72 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
-
-            {/* Subtle Sacred Gold ambient radiant glow on top-right */}
-            <div className="absolute -top-16 -right-16 w-80 h-80 bg-amber-100/50 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
+            {/* Ambient Faith Blue and Sacred Gold glows (2x richness) */}
+            <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl pointer-events-none" />
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 {/* Left Info Column */}

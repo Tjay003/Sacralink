@@ -73,10 +73,10 @@ export default function VolunteerDashboard({ churchId }: VolunteerDashboardProps
             <SystemAnnouncementsBanner />
 
             {/* Light SacraLink Liturgical Header for Volunteers */}
-            <section className="relative rounded-3xl bg-gradient-to-r from-blue-50/60 via-white via-50% to-amber-50/70 border border-border/80 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
-                {/* Ambient Faith Blue and Sacred Gold glows */}
-                <div className="absolute -top-16 -left-16 w-72 h-72 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -top-16 -right-16 w-80 h-80 bg-amber-100/50 rounded-full blur-3xl pointer-events-none" />
+            <section className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
+                {/* Ambient Faith Blue and Sacred Gold glows (2x richness) */}
+                <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative z-10">
                     {/* Top Row: Liturgical Season & Vestment Badges */}

@@ -93,8 +93,8 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 }}
                 iconBgColor="bg-purple-100"
                 iconColor="text-purple-600"
-                gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                gradientFrom="from-purple-600"
+                gradientTo="to-indigo-600"
                 gradientDirection="to-tr"
                 loading={loading}
             />
@@ -109,10 +109,10 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                     isUp: false,
                     label: stats.pending > 0 ? 'Urgent attention' : 'All clear',
                 }}
-                iconBgColor="bg-yellow-100"
-                iconColor="text-yellow-600"
-                gradientFrom="from-amber-600"
-                gradientTo="to-amber-400"
+                iconBgColor="bg-emerald-100"
+                iconColor="text-emerald-600"
+                gradientFrom="from-emerald-600"
+                gradientTo="to-teal-600"
                 gradientDirection="to-br"
                 loading={loading}
             />
@@ -130,7 +130,7 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 iconBgColor="bg-blue-100"
                 iconColor="text-blue-600"
                 gradientFrom="from-blue-600"
-                gradientTo="to-blue-400"
+                gradientTo="to-blue-500"
                 gradientDirection="to-bl"
                 loading={loading}
             />

@@ -1,41 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import DailyVerse from '../../components/dashboard/DailyVerse';
-import StatCard from '../../components/dashboard/StatCard';
-import ChurchSelector from '../../components/dashboard/ChurchSelector';
-import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
-import { Calendar, Clock, MapPin, BarChart3 } from 'lucide-react';
-import { format } from 'date-fns';
-import RescheduledNotice from '../../components/appointments/RescheduledNotice';
-import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
-import { isFeatureEnabled } from '../../config/featureFlags';
 import { useChurches } from '../../hooks/useChurches';
 import {
     getAppointments,
     subscribeToAppointments,
     type HydratedAppointment as Appointment,
 } from '../../lib/supabase/appointments';
+import { getUserFavoriteChurchIds } from '../../lib/supabase/churchFavorites';
+import UserGreetingBanner from '../../components/dashboard/user/UserGreetingBanner';
+import UserQuickActions from '../../components/dashboard/user/UserQuickActions';
+import UserNextAppointmentCard from '../../components/dashboard/user/UserNextAppointmentCard';
+import UserOtherAppointmentsCard from '../../components/dashboard/user/UserOtherAppointmentsCard';
+import UserHomeParishCard from '../../components/dashboard/user/UserHomeParishCard';
+import UserAnnouncementsCard from '../../components/dashboard/user/UserAnnouncementsCard';
+import DailyVerse from '../../components/dashboard/DailyVerse';
+import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 
 /**
- * UserDashboard - Dashboard for normal users (non-admin)
- * 
- * Shows:
- * - Daily Bible Verse
- * - Upcoming Appointments (Approved)
- * - Pending Requests status
- * - Quick Actions
+ * UserDashboard - Simplified Bento-grid Dashboard for Parishioners / Users.
+ * Designed with high legibility, clean light mode ("Apple meets The Vatican"),
+ * and zero emojis (Lucide icons only).
  */
 export default function UserDashboard() {
     const { profile } = useAuth();
     const navigate = useNavigate();
     const { churches } = useChurches();
+
     const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [favoriteChurchIds, setFavoriteChurchIds] = useState<string[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
 
-    // Load selected church from localStorage
+    // Parish Inquiry Modal state
+    const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
+    const [inquiryChurchId, setInquiryChurchId] = useState<string | null>(null);
+    const [inquiryChurchName, setInquiryChurchName] = useState<string | undefined>(undefined);
+
+    // Load saved church or pick the first favorite / first available church
     useEffect(() => {
         const saved = localStorage.getItem('selectedChurchId');
         if (saved) {
@@ -43,41 +44,73 @@ export default function UserDashboard() {
         }
     }, []);
 
-    // Save selected church to localStorage
+    // Fetch user favorite churches
     useEffect(() => {
-        if (selectedChurchId) {
-            localStorage.setItem('selectedChurchId', selectedChurchId);
-        } else {
-            localStorage.removeItem('selectedChurchId');
-        }
-    }, [selectedChurchId]);
+        if (!profile?.id) return;
+        let cancelled = false;
 
-    const fetchAppointments = async () => {
-        if (!profile) return;
+        async function loadFavorites() {
+            try {
+                const ids = await getUserFavoriteChurchIds(profile!.id);
+                if (!cancelled) {
+                    setFavoriteChurchIds(ids);
+                    // If no church currently selected, default to the first favorite
+                    setSelectedChurchId(current => {
+                        if (current) return current;
+                        if (ids.length > 0) return ids[0];
+                        return null;
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading favorite churches:', err);
+            }
+        }
+
+        loadFavorites();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id]);
+
+    // Fallback: if still no selected church but churches list loaded, pick the first church
+    useEffect(() => {
+        if (!selectedChurchId && churches.length > 0) {
+            setSelectedChurchId(churches[0].id);
+        }
+    }, [selectedChurchId, churches]);
+
+    // Save selected church to localStorage
+    const handleSelectChurch = useCallback((churchId: string) => {
+        setSelectedChurchId(churchId);
+        localStorage.setItem('selectedChurchId', churchId);
+    }, []);
+
+    // Fetch appointments for this user
+    const fetchAppointments = useCallback(async () => {
+        if (!profile?.id) return;
 
         try {
             const { data, error } = await getAppointments({
                 userId: profile.id,
-                upcomingOnly: true,
-                excludeRejected: true,
+                upcomingOnly: false,
+                excludeRejected: false,
                 orderBy: 'appointment_date',
                 ascending: true,
-                limit: 5,
+                limit: 10,
             });
 
             if (error) throw error;
             setAppointments(data || []);
         } catch (err) {
             console.error('Error fetching user appointments:', err);
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [profile?.id]);
 
     useEffect(() => {
         fetchAppointments();
 
-        if (!profile) return;
+        if (!profile?.id) return;
 
         const unsubscribe = subscribeToAppointments({ userId: profile.id }, () => {
             fetchAppointments();
@@ -86,164 +119,99 @@ export default function UserDashboard() {
         return () => {
             unsubscribe();
         };
-    }, [profile]);
+    }, [profile?.id, fetchAppointments]);
 
-    const upcomingCount = appointments.filter(a => a.status === 'approved').length;
-    const pendingCount = appointments.filter(a => a.status === 'pending').length;
+    // Open Parish Office ticket / inquiry modal
+    const handleOpenInquiry = (churchId: string, churchName?: string | null) => {
+        setInquiryChurchId(churchId);
+        setInquiryChurchName(churchName || undefined);
+        setInquiryModalOpen(true);
+    };
 
-    // Find selected church name
-    const selectedChurch = churches.find(c => c.id === selectedChurchId);
+    const handleInquirySuccess = (conversationId: string) => {
+        setInquiryModalOpen(false);
+        navigate(`/messages?conversation=${conversationId}`);
+    };
+
+    // Find current home church object
+    const selectedChurch = churches.find(c => c.id === selectedChurchId) || (churches.length > 0 ? churches[0] : null);
+
+    // Filter appointments into "Next Appointment" (hero) and "Other Appointments"
+    const todayStr = new Date().toISOString().split('T')[0];
+    const upcomingAppointments = appointments.filter(a => {
+        const status = a.status as string;
+        return a.appointment_date >= todayStr && status !== 'cancelled' && status !== 'completed' && status !== 'celebrated';
+    });
+
+    const nextAppointment = upcomingAppointments.length > 0
+        ? upcomingAppointments[0]
+        : (appointments.length > 0 ? appointments[0] : null);
+
+    const otherAppointments = appointments.filter(a => a.id !== nextAppointment?.id);
 
     return (
         <div className="space-y-6">
-            {/* System Announcements Banner */}
-            <SystemAnnouncementsBanner />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Welcome & Appointments */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Welcome Section */}
-                    <div className="rounded-lg shadow-sm p-6 bg-gradient-to-r from-blue-600 to-blue-400 text-white border-none">
-                        <h1 className="text-2xl font-bold mb-2">
-                            Welcome, {profile?.full_name?.split(' ')[0] || 'User'}!
-                        </h1>
-                        <p className="text-blue-100 opacity-90">
-                            You have <span className="font-bold text-white">{upcomingCount}</span> upcoming appointments and <span className="font-bold text-white">{pendingCount}</span> pending requests.
-                        </p>
-                    </div>
+            {/* 1. Full-width Liturgical Greeting Banner across the entire dashboard */}
+            <UserGreetingBanner
+                userName={profile?.full_name}
+                churchName={selectedChurch?.name}
+            />
 
-                    {/* Church Selector */}
-                    <ChurchSelector
-                        selectedChurchId={selectedChurchId}
-                        onChurchSelect={setSelectedChurchId}
+            {/* Bento Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left 2 Columns: Quick Actions, Next Appointment, Other Appointments */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* 2. Quick Action Cards (Book, Schedules, Watch Live) */}
+                    <UserQuickActions
+                        churchId={selectedChurch?.id}
                     />
 
-                    {/* Church Announcements Widget */}
-                    {selectedChurchId && (
-                        <ChurchAnnouncementsWidget
-                            churchId={selectedChurchId}
-                            churchName={selectedChurch?.name}
-                        />
-                    )}
+                    {/* 3. Your next appointment (State A highlight box, View details, Message Office) */}
+                    <UserNextAppointmentCard
+                        appointment={nextAppointment}
+                        onMessageOffice={handleOpenInquiry}
+                    />
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <StatCard
-                            title="Upcoming Appointments"
-                            value={upcomingCount}
-                            icon={Calendar}
-                            trend={undefined}
-                            iconBgColor="bg-blue-100"
-                            iconColor="text-blue-600"
-                            gradientFrom="from-blue-600"
-                            gradientTo="to-blue-400"
-                            gradientDirection="to-br"
-                        />
+                    {/* 4. Other appointments */}
+                    <UserOtherAppointmentsCard
+                        appointments={otherAppointments}
+                    />
 
-                        <StatCard
-                            title="Pending Requests"
-                            value={pendingCount}
-                            icon={Clock}
-                            trend={undefined}
-                            iconBgColor="bg-yellow-100"
-                            iconColor="text-yellow-600"
-                            gradientFrom="from-blue-600"
-                            gradientTo="to-blue-400"
-                            gradientDirection="to-tr"
-                        />
-
-                        <StatCard
-                            title="Total Bookings"
-                            value={appointments.length}
-                            icon={BarChart3}
-                            trend={undefined}
-                            iconBgColor="bg-emerald-100"
-                            iconColor="text-emerald-600"
-                            gradientFrom="from-blue-600"
-                            gradientTo="to-blue-400"
-                            gradientDirection="to-bl"
-                        />
-                    </div>
-
-                    {/* Upcoming Appointments */}
-                    {isFeatureEnabled('userUpcomingAppointments') && (
-                        <div className="card p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-lg font-semibold flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-primary" />
-                                    Upcoming Appointments
-                                </h2>
-                                <button
-                                    onClick={() => navigate('/appointments')}
-                                    className="text-sm text-primary hover:underline"
-                                >
-                                    View All
-                                </button>
-                            </div>
-
-                            <div className="space-y-4">
-                                {loading ? (
-                                    <p className="text-muted text-center py-4">Loading appointments...</p>
-                                ) : appointments.length > 0 ? (
-                                    appointments.map(app => (
-                                        <div key={app.id} className="flex items-start p-4 bg-gray-50 rounded-lg border border-gray-100">
-                                            {/* Date Box */}
-                                            <div className="flex-shrink-0 w-16 text-center bg-white rounded-md border border-gray-200 shadow-sm overflow-hidden mr-4">
-                                                <div className="bg-primary-50 text-primary-800 text-xs font-bold py-1 uppercase">
-                                                    {format(new Date(app.appointment_date), 'MMM')}
-                                                </div>
-                                                <div className="text-xl font-bold text-gray-800 py-1">
-                                                    {format(new Date(app.appointment_date), 'dd')}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex-grow">
-                                                <div className="flex justify-between items-start">
-                                                    <h3 className="font-semibold text-lg text-gray-900">{app.service_type}</h3>
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize
-                                                        ${app.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                        {app.status}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center text-sm text-muted mt-1 gap-4">
-                                                    <div className="flex items-center">
-                                                        <Clock className="w-3 h-3 mr-1" />
-                                                        {app.appointment_time}
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <MapPin className="w-3 h-3 mr-1" />
-                                                        {app.church?.name}
-                                                    </div>
-                                                </div>
-                                                <RescheduledNotice appointment={app} className="mt-2" />
-                                                <RequestedPriestNote appointment={app} className="mt-2" />
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-muted">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <Calendar className="w-6 h-6 text-gray-400" />
-                                        </div>
-                                        <p>No upcoming appointments found.</p>
-                                        <button
-                                            onClick={() => navigate('/churches')}
-                                            className="mt-2 text-primary hover:underline text-sm"
-                                        >
-                                            Browse churches to book one
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    {/* 5. News and Announcements in row format aligned with the left column */}
+                    <UserAnnouncementsCard
+                        churchId={selectedChurch?.id}
+                        churchName={selectedChurch?.name}
+                    />
                 </div>
 
-                {/* Right Column: Verse */}
+                {/* Right Column: Home Parish & Daily Verse */}
                 <div className="space-y-6">
-                    <DailyVerse />
+                    {/* 6. My Home Parish Card with schedule and favorites dropdown */}
+                    <UserHomeParishCard
+                        church={selectedChurch}
+                        allChurches={churches}
+                        favoriteChurchIds={favoriteChurchIds}
+                        onSelectChurch={handleSelectChurch}
+                    />
+
+                    {/* 7. Daily Verse (Warm amber parchment card) */}
+                    <DailyVerse variant="parchment" />
                 </div>
             </div>
+
+            {/* Parish Inquiry Modal */}
+            {profile && (
+                <ParishInquiryModal
+                    isOpen={inquiryModalOpen}
+                    onClose={() => setInquiryModalOpen(false)}
+                    churchId={inquiryChurchId}
+                    churchName={inquiryChurchName}
+                    userId={profile.id}
+                    parishOptions={churches.map(c => ({ id: c.id, name: c.name }))}
+                    defaultChurchId={selectedChurch?.id}
+                    onSuccess={handleInquirySuccess}
+                />
+            )}
         </div>
     );
 }

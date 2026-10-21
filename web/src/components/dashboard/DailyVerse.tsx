@@ -77,18 +77,18 @@ export default function DailyVerse({
 
     if (variant === 'parchment') {
         return (
-            <div className={`rounded-2xl p-6 bg-amber-50/70 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between h-full ${className || ''}`}>
+            <div className={`rounded-2xl p-6 bg-amber-50/70 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between ${className || ''}`}>
                 {/* Background Cross / Book Watermark */}
                 <div className="absolute -top-4 -right-4 p-4 opacity-5 pointer-events-none text-amber-900">
                     <BookOpen className="w-36 h-36" />
                 </div>
 
-                <div className="relative z-10 flex flex-col justify-between h-full">
+                <div className="relative z-10 flex flex-col justify-between">
                     <div>
                         {/* Header */}
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <span className="text-base">📖</span>
+                                <BookOpen className="w-4 h-4 text-amber-800" />
                                 <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
                                     DAILY VERSE
                                 </span>
@@ -143,13 +143,13 @@ export default function DailyVerse({
 
     // Default 'blue' variant
     return (
-        <div className={`rounded-2xl shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden flex flex-col justify-between h-full ${className || ''}`}>
+        <div className={`rounded-2xl shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden flex flex-col justify-between ${className || ''}`}>
             {/* Background Pattern */}
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                 <BookOpen className="w-32 h-32" />
             </div>
 
-            <div className="relative z-10 flex flex-col justify-between h-full">
+            <div className="relative z-10 flex flex-col justify-between">
                 <div>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2 text-white/80">

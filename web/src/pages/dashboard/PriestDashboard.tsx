@@ -501,10 +501,10 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
     return (
         <div className="space-y-6">
             {/* Clergy Welcome Header */}
-            <section className="relative rounded-3xl bg-gradient-to-r from-blue-50/60 via-white via-50% to-amber-50/70 border border-border/80 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
-                {/* Faith Blue and Sacred Gold ambient glows, matching the church admin header */}
-                <div className="absolute -top-16 -left-16 w-72 h-72 bg-blue-100/40 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -top-16 -right-16 w-80 h-80 bg-amber-100/50 rounded-full blur-3xl pointer-events-none" />
+            <section className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
+                {/* Faith Blue and Sacred Gold ambient glows (2x richness) */}
+                <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                     <div className="space-y-3 min-w-0">
@@ -1187,13 +1187,24 @@ interface StatTileProps {
     caption: string;
     icon: LucideIcon;
     iconClass: string;
+    gradient?: string;
 }
 
-// Same hover treatment as StatCard: Faith Blue gradient fades in, content turns white
-function StatTile({ label, value, caption, icon: Icon, iconClass }: StatTileProps) {
+// Dynamic hover treatment matching icon accent (amber for presiding, blue for this week, emerald for celebrated)
+function StatTile({ label, value, caption, icon: Icon, iconClass, gradient }: StatTileProps) {
+    const hoverGradient = gradient || (() => {
+        if (iconClass.includes('amber') || iconClass.includes('yellow')) {
+            return 'from-amber-500 to-amber-600';
+        }
+        if (iconClass.includes('emerald') || iconClass.includes('green')) {
+            return 'from-emerald-600 to-teal-600';
+        }
+        return 'from-blue-600 to-blue-500';
+    })();
+
     return (
         <div className="group relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm hover:shadow-md transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className={"absolute inset-0 bg-gradient-to-br " + hoverGradient + " opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"} />
             <div className="relative z-10">
                 <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-medium text-secondary-600 group-hover:text-white/90 transition-colors duration-300">

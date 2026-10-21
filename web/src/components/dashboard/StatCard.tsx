@@ -41,6 +41,28 @@ export default function StatCard({
 
     const isInteractive = isActive;
 
+    // Determine dynamic hover gradient based on explicit props or iconColor
+    const { fromGradient, toGradient } = (() => {
+        // If an explicit non-default gradient was passed, honor it
+        if (gradientFrom && gradientTo && gradientFrom !== 'from-blue-600') {
+            return { fromGradient: gradientFrom, toGradient: gradientTo };
+        }
+        // Match card hover color with its icon theme
+        if (iconColor?.includes('purple')) {
+            return { fromGradient: 'from-purple-600', toGradient: 'to-indigo-600' };
+        }
+        if (iconColor?.includes('yellow') || iconColor?.includes('amber')) {
+            return { fromGradient: 'from-amber-500', toGradient: 'to-amber-600' };
+        }
+        if (iconColor?.includes('emerald') || iconColor?.includes('green')) {
+            return { fromGradient: 'from-emerald-600', toGradient: 'to-teal-600' };
+        }
+        if (iconColor?.includes('rose') || iconColor?.includes('red')) {
+            return { fromGradient: 'from-rose-600', toGradient: 'to-rose-500' };
+        }
+        return { fromGradient: gradientFrom || 'from-blue-600', toGradient: gradientTo || 'to-blue-500' };
+    })();
+
     // Map gradient direction to full Tailwind class
     const gradientClass = (() => {
         switch (gradientDirection) {
@@ -61,7 +83,7 @@ export default function StatCard({
                 rounded-2xl p-6 shadow-sm border transition-all duration-300 relative overflow-hidden
                 ${onClick ? 'cursor-pointer' : ''}
                 ${isActive
-                    ? `${gradientClass} ${gradientFrom} ${gradientTo} border-transparent text-white shadow-lg`
+                    ? `${gradientClass} ${fromGradient} ${toGradient} border-transparent text-white shadow-lg`
                     : 'bg-white border-gray-100 hover:shadow-md'
                 }
                 group
@@ -70,8 +92,8 @@ export default function StatCard({
             {/* Hover gradient overlay */}
             {!isActive && (
                 <div className={`
-                    absolute inset-0 ${gradientClass} ${gradientFrom} ${gradientTo} 
-                    opacity-0 group-hover:opacity-100 transition-opacity duration-300
+                    absolute inset-0 ${gradientClass} ${fromGradient} ${toGradient} 
+                    opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none
                 `} />
             )}
 

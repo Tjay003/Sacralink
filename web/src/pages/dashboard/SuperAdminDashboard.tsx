@@ -116,9 +116,10 @@ export default function SuperAdminDashboard() {
             {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsBanner />}
 
             {/* Super Admin Welcome & Operations Card */}
-            <div className="relative rounded-2xl bg-gradient-to-r from-blue-50/50 via-white via-45% to-amber-100/60 border border-amber-200/60 shadow-sm p-6 sm:p-7 z-20">
-                {/* Subtle Vatican Gold Radiant Glow on the Right Side */}
-                <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-amber-200/25 via-amber-100/10 to-transparent pointer-events-none rounded-r-2xl" />
+            <div className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 overflow-hidden z-20">
+                {/* Ambient Faith Blue and Sacred Gold glows (2x richness) */}
+                <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
                     {/* Left Column: Liturgical tag + Heading + Subtitle */}
