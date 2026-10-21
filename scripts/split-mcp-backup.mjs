@@ -18,7 +18,7 @@ if (start < 0 || end < 0) throw new Error('Could not find the JSON rows in the s
 const [row] = JSON.parse(body.slice(start, end + 2));
 
 const { schema_sql, functions_sql, data_sql, auth_users, expected_counts } = row;
-for (const [k, v] of Object.entries({ schema_sql, functions_sql, data_sql, auth_users, expected_counts })) {
+for (const [k, v] of Object.entries({ schema_sql, functions_sql, data_sql, expected_counts })) {
   if (v == null) throw new Error(`Column ${k} is empty; the backup would be incomplete.`);
 }
 
@@ -87,7 +87,7 @@ writeFileSync(
   ].join('\n'),
 );
 
-writeFileSync(join(outDir, 'auth_users.json'), JSON.stringify(auth_users, null, 2));
+if (auth_users) writeFileSync(join(outDir, 'auth_users.json'), JSON.stringify(auth_users, null, 2));
 
 // ---- verification against the counts the database reported ----
 const inserts = {};
@@ -105,7 +105,18 @@ for (const [table, expected] of Object.entries(expected_counts)) {
 const count = (re, text) => (text.match(re) || []).length;
 console.log(`schema: ${count(/^CREATE TABLE /gm, structure)} tables, ${count(/^CREATE POLICY /gm, policies)} policies, ${count(/^CREATE OR REPLACE FUNCTION /gm, functions_sql)} functions, ${count(/^CREATE TRIGGER /gm, functions_sql)} triggers`);
 console.log(`data: ${Object.keys(inserts).length} tables with rows, ${Object.values(inserts).reduce((a, b) => a + b, 0)} rows in total`);
-console.log(`auth users listed: ${auth_users.length} (password hashes deliberately not exported)`);
+if (auth_users) console.log(`auth users listed: ${auth_users.length} (password hashes deliberately not exported)`);
+writeFileSync(
+  join(outDir, 'MANIFEST.txt'),
+  [
+    `Backup taken ${stamp}`,
+    `Schema: ${count(/^CREATE TABLE /gm, structure)} tables, ${count(/^CREATE POLICY /gm, policies)} policies, ${count(/^CREATE OR REPLACE FUNCTION /gm, functions_sql)} functions, ${count(/^CREATE TRIGGER /gm, functions_sql)} triggers`,
+    'Rows saved:',
+    ...Object.entries(inserts).map(([t, n]) => `  ${t}: ${n}`),
+    ok ? 'Verified: every saved row count matched the database.' : 'NOT VERIFIED: row counts did not match.',
+    '',
+  ].join('\n'),
+);
 if (!ok) {
   console.error('Row counts do not match. Do not rely on this backup.');
   process.exit(2);
