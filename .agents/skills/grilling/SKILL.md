@@ -5,24 +5,23 @@ description: Grill the user relentlessly about a plan, decision, or idea. Use wh
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
+### One Question at a Time (STRICT RULE)
+Always ask **exactly ONE question per turn**. Never batch, list, or bundle multiple questions together.
 
-Format a round like so:
+1. **Pick the highest-leverage decision**: Identify the open frontier of decisions whose prerequisites are settled, and choose the single most foundational question to ask first.
+2. **Always Use the Interactive `ask_question` Tool**:
+   - Deliver the question by invoking the native `ask_question` tool. This launches the interactive keyboard-driven modal with Up (↑) and Down (↓) arrow-key navigation.
+   - List distinct, user-directed response options.
+   - Always list your recommended option first and prefix it with `(Recommended)`.
+   - Do NOT print questions as plain markdown chat text; calling `ask_question` is mandatory.
+3. **STOP and WAIT**: Immediately end your turn. Do NOT ask a second question, do NOT provide follow-up questions in the same message, and do NOT speculate on downstream choices until the user has answered this specific question.
 
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+### Adaptive Progression
+Once the user answers that single question, that decision is settled:
+1. It immediately reshapes the design tree and unblocks downstream decisions.
+2. Re-evaluate the new frontier and ask the **next single question** using `ask_question`.
+3. Never rush ahead to implementation or ask multiple downstream questions in advance.
 
-➡️ <your recommended answer>
+Finding _facts_ is your job, never the user's. When a question needs a fact from the environment (filesystem, code, tools, etc.), search or dispatch a sub-agent to find it first; don't ask the user for anything you can discover yourself.
 
----
-
-❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
-
-➡️ <your recommended answer>
-```
-
-Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
-
-Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it; don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report; ask the rest of the frontier now. The _decisions_ are the user's: put each to them and wait.
-
-The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.
+The session is done when the frontier is empty: every branch of the design tree is visited, and nothing is left silently assumed. Do not act on implementation until the user confirms you have reached a shared understanding.

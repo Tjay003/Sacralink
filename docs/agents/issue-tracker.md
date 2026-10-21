@@ -10,6 +10,12 @@ Issues, specs, and task tickets for this repo live entirely as markdown files in
 - Triage state is recorded as a `Status:` header line near the top of each issue file (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`, `claimed`, `resolved`).
 - Comments and discussion append to the bottom of the file under a `## Comments` heading.
 
+## Archiving finished efforts
+
+- Archive a whole effort, never a single ticket. Move `.scratch/<feature-slug>/` to `.scratch/archive/<feature-slug>/` only when **every** ticket in it has `Status: resolved` (or `wontfix`).
+- Leave resolved tickets in place while any ticket in their effort is still open. "Blocked by" and frontier scans look for blocker files in the same `issues/` folder, so moving one early makes its dependents look permanently blocked.
+- Archived efforts stay in git and are still worth reading for past decisions and resolutions. Skills skip `.scratch/archive/` when looking for open work.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a new markdown ticket file under `.scratch/<feature-slug>/issues/` (creating directories if needed).

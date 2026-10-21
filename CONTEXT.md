@@ -14,6 +14,12 @@
 - **Super Admin**: System-wide administrator with full privileges over all churches, user roles, and system announcements.
 - **Sacrament / Service**: Religious rites and services offered by parishes (Baptism, Confirmation, Matrimony, Mass Intention, Funeral/Burial, Anointing, Blessing).
 - **Appointment / Booking**: A request submitted by a parishioner for a sacrament or service on a given schedule.
+- **Celebrant**: The priest who presides at an approved appointment. An appointment has at most one celebrant, and the parish office may change it after approval. _Avoid_: Officiant, assigned priest.
+- **Reschedule**: Moving an approved appointment to a new date or time. It stays approved and carries a visible rescheduled notice with the reason, so the change is never mistaken for an error. _Avoid_: treating "rescheduled" as a status.
+- **Appointment Change**: One recorded edit to an approved appointment (reschedule, celebrant change, cancellation or marking it celebrated), with who made it, when, and why. Together these form the appointment's change history. _Avoid_: Log, audit entry.
+- **Celebrated**: An approved appointment whose rite has taken place. Its celebrant or the parish office marks it. _Avoid_: Completed, done, finished.
+- **Cancelled**: An approved appointment that will no longer take place, ended by the parish office with a reason. _Avoid_: Rejected, which applies only to requests that were never approved.
+- **Restore**: The parish office returning a celebrated or cancelled appointment to approved after a mistake, with a reason.
 - **Donation**: A cashless transaction proof submitted with reference number and receipt image, verified by church admins.
 - **Mass Schedule**: Recurring liturgical schedules and special event calendars for a parish.
 
