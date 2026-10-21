@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Video, Check, AlertCircle, Eye, MonitorPlay, Sparkles } from 'lucide-react';
+import { Video, Check, AlertCircle, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Church } from '../../types/database';
 
@@ -58,7 +58,6 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
     const [streamTitle, setStreamTitle] = useState('');
     const [platform, setPlatform] = useState<'facebook' | 'youtube'>('youtube');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-    const [showEmbeddedPlayer, setShowEmbeddedPlayer] = useState(false);
 
     // Fetch initial church broadcast data
     useEffect(() => {
@@ -304,10 +303,9 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
             {/* STATE A: LIVE STATE (Video Preview replaces form fields) */}
             {isLive ? (
                 <div className="space-y-4">
-                    {/* Live Video Player / Screen Mockup */}
-                    <div className="relative rounded-2xl overflow-hidden aspect-video w-full bg-gradient-to-br from-blue-600 via-blue-500 to-teal-500 shadow-inner flex items-center justify-center">
-                        {/* If embedded video exists and user switched to player view */}
-                        {showEmbeddedPlayer && embedUrl ? (
+                    {/* Live video preview: the real embedded stream */}
+                    <div className="relative rounded-2xl overflow-hidden aspect-video w-full bg-black shadow-inner flex items-center justify-center">
+                        {embedUrl ? (
                             <iframe
                                 src={embedUrl}
                                 title={streamTitle || 'Livestream Feed'}
@@ -316,47 +314,10 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                                 allowFullScreen
                             />
                         ) : (
-                            <>
-                                {/* Top left: LIVE pill badge */}
-                                <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10">
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-bold shadow-md">
-                                        🔥 LIVE
-                                    </span>
-                                </div>
-
-                                {/* Center: Video Icon */}
-                                <Video className="w-12 h-12 text-white/90 drop-shadow-md" />
-
-                                {/* Bottom right: watching now pill badge */}
-                                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 flex items-center gap-2">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/90 text-foreground text-xs font-bold shadow-md backdrop-blur-xs">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-0.5" />
-                                        24 watching now
-                                    </span>
-                                </div>
-                            </>
-                        )}
-
-                        {/* Optional toggle button between Stylized Mockup Preview and Live Feed */}
-                        {embedUrl && (
-                            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEmbeddedPlayer(!showEmbeddedPlayer)}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-black/40 hover:bg-black/60 text-white text-[11px] font-semibold backdrop-blur-xs shadow-xs transition-all cursor-pointer"
-                                >
-                                    {showEmbeddedPlayer ? (
-                                        <>
-                                            <Sparkles className="w-3 h-3 text-amber-300" />
-                                            Mockup View
-                                        </>
-                                    ) : (
-                                        <>
-                                            <MonitorPlay className="w-3 h-3 text-emerald-300" />
-                                            Player View
-                                        </>
-                                    )}
-                                </button>
+                            <div className="text-center px-6">
+                                <Video className="w-10 h-10 mx-auto text-white/80 mb-2" />
+                                <p className="text-sm font-semibold text-white">No stream link set</p>
+                                <p className="text-xs text-white/70 mt-1">Add a YouTube or Facebook link to show the video here.</p>
                             </div>
                         )}
                     </div>
@@ -365,7 +326,7 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     <div className="grid grid-cols-3 gap-3">
                         <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
                             <span className="font-serif text-base font-bold text-foreground block">
-                                {(church?.candle_count ?? 8).toLocaleString()}
+                                {(church?.candle_count ?? 0).toLocaleString()}
                             </span>
                             <span className="text-[11px] text-secondary-500 block mt-0.5">Candles lit</span>
                         </div>
@@ -419,7 +380,7 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     <div className="grid grid-cols-3 gap-3">
                         <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
                             <span className="font-serif text-base font-bold text-foreground block">
-                                {(church?.candle_count ?? 8).toLocaleString()}
+                                {(church?.candle_count ?? 0).toLocaleString()}
                             </span>
                             <span className="text-[11px] text-secondary-500 block mt-0.5">Candles lit</span>
                         </div>
