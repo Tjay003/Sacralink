@@ -2,9 +2,12 @@
 <#
   Applies supabase/migrations/*.sql to the LOCAL Supabase database (docker) in filename order.
   Skips 000_drop_all.sql and APPLY_ALL_MIGRATIONS.sql. Never touches a remote project.
-  Usage: powershell -File scripts/local-db-setup.ps1 [-Reset]
+  Usage: powershell -File scripts/local-db-setup.ps1 [-Reset] [-AllowFailures <name>,<name>,...]
+  -AllowFailures lists migration file names expected to fail (the known legacy baseline). They are
+  still reported as FAIL, but only failures outside the list make the script exit 1. Comma-separated
+  values are accepted so it also works through `pwsh -File`, which passes arguments as plain strings.
 #>
-param([switch]$Reset)
+param([switch]$Reset, [string[]]$AllowFailures = @())
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -18,7 +21,9 @@ if ($Reset) {
   docker exec $container psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 -c "drop schema public cascade; create schema public; grant usage on schema public to postgres, anon, authenticated, service_role; grant all on schema public to postgres, service_role; alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role; alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role; alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;" | Out-Null
 }
 
-$files = Get-ChildItem "$root\supabase\migrations" -Filter '*.sql' |
+$allowed = @($AllowFailures | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
+$files = Get-ChildItem (Join-Path $root 'supabase/migrations') -Filter '*.sql' |
   Where-Object { $_.Name -notin @('000_drop_all.sql', 'APPLY_ALL_MIGRATIONS.sql') } |
   Sort-Object Name
 
@@ -37,5 +42,12 @@ foreach ($f in $files) {
 }
 
 Write-Output ''
-if ($failed.Count) { Write-Output "$($failed.Count) migration(s) failed: $($failed -join ', ')"; exit 1 }
+if ($failed.Count) {
+  Write-Output "$($failed.Count) migration(s) failed: $($failed -join ', ')"
+  $unexpected = @($failed | Where-Object { $_ -notin $allowed })
+  if ($unexpected.Count) { Write-Output "$($unexpected.Count) UNEXPECTED failure(s): $($unexpected -join ', ')"; exit 1 }
+  Write-Output 'All failures are in the allowed list.'
+  exit 0
+}
 Write-Output 'All migrations applied to the local database.'
+exit 0

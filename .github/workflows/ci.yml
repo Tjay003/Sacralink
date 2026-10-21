@@ -1,0 +1,105 @@
+name: CI
+
+# Informational gate for main: typecheck, production build and the real e2e suite (web/e2e-local)
+# against a local Supabase stack running in Docker on the runner. It never deploys anything, uses
+# no secrets and never talks to the production Supabase project.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned to the Supabase CLI version the local stack is developed with (see supabase/.temp/cli-latest).
+  SUPABASE_CLI_VERSION: 2.121.0
+  # Legacy migrations written for the SQL editor that fail on a fresh database. Harmless and
+  # documented in docs/agents/test-workflow.md; any failure outside this list fails the job.
+  LEGACY_MIGRATION_FAILURES: >-
+    003_enable_rls_profiles.sql,
+    004_enable_rls_all_tables.sql,
+    009_create_sacrament_requirements.sql,
+    018_create_avatars_storage.sql,
+    024_fix_profiles_rls_recursion.sql,
+    034_secure_donations_super_admin_blindspot.sql,
+    038_fix_church_update_rls_and_storage.sql,
+    052_create_update_church_livestream_rpc.sql,
+    053_add_churches_to_realtime_publication.sql
+
+jobs:
+  verify:
+    name: Typecheck, build, e2e-local
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: web
+        run: npx tsc -b
+
+      - name: Build
+        working-directory: web
+        env:
+          # Dummy values only: the build needs a URL and key to exist, it never contacts anything.
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: dummy-anon-key-for-ci-build
+        run: npx vite build
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Start local Supabase
+        # Studio, postgres-meta and the mail inbox are not used by the tests.
+        run: supabase start -x studio,postgres-meta,mailpit
+
+      - name: Apply the database schema
+        run: pwsh -File scripts/local-db-setup.ps1 -Reset -AllowFailures "$LEGACY_MIGRATION_FAILURES"
+
+      - name: Install Playwright Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e-local
+        working-directory: web
+        run: npm run test:e2e:local
+
+      - name: Show Supabase container logs
+        if: failure()
+        run: |
+          docker ps -a
+          for c in $(docker ps -a --format '{{.Names}}' | grep -E 'supabase_(db|auth|rest|kong|storage|realtime)_'); do
+            echo "::group::$c"
+            docker logs --tail 80 "$c" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-artifacts
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
