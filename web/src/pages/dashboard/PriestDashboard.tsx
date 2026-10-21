@@ -94,43 +94,6 @@ const SEASON_DOTS: Record<LiturgicalSeasonInfo['liturgicalColor'], string> = {
     rose: 'bg-pink-400',
 };
 
-/**
- * Placeholder celebrations shown only while the priest has none today.
- * They disappear on their own as soon as a real celebration exists for today.
- */
-function buildSampleCelebrations(dateKey: string, churchName: string): HydratedAppointment[] {
-    const base = { user_id: 'sample', church_id: 'sample', created_at: dateKey, appointment_date: dateKey, church: { name: churchName } };
-    return [
-        {
-            ...base,
-            id: 'sample-mass',
-            service_type: 'Mass',
-            status: 'completed',
-            appointment_time: '06:00:00',
-            notes: 'For the eternal repose of Lola Remedios Santos, offered by her children and grandchildren.',
-            profile: { full_name: 'Santos family' },
-        },
-        {
-            ...base,
-            id: 'sample-funeral',
-            service_type: 'Funeral',
-            status: 'approved',
-            appointment_time: '10:00:00',
-            notes: 'The wake ends at 9:30 AM. Final commendation at the cemetery. The family asks for the Ave Maria at the end of Mass.',
-            profile: { full_name: 'Valdez family' },
-        },
-        {
-            ...base,
-            id: 'sample-anointing',
-            service_type: 'Anointing',
-            status: 'approved',
-            appointment_time: '15:00:00',
-            notes: 'Bedridden after a stroke. Bring the oil of the sick and Viaticum. The family will pray the rosary with you.',
-            profile: { full_name: 'Tonyo Aquino' },
-        },
-    ];
-}
-
 /** Parse YYYY-MM-DD as a local date (no timezone jitter). */
 function parseLocalDate(dateStr: string): Date {
     const [y, m, d] = (dateStr.includes('T') ? dateStr.split('T')[0] : dateStr).split('-').map(Number);
@@ -462,16 +425,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
     const nextCelebration = todayCelebrations.find(
         (a) => a.status === 'approved' && minutesOfDay(a.appointment_time) >= nowMinutes
     );
-    // Timeline falls back to sample rows until a real celebration exists today
-    const showSampleToday = !loading && !error && todayCelebrations.length === 0;
-    const displayedToday = useMemo(
-        () => (showSampleToday ? buildSampleCelebrations(todayStr, effectiveChurchName || 'Main church') : todayCelebrations),
-        [showSampleToday, todayStr, effectiveChurchName, todayCelebrations]
-    );
-    const nextDisplayed = displayedToday.find(
-        (a) => a.status === 'approved' && minutesOfDay(a.appointment_time) >= nowMinutes
-    );
-
     const celebratedTodayCount = todayCelebrations.filter((a) => a.status === 'completed').length;
     const remainingTodayCount = todayCelebrations.filter((a) => a.status === 'approved').length;
 
@@ -643,18 +596,10 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                             <div>
                                 <h2 className="text-base font-bold text-foreground">Today's celebrations</h2>
                                 <p className="text-xs text-muted mt-0.5">
-                                    {format(now, 'EEEE, MMMM d')} · {displayedToday.length}{' '}
-                                    {displayedToday.length === 1 ? 'celebration' : 'celebrations'}
+                                    {format(now, 'EEEE, MMMM d')} · {todayCelebrations.length}{' '}
+                                    {todayCelebrations.length === 1 ? 'celebration' : 'celebrations'}
                                 </p>
                             </div>
-                            {showSampleToday && (
-                                <span
-                                    className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-secondary-50 text-secondary-600 border border-secondary-200 shrink-0"
-                                    title="Placeholder rows. They disappear once you have a celebration today."
-                                >
-                                    Sample data
-                                </span>
-                            )}
                         </div>
 
                         {loading ? (
@@ -681,11 +626,18 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                         {celebrateError}
                                     </p>
                                 )}
-                                {displayedToday.map((appt) => {
+                                {todayCelebrations.length === 0 && (
+                                    <div className="px-5 py-10 text-center">
+                                        <Clock className="w-8 h-8 mx-auto text-secondary-300 mb-2" />
+                                        <p className="text-sm font-semibold text-foreground">No celebrations scheduled today</p>
+                                        <p className="text-xs text-muted mt-1">Approved appointments assigned to you will appear here.</p>
+                                    </div>
+                                )}
+                                {todayCelebrations.map((appt) => {
                                     const meta = getSacramentMeta(appt.service_type);
                                     const TypeIcon = meta.icon;
                                     const [clock, period] = formatAppointmentTime(appt.appointment_time).split(' ');
-                                    const isNext = appt.id === nextDisplayed?.id;
+                                    const isNext = appt.id === nextCelebration?.id;
                                     const status =
                                         appt.status === 'completed'
                                             ? { label: 'Celebrated', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
@@ -740,8 +692,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                             </div>
 
                                             <div className="col-start-2 sm:col-start-3 flex flex-wrap items-start gap-1">
-                                                {!showSampleToday &&
-                                                    appt.status === 'approved' &&
+                                                {appt.status === 'approved' &&
                                                     appt.priest_id === priestId &&
                                                     hasAppointmentStarted(appt, now) && (
                                                         <button
@@ -756,7 +707,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                     )}
                                                 <button
                                                     type="button"
-                                                    disabled={showSampleToday}
                                                     onClick={() => handleOpenDocModal(appt)}
                                                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary-50 shadow-2xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
                                                 >
@@ -765,7 +715,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    disabled={showSampleToday}
                                                     onClick={() => handleContact(appt)}
                                                     className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-secondary-600 hover:text-foreground hover:bg-secondary-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                                     title={appt.profile?.phone_number ? `Call ${appt.profile.phone_number}` : 'Message parishioner'}
