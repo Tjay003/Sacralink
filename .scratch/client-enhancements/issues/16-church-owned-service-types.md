@@ -1,7 +1,7 @@
 # Issue 16: Church-Owned Service Types (foundation)
 
 Type: feature
-Status: built-pending-production
+Status: resolved
 Blocked by: 
 
 ---
@@ -47,9 +47,9 @@ Settled in grilling with Tyrone (2026-10-21):
 - [x] Only that parish's church admin, admin and super admin can write (RLS tested).
 - [x] Mobile appointment and requirement reads/writes unaffected (text columns in sync).
 - [x] Full `web/e2e-local` suite passes; `tsc -b` clean.
-- [ ] Backup taken, migration applied and verified on production.
+- [x] Backup taken, migration applied and verified on production.
 
-Production: migration NOT yet applied (parent session will apply)
+Production: migration 056 applied on 2026-10-22 (project `oaczurouvaevebpimply`) after a safety snapshot (counts, every service text, the old CHECK definition; rollback SQL kept in the session scratchpad as `rollback_056.sql`). The first apply attempt returned a transient tool error ("Invalid or expired requestState") and changed nothing (checked); the retry succeeded. Verified read-only: 5 of 5 parishes have the six starters; 48 appointments and 57 requirements unchanged and 100% linked, none across parishes; no duplicate names; no hidden services were created (every production text matched a starter); old CHECK removed; `sacrament_requirements.service_type` converted from the `sacrament_type` enum to text (it was an enum on production, unlike what the build notes assumed, and nothing depended on it); link triggers present; RLS on; `anon` read-only.
 
 ---
 

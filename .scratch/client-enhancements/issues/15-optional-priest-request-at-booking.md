@@ -37,15 +37,15 @@ A parishioner can optionally request a specific priest when booking an appointme
 - [x] Parishes with no priests do not show the select.
 - [x] Mobile booking and existing appointment flows unaffected.
 - [x] Full `web/e2e-local` suite passes; `tsc -b` is clean.
-- [ ] Migration 055 applied and verified on production.
+- [x] Migration 055 applied and verified on production.
 
-Production: migration NOT yet applied (parent session will apply)
+Production: migration 055 applied on 2026-10-21 (project `oaczurouvaevebpimply`). Verified read-only: `appointments.requested_priest_id` present, trigger `validate_requested_priest` present, 48 appointments unchanged and none with a request, `approve_appointment` updated with `anon` still unable to execute it, and the trigger function not callable by `authenticated`. Rollback SQL (restores the previous `approve_appointment`) was saved in the session scratchpad as `rollback_055.sql`.
 
 ---
 
 ## Resolution
 
-Built and verified on the local Docker Supabase only. Production is untouched; migration 055 has not been applied to it. Production: migration NOT yet applied (parent session will apply).
+Built and verified on the local Docker Supabase (122/122), then migration 055 was applied to production and verified (see the acceptance note above). The web code is on `main` only; the live site does not have the priest select until `feature/demo-mode` is updated.
 
 ### What was built
 - **Migration `supabase/migrations/055_requested_priest_at_booking.sql`** (highest existing number was 054; appended to `APPLY_ALL_MIGRATIONS.sql`). ASCII only, additive and idempotent.

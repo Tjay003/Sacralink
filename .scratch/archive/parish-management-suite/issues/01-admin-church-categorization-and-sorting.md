@@ -5,7 +5,7 @@ Super Admin and Admin interfaces in `UsersPage.tsx` with human-readable church d
 
 **Blocked by:** None (can start immediately).
 
-**Status:** completed
+**Status:** resolved
 
 ## Acceptance Criteria
 - [x] User management resolves and renders the actual parish name badge for all assigned staff.

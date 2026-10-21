@@ -1,7 +1,7 @@
 # Issue 06: Services & Documents Manager and Funeral Default
 
 Type: feature
-Status: built-pending-production
+Status: resolved
 Blocked by: 16
 
 ---
@@ -37,9 +37,9 @@ Settled in grilling with Tyrone (2026-10-21):
 - [x] Other roles cannot see or use the section; RLS blocks their writes.
 - [x] Local e2e covers the manager end to end plus booking with a custom service and checklist.
 - [x] Builds and passes TypeScript validation cleanly (`tsc -b`).
-- [ ] Migration applied and verified on production after a backup.
+- [x] Migration applied and verified on production.
 
-Production: migration NOT yet applied (parent session will apply)
+Production: migration 057 applied on 2026-10-22 (project `oaczurouvaevebpimply`). It is additive plus one constraint change, so no data snapshot beyond the before-counts was needed. Verified read-only: sacrament_requirements 57 to 61 (the 4 new Death Certificates for Sacred Heart of Jesus Parish, Our Lady of Perpetual Help Quasi-Parish, St. Joseph the Worker Parish and Quasi-Parish of Our Lady of La Salette; the fifth parish already had its own Funeral checklist and was untouched); 65 uploaded appointment_documents and 48 appointments unchanged; every Funeral service now has a checklist; no unlinked requirements; `anon` and `authenticated` cannot run the backfill function. IMPORTANT finding: production's `appointment_documents.requirement_id` foreign key was ON DELETE CASCADE (not the SET NULL that migration 009 describes), so deleting a checklist item would have deleted the parishioners' uploaded files. 057 changed it to ON DELETE SET NULL, which the new manager needs.
 
 ## Resolution
 
