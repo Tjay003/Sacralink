@@ -69,7 +69,7 @@ jobs:
           version: ${{ env.SUPABASE_CLI_VERSION }}
 
       - name: Start local Supabase
-        # Studio, postgres-meta and the mail inbox are not used by the tests.
+        # Studio and postgres-meta are not used by the tests; the mail inbox is (password recovery spec).
         run: supabase start -x studio,postgres-meta
 
       - name: Apply the database schema
