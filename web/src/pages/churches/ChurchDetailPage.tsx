@@ -448,6 +448,8 @@ export default function ChurchDetailPage() {
     const isUnverified = Boolean(church && (church.status === 'unverified' || (Boolean(church.status) && church.status !== 'verified_active' && church.status !== 'active')));
 
     const handleRevokeVerification = async () => {
+    const cashlessPaused = church?.accept_cashless === false;
+    const donationsLocked = isUnverified || cashlessPaused;
         if (!id || !church) return;
         setRevoking(true);
         try {
@@ -743,18 +745,24 @@ export default function ChurchDetailPage() {
                             {(church.gcash_number || church.maya_number || church.donation_qr_url) && (
                                 <button
                                     onClick={() => {
-                                        if (isUnverified) return;
+                                        if (donationsLocked) return;
                                         getRecentDonors(church.id).then(r => setRecentDonors(r.data || []));
                                         setShowDonateModal(true);
                                     }}
-                                    disabled={Boolean(isUnverified)}
-                                    title={isUnverified ? 'Donations locked until Diocese verification' : 'Donate to this church'}
+                                    disabled={donationsLocked}
+                                    title={
+                                        isUnverified
+                                            ? 'Donations locked until Diocese verification'
+                                            : cashlessPaused
+                                                ? 'This parish has paused cashless donations'
+                                                : 'Donate to this church'
+                                    }
                                     className={`bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                                        isUnverified ? 'cursor-not-allowed opacity-60' : ''
+                                        donationsLocked ? 'cursor-not-allowed opacity-60' : ''
                                     }`}
                                 >
                                     <Heart className="w-4 h-4 fill-rose-500/20 text-rose-600" />
-                                    <span>{isUnverified ? 'Donations locked' : 'Donate'}</span>
+                                    <span>{isUnverified ? 'Donations locked' : cashlessPaused ? 'Donations paused' : 'Donate'}</span>
                                 </button>
                             )}
 
@@ -2145,6 +2153,7 @@ export default function ChurchDetailPage() {
             {/* Announcement Form Modal */}
             {showAnnouncementForm && (
                 <AnnouncementForm
+                        accept_cashless: church.accept_cashless,
                     type="church"
                     churchId={id!}
                     churchName={church?.name}

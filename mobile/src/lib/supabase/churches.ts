@@ -48,6 +48,7 @@ export interface Church {
   gcash_number?: string | null;
   maya_number?: string | null;
   donation_qr_url?: string | null;
+  accept_cashless?: boolean | null;
   operating_hours: ChurchOperatingHours | null;
   status: string | null;
   is_active: boolean | null;
@@ -127,6 +128,7 @@ function normalizeChurch(raw: Record<string, any>): Church {
     gcash_number: raw.gcash_number || null,
     maya_number: raw.maya_number || null,
     donation_qr_url: raw.donation_qr_url || null,
+    accept_cashless: raw.accept_cashless ?? true,
     operating_hours: raw.operating_hours || null,
     status: raw.status || 'active',
     is_active: raw.is_active ?? true,

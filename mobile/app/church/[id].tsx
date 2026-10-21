@@ -246,7 +246,10 @@ export default function ChurchDetailScreen() {
     } as any);
   };
 
+  const cashlessPaused = church?.accept_cashless === false;
+
   const handleGiveDonation = () => {
+    if (cashlessPaused) return;
     router.push({
       pathname: '/donations/give',
       params: { churchId: church?.id, churchName: church?.name },
@@ -493,7 +496,12 @@ export default function ChurchDetailScreen() {
             {/* Give Donation Button */}
             <TouchableOpacity
               onPress={handleGiveDonation}
-              className="flex-1 bg-accent active:bg-amber-600 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm shadow-accent/20"
+              disabled={cashlessPaused}
+              className={`flex-1 rounded-2xl p-3.5 flex-row items-center justify-between shadow-sm ${
+                cashlessPaused
+                  ? 'bg-secondary-300 opacity-70'
+                  : 'bg-accent active:bg-amber-600 shadow-accent/20'
+              }`}
             >
               <View className="flex-row items-center gap-2.5">
                 <View className="w-9 h-9 rounded-xl bg-white/20 items-center justify-center">
@@ -504,7 +512,7 @@ export default function ChurchDetailScreen() {
                     Give Donation
                   </Text>
                   <Text className="text-[10px] text-amber-100 font-sans">
-                    Cashless QR
+                    {cashlessPaused ? 'Paused by parish' : 'Cashless QR'}
                   </Text>
                 </View>
               </View>
@@ -599,7 +607,7 @@ export default function ChurchDetailScreen() {
             church={church}
             candleCount={candleCount}
             onLightCandle={() => setIsCandleModalOpen(true)}
-            onOpenOffertory={() => setIsOffertoryModalOpen(true)}
+            onOpenOffertory={cashlessPaused ? undefined : () => setIsOffertoryModalOpen(true)}
           />
         </View>
 

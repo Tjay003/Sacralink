@@ -83,8 +83,9 @@ export default function VirtualSanctuarySidebar({
 
     // Offertory state
     const isUnverified = church.status === 'unverified' || (church.status && church.status !== 'verified_active' && church.status !== 'active');
-    const hasGcash = !isUnverified && !!(church.gcash_number || church.gcash_qr_url);
-    const hasMaya = !isUnverified && !!(church.maya_number || church.maya_qr_url);
+    const cashlessPaused = church.accept_cashless === false;
+    const hasGcash = !isUnverified && !cashlessPaused && !!(church.gcash_number || church.gcash_qr_url);
+    const hasMaya = !isUnverified && !cashlessPaused && !!(church.maya_number || church.maya_qr_url);
     const [paymentMethod, setPaymentMethod] = useState<'gcash' | 'maya'>(hasGcash ? 'gcash' : 'maya');
     const [offertoryAmount, setOffertoryAmount] = useState('100');
     const [offertoryRef, setOffertoryRef] = useState('');
@@ -221,6 +222,11 @@ export default function VirtualSanctuarySidebar({
 
         if (isUnverified) {
             setDonationError('Cashless offertory is temporarily locked pending diocese verification.');
+            return;
+        }
+
+        if (cashlessPaused) {
+            setDonationError('This parish has paused cashless donations. Please try again later.');
             return;
         }
 
@@ -581,14 +587,16 @@ export default function VirtualSanctuarySidebar({
                 {/* ── TAB 3: DIGITAL OFFERTORY ── */}
                 {currentTab === 'offertory' && (
                     <div className="space-y-5 animate-in text-foreground">
-                        {isUnverified ? (
+                        {isUnverified || cashlessPaused ? (
                             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-4 text-xs text-amber-800 dark:text-amber-300 space-y-2">
                                 <div className="flex items-center gap-2 font-bold">
                                     <Lock className="w-4 h-4" />
-                                    <span>Cashless Offertory Temporarily Locked</span>
+                                    <span>{isUnverified ? 'Cashless Offertory Temporarily Locked' : 'Cashless Offertory Paused'}</span>
                                 </div>
                                 <p className="text-muted text-[11px] leading-relaxed">
-                                    This parish is currently completing diocese verification. In accordance with church transparency protocols, digital collections will open once verified.
+                                    {isUnverified
+                                        ? 'This parish is currently completing diocese verification. In accordance with church transparency protocols, digital collections will open once verified.'
+                                        : 'This parish has temporarily paused GCash and Maya donations. Please check back later or contact the parish office.'}
                                 </p>
                             </div>
                         ) : donationSuccess ? (

@@ -75,6 +75,8 @@ export default function GiveDonationScreen() {
     return churches.find((c) => c.id === selectedChurchId) || null;
   }, [churches, selectedChurchId]);
 
+  const cashlessPaused = selectedChurch?.accept_cashless === false;
+
   const { data: paymentInfo } = useChurchPaymentInfo(selectedChurchId || undefined);
 
   // Form states
@@ -219,6 +221,8 @@ export default function GiveDonationScreen() {
 
     if (!selectedChurchId) {
       errors.church = 'Please select a recipient church.';
+    } else if (cashlessPaused) {
+      errors.church = 'This parish has paused cashless donations. Please choose another parish or try again later.';
     }
 
     const numAmount = parseFloat(amount);
@@ -345,7 +349,22 @@ export default function GiveDonationScreen() {
             )}
           </View>
 
+          {cashlessPaused && (
+            <View className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex-row items-start">
+              <AlertCircle size={18} color="#D97706" />
+              <View className="flex-1 ml-2.5">
+                <Text className="text-xs font-bold text-amber-800 font-sans">
+                  Cashless Donations Paused
+                </Text>
+                <Text className="text-[11px] text-amber-700 font-sans mt-0.5">
+                  This parish has temporarily paused GCash and Maya donations. Please choose another parish or contact the parish office.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* View Parish QR Code Banner */}
+          {!cashlessPaused && (
           <View className="mb-5">
             <TouchableOpacity
               onPress={() => setQrModalVisible(true)}
@@ -376,6 +395,7 @@ export default function GiveDonationScreen() {
               </View>
             </TouchableOpacity>
           </View>
+          )}
 
           {/* Purpose Selector Pills */}
           <View className="mb-5">
@@ -625,9 +645,9 @@ export default function GiveDonationScreen() {
           {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || cashlessPaused}
             className={`w-full py-4 rounded-2xl items-center flex-row justify-center space-x-2 ${
-              submitting
+              submitting || cashlessPaused
                 ? 'bg-blue-400'
                 : 'bg-blue-600 shadow-md shadow-blue-600/25'
             }`}

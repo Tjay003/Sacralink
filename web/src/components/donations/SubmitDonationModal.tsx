@@ -20,6 +20,7 @@ interface Church {
     id: string;
     name: string;
     status?: string | null;
+    accept_cashless?: boolean | null;
     gcash_number?: string | null;
     maya_number?: string | null;
     gcash_qr_url?: string | null;
@@ -96,8 +97,9 @@ function QrDisplay({ qrUrl, label, onDownload }: QrDisplayProps) {
 
 export default function SubmitDonationModal({ church, onClose, onSuccess }: SubmitDonationModalProps) {
     const isUnverified = church.status === 'unverified' || (church.status && church.status !== 'verified_active' && church.status !== 'active');
-    const hasGcash = !isUnverified && !!(church.gcash_number || church.gcash_qr_url);
-    const hasMaya = !isUnverified && !!(church.maya_number || church.maya_qr_url);
+    const cashlessPaused = church.accept_cashless === false;
+    const hasGcash = !isUnverified && !cashlessPaused && !!(church.gcash_number || church.gcash_qr_url);
+    const hasMaya = !isUnverified && !cashlessPaused && !!(church.maya_number || church.maya_qr_url);
 
     const defaultTab: PaymentTab = hasGcash ? 'gcash' : 'maya';
     const [activeTab, setActiveTab] = useState<PaymentTab>(defaultTab);
@@ -224,6 +226,11 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
 
         if (isUnverified) {
             setSubmitError('Donations are locked. This parish is pending diocese verification.');
+            return;
+        }
+
+        if (cashlessPaused) {
+            setSubmitError('This parish has paused cashless donations. Please try again later.');
             return;
         }
 
@@ -383,6 +390,18 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                             <p className="font-bold text-xs sm:text-sm">Parish Verification Pending</p>
                             <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
                                 This parish is currently undergoing Diocese anti-fraud and clergy credentials verification. Cashless offerings are locked until verified by the Diocese Chancery.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {cashlessPaused && !isUnverified && (
+                    <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-800 font-sans">
+                        <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold text-xs sm:text-sm">Cashless Donations Paused</p>
+                            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                                This parish has temporarily paused GCash and Maya donations. Please check back later or contact the parish office.
                             </p>
                         </div>
                     </div>
