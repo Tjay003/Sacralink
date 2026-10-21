@@ -8,6 +8,7 @@ import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnounce
 import { SystemAnnouncementsBanner } from '../../components/announcements';
 import { Calendar, Clock, MapPin, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
+import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { useChurches } from '../../hooks/useChurches';
@@ -214,6 +215,7 @@ export default function UserDashboard() {
                                                         {app.church?.name}
                                                     </div>
                                                 </div>
+                                                <RescheduledNotice appointment={app} className="mt-2" />
                                                 <RequestedPriestNote appointment={app} className="mt-2" />
                                             </div>
                                         </div>

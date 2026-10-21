@@ -23,12 +23,17 @@ import { supabase } from '../../lib/supabase';
 import {
     getAppointments,
     formatAppointmentTime,
+    hasAppointmentStarted,
+    markAppointmentCelebrated,
+    APPOINTMENT_CELEBRATED_EVENT,
     type HydratedAppointment,
     type AppointmentStatus,
 } from '../../lib/supabase/appointments';
 import { useAuth } from '../../contexts/AuthContext';
 import DocumentViewerModal from '../documents/DocumentViewerModal';
 import Modal from '../ui/Modal';
+import RescheduledNotice from '../appointments/RescheduledNotice';
+import AppointmentChangeHistory from '../appointments/AppointmentChangeHistory';
 
 export interface CelebrantAttentionWidgetProps {
     priestId?: string;
@@ -40,7 +45,8 @@ export type CelebrantAttentionCategory =
     | 'prenuptial_inquiry'
     | 'pastoral_counseling'
     | 'document_verification'
-    | 'pending_confirmation';
+    | 'pending_confirmation'
+    | 'not_marked_celebrated';
 
 export interface CelebrantAttentionItem {
     id: string;
@@ -63,6 +69,19 @@ export interface CelebrantAttentionItem {
 }
 
 const DUE_SOON_DAYS = 14;
+
+/**
+ * A past, still-approved appointment the priest presided at but has not yet marked Celebrated.
+ * The queue only ever holds the priest's own appointments (it is queried by priest_id).
+ */
+function isNotYetMarkedCelebrated(appointment: HydratedAppointment, priestId: string, now: Date): boolean {
+    return (
+        appointment.status === 'approved' &&
+        Boolean(priestId) &&
+        appointment.priest_id === priestId &&
+        hasAppointmentStarted(appointment, now)
+    );
+}
 
 function daysUntil(dateStr: string): number {
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -120,6 +139,21 @@ function formatDisplayDate(dateStr: string): string {
     }
 }
 
+/** Re-labels a queue item as "Not yet marked celebrated", replacing its preparation/review framing. */
+function asNotYetMarkedCelebrated(item: CelebrantAttentionItem): CelebrantAttentionItem {
+    return {
+        ...item,
+        category: 'not_marked_celebrated',
+        description: `${formatSacramentTitle(item.appointment.service_type)} has taken place. Record that you celebrated it.`,
+        isDueSoon: false,
+        tagLabel: 'Not yet marked celebrated',
+        tagStyle: 'bg-amber-50 text-amber-800 border-amber-200',
+        iconStyle: 'bg-amber-50 text-amber-600 border-amber-200',
+        icon: CheckCircle2,
+        actionLabel: 'Mark celebrated',
+    };
+}
+
 export default function CelebrantAttentionWidget({
     priestId,
     churchId,
@@ -139,6 +173,28 @@ export default function CelebrantAttentionWidget({
     // Modals state
     const [activeDocApptId, setActiveDocApptId] = useState<string | null>(null);
     const [activeDetailItem, setActiveDetailItem] = useState<CelebrantAttentionItem | null>(null);
+
+    // "Mark celebrated" state: which item is saving and the last error
+    const [markingId, setMarkingId] = useState<string | null>(null);
+    const [markError, setMarkError] = useState<string | null>(null);
+
+    // Ticks every minute so an appointment moves into "Not yet marked celebrated" once it starts
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(new Date()), 60000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    const displayItems = useMemo(() => {
+        const items = queueItems.map((item) =>
+            isNotYetMarkedCelebrated(item.appointment, effectivePriestId, now) ? asNotYetMarkedCelebrated(item) : item
+        );
+        // Past celebrations waiting to be recorded come first (stable within each group)
+        return [
+            ...items.filter((i) => i.category === 'not_marked_celebrated'),
+            ...items.filter((i) => i.category !== 'not_marked_celebrated'),
+        ];
+    }, [queueItems, effectivePriestId, now]);
 
     const loadData = useCallback(async () => {
         if (!effectivePriestId) {
@@ -365,6 +421,31 @@ export default function CelebrantAttentionWidget({
         };
     }, [effectivePriestId, loadData]);
 
+    // Another widget (the priest timeline) marked an appointment Celebrated: drop it from the queue
+    useEffect(() => {
+        const handleCelebrated = () => void loadData();
+        window.addEventListener(APPOINTMENT_CELEBRATED_EVENT, handleCelebrated);
+        return () => window.removeEventListener(APPOINTMENT_CELEBRATED_EVENT, handleCelebrated);
+    }, [loadData]);
+
+    const handleMarkCelebrated = async (item: CelebrantAttentionItem) => {
+        setMarkingId(item.id);
+        setMarkError(null);
+        try {
+            const { success, error } = await markAppointmentCelebrated(item.appointment.id);
+            if (!success) {
+                setMarkError(error?.message || 'Could not mark this celebration. Please try again.');
+                return;
+            }
+            setQueueItems((current) => current.filter((i) => i.id !== item.id));
+            setActiveDetailItem((current) => (current?.id === item.id ? null : current));
+        } catch (err) {
+            setMarkError(err instanceof Error ? err.message : 'Could not mark this celebration. Please try again.');
+        } finally {
+            setMarkingId(null);
+        }
+    };
+
     // Quick action: navigate to messaging thread with parishioner
     const handleMessageApplicant = (userId: string) => {
         if (!userId) return;
@@ -390,7 +471,7 @@ export default function CelebrantAttentionWidget({
     }
 
     // Uplifting calm state when queue is clear (0 pending items needing attention)
-    if (!loading && queueItems.length === 0) {
+    if (!loading && displayItems.length === 0) {
         return (
             <div
                 className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl shadow-xs transition-all ${className}`}
@@ -459,14 +540,20 @@ export default function CelebrantAttentionWidget({
                     </span>
                 ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                        {queueItems.length} open
+                        {displayItems.length} open
                     </span>
                 )}
             </div>
 
+            {markError && (
+                <p role="alert" className="mx-5 mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+                    {markError}
+                </p>
+            )}
+
             {/* Queue List */}
             <div className="divide-y divide-border/70 flex-1">
-                {queueItems.map((item) => {
+                {displayItems.map((item) => {
                     const Icon = item.icon;
                     const isWedding = item.category === 'prenuptial_inquiry';
 
@@ -513,6 +600,7 @@ export default function CelebrantAttentionWidget({
                                             {isWedding ? 'Wedding on ' : ''}
                                             {item.dateLabel} · {item.timeLabel}
                                         </p>
+                                        <RescheduledNotice appointment={item.appointment} className="mt-1" />
                                         <p className="flex items-center gap-1.5">
                                             <FileText className="w-3 h-3 text-secondary-400 shrink-0" />
                                             {formatDocumentProgress(item)}
@@ -522,17 +610,29 @@ export default function CelebrantAttentionWidget({
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0 self-end sm:self-start">
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        item.hasDocuments
-                                            ? setActiveDocApptId(item.appointment.id)
-                                            : setActiveDetailItem(item)
-                                    }
-                                    className="px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-                                >
-                                    {item.hasDocuments ? 'Review documents' : item.actionLabel}
-                                </button>
+                                {item.category === 'not_marked_celebrated' ? (
+                                    <button
+                                        type="button"
+                                        disabled={markingId === item.id}
+                                        onClick={() => void handleMarkCelebrated(item)}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {markingId === item.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                        Mark celebrated
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            item.hasDocuments
+                                                ? setActiveDocApptId(item.appointment.id)
+                                                : setActiveDetailItem(item)
+                                        }
+                                        className="px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                                    >
+                                        {item.hasDocuments ? 'Review documents' : item.actionLabel}
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => handleMessageApplicant(item.appointment.user_id)}
@@ -739,6 +839,12 @@ export default function CelebrantAttentionWidget({
                                 </button>
                             )}
                         </div>
+
+                        {/* Change history: the celebrant can read their appointment's edits (RLS) */}
+                        <AppointmentChangeHistory
+                            appointmentId={activeDetailItem.appointment.id}
+                            refreshKey={activeDetailItem.appointment.updated_at ?? activeDetailItem.appointment.status}
+                        />
                     </div>
                 </Modal>
             )}

@@ -159,7 +159,6 @@ export default function ApproveAppointmentModal({
 
     if (!isOpen || !appointment) return null;
 
-    const isAlreadyApproved = appointment.status === 'approved';
     const requestedPriestLabel = getRequestedPriestLabel(appointment);
     const selectedEvaluation = selectedPriestId ? celebrantEvaluations[selectedPriestId] : null;
     const isSelectedPriestIneligible = Boolean(selectedPriestId && selectedEvaluation && !selectedEvaluation.eligible);
@@ -215,21 +214,13 @@ export default function ApproveAppointmentModal({
             size="lg"
             title={
                 <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl border ${
-                        isAlreadyApproved
-                            ? 'bg-amber-50 text-amber-600 border-amber-200/60'
-                            : 'bg-green-50 text-green-600 border-green-200/60'
-                    }`}>
-                        {isAlreadyApproved ? <Cross className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                    <div className="p-2 rounded-xl border bg-green-50 text-green-600 border-green-200/60">
+                        <CheckCircle2 className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-foreground">
-                            {isAlreadyApproved ? 'Assign Presiding Celebrant' : 'Approve Sacramental Appointment'}
-                        </h2>
+                        <h2 className="text-xl font-bold text-foreground">Approve Sacramental Appointment</h2>
                         <p className="text-xs text-muted">
-                            {isAlreadyApproved
-                                ? 'Assign or update the presiding celebrant and instructions for this appointment.'
-                                : 'Assign a presiding celebrant and send instructions to the parishioner.'}
+                            Assign a presiding celebrant and send instructions to the parishioner.
                         </p>
                     </div>
                 </div>
@@ -262,12 +253,12 @@ export default function ApproveAppointmentModal({
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    {isAlreadyApproved ? 'Saving...' : 'Approving...'}
+                                    Approving...
                                 </>
                             ) : (
                                 <>
                                     <CheckCircle2 className="w-4 h-4" />
-                                    {isAlreadyApproved ? 'Save Assignment' : 'Approve Appointment'}
+                                    Approve Appointment
                                 </>
                             )}
                         </button>
@@ -282,22 +273,9 @@ export default function ApproveAppointmentModal({
                         <span className="font-semibold text-base text-foreground flex items-center gap-2">
                             <span>{appointment.service_type}</span>
                         </span>
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-                            isAlreadyApproved
-                                ? 'bg-green-50 text-green-700 border border-green-200/60'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                        }`}>
-                            {isAlreadyApproved ? (
-                                <>
-                                    <CheckCircle2 className="w-3 h-3 text-green-600" />
-                                    Approved
-                                </>
-                            ) : (
-                                <>
-                                    <Cross className="w-3 h-3 text-amber-600" />
-                                    Pending Review
-                                </>
-                            )}
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200/60">
+                            <Cross className="w-3 h-3 text-amber-600" />
+                            Pending Review
                         </span>
                     </div>
 

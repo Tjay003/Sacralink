@@ -14,7 +14,8 @@ import {
 import { supabase } from '../../lib/supabase';
 import {
     getAppointments,
-    updateAppointmentStatus,
+    approveAppointment,
+    rejectAppointment,
     subscribeToAppointments,
     formatAppointmentTime as formatTime,
     type HydratedAppointment as Appointment,
@@ -26,6 +27,8 @@ import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import ApproveAppointmentModal from '../../components/appointments/ApproveAppointmentModal';
 import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
+import EditAppointmentModal from '../../components/appointments/EditAppointmentModal';
+import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import Modal from '../../components/ui/Modal';
 import Pagination from '../../components/common/Pagination';
 
@@ -138,6 +141,7 @@ export default function AppointmentsPage() {
         pending: 0,
         approved: 0,
         rejected: 0,
+        cancelled: 0,
     });
 
     // Church filter — admin/super_admin only
@@ -174,6 +178,9 @@ export default function AppointmentsPage() {
     const [approvingAppointment, setApprovingAppointment] = useState<Appointment | null>(null);
     const [isApproving, setIsApproving] = useState(false);
 
+    // Edit modal state (approved appointments, parish office only)
+    const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+
     // Confirmation modal state (for rejection)
     const [confirmModal, setConfirmModal] = useState<{
         open: boolean;
@@ -195,20 +202,14 @@ export default function AppointmentsPage() {
     };
 
     const handleApproveConfirm = async (priestId: string | null, adminFeedback: string | null) => {
-        if (!approvingAppointment) return;
+        // Approving is for pending requests only; approved appointments are changed through Edit
+        if (!approvingAppointment || approvingAppointment.status !== 'pending') return;
         try {
             setIsApproving(true);
-            const { success, error: updateErr } = await updateAppointmentStatus(
+            const { success, error: updateErr } = await approveAppointment(
                 approvingAppointment.id,
-                'approved',
-                {
-                    serviceType: approvingAppointment.service_type,
-                    userId: approvingAppointment.user_id,
-                    priestId,
-                    adminFeedback,
-                    appointmentDate: approvingAppointment.appointment_date,
-                    appointmentTime: approvingAppointment.appointment_time,
-                }
+                priestId,
+                adminFeedback
             );
 
             if (!success || updateErr) throw updateErr;
@@ -231,6 +232,10 @@ export default function AppointmentsPage() {
         profile?.role === 'volunteer' ||
         profile?.role === 'priest';
 
+    // Only the parish office may edit an approved appointment (priests and volunteers cannot)
+    const canEditAppointments =
+        profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'church_admin';
+
     const fetchMetaCounts = useCallback(async () => {
         try {
             const startOfWeek = currentWeekDays[0].dateStr;
@@ -246,11 +251,13 @@ export default function AppointmentsPage() {
                 const pending = statusData.filter((d) => d.status === 'pending').length;
                 const approved = statusData.filter((d) => d.status === 'approved').length;
                 const rejected = statusData.filter((d) => d.status === 'rejected').length;
+                const cancelled = statusData.filter((d) => d.status === 'cancelled').length;
                 setStatusCounts({
                     all: statusData.length,
                     pending,
                     approved,
                     rejected,
+                    cancelled,
                 });
             }
 
@@ -327,10 +334,8 @@ export default function AppointmentsPage() {
             const appointment = appointments.find((app) => app.id === id);
             if (!appointment) return;
 
-            const { success, error: updateErr } = await updateAppointmentStatus(id, newStatus, {
-                serviceType: appointment.service_type,
-                userId: appointment.user_id,
-            });
+            const { success, error: updateErr } =
+                newStatus === 'rejected' ? await rejectAppointment(id) : await approveAppointment(id);
 
             if (!success || updateErr) throw updateErr;
 
@@ -384,6 +389,7 @@ export default function AppointmentsPage() {
         { id: 'pending', label: 'Pending', count: statusCounts.pending },
         { id: 'approved', label: 'Approved', count: statusCounts.approved },
         { id: 'rejected', label: 'Rejected', count: statusCounts.rejected },
+        { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
     ];
 
     if (loading && appointments.length === 0) {
@@ -730,6 +736,7 @@ export default function AppointmentsPage() {
                                                 <div className="text-xs text-secondary-500 mt-0.5">
                                                     {formatTime(appointment.appointment_time)}
                                                 </div>
+                                                <RescheduledNotice appointment={appointment} className="mt-1.5" />
                                             </td>
 
                                             {/* CELEBRANT */}
@@ -767,9 +774,20 @@ export default function AppointmentsPage() {
                                                     <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
                                                         Rejected
                                                     </span>
+                                                ) : appointment.status === 'cancelled' ? (
+                                                    <div className="space-y-1 whitespace-normal max-w-[220px]">
+                                                        <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                                            Cancelled
+                                                        </span>
+                                                        {appointment.cancellation_reason && (
+                                                            <p className="text-xs text-secondary-600 leading-snug">
+                                                                Reason: {appointment.cancellation_reason}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                                                        {appointment.status}
+                                                        {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
                                                     </span>
                                                 )}
                                             </td>
@@ -777,7 +795,7 @@ export default function AppointmentsPage() {
                                             {/* ACTIONS */}
                                             <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap text-right pr-4 lg:pr-6">
                                                 <div className="inline-flex items-center justify-end gap-2">
-                                                    {canManageAppointments && appointment.status === 'pending' ? (
+                                                    {canEditAppointments && appointment.status === 'pending' ? (
                                                         <>
                                                             <button
                                                                 type="button"
@@ -800,15 +818,15 @@ export default function AppointmentsPage() {
                                                                 Reject
                                                             </button>
                                                         </>
-                                                    ) : canManageAppointments && appointment.status === 'approved' ? (
+                                                    ) : canManageAppointments && (appointment.status === 'approved' || (canEditAppointments && (appointment.status === 'cancelled' || appointment.status === 'completed'))) ? (
                                                         <>
-                                                            {!appointment.priest_id && (
+                                                            {canEditAppointments && (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setApprovingAppointment(appointment)}
-                                                                    className="px-3 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                                                    onClick={() => setEditingAppointment(appointment)}
+                                                                    className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                                                                 >
-                                                                    + Assign celebrant
+                                                                    Edit
                                                                 </button>
                                                             )}
                                                             <button
@@ -932,9 +950,20 @@ export default function AppointmentsPage() {
                                                 <span className="bg-red-50 text-red-700 border border-red-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
                                                     Rejected
                                                 </span>
+                                            ) : appointment.status === 'cancelled' ? (
+                                                <>
+                                                    <span className="bg-red-50 text-red-700 border border-red-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
+                                                        Cancelled
+                                                    </span>
+                                                    {appointment.cancellation_reason && (
+                                                        <p className="text-[11px] text-secondary-600 leading-snug text-right max-w-[180px]">
+                                                            Reason: {appointment.cancellation_reason}
+                                                        </p>
+                                                    )}
+                                                </>
                                             ) : (
                                                 <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                                                    {appointment.status}
+                                                    {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
                                                 </span>
                                             )}
                                         </div>
@@ -971,8 +1000,11 @@ export default function AppointmentsPage() {
                                                 <Calendar className="w-3.5 h-3.5 text-secondary-400 shrink-0" />
                                                 <span>Date & Time:</span>
                                             </span>
-                                            <span className="font-medium text-foreground text-right">
-                                                {formatDateDisplay(appointment.appointment_date)} at {formatTime(appointment.appointment_time)}
+                                            <span className="font-medium text-foreground text-right flex flex-col items-end gap-1">
+                                                <span>
+                                                    {formatDateDisplay(appointment.appointment_date)} at {formatTime(appointment.appointment_time)}
+                                                </span>
+                                                <RescheduledNotice appointment={appointment} />
                                             </span>
                                         </div>
 
@@ -1005,7 +1037,7 @@ export default function AppointmentsPage() {
 
                                     {/* Bottom action buttons row */}
                                     <div className="pt-2 border-t border-border/50 flex items-center gap-2">
-                                        {canManageAppointments && appointment.status === 'pending' ? (
+                                        {canEditAppointments && appointment.status === 'pending' ? (
                                             <>
                                                 <button
                                                     type="button"
@@ -1028,15 +1060,15 @@ export default function AppointmentsPage() {
                                                     Reject
                                                 </button>
                                             </>
-                                        ) : canManageAppointments && appointment.status === 'approved' ? (
+                                        ) : canManageAppointments && (appointment.status === 'approved' || (canEditAppointments && (appointment.status === 'cancelled' || appointment.status === 'completed'))) ? (
                                             <div className="flex items-center gap-2 w-full">
-                                                {!appointment.priest_id && (
+                                                {canEditAppointments && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => setApprovingAppointment(appointment)}
-                                                        className="flex-1 py-2 px-3 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                                        onClick={() => setEditingAppointment(appointment)}
+                                                        className="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer text-center"
                                                     >
-                                                        + Assign celebrant
+                                                        Edit
                                                     </button>
                                                 )}
                                                 <button
@@ -1096,13 +1128,24 @@ export default function AppointmentsPage() {
 
             {/* Approve Appointment Modal with Celebrant Picker & Feedback */}
             <ApproveAppointmentModal
-                isOpen={!!approvingAppointment}
+                isOpen={approvingAppointment?.status === 'pending'}
                 onClose={() => {
                     if (!isApproving) setApprovingAppointment(null);
                 }}
                 appointment={approvingAppointment}
                 onConfirm={handleApproveConfirm}
                 isSubmitting={isApproving}
+            />
+
+            {/* Edit Appointment Modal (assign or change celebrant, cancel and future edit actions) */}
+            <EditAppointmentModal
+                isOpen={!!editingAppointment}
+                onClose={() => setEditingAppointment(null)}
+                appointment={editingAppointment}
+                onSaved={async () => {
+                    await fetchAppointments();
+                    void fetchMetaCounts();
+                }}
             />
 
             {/* Approve / Reject Confirmation Modal */}

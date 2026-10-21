@@ -12,6 +12,9 @@ import {
     getAppointments,
     subscribeToAppointments,
     formatAppointmentTime,
+    hasAppointmentStarted,
+    markAppointmentCelebrated,
+    APPOINTMENT_CELEBRATED_EVENT,
     type HydratedAppointment,
 } from '../../lib/supabase/appointments';
 import { getAppointmentDocuments, downloadDocument } from '../../lib/supabase/documents';
@@ -28,7 +31,9 @@ import {
     type SacramentKey,
 } from '../../lib/sacramentMeta';
 import { format } from 'date-fns';
+import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
+import AppointmentChangeHistory from '../../components/appointments/AppointmentChangeHistory';
 import {
     Calendar,
     CalendarClock,
@@ -194,6 +199,10 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
 
     const priestId = profile?.id || user?.id;
 
+    // "Mark celebrated" on the timeline: which row is saving and the last error
+    const [celebratingId, setCelebratingId] = useState<string | null>(null);
+    const [celebrateError, setCelebrateError] = useState<string | null>(null);
+
     // Ticks every minute so "Next · in 50 minutes" stays current
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
@@ -347,10 +356,35 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
             void fetchPriestAppointments();
         });
 
+        // Marking an appointment Celebrated elsewhere on the page (the attention queue) refreshes the timeline and stats
+        const handleCelebrated = () => void fetchPriestAppointments();
+        window.addEventListener(APPOINTMENT_CELEBRATED_EVENT, handleCelebrated);
+
         return () => {
             unsubscribe();
+            window.removeEventListener(APPOINTMENT_CELEBRATED_EVENT, handleCelebrated);
         };
     }, [priestId, churchId, fetchPriestAppointments, fetchAvailability]);
+
+    // Mark one of the priest's own celebrations Celebrated; the badge and the yearly count update at once
+    const handleMarkCelebrated = async (appointment: HydratedAppointment) => {
+        setCelebratingId(appointment.id);
+        setCelebrateError(null);
+        try {
+            const { success, error: markErr } = await markAppointmentCelebrated(appointment.id);
+            if (!success) {
+                setCelebrateError(markErr?.message || 'Could not mark this celebration. Please try again.');
+                return;
+            }
+            setAppointments((current) =>
+                current.map((a) => (a.id === appointment.id ? { ...a, status: 'completed' } : a))
+            );
+        } catch (err: unknown) {
+            setCelebrateError(err instanceof Error ? err.message : 'Could not mark this celebration. Please try again.');
+        } finally {
+            setCelebratingId(null);
+        }
+    };
 
     // Open Document Inspection Modal
     const handleOpenDocModal = async (appointment: HydratedAppointment) => {
@@ -642,6 +676,11 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                             </div>
                         ) : (
                             <div className="divide-y divide-border/70">
+                                {celebrateError && (
+                                    <p role="alert" className="mx-5 my-3 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+                                        {celebrateError}
+                                    </p>
+                                )}
                                 {displayedToday.map((appt) => {
                                     const meta = getSacramentMeta(appt.service_type);
                                     const TypeIcon = meta.icon;
@@ -680,6 +719,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                     <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}>
                                                         {status.label}
                                                     </span>
+                                                    <RescheduledNotice appointment={appt} />
                                                     <RequestedPriestNote appointment={appt} />
                                                 </div>
                                                 <h3 className="text-sm font-bold text-foreground">
@@ -699,7 +739,21 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                 )}
                                             </div>
 
-                                            <div className="col-start-2 sm:col-start-3 flex items-start gap-1">
+                                            <div className="col-start-2 sm:col-start-3 flex flex-wrap items-start gap-1">
+                                                {!showSampleToday &&
+                                                    appt.status === 'approved' &&
+                                                    appt.priest_id === priestId &&
+                                                    hasAppointmentStarted(appt, now) && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={celebratingId === appt.id}
+                                                            onClick={() => void handleMarkCelebrated(appt)}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        >
+                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                            Mark celebrated
+                                                        </button>
+                                                    )}
                                                 <button
                                                     type="button"
                                                     disabled={showSampleToday}
@@ -940,6 +994,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                 Confirmed
                                             </span>
                                         )}
+                                        <RescheduledNotice appointment={appt} />
                                         {isOnDayOff(appt.appointment_date) && (
                                             <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                                                 On your day off
@@ -1163,6 +1218,12 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                 </div>
                             )}
                         </div>
+
+                        {/* Change history: the celebrant can read their appointment's edits (RLS) */}
+                        <AppointmentChangeHistory
+                            appointmentId={selectedAppointment.id}
+                            refreshKey={selectedAppointment.updated_at ?? selectedAppointment.status}
+                        />
                     </div>
                 </Modal>
             )}

@@ -180,17 +180,78 @@ export type Database = {
           },
         ]
       }
+      appointment_changes: {
+        Row: {
+          action: string
+          after_values: Json
+          appointment_id: string
+          before_values: Json
+          changed_by: string | null
+          church_id: string
+          created_at: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          after_values?: Json
+          appointment_id: string
+          before_values?: Json
+          changed_by?: string | null
+          church_id: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          after_values?: Json
+          appointment_id?: string
+          before_values?: Json
+          changed_by?: string | null
+          church_id?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_changes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_changes_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           admin_feedback: string | null
           appointment_date: string
           appointment_time: string
+          cancellation_reason: string | null
           church_id: string
           created_at: string | null
           id: string
           notes: string | null
           priest_id: string | null
           requested_priest_id: string | null
+          reschedule_reason: string | null
+          rescheduled_from_date: string | null
           service_type: string
           service_type_id: string | null
           status: string
@@ -201,12 +262,15 @@ export type Database = {
           admin_feedback?: string | null
           appointment_date: string
           appointment_time: string
+          cancellation_reason?: string | null
           church_id: string
           created_at?: string | null
           id?: string
           notes?: string | null
           priest_id?: string | null
           requested_priest_id?: string | null
+          reschedule_reason?: string | null
+          rescheduled_from_date?: string | null
           service_type: string
           service_type_id?: string | null
           status?: string
@@ -217,12 +281,15 @@ export type Database = {
           admin_feedback?: string | null
           appointment_date?: string
           appointment_time?: string
+          cancellation_reason?: string | null
           church_id?: string
           created_at?: string | null
           id?: string
           notes?: string | null
           priest_id?: string | null
           requested_priest_id?: string | null
+          reschedule_reason?: string | null
+          rescheduled_from_date?: string | null
           service_type?: string
           service_type_id?: string | null
           status?: string
@@ -1440,6 +1507,18 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_appointment: {
+        Args: { p_appointment_id: string; p_reason: string }
+        Returns: undefined
+      }
+      change_appointment_celebrant: {
+        Args: { p_appointment_id: string; p_new_priest_id: string; p_reason: string }
+        Returns: undefined
+      }
+      approve_appointment: {
+        Args: { p_appointment_id: string; p_priest_id?: string | null; p_admin_feedback?: string | null }
+        Returns: undefined
+      }
       get_parish_clergy: {
         Args: { p_church_id: string }
         Returns: {
@@ -1496,6 +1575,28 @@ export type Database = {
           kind: string | null
           name: string
         }[]
+      }
+      reject_appointment: {
+        Args: { p_appointment_id: string; p_admin_feedback?: string | null }
+        Returns: undefined
+      }
+      restore_appointment: {
+        Args: { p_appointment_id: string; p_reason: string }
+        Returns: undefined
+      }
+      mark_appointment_celebrated: {
+        Args: { p_appointment_id: string; p_note?: string | null }
+        Returns: undefined
+      }
+      reschedule_appointment: {
+        Args: {
+          p_appointment_id: string
+          p_new_date: string
+          p_new_time: string
+          p_new_priest_id?: string | null
+          p_reason: string
+        }
+        Returns: undefined
       }
       light_church_candle: {
         Args: { target_church_id: string; user_intention?: string | null }
