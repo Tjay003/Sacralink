@@ -127,9 +127,11 @@ export function useChurch(id: string | undefined) {
           *,
           mass_schedules (
             id,
+            church_id,
             day_of_week,
             time,
             language,
+            presiding_priest_id,
             created_at
           )
         `)

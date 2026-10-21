@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
+import PresidingPriestSelect from './PresidingPriestSelect';
 import type { MassSchedule } from '../../hooks/useChurches';
 
 interface EditScheduleModalProps {
@@ -19,17 +20,6 @@ const DAYS_OF_WEEK = [
     'Saturday',
 ];
 
-const MASS_TYPES = [
-    'Regular Mass',
-    'Anticipated Mass',
-    'Healing Mass',
-    'Youth Mass',
-    'Children Mass',
-    'Novena Mass',
-    'First Friday Mass',
-    'Other',
-];
-
 /**
  * EditScheduleModal - Modal to edit an existing mass schedule
  */
@@ -40,8 +30,8 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
     const [formData, setFormData] = useState({
         day_of_week: schedule.day_of_week,
         time: schedule.time,
-        mass_type: (schedule as any).mass_type || 'Regular Mass',
         language: schedule.language || '',
+        presiding_priest_id: schedule.presiding_priest_id || '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -52,13 +42,13 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
         try {
             console.log('🔄 Updating schedule:', schedule.id, formData);
 
-            const { error: updateError } = await (supabase
-                .from('mass_schedules') as any)
+            const { error: updateError } = await supabase
+                .from('mass_schedules')
                 .update({
                     day_of_week: formData.day_of_week,
                     time: formData.time,
-                    mass_type: formData.mass_type,
                     language: formData.language || null,
+                    presiding_priest_id: formData.presiding_priest_id || null,
                 })
                 .eq('id', schedule.id);
 
@@ -129,25 +119,6 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
                     />
                 </div>
 
-                {/* Mass Type */}
-                <div>
-                    <label className="block text-sm font-medium mb-1.5">
-                        Mass Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                        value={formData.mass_type}
-                        onChange={(e) => setFormData({ ...formData, mass_type: e.target.value })}
-                        disabled={loading}
-                        className="input w-full"
-                    >
-                        {MASS_TYPES.map((type) => (
-                            <option key={type} value={type}>
-                                {type}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
                 {/* Language */}
                 <div>
                     <label className="block text-sm font-medium mb-1.5">
@@ -162,6 +133,14 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
                         placeholder="e.g., English, Tagalog, Latin"
                     />
                 </div>
+
+                {/* Presiding Priest */}
+                <PresidingPriestSelect
+                    churchId={schedule.church_id}
+                    value={formData.presiding_priest_id}
+                    onChange={(priestId) => setFormData({ ...formData, presiding_priest_id: priestId })}
+                    disabled={loading}
+                />
 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4 border-t border-gray-100">

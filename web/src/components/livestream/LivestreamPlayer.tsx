@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { Church } from '../../hooks/useChurches';
 import type { MassSchedule } from '../../types/database';
+import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 
 interface LivestreamPlayerProps {
     church: Church;
@@ -172,6 +173,7 @@ export default function LivestreamPlayer({
 }: LivestreamPlayerProps) {
     const [copied, setCopied] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const { byId: clergyById } = useParishClergy(church.id);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -188,6 +190,12 @@ export default function LivestreamPlayer({
         () => getNextUpcomingMass(church.mass_schedules, currentTime),
         [church.mass_schedules, currentTime]
     );
+
+    // The stream itself is not linked to a Mass schedule (churches only stores the URL, title and
+    // start time), so the celebrant is shown only for the next scheduled Mass in the standby view.
+    const nextMassCelebrant = nextMass?.schedule.presiding_priest_id
+        ? clergyById.get(nextMass.schedule.presiding_priest_id)
+        : undefined;
 
     const activeCandles = candleCount !== undefined ? candleCount : (church.candle_count || 0);
 
@@ -343,6 +351,11 @@ export default function LivestreamPlayer({
                                                 {nextMass.schedule.language && (
                                                     <p className="text-xs text-muted truncate">
                                                         Language: <span className="text-foreground font-medium">{nextMass.schedule.language}</span>
+                                                    </p>
+                                                )}
+                                                {nextMassCelebrant && (
+                                                    <p className="text-xs text-muted truncate">
+                                                        Celebrant: <span className="text-foreground font-medium">{celebrantLabel(nextMassCelebrant)}</span>
                                                     </p>
                                                 )}
                                             </div>

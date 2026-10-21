@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
+import PresidingPriestSelect from './PresidingPriestSelect';
 
 interface AddScheduleModalProps {
     churchId: string;
@@ -29,6 +30,7 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
         day_of_week: 'Sunday',
         time: '',
         language: '',
+        presiding_priest_id: '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -43,13 +45,14 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
         setError('');
 
         try {
-            const { error: insertError } = await (supabase
-                .from('mass_schedules') as any)
+            const { error: insertError } = await supabase
+                .from('mass_schedules')
                 .insert([{
                     church_id: churchId,
                     day_of_week: formData.day_of_week,
                     time: formData.time,
                     language: formData.language || null,
+                    presiding_priest_id: formData.presiding_priest_id || null,
                 }]);
 
             if (insertError) {
@@ -133,6 +136,14 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
                         placeholder="e.g., English, Tagalog, Latin"
                     />
                 </div>
+
+                {/* Presiding Priest */}
+                <PresidingPriestSelect
+                    churchId={churchId}
+                    value={formData.presiding_priest_id}
+                    onChange={(priestId) => setFormData({ ...formData, presiding_priest_id: priestId })}
+                    disabled={loading}
+                />
 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4 border-t border-gray-100">

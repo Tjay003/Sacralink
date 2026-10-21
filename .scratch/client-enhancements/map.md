@@ -3,7 +3,7 @@
 ## Frontier
 - [x] `01-dual-tier-frictionless-donations.md`
 - [x] `02-super-admin-system-announcements-feed.md`
-- [ ] `03-presiding-priest-liturgy-visibility.md`
+- [x] `03-presiding-priest-liturgy-visibility.md`
 - [ ] `04-church-clergy-roster-and-status.md`
 - [ ] `05-booking-celebrant-pool-check.md`
 - [ ] `06-customizable-sacrament-requirements-and-funeral.md`
@@ -18,7 +18,7 @@
 ## Tasks
 1. `01-dual-tier-frictionless-donations.md` (Type: feature, Status: resolved)
 2. `02-super-admin-system-announcements-feed.md` (Type: feature, Status: resolved)
-3. `03-presiding-priest-liturgy-visibility.md` (Type: feature, Status: ready-for-agent, Blocked by: 12)
+3. `03-presiding-priest-liturgy-visibility.md` (Type: feature, Status: resolved, Blocked by: 12)
 4. `04-church-clergy-roster-and-status.md` (Type: feature, Status: ready-for-agent, Blocked by: 12, 03)
 5. `05-booking-celebrant-pool-check.md` (Type: feature, Status: ready-for-agent, Blocked by: 12)
 6. `06-customizable-sacrament-requirements-and-funeral.md` (Type: feature, Status: proposed)
@@ -38,3 +38,4 @@
 - Order: 12, then 03, then 04, with 05 in parallel with 03 after 12.
 - All backend work is verified on local Docker Supabase only; production changes need explicit approval per step.
 - Ticket 12 shipped as migration 054 (local only): RPCs `get_parish_clergy`, `evaluate_parish_celebrants`, `check_parish_slot`; TS wrappers `getParishClergy`, `evaluateParishPool`, `checkParishSlot` in `priestAvailability.ts`; approval warnings no longer repeat leave reasons. See the ticket Resolution.
+- Ticket 03 shipped (web, local only): celebrant badge on schedule cards, Presiding priest select in Add/Edit modals, celebrant in livestream standby. Streams have no link to a Mass schedule, so the live view shows none. Reusable for 04: `useParishClergy` / `celebrantLabel` in `web/src/hooks/useParishClergy.ts`. Found: Edit modal wrote a nonexistent `mass_type` column (removed) and `mass_schedules` RLS excludes `church_admin`. See the ticket Resolution.

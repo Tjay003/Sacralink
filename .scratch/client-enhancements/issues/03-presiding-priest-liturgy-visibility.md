@@ -1,7 +1,7 @@
 # Issue 03: Presiding Priest / Celebrant Liturgy Visibility
 
 Type: feature
-Status: ready-for-agent
+Status: resolved
 Blocked by: 12
 
 ---
@@ -28,9 +28,39 @@ Web only. Mobile is ticket 13.
 ---
 
 ## 2. Acceptance Criteria
-- [ ] Mass schedule cards show the celebrant badge only when assigned.
-- [ ] Livestream player shows the celebrant in live and standby views where a schedule mapping exists.
-- [ ] Add and edit modals can assign, change and clear the presiding priest, restricted to that church's priests.
-- [ ] Assigning a priest does not break existing schedule add/edit/delete flows or the mobile church screen (column is additive).
-- [ ] Local e2e covers assign, change and clear.
-- [ ] Builds and passes TypeScript validation cleanly (`tsc -b`).
+- [x] Mass schedule cards show the celebrant badge only when assigned.
+- [x] Livestream player shows the celebrant in live and standby views where a schedule mapping exists.
+- [x] Add and edit modals can assign, change and clear the presiding priest, restricted to that church's priests.
+- [x] Assigning a priest does not break existing schedule add/edit/delete flows or the mobile church screen (column is additive).
+- [x] Local e2e covers assign, change and clear.
+- [x] Builds and passes TypeScript validation cleanly (`tsc -b`).
+
+---
+
+## Resolution
+
+Built and verified on the local Docker Supabase only. No migration or RPC was changed; production is untouched.
+
+### What was built
+- **Celebrant badge** on each Mass schedule card of the Liturgy tab (`ChurchDetailPage.tsx`): `Celebrant: Rev. Fr. <name>` as an amber (Sacred Gold) pill next to the language pill, only when `presiding_priest_id` is set and resolves to a priest of the parish. Cards got `data-testid="mass-schedule-card"`.
+- **Name resolution** goes through `getParishClergy` only (no direct `profiles` read). New shared pieces for ticket 04 to reuse:
+  - `web/src/hooks/useParishClergy.ts`: `useParishClergy(churchId)` returns `{ clergy, byId, loading }`; `celebrantLabel(member)` returns `"<title> <name>"` (for example `Rev. Fr. Local Priest`).
+  - `web/src/components/churches/PresidingPriestSelect.tsx`: the labelled "Presiding priest (Optional)" select (Not assigned plus the parish priests).
+- **Add / Edit schedule modals** use `PresidingPriestSelect`; assign, change and clear persist `presiding_priest_id` (`''` stores `null`). A stored celebrant who is no longer in the roster stays visible as "Former parish priest (no longer assigned here)" so saving never clears them silently.
+- **`useChurches.ts`** now selects `church_id` and `presiding_priest_id` for `mass_schedules` (the explicit column list omitted both).
+- **LivestreamPlayer** standby (pre-Mass countdown) card shows `Celebrant: Rev. Fr. <name>` under the next Mass time when that Mass has a celebrant.
+
+### Livestream-to-schedule mapping (finding)
+There is no link. A stream is only `churches.livestream_url`, `livestream_title`, `livestream_platform`, `is_live` and `livestream_started_at`; nothing references a `mass_schedules` row. The only real schedule in the player is the standby "next scheduled Mass" (`getNextUpcomingMass`), so the celebrant is shown there. **The live view shows no celebrant** (gap): attributing the on-air stream to a schedule would be a guess. Closing it needs a stored link (for example `churches.livestream_schedule_id`, set when the office goes live) and is a follow-up outside this ticket.
+
+### Deviations and pre-existing defects found
+1. **Edit modal could not save at all.** It wrote `mass_type`, a column that does not exist on `mass_schedules` (not in `database.ts`, not after migration 007; it fails with "Could not find the 'mass_type' column"). The Mass Type select and its payload were removed. It was never read back (the page query never selected it).
+2. **Church admins are rejected by RLS on `mass_schedules` writes.** The write policy ("Admins can manage church mass schedules") allows only roles `admin` and `super_admin`, but the web `canManage()` also shows Add / Edit / Delete to `church_admin` and `volunteer`. Not changed (out of scope, needs a decision and a check of the production policy). The local e2e therefore switches the seeded `church_admin` and `other_admin` profiles to role `admin` for the modal tests and restores them afterwards.
+3. **Logged-out visitors cannot reach the web church page** (`App.tsx` routes everything but login, register and privacy to `/login` when there is no session). The badge code only needs `get_parish_clergy`, which is callable by `anon` (covered by a test that calls it with the anon key), so it will work the moment a public church page exists; the UI tests use a parishioner, the least privileged signed-in viewer.
+4. Removed the `as any` casts on the two `mass_schedules` calls in the modals (the generated types now cover the column).
+
+### Tests
+- New `web/e2e-local/presiding-priest.spec.ts` (12 tests, written first and seen failing): badge shows only on assigned Masses, nothing when none assigned, follows a database change, anon roster resolves names, Add lists only parish priests plus Not assigned and assigns, Add without choice stores null, Edit assigns / changes / clears and opens preselected, time-only edit keeps the priest and delete still works, parishioner sees the badge but no manage controls, another parish's admin cannot assign, standby shows the celebrant, standby shows nothing when unassigned.
+- Full local suite: 89 tests, 89 passed (the previous 77 plus these 12; includes the existing `test.fail` known-gap annotation in `appointment-cancelled-card`).
+- `tsc -b` clean. eslint clean on every file touched except two pre-existing `react-hooks/exhaustive-deps` warnings (`useChurches.ts` `fetchChurch`, `ChurchDetailPage.tsx` `fetchGallery`) that this ticket did not introduce.
+- Screenshots for visual review are written to `web/e2e-screenshots/presiding-priest-*.png`.

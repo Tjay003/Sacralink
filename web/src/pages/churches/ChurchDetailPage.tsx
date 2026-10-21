@@ -42,6 +42,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
+import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 import FacebookFeed from '../../components/social/FacebookFeed';
 import SanctuaryVirtualTour from '../../components/churches/SanctuaryVirtualTour';
 import ImageLightbox from '../../components/churches/ImageLightbox';
@@ -81,6 +82,7 @@ export default function ChurchDetailPage() {
     const navigate = useNavigate();
     const { user, profile, session } = useAuth();
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
+    const { byId: clergyById } = useParishClergy(id);
 
     // Main Tab Navigation
     const [currentTab, setCurrentTab] = useState<TabType>('overview');
@@ -1377,6 +1379,7 @@ export default function ChurchDetailPage() {
                                 {getFilteredSchedules().map((schedule) => (
                                     <div
                                         key={schedule.id}
+                                        data-testid="mass-schedule-card"
                                         className="py-4 flex items-center justify-between gap-4 group hover:bg-secondary-50/40 transition-colors px-2 rounded-xl"
                                     >
                                         {/* Left column (Time & Day) */}
@@ -1394,10 +1397,19 @@ export default function ChurchDetailPage() {
                                             <p className="font-medium text-sm text-foreground truncate">
                                                 {(schedule as ScheduleItem).mass_type || (schedule as ScheduleItem).description || `${schedule.day_of_week} Eucharistic Celebration`}
                                             </p>
-                                            {schedule.language && (
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-primary border border-blue-100 w-fit mt-1">
-                                                    {schedule.language}
-                                                </span>
+                                            {(schedule.language || (schedule.presiding_priest_id && clergyById.has(schedule.presiding_priest_id))) && (
+                                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                    {schedule.language && (
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-primary border border-blue-100 w-fit">
+                                                            {schedule.language}
+                                                        </span>
+                                                    )}
+                                                    {schedule.presiding_priest_id && clergyById.has(schedule.presiding_priest_id) && (
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 w-fit max-w-full truncate">
+                                                            Celebrant: {celebrantLabel(clergyById.get(schedule.presiding_priest_id)!)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
 
