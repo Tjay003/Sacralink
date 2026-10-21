@@ -42,7 +42,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import AddScheduleModal from '../../components/churches/AddScheduleModal';
 import EditScheduleModal from '../../components/churches/EditScheduleModal';
-import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
+import { celebrantLabel, parishPriestSummary, useParishClergy } from '../../hooks/useParishClergy';
+import ParishClergySection from '../../components/churches/ParishClergySection';
 import FacebookFeed from '../../components/social/FacebookFeed';
 import SanctuaryVirtualTour from '../../components/churches/SanctuaryVirtualTour';
 import ImageLightbox from '../../components/churches/ImageLightbox';
@@ -82,7 +83,7 @@ export default function ChurchDetailPage() {
     const navigate = useNavigate();
     const { user, profile, session } = useAuth();
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
-    const { byId: clergyById } = useParishClergy(id);
+    const { clergy, byId: clergyById } = useParishClergy(id);
 
     // Main Tab Navigation
     const [currentTab, setCurrentTab] = useState<TabType>('overview');
@@ -600,9 +601,8 @@ export default function ChurchDetailPage() {
     const sundayMassCount = church.mass_schedules?.filter(s => s.day_of_week === 'Sunday').length || 0;
     const announcementsCount = announcements.length;
 
-    // Assigned parish priest
-    const parishPriest = staffList.find(s => s.is_priest || s.role === 'priest');
-    const priestName = parishPriest?.full_name || 'Rev. Fr. Assigned Clergy';
+    // Parish priests, named from the roster (get_parish_clergy) rather than a direct profiles read
+    const priestSummary = parishPriestSummary(clergy);
 
     // Format Mass Schedule summary
     const massSummary = sundayMassCount > 0
@@ -719,10 +719,12 @@ export default function ChurchDetailPage() {
                             <MapPin className="w-3.5 h-3.5 text-secondary-400 shrink-0" />
                             <span className="truncate max-w-[220px] sm:max-w-md">{church.address}</span>
                         </span>
-                        <span className="inline-flex items-center gap-1.5">
-                            <Cross className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span>{priestName}</span>
-                        </span>
+                        {priestSummary && (
+                            <span className="inline-flex items-center gap-1.5">
+                                <Cross className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span data-testid="parish-priest-summary">{priestSummary}</span>
+                            </span>
+                        )}
                         <span className="inline-flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 text-secondary-400 shrink-0" />
                             <span>{massSummary}</span>
@@ -1062,6 +1064,12 @@ export default function ChurchDetailPage() {
                             </div>
                         </div>
 
+                        {/* Parish clergy (hidden when the parish has no priests) */}
+                        <ParishClergySection
+                            clergy={clergy}
+                            onBook={isFeatureEnabled('appointments') ? () => navigate(`/churches/${id}/book`) : undefined}
+                        />
+
                         {/* Contact and location */}
                         <div className="card p-6 bg-white border border-border/80 shadow-2xs space-y-4">
                             <div className="flex items-center justify-between">
@@ -1271,10 +1279,12 @@ export default function ChurchDetailPage() {
                                     <span className="text-muted">Patron</span>
                                     <span className="font-semibold text-foreground text-right">{church.name.split('Parish')[0] || 'Parish Patron'}</span>
                                 </div>
-                                <div className="flex justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted">Parish priest</span>
-                                    <span className="font-semibold text-foreground text-right">{priestName}</span>
-                                </div>
+                                {priestSummary && (
+                                    <div data-testid="quick-fact-clergy" className="flex justify-between py-1 border-b border-border/60">
+                                        <span className="text-muted">{clergy.length === 1 ? 'Parish priest' : 'Parish clergy'}</span>
+                                        <span className="font-semibold text-foreground text-right">{priestSummary}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between py-1 border-b border-border/60">
                                     <span className="text-muted">Diocese</span>
                                     <span className="font-semibold text-foreground text-right">Diocese of San Jose del Monte</span>
@@ -1835,7 +1845,7 @@ export default function ChurchDetailPage() {
                                         <div>
                                             <p className="text-xs font-bold text-foreground">Pastor of record confirmed</p>
                                             <p className="text-[11px] text-secondary-500 mt-0.5">
-                                                {staffList.find(s => s.role === 'priest' || s.is_priest)?.full_name || 'Fr. Anselmo Dizon'}
+                                                {clergy.length > 0 ? celebrantLabel(clergy[0]) : 'Fr. Anselmo Dizon'}
                                             </p>
                                         </div>
                                     </div>

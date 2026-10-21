@@ -16,6 +16,15 @@ export function celebrantLabel(member: Pick<ParishClergyMember, 'title' | 'name'
 }
 
 /**
+ * One-line description of a parish's priests for headers and fact lists: the priest's labelled name when
+ * there is one, a count when there are several, and null when the parish has none.
+ */
+export function parishPriestSummary(clergy: ParishClergyMember[]): string | null {
+    if (clergy.length === 0) return null;
+    return clergy.length === 1 ? celebrantLabel(clergy[0]) : `${clergy.length} priests`;
+}
+
+/**
  * The parish's priests from the get_parish_clergy function (works while logged out and exposes
  * only name, title, designation and today's status).
  *

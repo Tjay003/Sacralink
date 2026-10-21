@@ -1,7 +1,7 @@
 # Issue 04: Church Clergy Directory & Real-Time Status
 
 Type: feature
-Status: ready-for-agent
+Status: resolved
 Blocked by: 12, 03
 
 ---
@@ -30,10 +30,46 @@ Web only. Mobile is ticket 13.
 ---
 
 ## 2. Acceptance Criteria
-- [ ] Roster renders for logged-out and logged-in visitors via the RPC only.
-- [ ] No leave reason, email or phone is returned or rendered.
-- [ ] Status badges show Available, In Mass, On Leave correctly from dashboard leave and Mass schedules.
-- [ ] Parishes with no priests show no clergy section.
-- [ ] An `admin` account flagged `is_priest` appears in its parish's roster.
-- [ ] Local e2e covers anon visitor, on-leave priest and in-mass priest.
-- [ ] Builds and passes TypeScript validation cleanly (`tsc -b`).
+- [x] Roster renders for logged-out and logged-in visitors via the RPC only.
+- [x] No leave reason, email or phone is returned or rendered.
+- [x] Status badges show Available, In Mass, On Leave correctly from dashboard leave and Mass schedules.
+- [x] Parishes with no priests show no clergy section.
+- [x] An `admin` account flagged `is_priest` appears in its parish's roster.
+- [x] Local e2e covers anon visitor, on-leave priest and in-mass priest.
+- [x] Builds and passes TypeScript validation cleanly (`tsc -b`).
+
+---
+
+## Resolution
+
+Built and verified on the local Docker Supabase only. No migration or RPC was changed; production is untouched (it still lacks migration 054, so the section stays hidden there until 054 is applied: `get_parish_clergy` errors and the hook returns an empty roster).
+
+### What was built
+- **`web/src/components/churches/ParishClergySection.tsx`** (new): the "Parish Clergy" card on the Overview tab of `ChurchDetailPage.tsx`, under "About this parish". Renders nothing when the roster is empty. One card per priest: `Rev. Fr. <name>` (via `celebrantLabel`), designation (`Priest` / `Parish Administrator`), a status badge from the RPC `status` (Available = success green, In Mass = Sacred Gold, On Leave = Stone Gray), and a "Book with Father" button. It only receives `{ priestId, name, title, designation, status }`, so no leave reason, email or phone can be rendered.
+- **"Book with Father"** navigates to the existing `/churches/:id/book` route for that church, exactly like the header "Book appointment" button, with no priest pre-selected (booking has no priest picker). It is gated by the same `appointments` feature flag as that button, and it is never disabled for an On Leave priest (booking only needs the parish pool, ticket 05).
+- **`useParishClergy.ts`** gained `parishPriestSummary(clergy)`: the labelled name for one priest, `"N priests"` for several, `null` for none.
+- Roster comes only from `getParishClergy` through the existing `useParishClergy` hook. The page does not read `priest_availability` at all (asserted by watching network requests in the e2e).
+
+### The "Fr. Second Priest" header line
+It came from a **direct `profiles` read**: `fetchMetricsAndStaff` loads the parish's profiles into `staffList`, and `ChurchDetailPage` took `staffList.find(s => s.is_priest || s.role === 'priest')?.full_name` with no ordering. It simply showed whichever priest row the database returned first (raw `full_name`, so "Fr. Second Priest" without the honorific from the roster, and an invented "Rev. Fr. Assigned Clergy" when there was none). That is redundant with the roster and arbitrary, so it was replaced, not left:
+- **Header line** (below the parish name) now uses `parishPriestSummary(clergy)` from the RPC: one priest shows `Rev. Fr. <name>`, several show `N priests`, none hides the line entirely (no placeholder name).
+- **Quick facts "Parish priest" row** used the same value; it now uses the same summary, is labelled "Parish clergy" when there are several, and is hidden when there are none.
+- **Governance checklist "Pastor of record confirmed" sub-line** also read `staffList.find(priest)`; it now shows `celebrantLabel(clergy[0])` (the demo fallback `Fr. Anselmo Dizon` stays when the parish has no priests, as before; that checklist is existing placeholder content).
+- `staffList` itself is untouched: it still feeds the "Parish team" card, the staff-management list, the Message office gate and the member count, which are not priest-roster concerns.
+
+### Findings the user should know
+1. **The "Parish team" card still shows staff emails** (`member.email`, including priests') to every logged-in viewer, from a direct `profiles` read. That is pre-existing and outside this ticket (the criterion applies to the roster); the e2e asserts no `@` inside the Parish Clergy section only. Worth a follow-up if staff emails should not be public to every parishioner.
+2. **Logged-out web gap (known constraint)**: `App.tsx` sends visitors without a session to `/login` before any church page, so "renders for logged-out visitors" cannot be shown in the web UI. Routing was not changed. It is covered at the RPC level with the anon key (three tests in the new spec: columns and statuses, no reason/email/phone, empty parish) and the section needs no auth of its own, so it will work the moment a public church page exists. The UI tests use a parishioner, the least privileged signed-in viewer.
+3. In Mass is evaluated in `Asia/Manila` for the hour after a presiding Mass starts (ticket 12); the e2e seeds a Mass that started 20 minutes ago (clamped to 00:00 so it also holds just after midnight, Manila time).
+
+### Tests
+- New `web/e2e-local/church-clergy-roster.spec.ts` (14 tests, written first: 10 failed, 4 passed before the change, all 14 after): anon RPC columns/statuses/no reason, email or phone; on leave (blackout and weekly day off) with no reason in the page and no `priest_availability` request; In Mass vs Available; leave outranks In Mass; parish with no priests has no section and no priest line; an `admin` flagged `is_priest` appears as Parish Administrator; "Book with Father" opens the booking page of that church; the shortcut stays enabled for an On Leave priest; header and Quick facts agree with the roster (count for several, labelled name for one, nothing for none).
+- Full local suite: 118 tests, 118 passed (104 before this ticket; includes the existing `test.fail` known-gap annotation in `appointment-cancelled-card`).
+- `tsc -b` clean; eslint clean on all touched files except the pre-existing `react-hooks/exhaustive-deps` warning on `fetchGallery` in `ChurchDetailPage.tsx`.
+- Screenshots for visual review: `web/e2e-screenshots/church-clergy-roster-*.png`.
+
+### For ticket 13 (mobile parity)
+- Reuse the same RPC `get_parish_clergy(p_church_id)` (anon-callable) and mirror the TS mapping in `getParishClergy` (`priest_id, name, title, designation, status`); title already contains the honorific, so the label is `"<title> <name>"`.
+- Status badge mapping: `available` = success green "Available", `in_mass` = Sacred Gold "In Mass", `on_leave` = Stone Gray "On Leave". Never display or request `priest_availability`, emails or phones for this.
+- Summary rule for header and fact rows: one priest = labelled name, several = `"N priests"`, none = hide the line (no placeholder name).
+- "Book with Father" = open the existing booking flow for that church with no priest pre-selected.
