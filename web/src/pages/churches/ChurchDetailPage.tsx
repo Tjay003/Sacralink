@@ -447,9 +447,10 @@ export default function ChurchDetailPage() {
     const isSuperAdmin = profile?.role === 'super_admin';
     const isUnverified = Boolean(church && (church.status === 'unverified' || (Boolean(church.status) && church.status !== 'verified_active' && church.status !== 'active')));
 
-    const handleRevokeVerification = async () => {
     const cashlessPaused = church?.accept_cashless === false;
     const donationsLocked = isUnverified || cashlessPaused;
+
+    const handleRevokeVerification = async () => {
         if (!id || !church) return;
         setRevoking(true);
         try {
@@ -2153,7 +2154,6 @@ export default function ChurchDetailPage() {
             {/* Announcement Form Modal */}
             {showAnnouncementForm && (
                 <AnnouncementForm
-                        accept_cashless: church.accept_cashless,
                     type="church"
                     churchId={id!}
                     churchName={church?.name}
@@ -2202,6 +2202,7 @@ export default function ChurchDetailPage() {
                     church={{
                         id: church.id,
                         name: church.name,
+                        accept_cashless: church.accept_cashless,
                         gcash_number: church.gcash_number,
                         maya_number: church.maya_number,
                         gcash_qr_url: church.gcash_qr_url,
