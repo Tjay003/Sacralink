@@ -28,6 +28,10 @@ Single-context repository. See `docs/agents/domain.md`.
 
 Test backend changes (database functions, RLS, notifications, migrations) against the local Docker Supabase with the real Playwright suite in `web/e2e-local`. **Never test backend changes against the production Supabase in `web/.env`.** See `docs/agents/local-testing.md`.
 
+### Test workflow
+
+What to test per ticket, which specs to run while building, the pre-production gate, and the one-agent-at-a-time e2e rule. Read `docs/agents/test-workflow.md` before writing or running any test, or before releasing `main` to `feature/demo-mode`.
+
 ---
 
 ## Design System & UI Color Palette (MANDATORY FOR ALL UI CREATION)
