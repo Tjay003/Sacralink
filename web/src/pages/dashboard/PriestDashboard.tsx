@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
 import Modal from '../../components/ui/Modal';
 import CelebrantAttentionWidget from '../../components/dashboard/CelebrantAttentionWidget';
 import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
@@ -556,7 +555,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
             </section>
 
             {/* Chancery circulars */}
-            <SystemAnnouncementsBanner variant="circular" />
 
             {/* Stat Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -3,7 +3,6 @@ import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, Building2, Calendar }
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import PriestDashboard from './PriestDashboard';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchHeader from '../../components/dashboard/ChurchHeader';
 import ChurchStatsCards from '../../components/dashboard/ChurchStatsCards';
 import ParishAttentionWidget from '../../components/dashboard/ParishAttentionWidget';
@@ -146,7 +145,6 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                 <PriestDashboard churchId={churchId} />
             ) : (
                 <div className="space-y-6">
-                    <SystemAnnouncementsBanner />
                     {churchId && (
                         <>
                             <ChurchHeader

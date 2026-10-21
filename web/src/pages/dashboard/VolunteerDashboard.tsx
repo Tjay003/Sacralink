@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurch } from '../../hooks/useChurches';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
 import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
 import ChurchAnnouncementsManagement from '../../components/dashboard/ChurchAnnouncementsManagement';
 import DailyVerse from '../../components/dashboard/DailyVerse';
@@ -52,7 +51,6 @@ export default function VolunteerDashboard({ churchId }: VolunteerDashboardProps
     if (!churchId) {
         return (
             <div className="space-y-6">
-                <SystemAnnouncementsBanner />
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center max-w-xl mx-auto shadow-xs">
                     <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
                         <AlertCircle className="w-6 h-6" />
@@ -69,9 +67,6 @@ export default function VolunteerDashboard({ churchId }: VolunteerDashboardProps
 
     return (
         <div className="space-y-6">
-            {/* System Announcements Banner */}
-            <SystemAnnouncementsBanner />
-
             {/* Light SacraLink Liturgical Header for Volunteers */}
             <section className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 lg:p-8 overflow-hidden">
                 {/* Ambient Faith Blue and Sacred Gold glows (2x richness) */}

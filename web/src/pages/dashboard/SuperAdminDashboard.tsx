@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ShieldAlert, X, ShieldCheck, Megaphone, Plus } from 'lucide-react';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
 import ChurchSelectorDropdown from '../../components/dashboard/ChurchSelectorDropdown';
 import DioceseStatsCards from '../../components/dashboard/DioceseStatsCards';
 import SystemAnnouncementsManagement from '../../components/dashboard/SystemAnnouncementsManagement';
@@ -112,8 +111,6 @@ export default function SuperAdminDashboard() {
     return (
         <div className="space-y-6">
             {noticeBanner}
-            {/* System Announcements Banner */}
-            {isFeatureEnabled('systemAnnouncements') && <SystemAnnouncementsBanner />}
 
             {/* Super Admin Welcome & Operations Card */}
             <div className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 overflow-hidden z-20">

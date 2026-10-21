@@ -14,7 +14,6 @@ import StatCard from '../../components/dashboard/StatCard';
 import { dashboardConfig } from '../../config/featureFlags';
 import { mockTrendData } from '../../config/mockData';
 import { Users, Building2, Calendar as CalendarIcon, TrendingUp } from 'lucide-react';
-import { SystemAnnouncementsBanner } from '../../components/announcements';
 
 /**
  * DashboardPage - Main dashboard that shows different content based on user role
@@ -124,8 +123,6 @@ export default function DashboardPage() {
                     Here is what's happening today.
                 </p>
             </div>
-
-            <SystemAnnouncementsBanner />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
