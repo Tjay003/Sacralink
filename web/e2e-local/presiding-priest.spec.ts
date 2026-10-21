@@ -30,6 +30,17 @@ async function openLiturgy(page: Page) {
   await page.getByRole('button', { name: /^Liturgy/ }).click();
 }
 
+async function openLivestream(page: Page) {
+  const seed = await getSeed();
+  await page.goto(`/churches/${seed.churchId}`);
+  await page.getByRole('button', { name: 'Livestream', exact: true }).click();
+}
+
+/** The player's standby card for the next Mass (exact, case-sensitive label so no other copy on the page can match). */
+function standbyNextMass(page: Page) {
+  return page.getByText('Next Scheduled Holy Mass', { exact: true }).locator('..');
+}
+
 function card(page: Page, time: string) {
   return page.getByTestId('mass-schedule-card').filter({ hasText: time });
 }
@@ -251,10 +262,10 @@ test.describe('Celebrant in the livestream standby countdown', () => {
     await db.from('churches').update({ is_live: false, livestream_url: null }).eq('id', seed.churchId);
 
     await loginAs(page, 'parishioner');
-    await page.goto(`/churches/${seed.churchId}?tab=livestream`);
+    await openLivestream(page);
 
-    await expect(page.getByText('Next Scheduled Holy Mass')).toBeVisible();
-    await expect(page.getByText(`Celebrant: ${PRIEST_LABEL}`)).toBeVisible();
+    await expect(standbyNextMass(page)).toBeVisible();
+    await expect(standbyNextMass(page)).toContainText(`Celebrant: ${PRIEST_LABEL}`);
     await capture(page, 'presiding-priest-livestream-standby');
   });
 
@@ -264,9 +275,9 @@ test.describe('Celebrant in the livestream standby countdown', () => {
     await db.from('churches').update({ is_live: false, livestream_url: null }).eq('id', seed.churchId);
 
     await loginAs(page, 'parishioner');
-    await page.goto(`/churches/${seed.churchId}?tab=livestream`);
+    await openLivestream(page);
 
-    await expect(page.getByText('Next Scheduled Holy Mass')).toBeVisible();
-    await expect(page.getByText('Celebrant:')).toHaveCount(0);
+    await expect(standbyNextMass(page)).toBeVisible();
+    await expect(standbyNextMass(page)).not.toContainText('Celebrant:');
   });
 });
