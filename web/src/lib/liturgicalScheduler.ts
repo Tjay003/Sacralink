@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
-import { checkPriestIsAvailable } from './supabase/priestAvailability';
-import { formatAppointmentTime } from './supabase/appointments';
+import { evaluateParishPool, type ParishCelebrantEligibility } from './supabase/priestAvailability';
 import type { Profile } from '../types/database';
 
 export const CANON_905_LIMITS = {
@@ -73,6 +72,55 @@ export function getMaxCanonMasses(dateStr: string): number {
   return isSundayDate(dateStr) ? CANON_905_LIMITS.SUNDAY : CANON_905_LIMITS.WEEKDAY;
 }
 
+/** Result for a priest with nothing against him (also the fallback when the evaluation cannot run). */
+function availableEvaluation(): CelebrantEvaluation {
+  return {
+    eligible: true,
+    status: 'available',
+    badgeText: 'Available',
+    badgeVariant: 'success',
+    warnings: [],
+    dailyCount: 0,
+  };
+}
+
+function toCelebrantEvaluation(row: ParishCelebrantEligibility): CelebrantEvaluation {
+  return {
+    eligible: row.eligible,
+    status: row.status,
+    badgeText: row.badgeText,
+    badgeVariant: row.badgeVariant,
+    warnings: row.warnings,
+    dailyCount: row.dailyCount,
+  };
+}
+
+/**
+ * Evaluates one parish slot for every priest of the parish. The computation lives in the
+ * evaluate_parish_celebrants database function (day off, leave, time collision and Canon 905, counting
+ * appointments and recurring Masses); this only maps the result.
+ */
+async function evaluateParishSlot(
+  churchId: string,
+  appointmentDate: string,
+  appointmentTime: string,
+  currentAppointmentId?: string
+): Promise<Record<string, CelebrantEvaluation>> {
+  const { data, error } = await evaluateParishPool(churchId, appointmentDate, appointmentTime, currentAppointmentId);
+  if (error) throw error;
+  return Object.fromEntries(data.map((row) => [row.priestId, toCelebrantEvaluation(row)]));
+}
+
+/** The parish a priest belongs to, for callers that do not pass one. */
+async function resolvePriestChurchId(priestId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('assigned_church_id, church_id')
+    .eq('id', priestId)
+    .maybeSingle();
+  return data?.assigned_church_id ?? data?.church_id ?? null;
+}
+
 /**
  * Evaluates whether a priest can be assigned to an appointment on a specific date and time,
  * adhering to Canon 905 Mass frequency limits, temporal collision avoidance, and clergy availability.
@@ -87,185 +135,67 @@ export async function evaluateCelebrantAssignment(
   priestId: string,
   appointmentDate: string,
   appointmentTime: string,
-  _churchId?: string,
+  churchId?: string,
   currentAppointmentId?: string
 ): Promise<CelebrantEvaluation> {
   if (!priestId || !appointmentDate) {
-    return {
-      eligible: true,
-      status: 'available',
-      badgeText: 'Available',
-      badgeVariant: 'success',
-      warnings: [],
-      dailyCount: 0,
-    };
+    return availableEvaluation();
   }
 
-  const cleanDateStr = appointmentDate.includes('T') ? appointmentDate.split('T')[0] : appointmentDate.trim();
-  const isSunday = isSundayDate(cleanDateStr);
-  const maxDailyAllowed = getMaxCanonMasses(cleanDateStr);
-  const warnings: string[] = [];
-
   try {
-    // 1. Check weekly day-off and retreat blackout periods
-    const availability = await checkPriestIsAvailable(priestId, cleanDateStr);
-    const isBlackoutOrDayOff = !availability.available;
-
-    if (isBlackoutOrDayOff) {
-      warnings.push(
-        availability.reason ||
-          'Father is unavailable on this date due to scheduled leave or canonical weekly day off.'
-      );
+    const parishId = churchId || (await resolvePriestChurchId(priestId));
+    if (!parishId) {
+      return availableEvaluation();
     }
-
-    // 2. Query appointments for this priest on the given date (excluding cancelled/rejected and current)
-    let query = supabase
-      .from('appointments')
-      .select('id, appointment_date, appointment_time, service_type, status')
-      .eq('priest_id', priestId)
-      .eq('appointment_date', cleanDateStr)
-      .neq('status', 'cancelled')
-      .neq('status', 'rejected');
-
-    if (currentAppointmentId) {
-      query = query.neq('id', currentAppointmentId);
-    }
-
-    const { data: rawAppts, error: apptsError } = await query;
-
-    if (apptsError) {
-      console.warn('⚠️ Non-fatal error querying priest appointments:', apptsError);
-    }
-
-    const activeAppts = (rawAppts || []).filter(
-      (a) =>
-        a.status !== 'cancelled' &&
-        a.status !== 'rejected' &&
-        (!currentAppointmentId || a.id !== currentAppointmentId)
-    );
-
-    const dailyCount = activeAppts.length;
-
-    // a) Exact temporal collision at appointment_time
-    const targetNormTime = normalizeTime(appointmentTime);
-    const timeConflictAppt = targetNormTime
-      ? activeAppts.find((a) => normalizeTime(a.appointment_time) === targetNormTime)
-      : undefined;
-
-    const hasTimeConflict = Boolean(timeConflictAppt);
-    if (hasTimeConflict) {
-      const formattedHour = formatAppointmentTime(appointmentTime);
-      warnings.push(
-        `Temporal Conflict: Father is already presiding another liturgy (${timeConflictAppt?.service_type || 'Sacrament'}) at ${formattedHour}.`
-      );
-    }
-
-    // b) Total count against Canon 905 limits
-    const hasCanonLimitConflict = dailyCount >= maxDailyAllowed;
-    if (hasCanonLimitConflict) {
-      warnings.push(
-        `Canon 905 Admonition: Father already has ${dailyCount} liturgical celebration${
-          dailyCount > 1 ? 's' : ''
-        } scheduled on this ${
-          isSunday ? 'Sunday (maximum 3 allowed by Canon 905 §2)' : 'weekday (maximum 2 allowed by Canon 905 §1)'
-        }.`
-      );
-    } else if (dailyCount > 0) {
-      warnings.push(
-        `Father already has ${dailyCount} liturgical celebration${
-          dailyCount > 1 ? 's' : ''
-        } scheduled on this day (${dailyCount}/${maxDailyAllowed} Canon 905 threshold).`
-      );
-    }
-
-    // Determine status & badges
-    let status: 'available' | 'busy' | 'blackout' | 'canon_limit' = 'available';
-    let badgeText = 'Available';
-    let badgeVariant: 'success' | 'warning' | 'destructive' = 'success';
-    const eligible = !isBlackoutOrDayOff && !hasTimeConflict && !hasCanonLimitConflict;
-
-    if (isBlackoutOrDayOff) {
-      status = 'blackout';
-      badgeVariant = 'destructive';
-      const reasonLower = (availability.reason || '').toLowerCase();
-      if (reasonLower.includes('day off')) {
-        badgeText = 'Day Off';
-      } else if (reasonLower.includes('retreat')) {
-        badgeText = 'On Retreat';
-      } else {
-        badgeText = 'Unavailable / Leave';
-      }
-    } else if (hasTimeConflict) {
-      status = 'busy';
-      badgeVariant = 'destructive';
-      badgeText = 'Time Collision';
-    } else if (hasCanonLimitConflict) {
-      status = 'canon_limit';
-      badgeVariant = 'destructive';
-      badgeText = `Canon 905 Limit (${dailyCount}/${maxDailyAllowed})`;
-    } else if (dailyCount > 0) {
-      status = 'available';
-      badgeVariant = 'warning';
-      badgeText = `${dailyCount} scheduled`;
-    } else {
-      status = 'available';
-      badgeVariant = 'success';
-      badgeText = 'Available (0 commitments)';
-    }
-
-    return {
-      eligible,
-      status,
-      badgeText,
-      badgeVariant,
-      warnings,
-      dailyCount,
-    };
+    const evaluations = await evaluateParishSlot(parishId, appointmentDate, appointmentTime, currentAppointmentId);
+    return evaluations[priestId] ?? availableEvaluation();
   } catch (err) {
     console.error('Error evaluating celebrant assignment:', err);
-    return {
-      eligible: true,
-      status: 'available',
-      badgeText: 'Available',
-      badgeVariant: 'success',
-      warnings: [],
-      dailyCount: 0,
-    };
+    return availableEvaluation();
   }
 }
 
 /**
- * Evaluates all priests in the parish celebrant pool in parallel.
+ * Evaluates all priests in the parish celebrant pool with a single database call.
  * Identifies the best recommended alternative celebrant (eligible with the lightest liturgical load).
+ * Only priests of the parish are evaluated and can be recommended; other profiles in the list
+ * (for example a church administrator who is not a priest) get no evaluation.
  */
 export async function evaluateParishCelebrants(
   priests: Profile[],
   appointmentDate: string,
   appointmentTime: string,
-  _churchId?: string,
+  churchId?: string,
   currentAppointmentId?: string
 ): Promise<ParishCelebrantsEvaluation> {
-  const evaluations: Record<string, CelebrantEvaluation> = {};
+  const empty: ParishCelebrantsEvaluation = {
+    evaluations: {},
+    recommendedPriestId: null,
+    recommendedPriest: null,
+  };
 
   if (!priests || priests.length === 0) {
-    return {
-      evaluations: {},
-      recommendedPriestId: null,
-      recommendedPriest: null,
-    };
+    return empty;
   }
 
-  await Promise.all(
-    priests.map(async (priest) => {
-      evaluations[priest.id] = await evaluateCelebrantAssignment(
-        priest.id,
-        appointmentDate,
-        appointmentTime,
-        _churchId,
-        currentAppointmentId
-      );
-    })
-  );
+  const parishId = churchId || priests[0].assigned_church_id || priests[0].church_id;
+  if (!parishId) {
+    return empty;
+  }
+
+  let poolEvaluations: Record<string, CelebrantEvaluation>;
+  try {
+    poolEvaluations = await evaluateParishSlot(parishId, appointmentDate, appointmentTime, currentAppointmentId);
+  } catch (err) {
+    console.error('Error evaluating parish celebrants:', err);
+    return empty;
+  }
+  const evaluations: Record<string, CelebrantEvaluation> = {};
+  for (const priest of priests) {
+    if (poolEvaluations[priest.id]) {
+      evaluations[priest.id] = poolEvaluations[priest.id];
+    }
+  }
 
   // Eligible priests sorted by lowest dailyCount (least loaded first)
   const eligiblePriests = priests

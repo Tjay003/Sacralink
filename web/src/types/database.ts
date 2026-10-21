@@ -737,6 +737,7 @@ export type Database = {
           day_of_week: string
           id: string
           language: string | null
+          presiding_priest_id: string | null
           time: string
         }
         Insert: {
@@ -745,6 +746,7 @@ export type Database = {
           day_of_week: string
           id?: string
           language?: string | null
+          presiding_priest_id?: string | null
           time: string
         }
         Update: {
@@ -753,6 +755,7 @@ export type Database = {
           day_of_week?: string
           id?: string
           language?: string | null
+          presiding_priest_id?: string | null
           time?: string
         }
         Relationships: [
@@ -768,6 +771,13 @@ export type Database = {
             columns: ["church_id"]
             isOneToOne: false
             referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mass_schedules_presiding_priest_id_fkey"
+            columns: ["presiding_priest_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1349,6 +1359,41 @@ export type Database = {
       }
     }
     Functions: {
+      get_parish_clergy: {
+        Args: { p_church_id: string }
+        Returns: {
+          designation: string
+          name: string
+          priest_id: string
+          status: string
+          title: string
+        }[]
+      }
+      evaluate_parish_celebrants: {
+        Args: {
+          p_church_id: string
+          p_date: string
+          p_time: string | null
+          p_exclude_appointment_id?: string | null
+        }
+        Returns: {
+          badge_text: string
+          badge_variant: string
+          daily_count: number
+          eligible: boolean
+          priest_id: string
+          status: string
+          warnings: string[]
+        }[]
+      }
+      check_parish_slot: {
+        Args: { p_church_id: string; p_date: string; p_time: string }
+        Returns: {
+          has_eligible_priest: boolean
+          priest_count: number
+          slot_taken: boolean
+        }[]
+      }
       light_church_candle: {
         Args: { target_church_id: string; user_intention?: string | null }
         Returns: number

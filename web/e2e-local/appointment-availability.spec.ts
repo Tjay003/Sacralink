@@ -18,8 +18,9 @@ import {
 
 /**
  * Real end-to-end: the Edit modal re-runs the celebrant availability check (day off, leave, double
- * booking, Canon 905) against rows seeded in the local priest_availability and appointments tables.
- * A conflict is only a warning: the office can see it and still save.
+ * booking, Canon 905) against rows seeded in the local priest_availability, appointments and mass_schedules
+ * tables, through the evaluate_parish_celebrants function. A conflict is only a warning: the office can see
+ * it and still save. The leave reason is private to the priest, so the warnings never repeat it.
  */
 
 const REASON = 'The parish hall is unavailable on the original date.';
@@ -79,7 +80,8 @@ test.describe('Availability conflicts are warnings the office can override', () 
 
     const warning = dialog.getByTestId('celebrant-conflict-warning');
     await expect(warning).toContainText('Scheduling conflict');
-    await expect(warning).toContainText(DAY_OFF_REASON);
+    await expect(warning).toContainText('weekly day off');
+    await expect(warning).not.toContainText(DAY_OFF_REASON);
     await expect(warning).toContainText('You can still save this change');
     await expect(celebrantRadio(dialog, USERS.priest.fullName)).toContainText('Day Off');
     await warning.scrollIntoViewIfNeeded();
@@ -106,15 +108,17 @@ test.describe('Availability conflicts are warnings the office can override', () 
     const warning = dialog.getByTestId('celebrant-conflict-warning');
 
     await dialog.getByLabel('New date').fill(isoDate(22));
-    await expect(warning).toContainText(LEAVE_REASON);
-    await expect(celebrantRadio(dialog, USERS.priest.fullName)).toContainText('On Retreat');
+    await expect(warning).toContainText('away on clergy leave or retreat');
+    await expect(warning).not.toContainText(LEAVE_REASON);
+    await expect(celebrantRadio(dialog, USERS.priest.fullName)).toContainText('Unavailable / Leave');
 
     await dialog.getByLabel('New date').fill(isoDate(30));
     await expect(warning).toHaveCount(0);
     await expect(dialog.getByText(`No conflicts found for ${USERS.priest.fullName}.`)).toBeVisible();
 
     await dialog.getByLabel('New date').fill(isoDate(23));
-    await expect(warning).toContainText(LEAVE_REASON);
+    await expect(warning).toContainText('away on clergy leave or retreat');
+    await expect(warning).not.toContainText(LEAVE_REASON);
     await dialog.getByLabel('Reason for rescheduling').fill(REASON);
     await dialog.getByRole('button', { name: 'Reschedule', exact: true }).last().click();
     await expect(dialog).toHaveCount(0);
@@ -221,9 +225,10 @@ test.describe('Availability conflicts are warnings the office can override', () 
 
     const warning = dialog.getByTestId('celebrant-conflict-warning');
     await expect(warning).toContainText(USERS.priest2.fullName);
-    await expect(warning).toContainText(LEAVE_REASON);
+    await expect(warning).toContainText('away on clergy leave or retreat');
+    await expect(warning).not.toContainText(LEAVE_REASON);
     await expect(warning).toContainText('You can still save this change');
-    await expect(celebrantRadio(dialog, USERS.priest2.fullName)).toContainText('On Retreat');
+    await expect(celebrantRadio(dialog, USERS.priest2.fullName)).toContainText('Unavailable / Leave');
 
     await dialog.getByLabel('Reason for the change').fill(REASON);
     await dialog.getByRole('button', { name: 'Change celebrant', exact: true }).last().click();
@@ -268,7 +273,8 @@ test.describe('Availability conflicts are warnings the office can override', () 
     await dialog.getByLabel('New date').fill(dayOffDate);
 
     const warning = dialog.getByTestId('celebrant-conflict-warning');
-    await expect(warning).toContainText(DAY_OFF_REASON);
+    await expect(warning).toContainText('weekly day off');
+    await expect(warning).not.toContainText(DAY_OFF_REASON);
 
     await celebrantRadio(dialog, USERS.priest2.fullName).click();
     await expect(warning).toHaveCount(0);

@@ -380,3 +380,147 @@ export async function checkPriestIsAvailable(
     return { available: true };
   }
 }
+
+export type ParishClergyStatus = 'available' | 'in_mass' | 'on_leave';
+
+export interface ParishClergyMember {
+  priestId: string;
+  /** Display name without honorific; render it after `title`. */
+  name: string;
+  /** Honorific, e.g. "Rev. Fr.". */
+  title: string;
+  /** Role in the parish, e.g. "Priest" or "Parish Administrator". */
+  designation: string;
+  /** Computed for today; day off and leave both read as on_leave and never expose the reason. */
+  status: ParishClergyStatus;
+}
+
+export type ParishCelebrantStatus = 'available' | 'busy' | 'blackout' | 'canon_limit';
+
+export interface ParishCelebrantEligibility {
+  priestId: string;
+  eligible: boolean;
+  status: ParishCelebrantStatus;
+  badgeText: string;
+  badgeVariant: 'success' | 'warning' | 'destructive';
+  warnings: string[];
+  /** Appointments plus recurring Masses the priest presides at on that day. */
+  dailyCount: number;
+}
+
+export interface ParishSlotCheck {
+  /** A pending or approved request already holds this parish, date and time. */
+  slotTaken: boolean;
+  /** True when at least one priest of the parish is eligible, and also when the parish has no priests. */
+  hasEligiblePriest: boolean;
+  /** Priests assigned to the parish; 0 means there is no priest constraint. */
+  priestCount: number;
+}
+
+/** Date part of a YYYY-MM-DD or ISO string. */
+function toDateParam(dateStr: string): string {
+  return dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.trim();
+}
+
+/** Blank times become null so the database skips the time collision check. */
+function toTimeParam(timeStr: string | null | undefined): string | null {
+  const trimmed = (timeStr || '').trim();
+  return trimmed || null;
+}
+
+/**
+ * The parish roster with each priest's status for today, from the get_parish_clergy function.
+ * Callable while logged out. Contains no leave reason, email or phone number.
+ */
+export async function getParishClergy(
+  churchId: string
+): Promise<{ data: ParishClergyMember[]; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.rpc('get_parish_clergy', { p_church_id: churchId });
+    if (error) throw error;
+    return {
+      data: (data || []).map((row) => ({
+        priestId: row.priest_id,
+        name: row.name,
+        title: row.title,
+        designation: row.designation,
+        status: row.status as ParishClergyStatus,
+      })),
+      error: null,
+    };
+  } catch (err: unknown) {
+    console.error('Error in getParishClergy:', err);
+    return { data: [], error: toError(err) };
+  }
+}
+
+/**
+ * Eligibility of every priest of the parish for one slot, from the evaluate_parish_celebrants function:
+ * day off and leave, time collision, and the Canon 905 limit counting appointments and recurring Masses.
+ * An empty list means the parish has no priests. `excludeAppointmentId` leaves the appointment being
+ * edited out of the priest's own load.
+ */
+export async function evaluateParishPool(
+  churchId: string,
+  dateStr: string,
+  timeStr: string | null | undefined,
+  excludeAppointmentId?: string | null
+): Promise<{ data: ParishCelebrantEligibility[]; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.rpc('evaluate_parish_celebrants', {
+      p_church_id: churchId,
+      p_date: toDateParam(dateStr),
+      p_time: toTimeParam(timeStr),
+      p_exclude_appointment_id: excludeAppointmentId ?? null,
+    });
+    if (error) throw error;
+    return {
+      data: (data || []).map((row) => ({
+        priestId: row.priest_id,
+        eligible: row.eligible,
+        status: row.status as ParishCelebrantStatus,
+        badgeText: row.badge_text,
+        badgeVariant: row.badge_variant as ParishCelebrantEligibility['badgeVariant'],
+        warnings: row.warnings,
+        dailyCount: row.daily_count,
+      })),
+      error: null,
+    };
+  } catch (err: unknown) {
+    console.error('Error in evaluateParishPool:', err);
+    return { data: [], error: toError(err) };
+  }
+}
+
+/**
+ * Whether a parish slot is already taken and whether at least one priest could preside, from the
+ * check_parish_slot function. It sees every parishioner's bookings, which row level security hides
+ * from the browser. Requires a logged-in user.
+ */
+export async function checkParishSlot(
+  churchId: string,
+  dateStr: string,
+  timeStr: string
+): Promise<{ data: ParishSlotCheck | null; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.rpc('check_parish_slot', {
+      p_church_id: churchId,
+      p_date: toDateParam(dateStr),
+      p_time: timeStr.trim(),
+    });
+    if (error) throw error;
+    const row = data?.[0];
+    if (!row) throw new Error('check_parish_slot returned no row.');
+    return {
+      data: {
+        slotTaken: row.slot_taken,
+        hasEligiblePriest: row.has_eligible_priest,
+        priestCount: row.priest_count,
+      },
+      error: null,
+    };
+  } catch (err: unknown) {
+    console.error('Error in checkParishSlot:', err);
+    return { data: null, error: toError(err) };
+  }
+}

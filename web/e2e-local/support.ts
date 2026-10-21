@@ -148,6 +148,29 @@ export async function addLeave(role: Role, start: string, end: string, reason: s
   if (error) throw error;
 }
 
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Removes every recurring Mass of the seeded parishes so celebrants start with no Mass load. */
+export async function resetMassSchedules() {
+  const seed = await getSeed();
+  const { error } = await serviceClient().from('mass_schedules').delete().in('church_id', [seed.churchId, seed.otherChurchId]);
+  if (error) throw error;
+}
+
+/** A recurring weekly Mass at the seeded parish; `presiding` leaves the celebrant unset when omitted. */
+export async function addMass(dayOfWeekIndex: number, time: string, presiding?: Role) {
+  const seed = await getSeed();
+  const { error } = await serviceClient()
+    .from('mass_schedules')
+    .insert({
+      church_id: seed.churchId,
+      day_of_week: WEEKDAY_NAMES[dayOfWeekIndex],
+      time,
+      presiding_priest_id: presiding ? seed.ids[presiding] : null,
+    });
+  if (error) throw error;
+}
+
 /** Weekday index (0 = Sunday) of a YYYY-MM-DD date, read as a local calendar date like the app does. */
 export function dayOfWeek(date: string): number {
   const [y, m, d] = date.split('-').map(Number);

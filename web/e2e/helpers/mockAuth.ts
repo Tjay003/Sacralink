@@ -271,6 +271,32 @@ export const MOCK_APPOINTMENTS = [
   },
 ];
 
+/** The mock priest's availability rows: a weekly Monday day of rest and an annual retreat blackout. */
+export const MOCK_PRIEST_AVAILABILITY = [
+  {
+    id: 'avail-1',
+    priest_id: 'user-id-priest-5',
+    church_id: 'church-1',
+    day_of_week: 1,
+    blackout_start: null,
+    blackout_end: null,
+    reason: 'Weekly Day of Rest',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'avail-2',
+    priest_id: 'user-id-priest-5',
+    church_id: 'church-1',
+    day_of_week: null,
+    blackout_start: '2026-11-10',
+    blackout_end: '2026-11-15',
+    reason: 'Diocesan Clergy Annual Retreat',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  },
+];
+
 /**
  * Setup route interception for Supabase APIs
  */
@@ -631,31 +657,14 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 'avail-1',
-          priest_id: 'user-id-priest-5',
-          church_id: 'church-1',
-          day_of_week: 1,
-          blackout_start: null,
-          blackout_end: null,
-          reason: 'Weekly Day of Rest',
-          created_at: '2026-01-01T00:00:00Z',
-          updated_at: '2026-01-01T00:00:00Z',
-        },
-        {
-          id: 'avail-2',
-          priest_id: 'user-id-priest-5',
-          church_id: 'church-1',
-          day_of_week: null,
-          blackout_start: '2026-11-10',
-          blackout_end: '2026-11-15',
-          reason: 'Diocesan Clergy Annual Retreat',
-          created_at: '2026-01-01T00:00:00Z',
-          updated_at: '2026-01-01T00:00:00Z',
-        }
-      ]),
+      body: JSON.stringify(MOCK_PRIEST_AVAILABILITY),
     });
+  });
+
+  // 8b. Celebrant eligibility RPC: an empty pool means no priest constraint. Specs that exercise the
+  // approval or celebrant-change flows register their own handler (see mockCelebrantRpc.ts).
+  await page.route('**/rest/v1/rpc/evaluate_parish_celebrants', async (route) => {
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
 
   // 9. Sacrament requirements REST route

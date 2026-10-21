@@ -12,7 +12,7 @@
 - [x] `09-parish-office-inquiry-modal-and-routing.md`
 - [x] `10-app-wide-realtime-synchronization.md`
 - [x] `11-in-place-staff-assignment-modal.md`
-- [ ] `12-celebrant-eligibility-foundation.md`
+- [x] `12-celebrant-eligibility-foundation.md`
 - [ ] `13-mobile-celebrant-and-clergy-parity.md`
 
 ## Tasks
@@ -27,7 +27,7 @@
 9. `09-parish-office-inquiry-modal-and-routing.md` (Type: feature, Status: resolved)
 10. `10-app-wide-realtime-synchronization.md` (Type: bug, Status: resolved)
 11. `11-in-place-staff-assignment-modal.md` (Type: feature, Status: resolved)
-12. `12-celebrant-eligibility-foundation.md` (Type: feature, Status: ready-for-agent)
+12. `12-celebrant-eligibility-foundation.md` (Type: feature, Status: resolved)
 13. `13-mobile-celebrant-and-clergy-parity.md` (Type: feature, Status: needs-triage, Blocked by: 12, 03, 04)
 
 ## Decisions so far (grilling of 03/04/05, 2026-10-21)
@@ -37,3 +37,4 @@
 - Web first; mobile parity is ticket 13.
 - Order: 12, then 03, then 04, with 05 in parallel with 03 after 12.
 - All backend work is verified on local Docker Supabase only; production changes need explicit approval per step.
+- Ticket 12 shipped as migration 054 (local only): RPCs `get_parish_clergy`, `evaluate_parish_celebrants`, `check_parish_slot`; TS wrappers `getParishClergy`, `evaluateParishPool`, `checkParishSlot` in `priestAvailability.ts`; approval warnings no longer repeat leave reasons. See the ticket Resolution.
