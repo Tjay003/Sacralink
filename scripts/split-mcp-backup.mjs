@@ -1,0 +1,112 @@
+// Turns a saved Supabase MCP `execute_sql` result (columns: schema_sql, functions_sql, data_sql,
+// auth_users, expected_counts) into restorable backup files.
+// Usage: node scripts/split-mcp-backup.mjs <saved-result.txt> <out-dir>
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const [, , inputPath, outDir] = process.argv;
+if (!inputPath || !outDir) {
+  console.error('Usage: node scripts/split-mcp-backup.mjs <saved-result.txt> <out-dir>');
+  process.exit(1);
+}
+
+const outer = JSON.parse(readFileSync(inputPath, 'utf8'));
+const body = outer.result;
+const start = body.indexOf('[{');
+const end = body.lastIndexOf('}]');
+if (start < 0 || end < 0) throw new Error('Could not find the JSON rows in the saved result.');
+const [row] = JSON.parse(body.slice(start, end + 2));
+
+const { schema_sql, functions_sql, data_sql, auth_users, expected_counts } = row;
+for (const [k, v] of Object.entries({ schema_sql, functions_sql, data_sql, auth_users, expected_counts })) {
+  if (v == null) throw new Error(`Column ${k} is empty; the backup would be incomplete.`);
+}
+
+// Policies reference helper functions, so they must be created after the functions.
+const policyAt = schema_sql.indexOf('\nCREATE POLICY ');
+const structureRaw = policyAt < 0 ? schema_sql : schema_sql.slice(0, policyAt);
+const policies = policyAt < 0 ? '' : schema_sql.slice(policyAt + 1);
+
+// Foreign keys go last: they need the primary/unique keys of every other table to exist first.
+const structureLines = structureRaw.split('\n');
+const isForeignKey = (line) => /^ALTER TABLE .* ADD CONSTRAINT .* FOREIGN KEY /.test(line);
+// Indexes on materialized views must wait until the view itself is created (functions section).
+const matviews = [...functions_sql.matchAll(/CREATE MATERIALIZED VIEW IF NOT EXISTS public\.(\w+)/g)].map((m) => m[1]);
+const isMatviewIndex = (line) => matviews.some((mv) => new RegExp(`^CREATE (UNIQUE )?INDEX .* ON public\\.${mv}\\b`).test(line));
+const structure = [
+  ...structureLines.filter((l) => !isForeignKey(l) && !isMatviewIndex(l)),
+  ...structureLines.filter(isForeignKey),
+].join('\n');
+const matviewIndexes = structureLines.filter(isMatviewIndex).join('\n');
+
+// Extensions and enum types the tables depend on (taken from production on 2026-10-21).
+const PRELUDE = [
+  'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;',
+  'CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;',
+  "DO $$ BEGIN CREATE TYPE public.user_role AS ENUM ('super_admin', 'admin', 'priest', 'volunteer', 'user', 'church_admin'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+  "DO $$ BEGIN CREATE TYPE public.appt_status AS ENUM ('pending', 'approved', 'rejected', 'rescheduled', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+  "DO $$ BEGIN CREATE TYPE public.sacrament_type AS ENUM ('baptism', 'wedding', 'funeral', 'confirmation', 'counseling', 'mass_intention', 'confession', 'anointing'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+  "DO $$ BEGIN CREATE TYPE public.donation_status AS ENUM ('pending', 'verified', 'rejected'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+].join('\n');
+
+const stamp = new Date().toISOString();
+mkdirSync(outDir, { recursive: true });
+
+writeFileSync(
+  join(outDir, 'schema.sql'),
+  [
+    `-- Sacralink production schema (logical export via Supabase MCP) taken ${stamp}`,
+    '-- Restore into a Supabase project or the local Supabase stack (it needs the auth schema and the anon/authenticated roles).',
+    '',
+    '-- 0. extensions and enum types',
+    PRELUDE,
+    '',
+    '-- 1. tables, constraints, indexes, row level security',
+    structure,
+    '',
+    '-- 2. functions, triggers, views, storage buckets and realtime tables (comments are notes only)',
+    functions_sql,
+    matviewIndexes,
+    '',
+    '-- 3. row level security policies',
+    policies,
+    '',
+  ].join('\n'),
+);
+
+writeFileSync(
+  join(outDir, 'data.sql'),
+  [
+    `-- Sacralink production data taken ${stamp}`,
+    '-- church_knowledge_chunks embeddings are NOT included (regenerate them from the knowledge files).',
+    'BEGIN;',
+    'SET LOCAL session_replication_role = replica; -- skip FK checks and triggers while loading',
+    data_sql,
+    'COMMIT;',
+    '',
+  ].join('\n'),
+);
+
+writeFileSync(join(outDir, 'auth_users.json'), JSON.stringify(auth_users, null, 2));
+
+// ---- verification against the counts the database reported ----
+const inserts = {};
+for (const line of data_sql.split('\n')) {
+  const m = /^INSERT INTO public\.(\w+) /.exec(line);
+  if (m) inserts[m[1]] = (inserts[m[1]] ?? 0) + 1;
+}
+let ok = true;
+for (const [table, expected] of Object.entries(expected_counts)) {
+  const got = inserts[table] ?? 0;
+  const flag = got === Number(expected) ? 'ok  ' : 'FAIL';
+  if (got !== Number(expected)) ok = false;
+  console.log(`${flag} ${table}: ${got} rows saved, ${expected} in database`);
+}
+const count = (re, text) => (text.match(re) || []).length;
+console.log(`schema: ${count(/^CREATE TABLE /gm, structure)} tables, ${count(/^CREATE POLICY /gm, policies)} policies, ${count(/^CREATE OR REPLACE FUNCTION /gm, functions_sql)} functions, ${count(/^CREATE TRIGGER /gm, functions_sql)} triggers`);
+console.log(`data: ${Object.keys(inserts).length} tables with rows, ${Object.values(inserts).reduce((a, b) => a + b, 0)} rows in total`);
+console.log(`auth users listed: ${auth_users.length} (password hashes deliberately not exported)`);
+if (!ok) {
+  console.error('Row counts do not match. Do not rely on this backup.');
+  process.exit(2);
+}

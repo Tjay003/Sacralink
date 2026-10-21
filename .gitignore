@@ -11,6 +11,9 @@ playwright-report/
 blob-report/
 .playwright/
 
+# Database backups (contain real user data)
+backups/
+
 # Environment Variables
 .env
 .env.local
