@@ -1247,7 +1247,6 @@ export default function ChurchDetailPage() {
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-foreground truncate">{member.full_name || 'Staff Member'}</p>
-                                                    <p className="text-[11px] text-muted truncate">{member.email}</p>
                                                 </div>
                                             </div>
                                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
