@@ -21,7 +21,7 @@ export default function Navbar() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     const isAdmin = profile?.role === 'admin' || isSuperAdmin;
-    const isStaff = ['admin', 'super_admin', 'church_admin', 'volunteer', 'priest'].includes(
+    const canViewDonations = ['admin', 'super_admin', 'church_admin', 'priest'].includes(
         profile?.role || ''
     );
 
@@ -127,7 +127,7 @@ export default function Navbar() {
                                 Messages
                             </NavLink>
 
-                            {isStaff && (
+                            {canViewDonations && (
                                 <NavLink
                                     to="/donations"
                                     className={({ isActive }) =>

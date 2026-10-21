@@ -14,6 +14,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
+import { clearLocalMessagingCache, setLocalMessagingOwner } from '../lib/supabase/messaging';
 import type { Profile } from '../types/database';
 
 /**
@@ -186,6 +187,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      */
     const signOut = async () => {
         const { error } = await supabase.auth.signOut();
+        // Purge cached conversations so the next account on this browser never sees them
+        setLocalMessagingOwner(null);
+        clearLocalMessagingCache();
         if (error) throw error;
         setUser(null);
         setProfile(null);
@@ -310,6 +314,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (session?.user && !profileData) {
                     console.warn('⚠️ Session exists but no profile found — user likely deleted. Signing out...');
                     await supabase.auth.signOut();
+                    setLocalMessagingOwner(null);
+                    clearLocalMessagingCache();
                     if (mounted) {
                         setSession(null);
                         setUser(null);
@@ -319,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
+                setLocalMessagingOwner(session?.user?.id ?? null);
                 setSession(session);
                 setUser(session?.user ?? null);
                 setProfile(profileData);
@@ -361,6 +368,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 console.log('🔄 Auth state changed:', _event);
 
+                // Any sign-out (explicit, expired, or from another tab) purges cached conversations
+                if (_event === 'SIGNED_OUT' || !session) {
+                    setLocalMessagingOwner(null);
+                    clearLocalMessagingCache();
+                }
+
                 // Same strategy: Fetch profile FIRST, then update state
                 let profileData = null;
                 if (session?.user) {
@@ -372,6 +385,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (!profileData) {
                         console.warn('⚠️ Auth change: session but no profile — signing out stale session...');
                         await supabase.auth.signOut();
+                        setLocalMessagingOwner(null);
+                        clearLocalMessagingCache();
                         if (mounted) {
                             setSession(null);
                             setUser(null);
@@ -383,6 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
 
                 // Batch all state updates
+                setLocalMessagingOwner(session?.user?.id ?? null);
                 setSession(session);
                 setUser(session?.user ?? null);
                 setProfile(profileData);

@@ -66,7 +66,7 @@ test.describe('Parishioner on a phone', () => {
 
     await loginAs(page, 'parishioner');
     await page.goto('/appointments');
-    const card = page.locator('div.md\\:hidden > div').filter({ hasText: 'Baptism' });
+    const card = page.locator('div.lg\\:hidden > div').filter({ hasText: 'Baptism' });
     await expect(card.getByText('Cancelled', { exact: true })).toBeVisible();
     await expect(card).toContainText(`Reason: ${REASON}`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

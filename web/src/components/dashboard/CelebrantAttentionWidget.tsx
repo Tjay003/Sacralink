@@ -452,62 +452,82 @@ export default function CelebrantAttentionWidget({
         navigate(`/messages?user=${userId}`);
     };
 
-    // Compact skeleton loading state
+    // Full-height skeleton loading state matching bento box
     if (loading && queueItems.length === 0) {
         return (
             <div
-                className={`p-4 sm:p-5 flex items-center justify-between bg-white border border-border rounded-2xl shadow-xs animate-pulse ${className}`}
+                className={`bg-white border border-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col justify-between h-full min-h-[260px] sm:min-h-[280px] animate-pulse ${className}`}
             >
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-secondary-100 shrink-0" />
+                <div className="flex items-center justify-between gap-4 pb-4 border-b border-border/80">
                     <div className="space-y-1.5">
-                        <div className="h-4 bg-secondary-100 rounded w-44" />
-                        <div className="h-3 bg-secondary-100 rounded w-64" />
+                        <div className="h-5 bg-secondary-100 rounded w-48" />
+                        <div className="h-3.5 bg-secondary-100 rounded w-72" />
                     </div>
+                    <div className="h-6 bg-secondary-100 rounded-full w-20 shrink-0" />
                 </div>
-                <div className="h-8 bg-secondary-100 rounded-lg w-28 shrink-0" />
+                <div className="my-auto py-6 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary-100 mb-3" />
+                    <div className="h-4 bg-secondary-100 rounded w-44 mb-2" />
+                    <div className="h-3 bg-secondary-100 rounded w-64" />
+                </div>
+                <div className="pt-4 border-t border-border/70 flex items-center justify-between">
+                    <div className="h-4 bg-secondary-100 rounded w-36" />
+                    <div className="h-3 bg-secondary-100 rounded w-16" />
+                </div>
             </div>
         );
     }
 
-    // Uplifting calm state when queue is clear (0 pending items needing attention)
+    // Full-sized bento box card when queue is clear (matches Church Admin reference)
     if (!loading && displayItems.length === 0) {
         return (
             <div
-                className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl shadow-xs transition-all ${className}`}
+                className={`bg-white border border-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col justify-between h-full min-h-[260px] sm:min-h-[280px] transition-all ${className}`}
             >
-                <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200/70">
-                        <CheckCircle2 className="w-5 h-5" />
-                    </div>
+                {/* Header */}
+                <div className="flex items-center justify-between gap-4 pb-4 border-b border-border/80">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-emerald-950">
-                                Your celebrant queue is clear
-                            </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                0 pending
-                            </span>
-                        </div>
-                        <p className="text-xs text-emerald-800/80 mt-0.5">
-                            No pending documents requiring your review.
+                        <h3 className="font-serif text-lg sm:text-xl font-bold text-foreground tracking-tight">
+                            Needs celebrant attention
+                        </h3>
+                        <p className="text-xs sm:text-sm text-secondary-500 font-medium mt-0.5">
+                            Canonical interviews, pastoral requests and documents for your review
                         </p>
                     </div>
+
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                        All clear
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {/* Center Content */}
+                <div className="my-auto py-5 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mx-auto mb-2.5 shadow-2xs">
+                        <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-bold text-foreground">
+                        Your celebrant queue is clear
+                    </h4>
+                    <p className="text-xs text-secondary-500 max-w-xs mx-auto mt-1 leading-relaxed">
+                        No pending canonical interviews, pastoral requests or documents requiring your review.
+                    </p>
+                </div>
+
+                {/* Footer */}
+                <div className="pt-4 border-t border-border/70 flex items-center justify-between">
                     <button
                         type="button"
                         onClick={() => navigate('/appointments')}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-200 bg-white hover:bg-emerald-50 text-emerald-900 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
                     >
                         <span>View celebrant schedule</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-emerald-600" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                     <button
                         type="button"
                         onClick={() => void loadData()}
-                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 px-2 py-1.5 transition-colors cursor-pointer"
+                        className="text-[11px] font-semibold text-secondary-400 hover:text-secondary-600 transition-colors cursor-pointer"
                         title="Refresh queue"
                     >
                         Refresh
@@ -520,7 +540,7 @@ export default function CelebrantAttentionWidget({
     // Active triage queue for Father
     return (
         <div
-            className={`bg-white border border-border rounded-2xl shadow-xs overflow-hidden flex flex-col ${className}`}
+            className={`bg-white border border-border rounded-2xl shadow-xs overflow-hidden flex flex-col justify-between h-full min-h-[260px] sm:min-h-[280px] ${className}`}
         >
             {/* Header */}
             <div className="px-5 pt-5 pb-4 border-b border-border/70 flex items-start justify-between gap-4">

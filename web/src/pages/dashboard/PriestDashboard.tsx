@@ -634,9 +634,9 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
                 {/* Left column */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-6 flex flex-col">
                     {/* Today's celebrations */}
                     <section className="rounded-2xl border border-border bg-white shadow-xs overflow-hidden">
                         <div className="px-5 pt-5 pb-4 border-b border-border/70 flex items-start justify-between gap-3">
@@ -785,6 +785,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                     <CelebrantAttentionWidget
                         priestId={priestId}
                         churchId={effectiveChurchId || undefined}
+                        className="flex-1"
                     />
                 </div>
 

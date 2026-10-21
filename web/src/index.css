@@ -46,7 +46,7 @@
 
   /* Typography Design Tokens */
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: 'Newsreader', Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-serif: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* ================================

@@ -1,19 +1,22 @@
 import { useState } from 'react';
-import { Sparkles, BookOpen, Scroll, Heart } from 'lucide-react';
+import { Sparkles, BookOpen, Scroll, Heart, Radio } from 'lucide-react';
 import LivestreamPlayer from './LivestreamPlayer';
 import SpiritualReactionsBar from './SpiritualReactionsBar';
 import VirtualSanctuarySidebar from './VirtualSanctuarySidebar';
 import Modal from '../ui/Modal';
+import LiveBroadcastManager from '../dashboard/LiveBroadcastManager';
 import type { Church as DbChurch } from '../../types/database';
 import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySectionProps {
     church: Church;
     activePanoramaUrl?: string;
+    canManage?: boolean;
 }
 
-export default function VirtualSanctuarySection({ church, activePanoramaUrl }: VirtualSanctuarySectionProps) {
+export default function VirtualSanctuarySection({ church, activePanoramaUrl, canManage = false }: VirtualSanctuarySectionProps) {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [isStudioModalOpen, setIsStudioModalOpen] = useState<boolean>(false);
     const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'intentions' | 'offertory'>('liturgy');
     const [candleCount, setCandleCount] = useState<number>(church.candle_count || 0);
 
@@ -91,6 +94,18 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl }: V
                         <Heart className="w-3.5 h-3.5 shrink-0" />
                         <span>Offertory</span>
                     </button>
+
+                    {canManage && (
+                        <button
+                            type="button"
+                            onClick={() => setIsStudioModalOpen(true)}
+                            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 shadow-2xs"
+                            title="Parish Broadcast Studio Controls"
+                        >
+                            <Radio className="w-3.5 h-3.5 shrink-0" />
+                            <span>Studio Controls</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -127,6 +142,19 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl }: V
                     className="border-none shadow-none rounded-none h-full"
                 />
             </Modal>
+
+            {/* Parish Broadcast Studio Controls Modal for Staff */}
+            {canManage && (
+                <Modal
+                    isOpen={isStudioModalOpen}
+                    onClose={() => setIsStudioModalOpen(false)}
+                    size="2xl"
+                    title="Parish Broadcast Studio Controls"
+                    description="Manage livestream URL and broadcast status"
+                >
+                    <LiveBroadcastManager churchId={church.id} />
+                </Modal>
+            )}
         </section>
     );
 }

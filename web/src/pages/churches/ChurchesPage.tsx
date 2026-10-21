@@ -25,13 +25,13 @@ export default function ChurchesPage() {
     const canManage = (churchId: string) => {
         if (!profile) return false;
         if (profile.role === 'super_admin') return true;
-        if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === churchId) return true;
+        if (profile.role === 'church_admin' && profile.assigned_church_id === churchId) return true;
         if (profile.role === 'admin' && profile.assigned_church_id === churchId) return true;
         return false;
     };
 
     const canAddChurch = profile?.role === 'super_admin';
-    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin' || profile?.role === 'volunteer';
+    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin';
 
     // Filter churches by search query and status
     const filteredChurches = churches.filter(church => {
@@ -73,20 +73,12 @@ export default function ChurchesPage() {
         );
     }
 
-    const countWords: Record<number, string> = {
-        1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten'
-    };
-    const parishCountWord = countWords[churches.length] || `${churches.length}`;
-
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Parishes</h1>
-                    <p className="text-xs sm:text-sm text-secondary-500 font-normal mt-1">
-                        Manage the {parishCountWord} parishes of the Diocese of San Jose del Monte
-                    </p>
                 </div>
                 <div className="flex items-center gap-2.5">
                     <button

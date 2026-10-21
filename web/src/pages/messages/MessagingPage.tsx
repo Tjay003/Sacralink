@@ -18,6 +18,8 @@ import {
     AlertTriangle,
     Mail,
     Calendar,
+    Lock,
+    RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -35,6 +37,7 @@ import {
     deleteConversationForMe,
     deleteConversationForEveryone,
     updateTicketStatus,
+    reopenTicket,
     isLocalConversation,
     getLocalConversationById,
     getLocalMinistryMessages,
@@ -45,6 +48,7 @@ import {
 } from '../../lib/supabase/messaging';
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
+import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { directFetchChurches } from '../../lib/directApi';
 import type { Profile, Church as ChurchType } from '../../types/database';
 
@@ -190,6 +194,9 @@ export default function MessagingPage() {
     // Permissions: regular parishioners cannot access staff channels
     const isStaff = ['super_admin', 'admin', 'church_admin', 'priest', 'volunteer'].includes(profile?.role || '');
     const isSuperOrDioceseAdmin = ['super_admin', 'admin'].includes(profile?.role || '');
+    const isVolunteer = profile?.role === 'volunteer';
+    // Parishioners and volunteers open Parish Office Tickets; the office itself answers them
+    const canCreateTicket = profile?.role === 'user' || isVolunteer;
 
     interface NavState {
         conversationId?: string;
@@ -208,9 +215,11 @@ export default function MessagingPage() {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
     const [updatingTicketStatus, setUpdatingTicketStatus] = useState(false);
+    const [reopeningTicket, setReopeningTicket] = useState(false);
 
     // Filter & search
     const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
+    const [ticketStatusFilter, setTicketStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(convParam));
 
@@ -235,6 +244,7 @@ export default function MessagingPage() {
     // Super Admin Parish Staff Channel picker
     const [allChurches, setAllChurches] = useState<ChurchType[]>([]);
     const [showParishPickerModal, setShowParishPickerModal] = useState(false);
+    const [showTicketModal, setShowTicketModal] = useState(false);
     const [parishSearch, setParishSearch] = useState('');
 
     const userChurchId = (profile?.assigned_church_id || profile?.church_id) || undefined;
@@ -392,9 +402,9 @@ export default function MessagingPage() {
         };
     }, [user, loadConversations]);
 
-    // Load churches for Super Admin / Diocese Admin Parish Staff Channel selector
+    // Load churches for the Super Admin / Diocese Admin Parish Staff Channel selector and the New Ticket parish selector
     useEffect(() => {
-        if (!isSuperOrDioceseAdmin) return;
+        if (!isSuperOrDioceseAdmin && !canCreateTicket) return;
         const loadChurches = async () => {
             try {
                 const churches = await directFetchChurches();
@@ -404,7 +414,7 @@ export default function MessagingPage() {
             }
         };
         loadChurches();
-    }, [isSuperOrDioceseAdmin]);
+    }, [isSuperOrDioceseAdmin, canCreateTicket]);
 
     // Load messages when activeConversationId changes
     useEffect(() => {
@@ -499,54 +509,43 @@ export default function MessagingPage() {
         }
 
         const other = getParticipantProfile(activeConversation);
-        const nameLower = (other?.full_name || '').toLowerCase();
 
-        // If the conversation is with Anna Davis (matching reference screenshot)
-        if (nameLower.includes('anna') || nameLower.includes('davis')) {
-            setLinkedRequest('Baptism · Nov 11, 2026');
+        // The Appointment card only shows a real appointment; Staff Channels and tickets never link one.
+        const targetUserId = other?.id || (activeConversation.type === 'direct' ? user?.id : null);
+        if (!targetUserId || activeConversation.type !== 'direct') {
+            setLinkedRequest(null);
             return;
         }
 
-        const targetUserId = other?.id || (activeConversation.type === 'direct' ? user?.id : null);
-        if (targetUserId) {
-            const fetchLinkedAppointment = async () => {
-                try {
-                    const { data } = await supabase
-                        .from('appointments')
-                        .select('service_type, appointment_date')
-                        .or(`user_id.eq.${targetUserId},priest_id.eq.${targetUserId}`)
-                        .order('appointment_date', { ascending: false })
-                        .limit(1);
+        const fetchLinkedAppointment = async () => {
+            try {
+                const { data } = await supabase
+                    .from('appointments')
+                    .select('service_type, appointment_date')
+                    .or(`user_id.eq.${targetUserId},priest_id.eq.${targetUserId}`)
+                    .order('appointment_date', { ascending: false })
+                    .limit(1);
 
-                    if (!isSubscribed) return;
-                    if (data && data.length > 0 && data[0].appointment_date) {
-                        const appt = data[0];
-                        const serviceName = appt.service_type
-                            ? appt.service_type.charAt(0).toUpperCase() + appt.service_type.slice(1).replace(/_/g, ' ')
-                            : 'Sacramental Request';
-                        const dateStr = new Date(appt.appointment_date).toLocaleDateString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                        });
-                        setLinkedRequest(`${serviceName} · ${dateStr}`);
-                    } else if (activeConversation.church?.name) {
-                        setLinkedRequest(`Parish Community · ${activeConversation.church.name}`);
-                    } else {
-                        setLinkedRequest('Parishioner · Active Member');
-                    }
-                } catch {
-                    if (isSubscribed) {
-                        setLinkedRequest('Parishioner · Active Member');
-                    }
+                if (!isSubscribed) return;
+                if (data && data.length > 0 && data[0].appointment_date) {
+                    const appt = data[0];
+                    const serviceName = appt.service_type
+                        ? appt.service_type.charAt(0).toUpperCase() + appt.service_type.slice(1).replace(/_/g, ' ')
+                        : 'Sacramental Request';
+                    const dateStr = new Date(appt.appointment_date).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                    });
+                    setLinkedRequest(`${serviceName} · ${dateStr}`);
+                } else {
+                    setLinkedRequest(null);
                 }
-            };
-            fetchLinkedAppointment();
-        } else if (activeConversation.church?.name) {
-            setLinkedRequest(`Parish Staff Channel · ${activeConversation.church.name}`);
-        } else {
-            setLinkedRequest('Parish Community · Active');
-        }
+            } catch {
+                if (isSubscribed) setLinkedRequest(null);
+            }
+        };
+        fetchLinkedAppointment();
 
         return () => {
             isSubscribed = false;
@@ -668,6 +667,38 @@ export default function MessagingPage() {
         }
     };
 
+    // Reopen a closed ticket (requester or parish staff) and log the system note in the thread
+    const handleReopenTicket = async () => {
+        if (!activeConversation || !user || reopeningTicket) return;
+        const ticketId = activeConversation.id;
+        setReopeningTicket(true);
+        try {
+            const { data: note, error } = await reopenTicket(ticketId, user.id, profile?.full_name);
+            if (error) throw error;
+            setConversations((prev) =>
+                prev.map((c) => (c.id === ticketId ? ({ ...c, status: 'open' } as ConversationWithDetails) : c))
+            );
+            if (note) {
+                setMessages((prev) => (prev.some((m) => m.id === note.id) ? prev : [...prev, note]));
+            }
+        } catch (err) {
+            console.error('Error reopening ticket:', err);
+        } finally {
+            setReopeningTicket(false);
+        }
+    };
+
+    // After the New Ticket dialog succeeds, land directly in the new ticket thread
+    const handleTicketCreated = async (conversationId: string) => {
+        setShowTicketModal(false);
+        setActiveTab('tickets');
+        setTicketStatusFilter('all');
+        setSearchParams({ conv: conversationId });
+        await loadConversations();
+        setActiveConversationId(conversationId);
+        setMobileChatOpen(true);
+    };
+
     // Handle initiating an instant video/audio call
     const handleStartVideoCall = async (conversation?: ConversationWithDetails | null) => {
         const targetConv = conversation || activeConversation;
@@ -740,6 +771,12 @@ export default function MessagingPage() {
             return;
         }
 
+        // Volunteers only message their own parish's office staff, never parishioners or priests
+        if (isVolunteer && !['church_admin', 'volunteer'].includes(contactUser.role || '')) {
+            setModalError('Volunteers can message their parish office and fellow volunteers. To reach a parishioner, reply on their Parish Office Ticket.');
+            return;
+        }
+
         setShowNewChatModal(false);
         setModalError(null);
         try {
@@ -750,6 +787,8 @@ export default function MessagingPage() {
             );
             if (error) throw error;
             if (conversationId) {
+                // Point the URL at the new thread first so the ?conv= sync does not snap back to the previous one
+                setSearchParams({ conv: conversationId });
                 await loadConversations();
                 setActiveConversationId(conversationId);
                 setMobileChatOpen(true);
@@ -798,6 +837,8 @@ export default function MessagingPage() {
             );
             if (error) throw error;
             if (conversationId) {
+                // Point the URL at the new thread first so the ?conv= sync does not snap back to the previous one
+                setSearchParams({ conv: conversationId });
                 await loadConversations();
                 setActiveConversationId(conversationId);
                 setMobileChatOpen(true);
@@ -819,6 +860,9 @@ export default function MessagingPage() {
         // Apply Tab Filter
         if (activeTab === 'tickets') {
             list = list.filter((c) => c.type === 'group' || (c as any).category || (c as any).ticket_number);
+            if (ticketStatusFilter !== 'all') {
+                list = list.filter((c) => ((c as any).status || 'open') === ticketStatusFilter);
+            }
         } else if (activeTab === 'direct') {
             list = list.filter((c) => c.type === 'direct');
         } else if (activeTab === 'staff') {
@@ -842,7 +886,7 @@ export default function MessagingPage() {
                 (ticketNum && ticketNum.toLowerCase().includes(q))
             );
         });
-    }, [conversations, activeTab, searchQuery, isStaff, getDisplayName, getParticipantProfile]);
+    }, [conversations, activeTab, ticketStatusFilter, searchQuery, isStaff, getDisplayName, getParticipantProfile]);
 
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
@@ -852,6 +896,10 @@ export default function MessagingPage() {
             result = result.filter((c) =>
                 ['super_admin', 'admin', 'church_admin'].includes(c.role || '') && !c.is_priest
             );
+        }
+
+        if (isVolunteer) {
+            result = result.filter((c) => ['church_admin', 'volunteer'].includes(c.role || '') && !c.is_priest);
         }
 
         if (contactRoleFilter === 'church_admin') {
@@ -883,7 +931,7 @@ export default function MessagingPage() {
             });
         }
         return result;
-    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role]);
+    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role, isVolunteer]);
 
     // Filtered parishes for Super Admin modal
     const filteredParishes = useMemo(() => {
@@ -917,6 +965,17 @@ export default function MessagingPage() {
                         >
                             <Church className="w-4 h-4 text-secondary-600" />
                             <span>Staff channel</span>
+                        </button>
+                    )}
+
+                    {canCreateTicket && (
+                        <button
+                            type="button"
+                            onClick={() => setShowTicketModal(true)}
+                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                        >
+                            <Mail className="w-4 h-4 text-secondary-600" />
+                            <span>New Ticket</span>
                         </button>
                     )}
 
@@ -1013,6 +1072,37 @@ export default function MessagingPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Ticket status filter pills */}
+                    {activeTab === 'tickets' && (
+                        <div
+                            className="px-3.5 py-2 border-b border-border/70 flex items-center gap-1.5 overflow-x-auto flex-shrink-0"
+                            role="group"
+                            aria-label="Filter tickets by status"
+                        >
+                            {([
+                                { id: 'all', label: 'All' },
+                                { id: 'open', label: 'Open' },
+                                { id: 'in_progress', label: 'In Progress' },
+                                { id: 'resolved', label: 'Resolved' },
+                                { id: 'closed', label: 'Closed' },
+                            ] as const).map((pill) => (
+                                <button
+                                    key={pill.id}
+                                    type="button"
+                                    onClick={() => setTicketStatusFilter(pill.id)}
+                                    aria-pressed={ticketStatusFilter === pill.id}
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
+                                        ticketStatusFilter === pill.id
+                                            ? 'bg-primary text-white border-primary'
+                                            : 'bg-white text-secondary-600 border-border hover:bg-secondary-50'
+                                    }`}
+                                >
+                                    {pill.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Conversation List */}
                     <div className="flex-1 overflow-y-auto divide-y divide-border/40">
@@ -1260,7 +1350,8 @@ export default function MessagingPage() {
                                                             const newStatus = e.target.value as 'open' | 'in_progress' | 'resolved' | 'closed';
                                                             setUpdatingTicketStatus(true);
                                                             try {
-                                                                await updateTicketStatus(activeConversation.id, newStatus);
+                                                                const { error: statusError } = await updateTicketStatus(activeConversation.id, newStatus);
+                                                                if (statusError) throw statusError;
                                                                 // Update local state in conversations and activeConversation
                                                                 setConversations((prev) =>
                                                                     prev.map((c) =>
@@ -1311,7 +1402,7 @@ export default function MessagingPage() {
                                                 setConversationToDelete(activeConversation);
                                                 setShowDeleteModal(true);
                                             }}
-                                            className="xl:hidden p-2 rounded-xl border border-border text-secondary-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                                            className="2xl:hidden p-2 rounded-xl border border-border text-secondary-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
                                             title="Delete conversation"
                                             aria-label="Delete conversation"
                                         >
@@ -1382,6 +1473,16 @@ export default function MessagingPage() {
                                                             Join
                                                         </button>
                                                     </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        if (msg.message_type === 'system') {
+                                            return (
+                                                <div key={msg.id} className="flex justify-center my-1">
+                                                    <span className="text-[11px] font-medium text-secondary-500 bg-secondary-100/70 border border-border/60 rounded-full px-3 py-1">
+                                                        {msg.content} · {formatMessageTime(msg.created_at)}
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -1488,6 +1589,24 @@ export default function MessagingPage() {
 
                             {/* Bottom Input Bar */}
                             <div className="p-4 border-t border-border/70 bg-white shrink-0">
+                                {Boolean((activeConversation as any).ticket_number) &&
+                                (activeConversation as any).status === 'closed' ? (
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-secondary-50">
+                                        <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-secondary-700 min-w-0">
+                                            <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
+                                            <span>This inquiry ticket is closed</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleReopenTicket}
+                                            disabled={reopeningTicket}
+                                            className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                        >
+                                            <RotateCcw className="w-4 h-4" />
+                                            <span>{reopeningTicket ? 'Reopening...' : 'Reopen Ticket'}</span>
+                                        </button>
+                                    </div>
+                                ) : (
                                 <form
                                     onSubmit={(e) => {
                                         e.preventDefault();
@@ -1524,6 +1643,7 @@ export default function MessagingPage() {
                                         <span>Send</span>
                                     </button>
                                 </form>
+                                )}
                             </div>
                         </>
                     ) : loadingConversations && activeConversationId ? (
@@ -1558,7 +1678,7 @@ export default function MessagingPage() {
                 {/* COLUMN 3: RIGHT DETAILS SIDEBAR                                */}
                 {/* ═══════════════════════════════════════════════════════════════ */}
                 {activeConversation && (
-                    <div className="hidden xl:flex w-72 lg:w-80 border-l border-border/80 flex-col p-6 bg-white shrink-0 overflow-y-auto">
+                    <div className="hidden 2xl:flex w-72 lg:w-80 border-l border-border/80 flex-col p-6 bg-white shrink-0 overflow-y-auto">
                         {(() => {
                             const isChannel = activeConversation.type === 'channel';
                             const otherProf = getParticipantProfile(activeConversation);
@@ -1573,10 +1693,8 @@ export default function MessagingPage() {
                                 activeConversation.church?.name ||
                                 otherContact?.assigned_church?.name ||
                                 otherContact?.church?.name ||
-                                'Our Lady of Perpetual Help';
-                            const email = isChannel
-                                ? activeConversation.church?.email || 'office@parish.org'
-                                : otherProf?.email || 'anna.davis@example.com';
+                                'Parish Community';
+                            const email = isChannel ? activeConversation.church?.email : otherProf?.email;
 
                             return (
                                 <div className="flex flex-col h-full">
@@ -1618,10 +1736,12 @@ export default function MessagingPage() {
                                     </div>
 
                                     {/* Email row */}
-                                    <div className="text-xs text-secondary-600 flex items-center gap-2 mb-6 min-w-0">
-                                        <Mail className="w-4 h-4 text-secondary-400 shrink-0" />
-                                        <span className="truncate">{email}</span>
-                                    </div>
+                                    {email && (
+                                        <div className="text-xs text-secondary-600 flex items-center gap-2 mb-6 min-w-0">
+                                            <Mail className="w-4 h-4 text-secondary-400 shrink-0" />
+                                            <span className="truncate">{email}</span>
+                                        </div>
+                                    )}
 
                                     {/* LINKED REQUEST / TICKET DETAILS section */}
                                     {((activeConversation as any).ticket_number || (activeConversation as any).category) ? (
@@ -1664,17 +1784,17 @@ export default function MessagingPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    ) : (
+                                    ) : linkedRequest ? (
                                         <div className="mb-6">
                                             <p className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase mb-2">
                                                 LINKED REQUEST
                                             </p>
                                             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/80 bg-secondary-50/70 text-xs font-medium text-secondary-700 max-w-full">
                                                 <Calendar className="w-3.5 h-3.5 text-secondary-500 shrink-0" />
-                                                <span className="truncate">{linkedRequest || 'Baptism · Nov 11, 2026'}</span>
+                                                <span className="truncate">{linkedRequest}</span>
                                             </div>
                                         </div>
-                                    )}
+                                    ) : null}
 
                                     {/* Bottom Action: Delete conversation (Direct Chats Only) */}
                                     {!isChannel && (
@@ -1709,6 +1829,8 @@ export default function MessagingPage() {
                 description={
                     profile?.role === 'user'
                         ? 'Search parish office staff to start chatting'
+                        : isVolunteer
+                        ? 'Search your parish office and fellow volunteers to start chatting'
                         : 'Search parish clergy, administrators, staff, or parishioners to start chatting'
                 }
                 size="lg"
@@ -1764,6 +1886,10 @@ export default function MessagingPage() {
                                 { id: 'church_admin', label: 'Parish Office' },
                                 { id: 'admin', label: 'Diocese Office' },
                                 { id: 'super_admin', label: 'Super Admin' },
+                            ] : isVolunteer ? [
+                                { id: 'all', label: 'All Contacts' },
+                                { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'volunteer', label: 'Volunteers' },
                             ] : [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
@@ -1860,6 +1986,18 @@ export default function MessagingPage() {
                     </div>
                 </div>
             </Modal>
+
+            {/* New Parish Office Ticket (parish selector because no parish is pre-selected) */}
+            {canCreateTicket && showTicketModal && user && (
+                <ParishInquiryModal
+                    isOpen={showTicketModal}
+                    onClose={() => setShowTicketModal(false)}
+                    parishOptions={allChurches.map((c) => ({ id: c.id, name: c.name }))}
+                    defaultChurchId={userChurchId}
+                    userId={user.id}
+                    onSuccess={handleTicketCreated}
+                />
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* DELETE CONVERSATION CONFIRMATION MODAL                          */}

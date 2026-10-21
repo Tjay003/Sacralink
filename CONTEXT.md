@@ -10,8 +10,12 @@
 
 - **Parish / Church**: An individual Roman Catholic church entity managed within the system (e.g. CSJDM parishes).
 - **Parishioner**: General user who requests sacraments, books appointments, and submits cashless donations.
+- **Volunteer**: Parish helper assigned to a church who manages livestream broadcasts and parish announcements, participates in the Parish Staff Channel, helps triage Parish Office Tickets, and books personal sacrament appointments like a Parishioner, but cannot edit church details, QR codes, or appointment records.
 - **Church Admin**: Administrator assigned to manage a specific parish (schedules, sacrament requests, parish announcements).
 - **Super Admin**: System-wide administrator with full privileges over all churches, user roles, and system announcements.
+- **Direct Message**: A private 1-on-1 conversation strictly visible only to its two participants.
+- **Parish Office Ticket**: A categorized support inquiry (`open`, `in_progress`, `resolved`, `closed`) submitted by a parishioner to a parish's office desk and triaged by assigned parish staff. _Avoid_: Group chat, general inquiry thread.
+- **Staff Channel**: An internal conversation room for a parish's assigned clergy, church admins, and volunteers.
 - **Sacrament / Service**: Religious rites and services offered by parishes (Baptism, Confirmation, Matrimony, Mass Intention, Funeral/Burial, Anointing, Blessing).
 - **Appointment / Booking**: A request submitted by a parishioner for a sacrament or service on a given schedule.
 - **Celebrant**: The priest who presides at an approved appointment. An appointment has at most one celebrant, and the parish office may change it after approval. _Avoid_: Officiant, assigned priest.

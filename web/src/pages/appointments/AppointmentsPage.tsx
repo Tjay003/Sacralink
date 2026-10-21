@@ -11,6 +11,7 @@ import {
     Download,
     Calendar,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
     getAppointments,
@@ -119,6 +120,7 @@ function formatCelebrantDisplay(priest: { full_name: string | null } | null | un
 
 export default function AppointmentsPage() {
     const { profile } = useAuth();
+    const navigate = useNavigate();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -146,12 +148,14 @@ export default function AppointmentsPage() {
 
     // Church filter — admin/super_admin only
     const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
-    const isChurchStaff =
-        profile?.role === 'church_admin' || profile?.role === 'volunteer' || profile?.role === 'priest';
+    const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'priest';
     const { churches } = useChurches();
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
 
     const userChurchId = profile?.assigned_church_id || profile?.church_id || null;
+    // Volunteers book and view appointments like a parishioner: only their own bookings
+    const isVolunteer = profile?.role === 'volunteer';
+    const personalUserId = isVolunteer ? profile?.id : undefined;
 
     // Effective church for display badge and scoping
     const effectiveChurchId = isChurchStaff
@@ -226,11 +230,11 @@ export default function AppointmentsPage() {
     };
 
     const canManageAppointments =
-        profile?.role === 'admin' ||
-        profile?.role === 'super_admin' ||
-        profile?.role === 'church_admin' ||
-        profile?.role === 'volunteer' ||
-        profile?.role === 'priest';
+        !isVolunteer &&
+        (profile?.role === 'admin' ||
+            profile?.role === 'super_admin' ||
+            profile?.role === 'church_admin' ||
+            profile?.role === 'priest');
 
     // Only the parish office may edit an approved appointment (priests and volunteers cannot)
     const canEditAppointments =
@@ -245,6 +249,9 @@ export default function AppointmentsPage() {
             let statusQuery = supabase.from('appointments').select('status');
             if (effectiveChurchId) {
                 statusQuery = statusQuery.eq('church_id', effectiveChurchId);
+            }
+            if (personalUserId) {
+                statusQuery = statusQuery.eq('user_id', personalUserId);
             }
             const { data: statusData } = await statusQuery;
             if (statusData) {
@@ -270,6 +277,9 @@ export default function AppointmentsPage() {
             if (effectiveChurchId) {
                 weekQuery = weekQuery.eq('church_id', effectiveChurchId);
             }
+            if (personalUserId) {
+                weekQuery = weekQuery.eq('user_id', personalUserId);
+            }
             const { data: weekData } = await weekQuery;
             if (weekData) {
                 const counts: Record<string, number> = {};
@@ -286,13 +296,14 @@ export default function AppointmentsPage() {
         } catch (err) {
             console.warn('Non-fatal error loading appointments meta counts:', err);
         }
-    }, [currentWeekDays, effectiveChurchId]);
+    }, [currentWeekDays, effectiveChurchId, personalUserId]);
 
     const fetchAppointments = useCallback(async () => {
         try {
             setLoading(true);
             const { data, count, error: fetchErr } = await getAppointments({
                 churchId: effectiveChurchId,
+                userId: personalUserId,
                 status: filterStatus !== 'all' ? (filterStatus as AppointmentStatus) : undefined,
                 serviceType: filterSacrament !== 'all' ? filterSacrament : undefined,
                 dateFrom: filterDateFrom || undefined,
@@ -312,13 +323,17 @@ export default function AppointmentsPage() {
         } finally {
             setLoading(false);
         }
-    }, [effectiveChurchId, filterStatus, filterSacrament, filterDateFrom, filterDateTo, searchQuery, currentPage, pageSize]);
+    }, [effectiveChurchId, personalUserId, filterStatus, filterSacrament, filterDateFrom, filterDateTo, searchQuery, currentPage, pageSize]);
 
     useEffect(() => {
         void fetchAppointments();
         void fetchMetaCounts();
         const unsubscribe = subscribeToAppointments(
-            effectiveChurchId ? { churchId: effectiveChurchId } : undefined,
+            effectiveChurchId
+                ? { churchId: effectiveChurchId }
+                : personalUserId
+                    ? { userId: personalUserId }
+                    : undefined,
             () => {
                 void fetchAppointments();
                 void fetchMetaCounts();
@@ -327,7 +342,7 @@ export default function AppointmentsPage() {
         return () => {
             unsubscribe();
         };
-    }, [fetchAppointments, fetchMetaCounts, effectiveChurchId]);
+    }, [fetchAppointments, fetchMetaCounts, effectiveChurchId, personalUserId]);
 
     const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus) => {
         try {
@@ -409,11 +424,11 @@ export default function AppointmentsPage() {
                         Appointments
                     </h1>
                     <p className="text-xs sm:text-sm text-secondary-500 font-medium mt-1">
-                        {!canManageAppointments
-                            ? `Sacramental requests · ${totalCount} in total`
+                        {isVolunteer
+                            ? `Your sacrament appointments · ${totalCount} in total`
                             : effectiveChurchId && activeChurchName !== 'All Churches'
-                                ? `Sacramental requests from ${activeChurchName} · ${totalCount} in total`
-                                : `Sacramental requests from every parish · ${totalCount} in total`}
+                            ? `Sacramental requests from ${activeChurchName} · ${totalCount} in total`
+                            : `Sacramental requests · ${totalCount} in total`}
                     </p>
                 </div>
 
@@ -451,6 +466,18 @@ export default function AppointmentsPage() {
                         </div>
                     )}
 
+                    {/* Volunteers apply for sacraments like a parishioner */}
+                    {isVolunteer && (
+                        <button
+                            type="button"
+                            onClick={() => navigate(userChurchId ? `/churches/${userChurchId}/book` : '/churches')}
+                            className="bg-primary hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
+                        >
+                            <Calendar className="w-4 h-4" />
+                            <span>Book Appointment</span>
+                        </button>
+                    )}
+
                     {/* Export Button */}
                     <button
                         type="button"
@@ -464,7 +491,7 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Row 1: Weekly Calendar Strip */}
-            <div className="flex sm:grid sm:grid-cols-4 md:grid-cols-7 gap-2.5 overflow-x-auto pb-2 scrollbar-none touch-pan-x">
+            <div className="grid grid-cols-4 md:grid-cols-7 gap-2.5">
                 {currentWeekDays.map((day) => {
                     const isSelected = selectedDayDate === day.dateStr;
                     const count = weekDayCounts[day.dateStr] ?? 0;
@@ -473,7 +500,7 @@ export default function AppointmentsPage() {
                             key={day.dateStr}
                             type="button"
                             onClick={() => handleSelectDay(day.dateStr)}
-                            className={`flex-shrink-0 w-24 sm:w-auto rounded-2xl p-2.5 sm:p-3 text-center transition-all cursor-pointer ${
+                            className={`min-w-0 rounded-2xl p-2.5 sm:p-3 text-center transition-all cursor-pointer ${
                                 isSelected
                                     ? 'bg-blue-50/70 border-2 border-primary text-primary shadow-xs'
                                     : 'bg-white border border-border/80 hover:border-secondary-300 shadow-2xs'
@@ -506,9 +533,9 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Row 2: Segmented Filter Bar & Search */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
                 {/* Left: Segmented Status Controls */}
-                <div className="flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1 overflow-x-auto scrollbar-none max-w-full flex-nowrap shrink-0">
+                <div className="flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1 max-w-full flex-wrap">
                     {statusTabs.map((tab) => {
                         const isActive = filterStatus === tab.id;
                         return (
@@ -541,7 +568,7 @@ export default function AppointmentsPage() {
                 </div>
 
                 {/* Right: Search + Sacrament Type Filter */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto">
                     {/* Search input */}
                     <div className="relative w-full sm:w-64 lg:w-72">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
@@ -618,35 +645,29 @@ export default function AppointmentsPage() {
             )}
 
             {/* Desktop View: Appointments Data Table */}
-            <div className="hidden md:block bg-white border border-border/80 rounded-2xl shadow-xs overflow-hidden">
-                <div className="overflow-x-auto scrollbar-none">
-                    <table className="w-full min-w-[800px] lg:min-w-[920px] text-left border-collapse">
+            <div className="hidden lg:block bg-white border border-border/80 rounded-2xl shadow-xs overflow-hidden">
+                <div>
+                    <table className="w-full table-fixed text-left border-collapse">
                         <thead>
                             <tr className="border-b border-border/70 bg-secondary-50/50">
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-left">
-                                    Sacrament
+                                <th className="w-[24%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
+                                    Sacrament &amp; Parish
                                 </th>
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-left">
-                                    Requested By
+                                <th className="w-[25%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
+                                    Parishioner &amp; Candidate
                                 </th>
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-left">
-                                    Date and Time
+                                <th className="w-[23%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
+                                    Schedule &amp; Celebrant
                                 </th>
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-left">
-                                    Celebrant
-                                </th>
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-left">
-                                    Status
-                                </th>
-                                <th className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-3.5 lg:px-5 py-3.5 text-right pr-4 lg:pr-6">
-                                    Actions
+                                <th className="w-[28%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
+                                    Status &amp; Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">
                             {appointments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="text-center py-14 px-4 text-secondary-500">
+                                    <td colSpan={4} className="text-center py-14 px-4 text-secondary-500">
                                         <Calendar className="w-10 h-10 mx-auto mb-2.5 text-secondary-300" />
                                         <p className="font-semibold text-sm text-foreground">
                                             {canManageAppointments
@@ -678,48 +699,55 @@ export default function AppointmentsPage() {
                                             key={appointment.id}
                                             className="hover:bg-secondary-50/50 transition-colors"
                                         >
-                                            {/* SACRAMENT */}
-                                            <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap">
-                                                <div className="flex items-center gap-3">
+                                            {/* SACRAMENT & PARISH */}
+                                            <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                <div className="flex items-start gap-3 min-w-0">
                                                     <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary shrink-0">
                                                         <Cross className="w-4 h-4" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <span className="font-bold text-sm text-foreground capitalize block truncate">
+                                                        <span className="font-bold text-sm text-foreground capitalize block break-words">
                                                             {formatSacramentTitle(appointment.service_type)}
                                                         </span>
-                                                        <span className="text-xs text-secondary-500 font-normal truncate block mt-0.5 max-w-[200px]">
+                                                        <span
+                                                            className="text-xs text-secondary-500 font-normal block mt-0.5 break-words"
+                                                            title={appointment.church?.name || 'Parish'}
+                                                        >
                                                             {appointment.church?.name || 'Parish'}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            {/* REQUESTED BY */}
-                                            <td className="px-3.5 lg:px-5 py-3.5">
-                                                <div className="min-w-0 max-w-[240px]">
+                                            {/* PARISHIONER & CANDIDATE */}
+                                            <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                <div className="min-w-0">
                                                     <span
-                                                        className="font-bold text-sm text-foreground truncate block"
+                                                        className="font-bold text-sm text-foreground block break-words"
                                                         title={candidate}
                                                     >
                                                         {candidate}
                                                     </span>
-                                                    <div className="text-xs text-secondary-500 mt-0.5 flex items-center gap-1.5">
-                                                        <span className="truncate max-w-[140px]">
+                                                    <div className="text-xs text-secondary-500 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                                        <span className="break-words min-w-0">
                                                             by {appointment.profile?.full_name || 'Parishioner'}
                                                         </span>
-                                                        <span>·</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setViewingDocumentsFor(appointment.id)}
-                                                            className="text-primary hover:underline font-medium cursor-pointer"
-                                                        >
-                                                            docs
-                                                        </button>
+                                                        {!isVolunteer && (
+                                                            <>
+                                                                <span>·</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setViewingDocumentsFor(appointment.id)}
+                                                                    className="text-primary hover:underline font-medium cursor-pointer"
+                                                                >
+                                                                    docs
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                     {appointment.notes && candidate !== appointment.notes && (
                                                         <div
-                                                            className="text-[11px] text-secondary-400 italic truncate mt-0.5 max-w-[220px]"
+                                                            className="text-[11px] text-secondary-400 italic line-clamp-2 break-words mt-0.5"
                                                             title={appointment.notes}
                                                         >
                                                             &ldquo;{appointment.notes}&rdquo;
@@ -728,125 +756,128 @@ export default function AppointmentsPage() {
                                                 </div>
                                             </td>
 
-                                            {/* DATE AND TIME */}
-                                            <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap">
-                                                <div className="font-bold text-xs sm:text-sm text-foreground">
+                                            {/* SCHEDULE & CELEBRANT */}
+                                            <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                <div className="font-bold text-sm text-foreground">
                                                     {formatDateDisplay(appointment.appointment_date)}
                                                 </div>
                                                 <div className="text-xs text-secondary-500 mt-0.5">
                                                     {formatTime(appointment.appointment_time)}
                                                 </div>
                                                 <RescheduledNotice appointment={appointment} className="mt-1.5" />
-                                            </td>
-
-                                            {/* CELEBRANT */}
-                                            <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap">
-                                                {appointment.priest ? (
-                                                    <span className="text-xs sm:text-sm font-medium text-foreground truncate block max-w-[170px]">
-                                                        {formatCelebrantDisplay(appointment.priest)}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-xs text-secondary-400 font-normal italic">
-                                                        Not assigned
-                                                    </span>
-                                                )}
-                                                <RequestedPriestNote appointment={appointment} className="mt-1" />
-                                            </td>
-
-                                            {/* STATUS */}
-                                            <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap">
-                                                {appointment.status === 'approved' ? (
-                                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                        Approved
-                                                    </span>
-                                                ) : appointment.status === 'pending' ? (
-                                                    <div className="space-y-1">
-                                                        <span className="bg-amber-50 text-amber-700 border border-amber-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                            Pending
+                                                <div className="mt-2 min-w-0">
+                                                    {appointment.priest ? (
+                                                        <span className="text-xs sm:text-sm font-medium text-foreground block break-words">
+                                                            {formatCelebrantDisplay(appointment.priest)}
                                                         </span>
-                                                        {isFuneral && (
-                                                            <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full block w-fit">
-                                                                Urgent
+                                                    ) : (
+                                                        <span className="text-xs text-secondary-400 font-normal italic">
+                                                            Not assigned
+                                                        </span>
+                                                    )}
+                                                    <RequestedPriestNote appointment={appointment} className="mt-1" />
+                                                </div>
+                                            </td>
+
+                                            {/* STATUS & ACTIONS */}
+                                            <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                <div className="flex flex-col items-start gap-2.5 min-w-0">
+                                                    {appointment.status === 'approved' ? (
+                                                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                                            Approved
+                                                        </span>
+                                                    ) : appointment.status === 'pending' ? (
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            <span className="bg-amber-50 text-amber-700 border border-amber-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                                                Pending
                                                             </span>
-                                                        )}
-                                                    </div>
-                                                ) : appointment.status === 'rejected' ? (
-                                                    <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                        Rejected
-                                                    </span>
-                                                ) : appointment.status === 'cancelled' ? (
-                                                    <div className="space-y-1 whitespace-normal max-w-[220px]">
+                                                            {isFuneral && (
+                                                                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-fit">
+                                                                    Urgent
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : appointment.status === 'rejected' ? (
                                                         <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                            Cancelled
+                                                            Rejected
                                                         </span>
-                                                        {appointment.cancellation_reason && (
-                                                            <p className="text-xs text-secondary-600 leading-snug">
-                                                                Reason: {appointment.cancellation_reason}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                                                        {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
-                                                    </span>
-                                                )}
-                                            </td>
+                                                    ) : appointment.status === 'cancelled' ? (
+                                                        <div className="space-y-1 min-w-0 max-w-full">
+                                                            <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                                                                Cancelled
+                                                            </span>
+                                                            {appointment.cancellation_reason && (
+                                                                <p className="text-xs text-secondary-600 leading-snug break-words">
+                                                                    Reason: {appointment.cancellation_reason}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
+                                                            {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
+                                                        </span>
+                                                    )}
 
-                                            {/* ACTIONS */}
-                                            <td className="px-3.5 lg:px-5 py-3.5 whitespace-nowrap text-right pr-4 lg:pr-6">
-                                                <div className="inline-flex items-center justify-end gap-2">
-                                                    {canEditAppointments && appointment.status === 'pending' ? (
-                                                        <>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setApprovingAppointment(appointment)}
-                                                                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                                                            >
-                                                                Approve
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    openConfirmModal(
-                                                                        appointment.id,
-                                                                        'rejected',
-                                                                        appointment.service_type
-                                                                    )
-                                                                }
-                                                                className="px-3.5 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs shadow-2xs transition-colors cursor-pointer"
-                                                            >
-                                                                Reject
-                                                            </button>
-                                                        </>
-                                                    ) : canManageAppointments && (appointment.status === 'approved' || (canEditAppointments && (appointment.status === 'cancelled' || appointment.status === 'completed'))) ? (
-                                                        <>
-                                                            {canEditAppointments && (
+                                                    {isVolunteer ? (
+                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-secondary-100/70 text-secondary-500 border border-secondary-200/60">
+                                                            Read-only
+                                                        </span>
+                                                    ) : (
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            {canEditAppointments && appointment.status === 'pending' ? (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setApprovingAppointment(appointment)}
+                                                                        className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() =>
+                                                                            openConfirmModal(
+                                                                                appointment.id,
+                                                                                'rejected',
+                                                                                appointment.service_type
+                                                                            )
+                                                                        }
+                                                                        className="px-3.5 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-semibold text-xs shadow-2xs transition-colors cursor-pointer"
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                </>
+                                                            ) : canManageAppointments && (appointment.status === 'approved' || (canEditAppointments && (appointment.status === 'cancelled' || appointment.status === 'completed'))) ? (
+                                                                <>
+                                                                    {canEditAppointments && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditingAppointment(appointment)}
+                                                                            className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setViewingDocumentsFor(appointment.id)}
+                                                                        className="px-3 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                                                    >
+                                                                        <FileText className="w-3.5 h-3.5 text-secondary-500" />
+                                                                        <span>Documents</span>
+                                                                    </button>
+                                                                </>
+                                                            ) : (
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setEditingAppointment(appointment)}
-                                                                    className="px-3.5 py-1.5 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                                                                    onClick={() => setViewingDocumentsFor(appointment.id)}
+                                                                    className="px-3 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                                                                 >
-                                                                    Edit
+                                                                    <FileText className="w-3.5 h-3.5 text-secondary-500" />
+                                                                    <span>Documents</span>
                                                                 </button>
                                                             )}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setViewingDocumentsFor(appointment.id)}
-                                                                className="px-3 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                                                            >
-                                                                <FileText className="w-3.5 h-3.5 text-secondary-500" />
-                                                                <span>Documents</span>
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setViewingDocumentsFor(appointment.id)}
-                                                            className="px-3 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                                                        >
-                                                            <FileText className="w-3.5 h-3.5 text-secondary-500" />
-                                                            <span>Documents</span>
-                                                        </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -879,7 +910,7 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Mobile View: Clean Appointment Cards */}
-            <div className="block md:hidden space-y-3">
+            <div className="block lg:hidden space-y-3">
                 {appointments.length === 0 ? (
                     <div className="bg-white border border-border/80 rounded-2xl p-8 text-center text-secondary-500 shadow-xs">
                         <Calendar className="w-10 h-10 mx-auto mb-2.5 text-secondary-300" />
@@ -971,25 +1002,29 @@ export default function AppointmentsPage() {
 
                                     {/* Middle row: Candidate / Requester, Date & Time, Celebrant */}
                                     <div className="pt-2 border-t border-border/50 space-y-1.5 text-xs">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="text-secondary-500">Requested for:</span>
-                                            <div className="font-semibold text-foreground truncate text-right flex items-center gap-1.5">
-                                                <span title={candidate}>{candidate}</span>
-                                                <span className="text-secondary-300">·</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setViewingDocumentsFor(appointment.id)}
-                                                    className="text-primary hover:underline font-semibold cursor-pointer text-xs"
-                                                >
-                                                    docs
-                                                </button>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="text-secondary-500 shrink-0">Requested for:</span>
+                                            <div className="font-semibold text-foreground min-w-0 text-right flex flex-wrap items-center justify-end gap-x-1.5">
+                                                <span className="break-words min-w-0" title={candidate}>{candidate}</span>
+                                                {!isVolunteer && (
+                                                    <>
+                                                        <span className="text-secondary-300">·</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setViewingDocumentsFor(appointment.id)}
+                                                            className="text-primary hover:underline font-semibold cursor-pointer text-xs"
+                                                        >
+                                                            docs
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
 
                                         {appointment.profile?.full_name && (
-                                            <div className="flex items-center justify-between gap-2 text-secondary-500">
-                                                <span>Requested by:</span>
-                                                <span className="text-secondary-700 truncate font-medium">
+                                            <div className="flex items-start justify-between gap-2 text-secondary-500">
+                                                <span className="shrink-0">Requested by:</span>
+                                                <span className="text-secondary-700 min-w-0 break-words text-right font-medium">
                                                     {appointment.profile.full_name}
                                                 </span>
                                             </div>
@@ -1013,7 +1048,7 @@ export default function AppointmentsPage() {
                                                 <Cross className="w-3.5 h-3.5 text-secondary-400 shrink-0" />
                                                 <span>Celebrant:</span>
                                             </span>
-                                            <span className="font-medium text-foreground text-right truncate max-w-[180px]">
+                                            <span className="font-medium text-foreground text-right min-w-0 break-words max-w-[180px]">
                                                 {appointment.priest ? (
                                                     formatCelebrantDisplay(appointment.priest)
                                                 ) : (
@@ -1029,14 +1064,15 @@ export default function AppointmentsPage() {
                                         )}
 
                                         {appointment.notes && candidate !== appointment.notes && (
-                                            <div className="text-[11px] text-secondary-400 italic bg-secondary-50/70 p-2 rounded-lg border border-border/40 mt-1">
+                                            <div className="text-[11px] text-secondary-400 italic bg-secondary-50/70 p-2 rounded-lg border border-border/40 mt-1 break-words">
                                                 &ldquo;{appointment.notes}&rdquo;
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Bottom action buttons row */}
-                                    <div className="pt-2 border-t border-border/50 flex items-center gap-2">
+                                    {!isVolunteer && (
+                                        <div className="pt-2 border-t border-border/50 flex items-center gap-2">
                                         {canEditAppointments && appointment.status === 'pending' ? (
                                             <>
                                                 <button
@@ -1091,6 +1127,7 @@ export default function AppointmentsPage() {
                                             </button>
                                         )}
                                     </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -1118,7 +1155,7 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Document Viewer Modal */}
-            {viewingDocumentsFor && (
+            {!isVolunteer && viewingDocumentsFor && (
                 <DocumentViewerModal
                     appointmentId={viewingDocumentsFor}
                     isOpen={true}

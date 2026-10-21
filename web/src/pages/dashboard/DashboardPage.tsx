@@ -6,6 +6,7 @@ import { getDashboardAppointmentCounts, subscribeToAppointments } from '../../li
 import UserDashboard from './UserDashboard';
 import PriestDashboard from './PriestDashboard';
 import ChurchAdminDashboard from './ChurchAdminDashboard';
+import VolunteerDashboard from './VolunteerDashboard';
 import SuperAdminDashboard from './SuperAdminDashboard';
 import UpcomingEventsTimeline from '../../components/dashboard/UpcomingEventsTimeline';
 import DailyVerse from '../../components/dashboard/DailyVerse';
@@ -18,8 +19,11 @@ import { SystemAnnouncementsBanner } from '../../components/announcements';
 /**
  * DashboardPage - Main dashboard that shows different content based on user role
  * 
- * - 'user' role → UserDashboard (limited features)
- * - 'admin' and 'super_admin' → Admin dashboard (full features with stats)
+ * - 'user' role → UserDashboard (parishioner bookings, bookmarks, sacraments)
+ * - 'priest' role → PriestDashboard (celebrant schedule, blackout, lectionary)
+ * - 'church_admin' role → ChurchAdminDashboard (full parish ops, financials, staff attention)
+ * - 'volunteer' role → VolunteerDashboard (liturgical header, livestream studio, announcements)
+ * - 'super_admin' & 'admin' → SuperAdminDashboard (chancery diocese-wide governance)
  */
 export default function DashboardPage() {
     const { profile } = useAuth();
@@ -100,9 +104,9 @@ export default function DashboardPage() {
         return <ChurchAdminDashboard churchId={profile.assigned_church_id || null} />;
     }
 
-    // Volunteers get the same dashboard as church admins (can manage announcements for their church)
+    // Show dedicated volunteer dashboard for parish volunteers
     if (profile?.role === 'volunteer') {
-        return <ChurchAdminDashboard churchId={profile.assigned_church_id || null} />;
+        return <VolunteerDashboard churchId={profile.assigned_church_id || null} />;
     }
 
     // Show super admin dashboard for super_admin and admin
@@ -110,11 +114,10 @@ export default function DashboardPage() {
         return <SuperAdminDashboard />;
     }
 
-    // Show volunteer dashboard
+    // Generic fallback
     return (
         <div className="space-y-6">
-            {/* Admin Dashboard Header */}
-            <div className="rounded-lg shadow-sm p-6 bg-gradient-to-br from-blue-600 to-blue-400 text-white border-none">
+            <div className="rounded-2xl shadow-sm p-6 bg-gradient-to-br from-blue-600 to-blue-400 text-white border-none">
                 <h1 className="text-2xl font-bold mb-2">Welcome Back, {profile?.full_name?.split(' ')[0] || 'User'}!</h1>
                 <p className="text-white/90 opacity-90">
                     You are logged in as <span className="font-semibold capitalize">{(profile?.role || 'user').replace('_', ' ')}</span>.
@@ -122,12 +125,9 @@ export default function DashboardPage() {
                 </p>
             </div>
 
-            {/* System Announcements Banner */}
             <SystemAnnouncementsBanner />
 
-            {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Total Users */}
                 <StatCard
                     title="Total Users"
                     value={dashboardConfig.useMockData ? mockTrendData.totalUsers.value : userCount}
@@ -140,7 +140,6 @@ export default function DashboardPage() {
                     gradientDirection="to-br"
                 />
 
-                {/* Total Churches */}
                 <StatCard
                     title="Total Churches"
                     value={dashboardConfig.useMockData ? mockTrendData.totalChurches.value : churches.length}
@@ -153,7 +152,6 @@ export default function DashboardPage() {
                     gradientDirection="to-tr"
                 />
 
-                {/* Pending Requests */}
                 <StatCard
                     title="Pending Requests"
                     value={dashboardConfig.useMockData ? mockTrendData.pendingRequests.value : stats.pendingAppointments}
@@ -166,7 +164,6 @@ export default function DashboardPage() {
                     gradientDirection="to-bl"
                 />
 
-                {/* Upcoming Events */}
                 <StatCard
                     title="Upcoming Events"
                     value={dashboardConfig.useMockData ? mockTrendData.upcomingEvents.value : stats.activeEvents}
@@ -180,15 +177,10 @@ export default function DashboardPage() {
                 />
             </div>
 
-            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                {/* Left Column (2/3): Upcoming Events */}
                 <div className="lg:col-span-2 space-y-6">
                     <UpcomingEventsTimeline />
                 </div>
-
-                {/* Right Column (1/3): Verse */}
                 <div className="space-y-6">
                     <DailyVerse />
                 </div>

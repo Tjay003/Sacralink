@@ -135,7 +135,7 @@ export default function EditChurchPage() {
 
         if (id && profile.role) {
             const userChurchId = profile.assigned_church_id || profile.church_id;
-            const staffRoles: string[] = ['admin', 'church_admin', 'volunteer', 'priest'];
+            const staffRoles: string[] = ['admin', 'church_admin', 'priest'];
             if (staffRoles.includes(profile.role) && userChurchId === id) {
                 return true;
             }
@@ -145,7 +145,7 @@ export default function EditChurchPage() {
     };
 
     if (profile && !canAccess()) {
-        return <Navigate to="/churches" replace />;
+        return <Navigate to={profile.role === 'volunteer' && id ? `/churches/${id}` : '/churches'} replace />;
     }
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,7 +196,7 @@ export default function EditChurchPage() {
 
         try {
             let uploadBucket = 'church-images';
-            let { error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from(uploadBucket)
                 .upload(fileName, file, { upsert: true });
 

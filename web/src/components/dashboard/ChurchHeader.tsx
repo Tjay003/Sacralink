@@ -88,7 +88,7 @@ export default function ChurchHeader({ churchId, onNewAnnouncement }: ChurchHead
                     </p>
 
                     {/* Parish Name */}
-                    <h1 className="font-serif text-3xl sm:text-4xl lg:text-[40px] font-bold text-foreground tracking-tight leading-tight">
+                    <h1 className="font-serif text-3xl sm:text-4xl lg:text-[40px] font-bold text-foreground tracking-tight leading-tight church-hero-title" data-sacred="true">
                         {church.name}
                     </h1>
 

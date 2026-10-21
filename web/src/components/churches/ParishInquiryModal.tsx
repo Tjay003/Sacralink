@@ -6,9 +6,14 @@ import { submitParishOfficeInquiry } from '../../lib/supabase/messaging';
 export interface ParishInquiryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    churchId: string;
-    churchName: string;
+    /** Pre-selected parish. When omitted the sender picks one from `parishOptions`. */
+    churchId?: string | null;
+    churchName?: string;
     churchImage?: string | null;
+    /** Parishes offered in the selector when no `churchId` is pre-selected. */
+    parishOptions?: Array<{ id: string; name: string }>;
+    /** Parish preselected in the selector (the sender's home or assigned parish). */
+    defaultChurchId?: string | null;
     userId: string;
     onSuccess: (conversationId: string) => void;
 }
@@ -35,9 +40,16 @@ export default function ParishInquiryModal({
     churchId,
     churchName,
     churchImage,
+    parishOptions = [],
+    defaultChurchId,
     userId,
     onSuccess,
 }: ParishInquiryModalProps) {
+    const needsParishSelector = !churchId;
+    const [selectedChurchId, setSelectedChurchId] = useState<string>(defaultChurchId || '');
+    const activeChurchId = churchId || selectedChurchId || (parishOptions.length === 1 ? parishOptions[0].id : '');
+    const activeChurchName =
+        churchName || parishOptions.find((p) => p.id === activeChurchId)?.name || 'Select a parish';
     const [category, setCategory] = useState('general');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
@@ -46,7 +58,7 @@ export default function ParishInquiryModal({
 
     const isSubjectValid = subject.trim().length >= 3;
     const isMessageValid = message.trim().length >= 10;
-    const isFormValid = isSubjectValid && isMessageValid;
+    const isFormValid = isSubjectValid && isMessageValid && Boolean(activeChurchId);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,12 +69,12 @@ export default function ParishInquiryModal({
 
         try {
             const { conversationId, error: submitErr } = await submitParishOfficeInquiry({
-                churchId,
+                churchId: activeChurchId,
                 userId,
                 subject: subject.trim(),
                 message: message.trim(),
                 category,
-                churchName,
+                churchName: activeChurchName === 'Select a parish' ? undefined : activeChurchName,
             });
 
             if (submitErr || !conversationId) {
@@ -100,7 +112,7 @@ export default function ParishInquiryModal({
                 <div className="flex items-center gap-3.5 p-4 sm:p-6 border-b border-border bg-slate-50/50">
                     <div className="w-12 h-12 rounded-2xl bg-white border border-border shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
                         {churchImage ? (
-                            <img src={churchImage} alt={churchName} className="w-full h-full object-cover" />
+                            <img src={churchImage} alt={activeChurchName} className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full bg-blue-50/80 flex items-center justify-center">
                                 <Building2 className="w-6 h-6 text-primary" />
@@ -117,7 +129,7 @@ export default function ParishInquiryModal({
                             Contact Parish Office
                         </h2>
                         <p className="text-xs text-muted truncate mt-0.5">
-                            {churchName}
+                            {activeChurchName}
                         </p>
                     </div>
                 </div>
@@ -128,6 +140,28 @@ export default function ParishInquiryModal({
                     <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>{error}</span>
+                    </div>
+                )}
+
+                {needsParishSelector && (
+                    <div className="space-y-1.5">
+                        <label htmlFor="inquiry-parish" className="block text-xs font-bold text-foreground">
+                            Parish <span className="text-destructive">*</span>
+                        </label>
+                        <select
+                            id="inquiry-parish"
+                            value={activeChurchId}
+                            onChange={(e) => setSelectedChurchId(e.target.value)}
+                            disabled={loading}
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-60 cursor-pointer"
+                        >
+                            <option value="">Choose the parish office to contact</option>
+                            {parishOptions.map((parish) => (
+                                <option key={parish.id} value={parish.id}>
+                                    {parish.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 )}
 

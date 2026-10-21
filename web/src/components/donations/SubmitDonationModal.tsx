@@ -191,9 +191,22 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
     };
 
     // ── Handlers ───────────────────────────────────────────────
+    /** Keeps digits and at most one decimal point, so pasted or typed text can never leave the amount non-numeric. */
+    const sanitizeAmount = (val: string) => {
+        const cleaned = val.replace(/[^0-9.]/g, '');
+        const firstDot = cleaned.indexOf('.');
+        return firstDot === -1 ? cleaned : cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+    };
+
     const handleAmountChange = (val: string) => {
-        setAmount(val);
-        setAmountErr(validateAmount(val));
+        const next = sanitizeAmount(val);
+        setAmount(next);
+        setAmountErr(validateAmount(next));
+    };
+
+    const handleAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key.length === 1 && !/[0-9.]/.test(e.key)) e.preventDefault();
     };
 
     const handleChipClick = (amtString: string) => {
@@ -537,6 +550,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                                         inputMode="decimal"
                                         value={amount}
                                         onChange={(e) => handleAmountChange(e.target.value)}
+                                        onKeyDown={handleAmountKeyDown}
                                         placeholder="100"
                                         disabled={loading}
                                         className="w-full bg-transparent font-serif font-bold text-2xl sm:text-3xl text-slate-800 placeholder:text-muted/30 focus:outline-none"

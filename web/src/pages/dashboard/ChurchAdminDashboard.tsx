@@ -155,27 +155,26 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                             />
                             <ChurchStatsCards churchId={churchId} />
 
+                            {/* Top Row: Parish Attention & Daily Verse Bento Box */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                                <div className="lg:col-span-7 flex flex-col">
+                                    <ParishAttentionWidget churchId={churchId} />
+                                </div>
+                                <div className="lg:col-span-5 flex flex-col">
+                                    <DailyVerse variant="parchment" />
+                                </div>
+                            </div>
+
+                            {/* Row 2: Live Broadcast & AI Knowledge / Donations */}
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                                 {/* Left Column: 7 cols */}
                                 <div className="lg:col-span-7 space-y-6">
-                                    {/* 1. Needs Parish Attention */}
-                                    <ParishAttentionWidget churchId={churchId} />
-
-                                    {/* 2. Live Broadcast & Virtual Sanctuary */}
                                     <LiveBroadcastManager churchId={churchId} />
-
-                                    {/* 3. Recent Sacrament Requests */}
-                                    {isFeatureEnabled('churchRecentAppointments') && (
-                                        <RecentAppointmentsWidget churchId={churchId} limit={5} />
-                                    )}
                                 </div>
 
                                 {/* Right Column: 5 cols */}
                                 <div className="lg:col-span-5 space-y-6">
-                                    {/* 1. Word for Today (Parchment variant with Reflection) */}
-                                    <DailyVerse variant="parchment" />
-
-                                    {/* 2. AI Parish Assistant */}
+                                    {/* 1. AI Parish Assistant */}
                                     {isFeatureEnabled('churchAiSync') && (
                                         <div className="bg-white border border-border rounded-2xl p-6 shadow-xs space-y-4">
                                             <div className="flex items-center justify-between pb-3 border-b border-border/70">
@@ -254,18 +253,33 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                                         </div>
                                     )}
 
-                                    {/* 3. Donations Summary Card (STRICTLY Church Admin only) */}
+                                    {/* 2. Donations Summary Card (STRICTLY Church Admin only) */}
                                     {isChurchAdmin && (
                                         <ChurchDonationsSummaryCard churchId={churchId} />
                                     )}
-
-                                    {/* 4. Recent Activity Widget */}
-                                    <RecentActivityWidget churchId={churchId} />
-
-                                    {/* 5. Parish Announcements Bulletin List */}
-                                    <ChurchAnnouncementsManagement churchId={churchId} />
                                 </div>
                             </div>
+
+                            {/* Row 3: Recent Sacrament Requests & Recent Activity (Equal Height & Aligned Baselines) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                                {isFeatureEnabled('churchRecentAppointments') ? (
+                                    <>
+                                        <div className="lg:col-span-7 flex flex-col">
+                                            <RecentAppointmentsWidget churchId={churchId} limit={5} className="h-full" />
+                                        </div>
+                                        <div className="lg:col-span-5 flex flex-col">
+                                            <RecentActivityWidget churchId={churchId} className="h-full" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="lg:col-span-12 flex flex-col">
+                                        <RecentActivityWidget churchId={churchId} className="h-full" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Row 4: Parish Announcements & Bulletin Board (Full Width) */}
+                            <ChurchAnnouncementsManagement churchId={churchId} />
 
                             {/* New Announcement Form Modal */}
                             {showAnnouncementModal && (

@@ -59,7 +59,6 @@ import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
 import ChurchChatbot from '../../components/ai/ChurchChatbot';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
-import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
 import AssignStaffModal from '../../components/admin/AssignStaffModal';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import { directUpdateProfile } from '../../lib/directApi';
@@ -81,6 +80,7 @@ export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user, profile, session } = useAuth();
+    const isVolunteer = profile?.role === 'volunteer';
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
     const { byId: clergyById } = useParishClergy(id);
 
@@ -149,10 +149,12 @@ export default function ChurchDetailPage() {
     useEffect(() => {
         if (deepLinkAnnouncementId) {
             setCurrentTab('announcements');
-        } else if (tabParam === 'governance') {
+        } else if (tabParam === 'governance' && !isVolunteer) {
             setCurrentTab('governance');
+        } else if (tabParam === 'livestream') {
+            setCurrentTab('livestream');
         }
-    }, [deepLinkAnnouncementId, tabParam]);
+    }, [deepLinkAnnouncementId, tabParam, isVolunteer]);
 
     const updateDropdownAlignment = () => {
         if (adminDropdownRef.current) {
@@ -448,7 +450,6 @@ export default function ChurchDetailPage() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     const isUnverified = Boolean(church && (church.status === 'unverified' || (Boolean(church.status) && church.status !== 'verified_active' && church.status !== 'active')));
-
     const cashlessPaused = church?.accept_cashless === false;
     const donationsLocked = isUnverified || cashlessPaused;
 
@@ -803,7 +804,7 @@ export default function ChurchDetailPage() {
                         </div>
 
                         {/* Right action group (Manage v dropdown) */}
-                        {(canManage() || isSuperAdmin) && (
+                        {((canManage() && !isVolunteer) || isSuperAdmin) && (
                             <div className="relative shrink-0" ref={adminDropdownRef}>
                                 <button
                                     type="button"
@@ -827,7 +828,7 @@ export default function ChurchDetailPage() {
                                             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Parish Controls</p>
                                         </div>
 
-                                        {canManage() && (
+                                        {canManage() && !isVolunteer && (
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -1013,7 +1014,7 @@ export default function ChurchDetailPage() {
                         )}
                     </button>
 
-                    {(canManage() || isSuperAdmin) && (
+                    {(canManage() || isSuperAdmin) && !isVolunteer && (
                         <button
                             onClick={() => setCurrentTab('governance')}
                             className={`rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -1091,9 +1092,11 @@ export default function ChurchDetailPage() {
                                             src={`https://www.openstreetmap.org/export/embed.html?bbox=${(church.longitude - 0.005).toFixed(6)}%2C${(church.latitude - 0.005).toFixed(6)}%2C${(church.longitude + 0.005).toFixed(6)}%2C${(church.latitude + 0.005).toFixed(6)}&layer=mapnik&marker=${church.latitude}%2C${church.longitude}`}
                                         />
                                         <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                                        <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-white/95 text-[11px] font-mono text-secondary-700 shadow-xs border border-border">
-                                            📍 {church.latitude.toFixed(4)}, {church.longitude.toFixed(4)}
-                                        </div>
+                                        {profile?.role && ['super_admin', 'admin', 'church_admin', 'priest'].includes(profile.role) && (
+                                            <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-white/95 text-[11px] font-mono text-secondary-700 shadow-xs border border-border">
+                                                📍 {church.latitude.toFixed(4)}, {church.longitude.toFixed(4)}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="text-center p-4 text-muted">
@@ -1219,7 +1222,7 @@ export default function ChurchDetailPage() {
                         <div className="card p-5 bg-white border border-border/80 shadow-2xs space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-base font-bold text-foreground">Parish team</h3>
-                                {canManage() && (
+                                {canManage() && !isVolunteer && (
                                     <button
                                         onClick={() => setCurrentTab('governance')}
                                         className="text-xs font-semibold text-primary hover:underline cursor-pointer"
@@ -1542,62 +1545,12 @@ export default function ChurchDetailPage() {
             {/* TAB 4: LIVESTREAM (Dedicated Livestream Tab) */}
             {/* ========================================================================= */}
             {currentTab === 'livestream' && (
-                <div className="space-y-6">
-                    {/* Admin Livestream Control Panel (Visible to Staff) */}
-                    {canManage() && (
-                        <div className="card p-6 bg-white border border-border/80 shadow-2xs">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                                    <Radio className="w-5 h-5 text-rose-500" />
-                                    Parish Broadcast Studio Controls
-                                </h3>
-                                <span className="text-xs font-semibold text-muted">Staff Access</span>
-                            </div>
-                            <LiveBroadcastManager churchId={church.id} />
-                        </div>
-                    )}
-
-                    {/* Broadcast Metadata Card */}
-                    <div className="card p-5 sm:p-6 bg-white border border-border/80 shadow-2xs">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                        Platform: {church.livestream_platform ? church.livestream_platform.toUpperCase() : 'YOUTUBE LIVE'}
-                                    </span>
-                                    {church.is_live && (
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-red-600 text-white animate-pulse">
-                                            ON AIR
-                                        </span>
-                                    )}
-                                </div>
-                                <h2 className="text-xl sm:text-2xl font-bold text-foreground mt-2">
-                                    {church.livestream_title || `${church.name} Holy Eucharistic Broadcast`}
-                                </h2>
-                                <p className="text-xs sm:text-sm text-secondary-500 mt-1">
-                                    Stream link: {church.livestream_url ? (
-                                        <a href={church.livestream_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono">
-                                            {church.livestream_url}
-                                        </a>
-                                    ) : (
-                                        <span className="italic text-muted">No external URL configured; streaming via Sacralink feed</span>
-                                    )}
-                                </p>
-                            </div>
-
-                            <div className="text-left sm:text-right shrink-0">
-                                <p className="text-xs text-muted font-medium">Next scheduled holy mass</p>
-                                <p className="text-base font-bold text-foreground mt-0.5">
-                                    Sunday, 8:00 AM (Main Altar)
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Universal Stream Player & Sacramental Virtual Sanctuary */}
-                    <div className="card p-6 bg-white border border-border/80 shadow-2xs">
-                        <VirtualSanctuarySection church={church} activePanoramaUrl={activePanoramaUrl} />
-                    </div>
+                <div className="card p-6 bg-white border border-border/80 shadow-2xs">
+                    <VirtualSanctuarySection
+                        church={church}
+                        activePanoramaUrl={activePanoramaUrl}
+                        canManage={canManage()}
+                    />
                 </div>
             )}
 
@@ -1657,7 +1610,7 @@ export default function ChurchDetailPage() {
             {/* ========================================================================= */}
             {/* TAB 6: GOVERNANCE (Super Admin & Church Admin) */}
             {/* ========================================================================= */}
-            {currentTab === 'governance' && (canManage() || isSuperAdmin) && (
+            {currentTab === 'governance' && !isVolunteer && (canManage() || isSuperAdmin) && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     {/* ───────────────────────────────────────────────────────────
                         LEFT COLUMN (col-span-12 lg:col-span-8):

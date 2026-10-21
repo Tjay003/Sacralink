@@ -23,6 +23,7 @@ import NotificationBell from '../notifications/NotificationBell';
 import ConfirmationModal from '../modals/ConfirmationModal';
 import { featureFlags } from '../../config/featureFlags';
 import { supabase } from '../../lib/supabase';
+import { useSidebarCounts } from '../../hooks/useSidebarCounts';
 import logo from '../../assets/logo.png';
 
 interface NavigationItem {
@@ -46,13 +47,14 @@ export default function DashboardLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const { profile, signOut } = useAuth();
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+        const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-    const [largeTextMode, setLargeTextMode] = useState(false);
+        const [largeTextMode, setLargeTextMode] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [pendingDonationsCount, setPendingDonationsCount] = useState<number>(0);
+    const sidebarCounts = useSidebarCounts(profile);
 
     const isChurchAdmin = profile?.role === 'church_admin';
     const churchId = profile?.assigned_church_id || profile?.church_id;
@@ -125,7 +127,7 @@ export default function DashboardLayout() {
                     href: '/admin/applications',
                     icon: ShieldCheck,
                     superAdminOnly: true,
-                    badge: 2,
+                    badge: sidebarCounts.pendingApplications > 0 ? sidebarCounts.pendingApplications : undefined,
                 },
                 {
                     name: 'Users',
@@ -144,7 +146,7 @@ export default function DashboardLayout() {
                     href: '/appointments',
                     icon: Calendar,
                     featureKey: 'appointments',
-                    badge: 12,
+                    badge: sidebarCounts.pendingAppointments > 0 ? sidebarCounts.pendingAppointments : undefined,
                 },
                 {
                     name: 'Donations',
@@ -159,7 +161,7 @@ export default function DashboardLayout() {
                     href: '/messages',
                     icon: MessageSquare,
                     featureKey: 'messages',
-                    badge: 2,
+                    badge: sidebarCounts.unreadMessages > 0 ? sidebarCounts.unreadMessages : undefined,
                 },
                 {
                     name: 'System announcements',
@@ -262,7 +264,7 @@ export default function DashboardLayout() {
                                         <span className="text-primary">LINK</span>
                                     </div>
                                     <p className="text-[11px] text-muted font-medium truncate max-w-[130px]">
-                                        Diocese of San Jose del Monte
+                                        Parishes of San Jose del Monte
                                     </p>
                                 </div>
                             </div>
@@ -308,7 +310,7 @@ export default function DashboardLayout() {
 
                 {/* Bottom Section (Accessibility Toggle, Diocese Badge, Sign Out) */}
                 <div className="p-3.5 border-t border-border/80 bg-white space-y-2">
-                    {/* Large Text Mode Toggle */}
+                                        {/* Large Text Mode Toggle */}
                     {!sidebarCollapsed ? (
                         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-secondary-50/60 text-secondary-700 text-xs font-medium">
                             <div className="flex items-center gap-2">
@@ -479,6 +481,7 @@ export default function DashboardLayout() {
                 </main>
             </div>
 
+            
             {/* Logout Modal */}
             <ConfirmationModal
                 isOpen={showLogoutModal}

@@ -109,11 +109,72 @@ export interface ContactProfile extends Profile {
     church?: { id: string; name: string } | null;
 }
 
+/** Fired on window after a conversation is marked read, so the sidebar unread badge can refresh. */
+export const UNREAD_CHANGED_EVENT = 'sacralink:unread_changed';
+
+/** Volunteers may only start Direct Messages with church admins and volunteers of their own parish. */
+function isVolunteerAllowedContact(
+    me: { church_id?: string | null; assigned_church_id?: string | null },
+    target: { role?: string | null; is_priest?: boolean | null; church_id?: string | null; assigned_church_id?: string | null }
+): boolean {
+    if (!['church_admin', 'volunteer'].includes(target.role || '') || target.is_priest) return false;
+    const myChurches = [me.church_id, me.assigned_church_id].filter(Boolean);
+    return [target.church_id, target.assigned_church_id].some((id) => id && myChurches.includes(id));
+}
+
 // ============================================================================
 // OFFLINE & DEMO FALLBACK STORAGE HELPERS
 // ============================================================================
 const LOCAL_MINISTRY_STORAGE_KEY = 'sacralink_local_ministry_convs';
 const LOCAL_MINISTRY_MESSAGES_KEY = 'sacralink_local_ministry_messages';
+
+// The browser fallback cache is partitioned by the signed-in user's id so that
+// switching accounts in the same browser never merges another user's cached chats.
+let localMessagingOwnerId: string | null = null;
+
+/**
+ * Declare which authenticated user owns the local fallback cache.
+ * Called by the auth layer whenever the signed-in user changes.
+ */
+export function setLocalMessagingOwner(userId: string | null): void {
+    localMessagingOwnerId = userId;
+}
+
+/**
+ * Remove every local ministry conversation/message cache key (for any user)
+ * from localStorage and sessionStorage. Called on sign-out.
+ */
+export function clearLocalMessagingCache(): void {
+    if (typeof window === 'undefined') return;
+    for (const store of [window.localStorage, window.sessionStorage]) {
+        try {
+            if (!store) continue;
+            const doomed: string[] = [];
+            for (let i = 0; i < store.length; i++) {
+                const key = store.key(i);
+                if (
+                    key &&
+                    (key.startsWith(LOCAL_MINISTRY_STORAGE_KEY) || key.startsWith(LOCAL_MINISTRY_MESSAGES_KEY))
+                ) {
+                    doomed.push(key);
+                }
+            }
+            doomed.forEach((key) => store.removeItem(key));
+        } catch (e) {
+            console.warn('Could not clear local messaging cache:', e);
+        }
+    }
+}
+
+function localConvsKey(): string | null {
+    return localMessagingOwnerId ? `${LOCAL_MINISTRY_STORAGE_KEY}:${localMessagingOwnerId}` : null;
+}
+
+function localMessagesKey(conversationId: string): string | null {
+    return localMessagingOwnerId
+        ? `${LOCAL_MINISTRY_MESSAGES_KEY}:${localMessagingOwnerId}_${conversationId}`
+        : null;
+}
 
 export interface LocalMinistryConv {
     id: string;
@@ -141,9 +202,11 @@ export function isLocalConversation(conversationId: string): boolean {
 
 export function getLocalMinistryConvs(churchId?: string): LocalMinistryConv[] {
     if (typeof window === 'undefined') return [];
+    const storageKey = localConvsKey();
+    if (!storageKey) return [];
     try {
-        const raw = (window.localStorage && window.localStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY)) ||
-            (window.sessionStorage && window.sessionStorage.getItem(LOCAL_MINISTRY_STORAGE_KEY));
+        const raw = (window.localStorage && window.localStorage.getItem(storageKey)) ||
+            (window.sessionStorage && window.sessionStorage.getItem(storageKey));
         const list: LocalMinistryConv[] = raw ? JSON.parse(raw) : [];
         if (churchId) {
             return list.filter((c) => c.church_id === churchId);
@@ -161,6 +224,8 @@ export function getLocalConversationById(conversationId: string): LocalMinistryC
 
 export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
     if (typeof window === 'undefined') return;
+    const storageKey = localConvsKey();
+    if (!storageKey) return;
     try {
         const list = getLocalMinistryConvs();
         const existingIdx = list.findIndex(
@@ -179,10 +244,10 @@ export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
             list.push(conv);
         }
         if (window.localStorage) {
-            window.localStorage.setItem(LOCAL_MINISTRY_STORAGE_KEY, JSON.stringify(list));
+            window.localStorage.setItem(storageKey, JSON.stringify(list));
         }
         if (window.sessionStorage) {
-            window.sessionStorage.setItem(LOCAL_MINISTRY_STORAGE_KEY, JSON.stringify(list));
+            window.sessionStorage.setItem(storageKey, JSON.stringify(list));
         }
     } catch (e) {
         console.warn('Could not save local ministry conv:', e);
@@ -191,8 +256,9 @@ export function saveLocalMinistryConv(conv: LocalMinistryConv): void {
 
 export function getLocalMinistryMessages(conversationId: string): MessageWithSender[] {
     if (typeof window === 'undefined') return [];
+    const key = localMessagesKey(conversationId);
+    if (!key) return [];
     try {
-        const key = `${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}`;
         const raw = (window.localStorage && window.localStorage.getItem(key)) ||
             (window.sessionStorage && window.sessionStorage.getItem(key));
         return raw ? JSON.parse(raw) : [];
@@ -203,11 +269,12 @@ export function getLocalMinistryMessages(conversationId: string): MessageWithSen
 
 function saveLocalMinistryMessage(msg: MessageWithSender): void {
     if (typeof window === 'undefined') return;
+    const key = localMessagesKey(msg.conversation_id);
+    if (!key) return;
     try {
         const list = getLocalMinistryMessages(msg.conversation_id);
         if (!list.some((m) => m.id === msg.id)) {
             list.push(msg);
-            const key = `${LOCAL_MINISTRY_MESSAGES_KEY}_${msg.conversation_id}`;
             if (window.localStorage) {
                 window.localStorage.setItem(key, JSON.stringify(list));
             }
@@ -611,7 +678,7 @@ export async function sendMessage(
     conversationId: string,
     senderId: string,
     content: string,
-    messageType: 'text' | 'call_invite' = 'text',
+    messageType: 'text' | 'call_invite' | 'system' = 'text',
     metadata: Record<string, unknown> = {}
 ): Promise<{
     data: MessageWithSender | null;
@@ -735,8 +802,8 @@ export async function getOrCreateDirectConversation(
 
         // Office Gateway validation:
         const [callerProfileRes, targetProfileRes] = await Promise.all([
-            supabase.from('profiles').select('id, role, is_priest').eq('id', userId).maybeSingle(),
-            supabase.from('profiles').select('id, role, is_priest').eq('id', targetUserId).maybeSingle(),
+            supabase.from('profiles').select('id, role, is_priest, church_id, assigned_church_id').eq('id', userId).maybeSingle(),
+            supabase.from('profiles').select('id, role, is_priest, church_id, assigned_church_id').eq('id', targetUserId).maybeSingle(),
         ]);
 
         const callerRole = callerProfileRes.data?.role || 'user';
@@ -750,6 +817,15 @@ export async function getOrCreateDirectConversation(
 
         if (callerRole === 'user' && !['super_admin', 'admin', 'church_admin'].includes(targetRole)) {
             throw new Error('Parishioners can only initiate direct conversations with Parish Office and Diocese administrators.');
+        }
+
+        if (
+            callerRole === 'volunteer' &&
+            (!callerProfileRes.data ||
+                !targetProfileRes.data ||
+                !isVolunteerAllowedContact(callerProfileRes.data, targetProfileRes.data))
+        ) {
+            throw new Error('Volunteers can only start direct messages with the church admins and volunteers of their own parish.');
         }
 
         if (isCallerPriest && targetRole === 'user') {
@@ -937,14 +1013,18 @@ export async function getOrCreateChurchStaffChannel(
         const newChannelId = newConv.id;
 
         // 4. Find all church staff (admin, church_admin, volunteer, priest) to automatically add
+        // Only genuine parish staff roles: parishioners (role = 'user') are never enrolled.
+        const staffRoles: Profile['role'][] = ['church_admin', 'priest', 'volunteer'];
         const [churchStaff1, churchStaff2] = await Promise.all([
             supabase
                 .from('profiles')
                 .select('id')
+                .in('role', staffRoles)
                 .eq('church_id', churchId),
             supabase
                 .from('profiles')
                 .select('id')
+                .in('role', staffRoles)
                 .eq('assigned_church_id', churchId),
         ]);
 
@@ -1221,6 +1301,9 @@ export async function markConversationAsRead(
             .match({ conversation_id: conversationId, user_id: userId });
 
         if (error) throw error;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(UNREAD_CHANGED_EVENT));
+        }
         return { error: null };
     } catch (err: any) {
         console.error('❌ Error marking conversation as read:', err);
@@ -1245,14 +1328,30 @@ export async function fetchAvailableContacts(
 
         // Determine caller's role if not explicitly passed
         let resolvedRole = currentUserRole;
-        if (!resolvedRole) {
-            const { data: myProfile } = await supabase
+        let myProfile: { role?: string | null; church_id?: string | null; assigned_church_id?: string | null } | null = null;
+        if (!resolvedRole || resolvedRole === 'volunteer') {
+            const { data: profileRow } = await supabase
                 .from('profiles')
-                .select('role')
+                .select('role, church_id, assigned_church_id')
                 .eq('id', currentUserId)
                 .maybeSingle();
-            resolvedRole = myProfile?.role || 'user';
+            myProfile = profileRow;
+            resolvedRole = resolvedRole || profileRow?.role || 'user';
         }
+
+        // Volunteers can only reach the church admins and volunteers of their own parish
+        const isVolunteer = resolvedRole === 'volunteer';
+        const volunteerChurchId = myProfile?.assigned_church_id || myProfile?.church_id || null;
+        if (isVolunteer) {
+            if (!volunteerChurchId) return { data: [], error: null };
+            churchId = null;
+        }
+        const applyVolunteerScope = <T extends { in: (c: string, v: string[]) => T; or: (f: string) => T }>(q: T): T =>
+            isVolunteer
+                ? q
+                      .in('role', ['church_admin', 'volunteer'])
+                      .or(`church_id.eq.${volunteerChurchId},assigned_church_id.eq.${volunteerChurchId}`)
+                : q;
 
         // Attempt joined query with assigned_church and church relations
         let query = supabase
@@ -1270,6 +1369,8 @@ export async function fetchAvailableContacts(
         if (resolvedRole === 'user') {
             query = query.in('role', ['super_admin', 'admin', 'church_admin']);
         }
+
+        query = applyVolunteerScope(query);
 
         if (churchId) {
             query = query.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
@@ -1292,6 +1393,10 @@ export async function fetchAvailableContacts(
                 );
             }
 
+            if (isVolunteer && myProfile) {
+                normalizedData = normalizedData.filter((p) => isVolunteerAllowedContact(myProfile!, p));
+            }
+
             return { data: normalizedData, error: null };
         }
 
@@ -1308,6 +1413,8 @@ export async function fetchAvailableContacts(
             if (resolvedRole === 'user') {
                 fallbackQuery = fallbackQuery.in('role', ['super_admin', 'admin', 'church_admin']);
             }
+
+            fallbackQuery = applyVolunteerScope(fallbackQuery);
 
             if (churchId) {
                 fallbackQuery = fallbackQuery.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
@@ -1341,6 +1448,10 @@ export async function fetchAvailableContacts(
                 mappedData = mappedData.filter(
                     (p) => ['super_admin', 'admin', 'church_admin'].includes(p.role || '') && !p.is_priest
                 );
+            }
+
+            if (isVolunteer && myProfile) {
+                mappedData = mappedData.filter((p) => isVolunteerAllowedContact(myProfile!, p));
             }
 
             return { data: mappedData, error: null };
@@ -1434,7 +1545,7 @@ export function subscribeToMessages(
         }
     };
     const storageHandler = (e: StorageEvent) => {
-        if (e.key === `${LOCAL_MINISTRY_MESSAGES_KEY}_${conversationId}` && e.newValue) {
+        if (e.key === localMessagesKey(conversationId) && e.newValue) {
             try {
                 const parsed: MessageWithSender[] = JSON.parse(e.newValue);
                 if (parsed.length > 0) {
@@ -1513,7 +1624,12 @@ export function subscribeToUserConversations(
         }
     };
     const storageHandler = (e: StorageEvent) => {
-        if (e.key && e.key.startsWith(LOCAL_MINISTRY_MESSAGES_KEY) && e.newValue) {
+        if (
+            e.key &&
+            localMessagingOwnerId &&
+            e.key.startsWith(`${LOCAL_MINISTRY_MESSAGES_KEY}:${localMessagingOwnerId}_`) &&
+            e.newValue
+        ) {
             try {
                 const parsed: MessageWithSender[] = JSON.parse(e.newValue);
                 if (parsed.length > 0) {
@@ -1800,4 +1916,24 @@ export async function updateTicketStatus(
     }
 }
 
-
+/**
+ * Reopen a closed ticket (requester or parish staff) and log a system status note in the thread.
+ */
+export async function reopenTicket(
+    conversationId: string,
+    userId: string,
+    actorName?: string | null
+): Promise<{
+    data: MessageWithSender | null;
+    error: Error | null;
+}> {
+    const { error } = await updateTicketStatus(conversationId, 'open');
+    if (error) return { data: null, error };
+    return sendMessage(
+        conversationId,
+        userId,
+        `${actorName?.trim() || 'A participant'} reopened this ticket.`,
+        'system',
+        { event: 'ticket_reopened' }
+    );
+}

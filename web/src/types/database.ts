@@ -1519,6 +1519,10 @@ export type Database = {
         Args: { p_appointment_id: string; p_priest_id?: string | null; p_admin_feedback?: string | null }
         Returns: undefined
       }
+      get_my_unread_message_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_parish_clergy: {
         Args: { p_church_id: string }
         Returns: {

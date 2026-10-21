@@ -473,7 +473,7 @@ export default function UsersPage() {
 
             {/* Directory Category Segmented Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 dark:bg-secondary-800/60 border border-border/60 gap-1 overflow-x-auto scrollbar-none max-w-full">
+                <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 dark:bg-secondary-800/60 border border-border/60 gap-1 max-w-full flex-wrap">
                     <button
                         type="button"
                         onClick={() => setDirectoryTab('staff')}
@@ -536,9 +536,9 @@ export default function UsersPage() {
 
             {/* Pristine Modern Filter & Search Toolbar */}
             <div className="space-y-3">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
                     {/* Search Input (Pill Style) */}
-                    <div className="relative flex-1 max-w-full lg:max-w-md">
+                    <div className="relative flex-1 max-w-full xl:max-w-md">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                         <input
                             type="text"
@@ -560,7 +560,7 @@ export default function UsersPage() {
                     </div>
 
                     {/* Filter Dropdowns (Clean Rounded-Full Pills) */}
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                    <div className="flex flex-wrap items-center gap-2">
                         {/* Role Dropdown */}
                         <div className="relative inline-block shrink-0">
                             <select
@@ -874,8 +874,8 @@ export default function UsersPage() {
             {/* ═══════════════════════════════════════════════════════════════ */}
             {viewMode === 'table' && (
                 <>
-                    {/* Mobile & Tablet Responsive Card Grid (< xl) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 xl:hidden">
+                    {/* Mobile & Tablet Responsive Card Grid (< lg) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:hidden">
                         {paginatedUsers.length === 0 ? (
                             <div className="col-span-full card p-8 text-center text-muted">
                                 No users found matching current filters.
@@ -994,44 +994,44 @@ export default function UsersPage() {
                         )}
                     </div>
 
-                    {/* Desktop Table (>= xl) */}
-                    <div className="hidden xl:block card overflow-hidden border border-border/80">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
+                    {/* Desktop Table (>= lg) */}
+                    <div className="hidden lg:block card overflow-hidden border border-border/80">
+                        <div>
+                            <table className="w-full table-fixed">
                                 <thead className="bg-secondary-50 dark:bg-secondary-900/60 border-b border-border text-left text-xs font-semibold text-muted uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('name')}>
+                                        <th className="w-[34%] px-4 xl:px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('name')}>
                                             <div className="flex items-center gap-1.5">
-                                                <span>User</span>
+                                                <span>User &amp; Email</span>
                                                 {sortField === 'name' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-5 py-3.5">Email</th>
-                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('role')}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span>Role</span>
-                                                {sortField === 'role' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
+                                        <th className="w-[30%] px-4 xl:px-5 py-3.5">
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                <button type="button" className="flex items-center gap-1.5 uppercase tracking-wider font-semibold hover:text-foreground cursor-pointer" onClick={() => handleSort('role')}>
+                                                    <span>Role</span>
+                                                    {sortField === 'role' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
+                                                </button>
+                                                <span aria-hidden="true">&amp;</span>
+                                                <button type="button" className="flex items-center gap-1.5 uppercase tracking-wider font-semibold hover:text-foreground cursor-pointer" onClick={() => handleSort('church')}>
+                                                    <span>Assigned Parish</span>
+                                                    {sortField === 'church' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
+                                                </button>
                                             </div>
                                         </th>
-                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('church')}>
-                                            <div className="flex items-center gap-1.5">
-                                                <span>Assigned Parish</span>
-                                                {sortField === 'church' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
-                                            </div>
-                                        </th>
-                                        <th className="px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('created_at')}>
+                                        <th className="w-[14%] px-4 xl:px-5 py-3.5 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('created_at')}>
                                             <div className="flex items-center gap-1.5">
                                                 <span>Registered</span>
                                                 {sortField === 'created_at' && (sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-primary" /> : <ArrowDown className="w-3.5 h-3.5 text-primary" />)}
                                             </div>
                                         </th>
-                                        <th className="px-5 py-3.5 text-right">Actions</th>
+                                        <th className="w-[22%] px-4 xl:px-5 py-3.5 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border bg-white dark:bg-card">
                                     {paginatedUsers.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-5 py-10 text-center text-muted">
+                                            <td colSpan={4} className="px-5 py-10 text-center text-muted">
                                                 No users found matching current filters.
                                             </td>
                                         </tr>
@@ -1042,9 +1042,9 @@ export default function UsersPage() {
                                             const isSelf = user.id === currentUser?.id;
                                             return (
                                                 <tr key={user.id} className="hover:bg-secondary-50/60 dark:hover:bg-secondary-900/30 transition-colors">
-                                                    {/* User & Avatar */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap">
-                                                        <div className="flex items-center gap-3">
+                                                    {/* User & Email */}
+                                                    <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                        <div className="flex items-start gap-3 min-w-0">
                                                             {user.avatar_url ? (
                                                                 <img
                                                                     src={user.avatar_url}
@@ -1056,20 +1056,20 @@ export default function UsersPage() {
                                                                     {user.full_name?.charAt(0).toUpperCase() || 'U'}
                                                                 </div>
                                                             )}
-                                                            <div className="text-sm font-semibold text-foreground">
-                                                                {user.full_name || 'No name'}
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-semibold text-foreground break-words">
+                                                                    {user.full_name || 'No name'}
+                                                                </div>
+                                                                <div className="text-xs text-muted mt-0.5 break-all" title={user.email || undefined}>
+                                                                    {user.email}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </td>
 
-                                                    {/* Email */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm text-foreground">
-                                                        {user.email}
-                                                    </td>
-
-                                                    {/* Role */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap">
-                                                        <div className="flex items-center gap-1.5">
+                                                    {/* Role & Assigned Parish */}
+                                                    <td className="px-4 xl:px-5 py-3.5 align-top">
+                                                        <div className="flex flex-wrap items-center gap-1.5">
                                                             {isUserSuperAdmin ? (
                                                                 <span className="px-2.5 py-1 inline-flex items-center gap-1.5 text-xs font-bold rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-sm">
                                                                     <Crown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -1087,57 +1087,57 @@ export default function UsersPage() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                    </td>
 
-                                                    {/* Assigned Church with Interactive Hover Tooltip */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm">
-                                                        {user.assigned_church_id ? (
-                                                            <div className="relative group/church inline-block">
-                                                                <div className="flex items-center gap-1.5 text-foreground font-medium cursor-help">
-                                                                    <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                                                                    <span className="truncate max-w-[240px] border-b border-dotted border-border/80 group-hover/church:border-primary group-hover/church:text-primary transition-colors">
-                                                                        {churchName}
-                                                                    </span>
-                                                                </div>
-                                                                {/* Tooltip Card on Hover */}
-                                                                <div className="absolute left-0 top-full mt-2 hidden group-hover/church:flex flex-col z-50 w-72 sm:w-80 p-3 bg-white text-foreground rounded-xl shadow-2xl border border-border whitespace-normal break-words pointer-events-none animate-in fade-in zoom-in-95">
-                                                                    <div className="flex items-start gap-2 mb-1.5">
-                                                                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
-                                                                            <Building2 className="w-4 h-4" />
-                                                                        </div>
-                                                                        <p className="font-bold text-xs text-foreground leading-snug break-words">
+                                                        {/* Assigned Church with Interactive Hover Tooltip */}
+                                                        <div className="mt-2 text-sm">
+                                                            {user.assigned_church_id ? (
+                                                                <div className="relative group/church block">
+                                                                    <div className="flex items-start gap-1.5 text-foreground font-medium cursor-help min-w-0">
+                                                                        <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                                                                        <span className="break-words min-w-0 border-b border-dotted border-border/80 group-hover/church:border-primary group-hover/church:text-primary transition-colors">
                                                                             {churchName}
-                                                                        </p>
-                                                                    </div>
-                                                                    {churchObjectMap.get(user.assigned_church_id)?.address && (
-                                                                        <div className="flex items-start gap-1.5 mt-1 text-[11px] text-muted leading-normal break-words">
-                                                                            <MapPin className="w-3.5 h-3.5 text-muted/70 shrink-0 mt-0.5" />
-                                                                            <span className="break-words">
-                                                                                {churchObjectMap.get(user.assigned_church_id)?.address}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between text-[10px] text-muted">
-                                                                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                                                                            Verified Parish
                                                                         </span>
-                                                                        <span className="font-medium text-muted">Diocese of Malolos</span>
+                                                                    </div>
+                                                                    {/* Tooltip Card on Hover */}
+                                                                    <div className="absolute left-0 top-full mt-2 hidden group-hover/church:flex flex-col z-50 w-64 max-w-full p-3 bg-white text-foreground rounded-xl shadow-2xl border border-border whitespace-normal break-words pointer-events-none animate-in fade-in zoom-in-95">
+                                                                        <div className="flex items-start gap-2 mb-1.5">
+                                                                            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+                                                                                <Building2 className="w-4 h-4" />
+                                                                            </div>
+                                                                            <p className="font-bold text-xs text-foreground leading-snug break-words">
+                                                                                {churchName}
+                                                                            </p>
+                                                                        </div>
+                                                                        {churchObjectMap.get(user.assigned_church_id)?.address && (
+                                                                            <div className="flex items-start gap-1.5 mt-1 text-[11px] text-muted leading-normal break-words">
+                                                                                <MapPin className="w-3.5 h-3.5 text-muted/70 shrink-0 mt-0.5" />
+                                                                                <span className="break-words">
+                                                                                    {churchObjectMap.get(user.assigned_church_id)?.address}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between text-[10px] text-muted">
+                                                                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                                                                Verified Parish
+                                                                            </span>
+                                                                            <span className="font-medium text-muted">Diocese of Malolos</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-muted/60 text-xs italic">Unassigned</span>
-                                                        )}
+                                                            ) : (
+                                                                <span className="text-muted/60 text-xs italic">Unassigned</span>
+                                                            )}
+                                                        </div>
                                                     </td>
 
                                                     {/* Registered Date */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap text-sm text-muted">
+                                                    <td className="px-4 xl:px-5 py-3.5 align-top text-sm text-muted">
                                                         {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
-                                                        <div className="flex items-center justify-end gap-2">
+                                                    <td className="px-4 xl:px-5 py-3.5 align-top text-right text-sm font-medium">
+                                                        <div className="flex flex-wrap items-center justify-end gap-2">
                                                             {isUserSuperAdmin ? (
                                                                 <button
                                                                     type="button"

@@ -15,6 +15,7 @@ import { getAppointments } from '../../lib/supabase/appointments';
 import { getParishApplications } from '../../lib/supabase/parishApplications';
 import { getSystemAnnouncements } from '../../lib/supabase/announcements';
 import { useChurches } from '../../hooks/useChurches';
+import { cn } from '../../lib/utils';
 
 export type ActivityType =
     | 'sacrament_approved'
@@ -33,6 +34,7 @@ export interface ActivityItem {
 
 interface RecentActivityWidgetProps {
     churchId?: string | null;
+    className?: string;
 }
 
 /**
@@ -182,7 +184,7 @@ function getFallbackActivities(churchName?: string | null): ActivityItem[] {
  * Displays live narrative events across sacrament bookings, applicant documents,
  * community proofs, newly joined members, and diocesan announcements.
  */
-export default function RecentActivityWidget({ churchId = null }: RecentActivityWidgetProps) {
+export default function RecentActivityWidget({ churchId = null, className }: RecentActivityWidgetProps) {
     const { churches } = useChurches();
     const selectedChurch = churchId ? churches.find((c) => c.id === churchId) : null;
 
@@ -462,7 +464,7 @@ export default function RecentActivityWidget({ churchId = null }: RecentActivity
 
     return (
         <>
-            <div className="bg-white border border-border/80 rounded-2xl p-6 shadow-xs h-full flex flex-col justify-between">
+            <div className={cn("bg-white border border-border/80 rounded-2xl p-6 shadow-xs h-full flex flex-col justify-between", className)}>
                 <div>
                     {/* Header */}
                     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-4 mb-4">

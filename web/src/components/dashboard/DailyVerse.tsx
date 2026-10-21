@@ -11,6 +11,7 @@ export interface DailyVerseProps {
     /** Parchment variant only: heading and text of the closing reflection */
     reflectionLabel?: string;
     reflectionText?: string;
+    className?: string;
 }
 
 const FALLBACK_VERSES = [
@@ -44,6 +45,7 @@ export default function DailyVerse({
     variant = 'parchment',
     reflectionLabel = 'Reflection',
     reflectionText = 'Pause before the first Mass of the day and offer your parish work as a prayer.',
+    className,
 }: DailyVerseProps) {
     const [verse, setVerse] = useState<Verse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function DailyVerse({
 
     if (variant === 'parchment') {
         return (
-            <div className="rounded-2xl p-6 bg-amber-50/70 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between h-full">
+            <div className={`rounded-2xl p-6 bg-amber-50/70 border border-amber-200/80 shadow-xs relative overflow-hidden flex flex-col justify-between h-full ${className || ''}`}>
                 {/* Background Cross / Book Watermark */}
                 <div className="absolute -top-4 -right-4 p-4 opacity-5 pointer-events-none text-amber-900">
                     <BookOpen className="w-36 h-36" />
@@ -105,7 +107,7 @@ export default function DailyVerse({
                         {/* Verse Quote */}
                         {verse ? (
                             <div className="space-y-4 animate-in fade-in duration-500">
-                                <p className="font-serif text-lg sm:text-xl text-amber-950 font-medium leading-relaxed italic">
+                                <p className="font-serif text-lg sm:text-xl text-amber-950 font-medium leading-relaxed italic scripture-quote" data-sacred="true">
                                     "{verse.text}"
                                 </p>
                             </div>
@@ -141,7 +143,7 @@ export default function DailyVerse({
 
     // Default 'blue' variant
     return (
-        <div className="rounded-2xl shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden flex flex-col justify-between h-full">
+        <div className={`rounded-2xl shadow-sm bg-gradient-to-br from-blue-600 to-blue-400 text-white p-6 relative overflow-hidden flex flex-col justify-between h-full ${className || ''}`}>
             {/* Background Pattern */}
             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                 <BookOpen className="w-32 h-32" />
@@ -167,7 +169,7 @@ export default function DailyVerse({
 
                     {verse ? (
                         <div className="space-y-4 animate-in fade-in duration-500">
-                            <p className="text-lg md:text-xl font-serif leading-relaxed opacity-95 italic">
+                            <p className="text-lg md:text-xl font-serif leading-relaxed opacity-95 italic scripture-quote" data-sacred="true">
                                 "{verse.text}"
                             </p>
                         </div>
