@@ -667,6 +667,19 @@ export async function setupSupabaseMocks(page: Page, activeUser?: MockUser | nul
     return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
 
+  // 8c. Parish slot check used by the booking form: an empty pool (no priest constraint), with the one
+  // slot the mock appointments hold (church-1, 2026-09-15 at 10:00) reported as taken.
+  await page.route('**/rest/v1/rpc/check_parish_slot', async (route) => {
+    const payload = route.request().postDataJSON() as { p_church_id: string; p_date: string; p_time: string };
+    const slotTaken =
+      payload.p_church_id === 'church-1' && payload.p_date === '2026-09-15' && payload.p_time.slice(0, 5) === '10:00';
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ slot_taken: slotTaken, has_eligible_priest: true, priest_count: 0 }]),
+    });
+  });
+
   // 9. Sacrament requirements REST route
   await page.route('**/rest/v1/sacrament_requirements*', async (route) => {
     return route.fulfill({

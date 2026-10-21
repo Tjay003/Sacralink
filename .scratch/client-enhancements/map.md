@@ -5,7 +5,7 @@
 - [x] `02-super-admin-system-announcements-feed.md`
 - [x] `03-presiding-priest-liturgy-visibility.md`
 - [ ] `04-church-clergy-roster-and-status.md`
-- [ ] `05-booking-celebrant-pool-check.md`
+- [x] `05-booking-celebrant-pool-check.md`
 - [ ] `06-customizable-sacrament-requirements-and-funeral.md`
 - [x] `07-hide-raw-coordinates-on-church-page.md`
 - [x] `08-fix-livestream-toggle-switch-overlap.md`
@@ -20,7 +20,7 @@
 2. `02-super-admin-system-announcements-feed.md` (Type: feature, Status: resolved)
 3. `03-presiding-priest-liturgy-visibility.md` (Type: feature, Status: resolved, Blocked by: 12)
 4. `04-church-clergy-roster-and-status.md` (Type: feature, Status: ready-for-agent, Blocked by: 12, 03)
-5. `05-booking-celebrant-pool-check.md` (Type: feature, Status: ready-for-agent, Blocked by: 12)
+5. `05-booking-celebrant-pool-check.md` (Type: feature, Status: resolved, Blocked by: 12)
 6. `06-customizable-sacrament-requirements-and-funeral.md` (Type: feature, Status: proposed)
 7. `07-hide-raw-coordinates-on-church-page.md` (Type: bug, Status: resolved)
 8. `08-fix-livestream-toggle-switch-overlap.md` (Type: bug, Status: resolved)
@@ -39,3 +39,4 @@
 - All backend work is verified on local Docker Supabase only; production changes need explicit approval per step.
 - Ticket 12 shipped as migration 054 (local only): RPCs `get_parish_clergy`, `evaluate_parish_celebrants`, `check_parish_slot`; TS wrappers `getParishClergy`, `evaluateParishPool`, `checkParishSlot` in `priestAvailability.ts`; approval warnings no longer repeat leave reasons. See the ticket Resolution.
 - Ticket 03 shipped (web, local only): celebrant badge on schedule cards, Presiding priest select in Add/Edit modals, celebrant in livestream standby. Streams have no link to a Mass schedule, so the live view shows none. Reusable for 04: `useParishClergy` / `celebrantLabel` in `web/src/hooks/useParishClergy.ts`. Found: Edit modal wrote a nonexistent `mass_type` column (removed) and `mass_schedules` RLS excludes `church_admin`. See the ticket Resolution.
+- Ticket 05 shipped (web, local only): booking slot check and both recommendation cards now use `check_parish_slot` (pool check, empty pool unchanged, no leave reasons). Scans capped: 6 calls in parallel, 7-day horizon, 3 nearest parishes, at most 133 calls per check, stale scans aborted. Needs migration 054 on production first or checks fail open. See the ticket Resolution.

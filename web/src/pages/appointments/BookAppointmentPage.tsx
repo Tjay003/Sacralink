@@ -142,7 +142,8 @@ export default function BookAppointmentPage() {
         curChurch: Church,
         serviceType: string,
         date: string,
-        time: string
+        time: string,
+        signal: AbortSignal
     ) => {
         if (!date || !time) {
             setAvailabilityResult(null);
@@ -156,13 +157,16 @@ export default function BookAppointmentPage() {
                 allChurches,
                 serviceType,
                 date,
-                time
+                time,
+                signal
             );
+            // A newer date or time has replaced this check; its scan was stopped and its answer is stale
+            if (signal.aborted) return;
             setAvailabilityResult(result);
         } catch (err) {
             console.error('Error checking availability:', err);
         } finally {
-            setCheckingAvailability(false);
+            if (!signal.aborted) setCheckingAvailability(false);
         }
     }, [allChurches]);
 
@@ -170,19 +174,25 @@ export default function BookAppointmentPage() {
     useEffect(() => {
         if (!church || !formData.appointment_date || !formData.appointment_time) {
             setAvailabilityResult(null);
+            setCheckingAvailability(false);
             return;
         }
 
+        const controller = new AbortController();
         const timer = setTimeout(() => {
             runAvailabilityCheck(
                 church,
                 formData.service_type,
                 formData.appointment_date,
-                formData.appointment_time
+                formData.appointment_time,
+                controller.signal
             );
         }, 300);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
     }, [church, formData.service_type, formData.appointment_date, formData.appointment_time, runAvailabilityCheck]);
 
     const handleFileSelect = (requirementId: string, file: File) => {
@@ -525,7 +535,7 @@ export default function BookAppointmentPage() {
                                         </div>
                                     ) : (
                                         <div className="bg-white dark:bg-gray-900 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500">
-                                            No additional slots found in the next 14 days at this parish.
+                                            No additional slots found in the next 7 days at this parish.
                                         </div>
                                     )}
 
