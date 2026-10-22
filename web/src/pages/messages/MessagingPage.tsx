@@ -52,6 +52,9 @@ import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { directFetchChurches } from '../../lib/directApi';
 import type { Profile, Church as ChurchType } from '../../types/database';
 
+// Video calls are hidden for now (client request); flip to true to bring the buttons and call cards back.
+const VIDEO_CALLS_ENABLED = false;
+
 const AVATAR_COLOR_MAP: Record<string, string> = {
     AD: 'bg-blue-100 text-blue-700',
     OL: 'bg-secondary-100 text-secondary-700',
@@ -1383,7 +1386,7 @@ export default function MessagingPage() {
                                     )}
 
                                     {/* Video call restricted to staff & clergy only */}
-                                    {isStaff && (
+                                    {VIDEO_CALLS_ENABLED && isStaff && (
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
@@ -1428,7 +1431,7 @@ export default function MessagingPage() {
                                                 Start of conversation
                                             </h4>
                                             <p className="text-xs text-secondary-500 max-w-sm mt-1">
-                                                Send your first message or start an instant video call to begin coordinating.
+                                                Send your first message to begin coordinating.
                                             </p>
                                         </div>
                                     </div>
@@ -1442,6 +1445,8 @@ export default function MessagingPage() {
                                             initiatedBy?: string;
                                         }
                                         const meta = (msg.metadata as CallMetadata | null) || {};
+
+                                        if (isCallInvite && !VIDEO_CALLS_ENABLED) return null;
 
                                         if (isCallInvite) {
                                             return (
@@ -1623,7 +1628,7 @@ export default function MessagingPage() {
                                     />
 
                                     {/* Video call restricted to staff & clergy only */}
-                                    {isStaff && (
+                                    {VIDEO_CALLS_ENABLED && isStaff && (
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
