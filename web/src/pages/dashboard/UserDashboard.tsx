@@ -170,6 +170,7 @@ export default function UserDashboard() {
                     <UserNextAppointmentCard
                         appointment={nextAppointment}
                         onMessageOffice={handleOpenInquiry}
+                        homeChurchId={selectedChurch?.id}
                     />
 
                     {/* 4. Other appointments */}

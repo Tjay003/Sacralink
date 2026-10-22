@@ -8,11 +8,13 @@ import RequestedPriestNote from '../../appointments/RequestedPriestNote';
 interface UserNextAppointmentCardProps {
     appointment: Appointment | null;
     onMessageOffice: (churchId: string, churchName?: string | null) => void;
+    homeChurchId?: string | null;
 }
 
 export default function UserNextAppointmentCard({
     appointment,
     onMessageOffice,
+    homeChurchId,
 }: UserNextAppointmentCardProps) {
     const navigate = useNavigate();
 
@@ -30,7 +32,7 @@ export default function UserNextAppointmentCard({
                 </p>
                 <button
                     type="button"
-                    onClick={() => navigate('/appointments')}
+                    onClick={() => navigate(homeChurchId ? `/churches/${homeChurchId}/book` : '/churches')}
                     className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors shadow-xs"
                 >
                     <Plus className="w-4 h-4" />

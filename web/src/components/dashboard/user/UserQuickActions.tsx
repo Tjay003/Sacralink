@@ -13,7 +13,7 @@ export default function UserQuickActions({ churchId }: UserQuickActionsProps) {
             {/* Book a sacrament */}
             <button
                 type="button"
-                onClick={() => navigate('/appointments')}
+                onClick={() => churchId ? navigate(`/churches/${churchId}/book`) : navigate('/churches')}
                 className="relative overflow-hidden bg-white border border-border rounded-2xl p-5 shadow-xs text-left transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group flex flex-col justify-between cursor-pointer"
             >
                 {/* Hover Gradient Overlay */}
@@ -34,10 +34,10 @@ export default function UserQuickActions({ churchId }: UserQuickActionsProps) {
                 </div>
             </button>
 
-            {/* Mass and confession times */}
+            {/* Mass times */}
             <button
                 type="button"
-                onClick={() => churchId ? navigate(`/churches/${churchId}`) : navigate('/churches')}
+                onClick={() => churchId ? navigate(`/churches/${churchId}?tab=liturgy`) : navigate('/churches')}
                 className="relative overflow-hidden bg-white border border-border rounded-2xl p-5 shadow-xs text-left transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group flex flex-col justify-between cursor-pointer"
             >
                 {/* Hover Gradient Overlay */}
@@ -49,7 +49,7 @@ export default function UserQuickActions({ churchId }: UserQuickActionsProps) {
                     </div>
                     <div>
                         <h3 className="font-semibold text-base text-foreground group-hover:text-white transition-colors duration-300">
-                            Mass and confession times
+                            Mass times
                         </h3>
                         <p className="text-xs text-muted mt-1 leading-relaxed group-hover:text-emerald-100 transition-colors duration-300 font-medium">
                             See the parish schedule
@@ -61,7 +61,7 @@ export default function UserQuickActions({ churchId }: UserQuickActionsProps) {
             {/* Watch Mass online */}
             <button
                 type="button"
-                onClick={() => churchId ? navigate(`/churches/${churchId}`) : navigate('/churches')}
+                onClick={() => churchId ? navigate(`/churches/${churchId}?tab=liturgy`) : navigate('/churches')}
                 className="relative overflow-hidden bg-white border border-border rounded-2xl p-5 shadow-xs text-left transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group flex flex-col justify-between cursor-pointer"
             >
                 {/* Hover Gradient Overlay */}

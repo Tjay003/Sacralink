@@ -153,6 +153,8 @@ export default function ChurchDetailPage() {
             setCurrentTab('governance');
         } else if (tabParam === 'livestream') {
             setCurrentTab('livestream');
+        } else if (tabParam === 'liturgy') {
+            setCurrentTab('liturgy');
         }
     }, [deepLinkAnnouncementId, tabParam, isVolunteer]);
 
