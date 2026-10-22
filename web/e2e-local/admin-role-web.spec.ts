@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { PASSWORD, getSeed, serviceClient } from './support';
+import { PASSWORD, getSeed, migrationsFrom062, serviceClient } from './support';
 
 /**
  * An account that used to be an Admin (converted to a Parishioner by migration 062) must land on the parishioner
@@ -10,9 +8,6 @@ import { PASSWORD, getSeed, serviceClient } from './support';
  */
 
 const db = serviceClient();
-const MIGRATION = resolve(process.cwd(), '../supabase/migrations/062_retire_admin_role.sql');
-// 062 recreates transfer_super_admin without the 063 permission flag, so 063 is replayed right after it (production order).
-const MIGRATION_063 = resolve(process.cwd(), '../supabase/migrations/063_database_enforced_role_changes.sql');
 const EMAIL = 'converted-admin-web@local.test';
 
 function psql(sql: string) {
@@ -43,7 +38,7 @@ test('a converted admin account lands on the parishioner dashboard with no manag
   psql(`ALTER TABLE public.profiles DISABLE TRIGGER trg_prevent_admin_role;
 UPDATE public.profiles SET role = 'admin' WHERE id = '${id}';
 ALTER TABLE public.profiles ENABLE TRIGGER trg_prevent_admin_role;`);
-  psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8'));
+  psql(migrationsFrom062());
 
   await page.goto('/login');
   await page.locator('#email').fill(EMAIL);

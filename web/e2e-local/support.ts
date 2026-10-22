@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export const LOCAL_URL = 'http://127.0.0.1:54321';
 // Public local-demo keys printed by `npx supabase start`
@@ -332,4 +334,17 @@ export async function loginAsAccount(page: Page, account: TempAccount) {
   await page.locator('#password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Login' }).click();
   await page.waitForURL('**/dashboard**');
+}
+
+/**
+ * Every migration from 062 on, in production order. Specs that replay migration 062 replay the whole tail with it,
+ * because later migrations redefine functions that 062 and 063 also define (replaying one alone would undo them).
+ */
+export function migrationsFrom062(): string {
+  const dir = resolve(process.cwd(), '../supabase/migrations');
+  return readdirSync(dir)
+    .filter((name) => /^\d{3}_.*\.sql$/.test(name) && Number(name.slice(0, 3)) >= 62)
+    .sort()
+    .map((name) => readFileSync(resolve(dir, name), 'utf8'))
+    .join(';\n');
 }
