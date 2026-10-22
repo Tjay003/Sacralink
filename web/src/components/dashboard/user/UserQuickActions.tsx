@@ -61,7 +61,7 @@ export default function UserQuickActions({ churchId }: UserQuickActionsProps) {
             {/* Watch Mass online */}
             <button
                 type="button"
-                onClick={() => churchId ? navigate(`/churches/${churchId}?tab=liturgy`) : navigate('/churches')}
+                onClick={() => churchId ? navigate(`/churches/${churchId}?tab=livestream`) : navigate('/churches')}
                 className="relative overflow-hidden bg-white border border-border rounded-2xl p-5 shadow-xs text-left transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 group flex flex-col justify-between cursor-pointer"
             >
                 {/* Hover Gradient Overlay */}

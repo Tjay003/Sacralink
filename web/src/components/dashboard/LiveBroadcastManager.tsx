@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Video, Check, AlertCircle, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Church } from '../../types/database';
@@ -50,6 +51,7 @@ function parseStreamEmbed(url?: string | null): string | null {
 }
 
 export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerProps) {
+    const navigate = useNavigate();
     const [church, setChurch] = useState<Church | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -365,7 +367,7 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     <div className="flex items-center gap-3 pt-2">
                         <button
                             type="button"
-                            onClick={() => window.open(`/churches/${churchId}?tab=livestream`, '_blank')}
+                            onClick={() => navigate(`/churches/${churchId}?tab=livestream`)}
                             className="border border-border bg-white hover:bg-secondary-50 text-foreground text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xs flex items-center gap-2 cursor-pointer transition-all active:scale-95"
                         >
                             <Eye className="w-3.5 h-3.5 text-secondary-500" />
@@ -489,7 +491,7 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
 
                             <button
                                 type="button"
-                                onClick={() => window.open(`/churches/${churchId}?tab=livestream`, '_blank')}
+                                onClick={() => navigate(`/churches/${churchId}?tab=livestream`)}
                                 className="border border-border bg-white hover:bg-secondary-50 text-foreground text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xs flex items-center gap-2 cursor-pointer transition-all active:scale-95"
                             >
                                 <Eye className="w-3.5 h-3.5 text-secondary-500" />
