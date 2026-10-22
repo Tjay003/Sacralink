@@ -6,6 +6,7 @@ import EditRoleModal from '../../components/admin/EditRoleModal';
 import DemoteConfirmModal from '../../components/admin/DemoteConfirmModal';
 import DeleteUserModal from '../../components/admin/DeleteUserModal';
 import SuspendUserModal from '../../components/admin/SuspendUserModal';
+import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { reactivateUser } from '../../lib/supabase/profiles';
 import { getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
@@ -81,6 +82,7 @@ export default function UsersPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [demoteTarget, setDemoteTarget] = useState<Profile | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+    const [requestTarget, setRequestTarget] = useState<Profile | null>(null);
     const [suspendTarget, setSuspendTarget] = useState<Profile | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
 
@@ -409,6 +411,9 @@ export default function UsersPage() {
     };
 
     const isSuperAdmin = currentUser?.role === 'super_admin';
+    // A Church Admin cannot delete accounts; they ask the Super Admin with a ticket
+    const canRequestDeletion = (user: Profile) =>
+        currentUser?.role === 'church_admin' && user.id !== currentUser.id && user.role !== 'super_admin' && !user.deleted_at;
 
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
@@ -876,7 +881,7 @@ export default function UsersPage() {
                                                                             className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                         >
                                                                             Edit Role
-                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -1007,7 +1012,7 @@ export default function UsersPage() {
                                                     className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
                                                 >
                                                     Edit Role & Parish Access
-                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
                                             )}
                                         </div>
                                     </div>
@@ -1183,7 +1188,7 @@ export default function UsersPage() {
                                                                     className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                 >
                                                                     Edit Role
-                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
                                                             )}
                                                         </div>
                                                     </td>
@@ -1238,6 +1243,20 @@ export default function UsersPage() {
             )}
 
             {/* Delete user confirmation (Super Admin only) */}
+            {requestTarget && currentUser && currentUser.assigned_church_id && (
+                <ParishInquiryModal
+                    isOpen
+                    onClose={() => setRequestTarget(null)}
+                    userId={currentUser.id}
+                    role={currentUser.role ?? undefined}
+                    lane="platform"
+                    defaultChurchId={currentUser.assigned_church_id}
+                    churchId={currentUser.assigned_church_id}
+                    initialCategory="user_deletion_request"
+                    initialSubjectUser={{ id: requestTarget.id, name: requestTarget.full_name || requestTarget.email || 'Unnamed user' }}
+                    onSuccess={() => setRequestTarget(null)}
+                />
+            )}
             {deleteTarget && isSuperAdmin && (
                 <DeleteUserModal
                     user={deleteTarget}
