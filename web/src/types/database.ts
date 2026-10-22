@@ -1134,6 +1134,7 @@ export type Database = {
           avatar_url: string | null
           church_id: string | null
           created_at: string | null
+          deleted_at: string | null
           email: string | null
           fcm_token: string | null
           full_name: string | null
@@ -1149,6 +1150,7 @@ export type Database = {
           avatar_url?: string | null
           church_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           fcm_token?: string | null
           full_name?: string | null
@@ -1164,6 +1166,7 @@ export type Database = {
           avatar_url?: string | null
           church_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           fcm_token?: string | null
           full_name?: string | null
@@ -1535,6 +1538,14 @@ export type Database = {
         Args: { _church_id: string }
         Returns: boolean
       }
+      is_ticket_handler: {
+        Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
+      }
+      ticket_set_status: {
+        Args: { p_ticket_id: string; p_status: string }
+        Returns: undefined
+      }
       create_ticket: {
         Args: {
           p_lane: string
@@ -1654,6 +1665,7 @@ export type Database = {
         Args: { target_church_id: string; user_intention?: string | null }
         Returns: number
       }
+      delete_user_account: { Args: { p_user_id: string }; Returns: undefined }
       refresh_church_stats: { Args: never; Returns: undefined }
       set_user_role: {
         Args: {

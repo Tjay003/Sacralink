@@ -14,6 +14,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
+import { BLOCKED_ACCOUNT_NOTICE_KEY } from '../lib/blockedAccountNotice';
 import { clearLocalMessagingCache, setLocalMessagingOwner } from '../lib/supabase/messaging';
 import type { Profile } from '../types/database';
 
@@ -194,6 +195,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setSession(null);
+    };
+
+    /**
+     * endBlockedSession - Signs out a deleted account and sends it to the login page with a message.
+     */
+    const endBlockedSession = async () => {
+        try {
+            window.sessionStorage.setItem(BLOCKED_ACCOUNT_NOTICE_KEY, 'This account has been deleted. You can no longer sign in with it.');
+        } catch {
+            // sessionStorage can be unavailable; the redirect still happens
+        }
+        try {
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (e) {
+            console.warn('Sign out of a blocked account failed:', e);
+        }
+        setLocalMessagingOwner(null);
+        clearLocalMessagingCache();
+        setUser(null);
+        setProfile(null);
+        setSession(null);
+        window.location.assign('/login');
     };
 
     /**
@@ -466,6 +489,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 (payload) => {
                     console.log('⚡ Realtime profile update received:', payload.new);
                     if (payload.new) {
+                        if ((payload.new as Profile).deleted_at) {
+                            void endBlockedSession();
+                            return;
+                        }
                         setProfile(payload.new as Profile);
                     }
                 }
@@ -477,6 +504,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             void supabase.removeChannel(channel);
         };
     }, [user?.id]);
+
+    /**
+     * Blocked-account cut-off (app side). The database already rejects every request from a deleted account; this
+     * signs the open tab out within seconds (Realtime above) or when the tab regains focus (below).
+     */
+    useEffect(() => {
+        if (!user?.id || !session?.access_token) return;
+        const userId = user.id;
+        const accessToken = session.access_token;
+
+        const verifyAccountActive = async () => {
+            if (document.visibilityState === 'hidden') return;
+            const latest = await directFetchProfile(userId, accessToken);
+            if (latest?.deleted_at) {
+                await endBlockedSession();
+                return;
+            }
+            if (!latest) {
+                // Could be a network error: only treat it as blocked when the auth server also rejects the session
+                const { error: userError } = await supabase.auth.getUser(accessToken);
+                if (userError && 'status' in userError && (userError.status === 401 || userError.status === 403)) {
+                    await endBlockedSession();
+                }
+            }
+        };
+
+        window.addEventListener('focus', verifyAccountActive);
+        document.addEventListener('visibilitychange', verifyAccountActive);
+        return () => {
+            window.removeEventListener('focus', verifyAccountActive);
+            document.removeEventListener('visibilitychange', verifyAccountActive);
+        };
+    }, [user?.id, session?.access_token]);
 
     /**
      * Provide the Context

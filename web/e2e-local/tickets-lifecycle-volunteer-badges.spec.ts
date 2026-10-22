@@ -4,9 +4,10 @@ import { ANON_KEY, LOCAL_URL, PASSWORD, clientAs, createPendingAppointment, getS
 
 /**
  * Ticket lifecycle on /messages, Volunteer messaging scope and live sidebar badges (ticket 06):
- *  - A parishioner opens a Parish Office Ticket from /messages; closed tickets lock the composer and can be reopened.
+ *  - A parishioner opens a Parish Office Ticket from /messages; closed tickets lock the composer (Reopen is ticket 15).
  *  - The Tickets tab filters by status.
- *  - A volunteer reaches the Staff Channel, tickets and own-parish staff, but never starts a DM with a parishioner or priest
+ *  - A volunteer reaches the Staff Channel and own-parish staff, never starts a DM with a parishioner or priest, and cannot read
+ *    a parish ticket they are not assigned to (ticket 11)
  *    (in the search and at the database).
  *  - The sidebar badges show real counts, never the old hardcoded 2 and 12, and the info panel never invents an appointment.
  */
@@ -33,7 +34,7 @@ async function createTicket(title: string, status: string, requesterId: string):
       church_id: seed.churchId,
       created_by: requesterId,
       category: 'general',
-      status,
+      status: 'open',
       ticket_number: `TCK-${Math.floor(100000 + Math.random() * 899999)}`,
     })
     .select('id')
@@ -47,6 +48,11 @@ async function createTicket(title: string, status: string, requesterId: string):
     .from('messages')
     .insert({ conversation_id: data.id, sender_id: requesterId, content: `Opening note for ${title}` });
   if (msgErr) throw msgErr;
+  // Set the wanted status last: the opening message of a resolved ticket would otherwise reopen it (automatic status)
+  if (status !== 'open') {
+    const { error: statusErr } = await db.from('conversations').update({ status }).eq('id', data.id);
+    if (statusErr) throw statusErr;
+  }
   return data.id as string;
 }
 
@@ -91,7 +97,7 @@ test.afterAll(async () => {
 });
 
 test.describe('Ticket lifecycle on /messages', () => {
-  test('a parishioner opens a ticket from /messages, staff close it, the composer locks, and the parishioner reopens and replies', async ({ page }) => {
+  test('a parishioner opens a ticket from /messages, the Church Admin closes it through ticket_set_status and the composer locks', async ({ page }) => {
     await loginAs(page, 'parishioner');
     await page.goto('/messages');
 
@@ -112,26 +118,17 @@ test.describe('Ticket lifecycle on /messages', () => {
     expect(created?.church_id).toBe(seed.churchId);
     expect(created?.ticket_number).toBeTruthy();
 
-    // The parish office closes it (through RLS, as the church admin)
+    // The parish office closes it (through RLS, as the church admin, who is the handler)
     const churchAdmin = await clientAs('church_admin');
-    const closed = await churchAdmin.from('conversations').update({ status: 'closed' }).eq('id', ticketId).select('status');
-    expect(closed.data).toEqual([{ status: 'closed' }]);
+    const closed = await churchAdmin.rpc('ticket_set_status', { p_ticket_id: ticketId, p_status: 'closed' });
+    expect(closed.error).toBeNull();
 
     await page.goto(`/messages?conv=${ticketId}`);
     await expect(page.getByText('This inquiry ticket is closed')).toBeVisible();
     await expect(page.getByPlaceholder('Type a message...')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Reopen Ticket' }).click();
-    await expect(page.getByPlaceholder('Type a message...')).toBeVisible();
-    await expect(page.getByText('This inquiry ticket is closed')).toHaveCount(0);
-    await expect(page.locator('span.rounded-full', { hasText: /reopened this ticket/ })).toBeVisible();
-
-    await page.getByPlaceholder('Type a message...').fill('Thank you, reopening to add a question.');
-    await page.getByRole('button', { name: 'Send' }).click();
-    await expect(page.locator('p.whitespace-pre-wrap', { hasText: 'Thank you, reopening to add a question.' })).toBeVisible();
-
     const { data: after } = await db.from('conversations').select('status').eq('id', ticketId).single();
-    expect(after?.status).toBe('open');
+    expect(after?.status).toBe('closed');
     const { data: notes } = await db.from('messages').select('message_type').eq('conversation_id', ticketId).eq('message_type', 'system');
     expect(notes).toHaveLength(1);
   });
@@ -194,19 +191,31 @@ test.describe('Volunteer messaging scope', () => {
     expect(created.error).not.toBeNull();
   });
 
-  test('a volunteer replies to a parish ticket, resolves it and uses the Staff Channel', async ({ page }) => {
+  test('an unassigned volunteer cannot see a parish ticket at all, the Church Admin handles it, and the volunteer still uses the Staff Channel', async ({ page }) => {
     const ticketId = await createTicket(`${TAG} volunteer-ticket`, 'open', seed.ids.parishioner);
 
+    // Database: no conversation row and no messages for the unassigned volunteer
+    const seen = await volunteerClient.from('conversations').select('id').eq('id', ticketId);
+    expect(seen.data).toEqual([]);
+    const seenMessages = await volunteerClient.from('messages').select('id').eq('conversation_id', ticketId);
+    expect(seenMessages.data).toEqual([]);
+    const asVolunteer = await volunteerClient.rpc('ticket_set_status', { p_ticket_id: ticketId, p_status: 'resolved' });
+    expect(asVolunteer.error).not.toBeNull();
+
+    // The Church Admin is the handler: a reply starts the ticket and the status can be resolved
+    const churchAdmin = await clientAs('church_admin');
+    const reply = await churchAdmin
+      .from('messages')
+      .insert({ conversation_id: ticketId, sender_id: seed.ids.church_admin, content: 'The certificate is ready.' });
+    expect(reply.error).toBeNull();
+    expect((await churchAdmin.rpc('ticket_set_status', { p_ticket_id: ticketId, p_status: 'resolved' })).error).toBeNull();
+    const { data: row } = await db.from('conversations').select('status').eq('id', ticketId).single();
+    expect(row?.status).toBe('resolved');
+
+    // The app shows the volunteer nothing for that ticket, and the Staff Channel keeps working
     await volunteerPage(page);
     await page.goto(`/messages?conv=${ticketId}`);
-    await expect(page.locator('h2', { hasText: `${TAG} volunteer-ticket` })).toBeVisible();
-
-    await page.getByPlaceholder('Type a message...').fill('Volunteer here, the certificate is ready.');
-    await page.getByRole('button', { name: 'Send' }).click();
-    await expect(page.locator('p.whitespace-pre-wrap', { hasText: 'Volunteer here, the certificate is ready.' })).toBeVisible();
-
-    await page.locator('select').selectOption('resolved');
-    await expect.poll(async () => (await db.from('conversations').select('status').eq('id', ticketId).single()).data?.status).toBe('resolved');
+    await expect(page.locator('h2', { hasText: `${TAG} volunteer-ticket` })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Staff channel' }).click();
     await expect(page.locator('h2', { hasText: /Staff Channel/ })).toBeVisible();
@@ -231,7 +240,8 @@ test.describe('Live sidebar badges and info panel', () => {
     await expect(messagesBadge).toHaveCount(0);
     await expect(appointmentsBadge).toHaveCount(0);
 
-    const ticketId = await createTicket(`${TAG} badge-ticket`, 'open', seed.ids.parishioner);
+    // in_progress so the office's reply does not trigger the automatic open to in_progress note
+    const ticketId = await createTicket(`${TAG} badge-ticket`, 'in_progress', seed.ids.parishioner);
     await db.from('conversation_participants').update({ last_read_at: new Date().toISOString() }).eq('user_id', seed.ids.parishioner);
     const { error } = await db
       .from('messages')

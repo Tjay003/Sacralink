@@ -91,7 +91,7 @@ export async function directFetchProfiles(
     options?: DirectFetchProfilesOptions
 ): Promise<DirectFetchProfilesResult> {
     try {
-        let url = `${SUPABASE_URL}/rest/v1/profiles?select=*&order=created_at.desc`;
+        let url = `${SUPABASE_URL}/rest/v1/profiles?select=*&deleted_at=is.null&order=created_at.desc`;
 
         if (options?.role && options.role !== 'all') {
             url += `&role=eq.${encodeURIComponent(options.role)}`;

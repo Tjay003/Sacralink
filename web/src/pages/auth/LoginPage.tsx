@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
+import { BLOCKED_ACCOUNT_NOTICE_KEY } from '../../lib/blockedAccountNotice';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,19 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
+
+    // A deleted account that was signed out of an open tab sees why
+    useEffect(() => {
+        try {
+            const notice = window.sessionStorage.getItem(BLOCKED_ACCOUNT_NOTICE_KEY);
+            if (notice) {
+                window.sessionStorage.removeItem(BLOCKED_ACCOUNT_NOTICE_KEY);
+                setError(notice);
+            }
+        } catch {
+            // sessionStorage can be unavailable
+        }
+    }, []);
 
     const {
         register,

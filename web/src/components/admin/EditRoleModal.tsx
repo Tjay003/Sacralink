@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import Modal from '../ui/Modal';
-import { directUpdateProfile } from '../../lib/directApi';
+import { setUserRole } from '../../lib/supabase/profiles';
+import { ASSIGNABLE_ROLES, getRoleEditBlock, isStaffRole, roleLabel } from '../../lib/roleEditing';
+import DemoteConfirmModal from './DemoteConfirmModal';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import type { Profile, UserRole } from '../../types/database';
@@ -18,13 +20,14 @@ interface EditRoleModalProps {
  * 
  * Permissions & Invariants:
  * - Super Admin: Can set standard roles ('church_admin', 'priest', 'volunteer', 'user') across any church.
- * - Church Admin: Can set limited roles ('user', 'volunteer', 'priest', 'church_admin') ONLY for their assigned church.
+ * - Church Admin: Can set the same four roles ONLY for their assigned church (no church picker).
+ * - Nobody edits their own role. Changes go through the set_user_role database function.
  * - Super Admin role is immutable via standard role pickers and can ONLY be transferred via TransferOwnershipModal.
  * - Dual-role Priest-Administrators (church_admin who are ordained priests) can be toggled as is_priest.
  * - Dedicated priests (role = 'priest') are automatically is_priest = true.
  */
 export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransferModal }: EditRoleModalProps) {
-    const { session, profile: currentProfile } = useAuth();
+    const { profile: currentProfile } = useAuth();
     const isSuperAdmin = useIsSuperAdmin();
     const isChurchAdmin = useIsChurchAdmin();
     const { churches } = useChurches();
@@ -34,20 +37,21 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
     const [isPriest, setIsPriest] = useState<boolean>(user.is_priest ?? (user.role === 'priest'));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showDemote, setShowDemote] = useState(false);
 
     // Check if user being edited is currently a super_admin
     const isEditingSuperAdmin = user.role === 'super_admin';
     const isSelf = user.id === currentProfile?.id;
-    // Super Admin accounts cannot have their role modified via standard edit role forms
-    const canEditThisUser = !isEditingSuperAdmin;
+    // The reason this person's role cannot be edited by the current user (null when editing is allowed)
+    const editBlock = getRoleEditBlock(currentProfile, user);
+    const canEditThisUser = editBlock === null;
+    const canDemote = canEditThisUser && isStaffRole(user.role);
 
     // Platform ownership transfer is available if current user is Super Admin, target is not super admin, and target is not self
     const canTransferOwnership = isSuperAdmin && !isEditingSuperAdmin && !isSelf && !!onOpenTransferModal;
 
-    // Available roles: super_admin is strictly excluded for all callers
-    const availableRoles = isSuperAdmin
-        ? ['user', 'volunteer', 'priest', 'church_admin']
-        : ['user', 'volunteer', 'priest', 'church_admin'];
+    // Available roles: the same four for a Super Admin and a Church Admin; super_admin and admin are never offered
+    const availableRoles = ASSIGNABLE_ROLES;
 
     // Clergy toggle is available for the church_admin role
     const isClergyToggleEligible = selectedRole === 'church_admin';
@@ -85,15 +89,16 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
             return;
         }
 
-        if (!session) {
-            setError('No active session');
+        if (editBlock) {
+            setError(editBlock);
             return;
         }
 
-        // Validate: Church Admin must have a church
-        let finalChurchId = selectedChurchId;
-        if (isChurchAdmin) {
-            finalChurchId = currentProfile?.assigned_church_id || '';
+        // A Church Admin is locked to their own church (the database ignores any other value)
+        const finalChurchId = isChurchAdmin ? (currentProfile?.assigned_church_id || '') : selectedChurchId;
+        if (isStaffRole(selectedRole) && !finalChurchId && !user.assigned_church_id) {
+            setError('Choose a church for this staff role.');
+            return;
         }
 
         setLoading(true);
@@ -101,20 +106,11 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
 
         const finalIsPriest = selectedRole === 'priest' ? true : (isClergyToggleEligible ? isPriest : false);
 
-        const result = await directUpdateProfile(
-            user.id,
-            {
-                role: selectedRole,
-                assigned_church_id: finalChurchId || null,
-                is_priest: finalIsPriest
-            },
-            session.access_token
-        );
-
-        if (result.success) {
+        try {
+            await setUserRole(user.id, selectedRole, finalChurchId || null, finalIsPriest);
             onSuccess();
-        } else {
-            setError(result.error || 'Failed to update user');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to update user');
             setLoading(false);
         }
     };
@@ -123,7 +119,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
         <Modal
             isOpen={true}
             onClose={onClose}
-            title={isSelf ? "Edit Clergy & Account Status" : "Edit User Access"}
+            title="Edit User Access"
             size="md"
         >
             {/* Super Admin Protection Banner */}
@@ -136,6 +132,13 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     <p className="text-xs text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
                         This user holds the sole Super Admin role. Super Admin privileges cannot be modified or reassigned through standard role editing. To assign a new Super Admin, use the dedicated <strong>Transfer Ownership</strong> action.
                     </p>
+                </div>
+            )}
+
+            {!isEditingSuperAdmin && editBlock && (
+                <div data-testid="role-edit-blocked" className="mb-4 p-3 bg-secondary-50 border border-border rounded-xl flex items-start gap-2 text-xs text-muted">
+                    <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>{editBlock}</span>
                 </div>
             )}
 
@@ -155,22 +158,17 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                         value={selectedRole || 'user'}
                         onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                         className="input w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                        disabled={loading || !canEditThisUser || isSelf}
+                        disabled={loading || !canEditThisUser}
                     >
                         {isEditingSuperAdmin && (
                             <option value="super_admin">Super Admin (Platform Owner)</option>
                         )}
                         {availableRoles.map((role) => (
                             <option key={role} value={role}>
-                                {role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                {roleLabel(role)}
                             </option>
                         ))}
                     </select>
-                    {isSelf && (
-                        <p className="text-[11px] text-muted mt-1">
-                            Your administrative role is locked. You can manage your Ordained Catholic Priest status below.
-                        </p>
-                    )}
                 </div>
 
                 {/* Clergy Notice for Dedicated Priests */}
@@ -228,7 +226,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                 {/* Church Selection */}
                 <div>
                     <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">
-                        Assigned Parish
+                        Church
                     </label>
 
                     {canSelectChurch ? (
@@ -238,7 +236,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                             className="input w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                             disabled={loading || !canEditThisUser}
                         >
-                            <option value="">-- No Church Assigned --</option>
+                            {!user.assigned_church_id && <option value="">-- No Church Assigned --</option>}
                             {churches.map((church) => (
                                 <option key={church.id} value={church.id}>
                                     {church.name}
@@ -248,11 +246,11 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     ) : (
                         <div className="p-3 bg-secondary-50 dark:bg-secondary-900/40 rounded-xl border border-border text-xs">
                             {isEditingSuperAdmin ? (
-                                <span className="text-muted">Super Admins manage all parishes globally across the platform.</span>
+                                <span className="text-muted">Super Admins manage all churches globally across the platform.</span>
                             ) : isChurchAdmin ? (
                                 <span>Locked to: <strong className="text-foreground">{getChurchName(currentProfile?.assigned_church_id || '')}</strong></span>
                             ) : (
-                                <span className="text-muted">No parish assignment available</span>
+                                <span className="text-muted">No church assignment available</span>
                             )}
                         </div>
                     )}
@@ -260,7 +258,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     {selectedRole === 'church_admin' && !selectedChurchId && canSelectChurch && (
                         <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
                             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span>Warning: Church Admins should have an assigned parish.</span>
+                            <span>Warning: Church Admins should have an assigned church.</span>
                         </p>
                     )}
                 </div>
@@ -300,6 +298,17 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     </div>
                 )}
 
+                {canDemote && (
+                    <button
+                        type="button"
+                        onClick={() => setShowDemote(true)}
+                        disabled={loading}
+                        className="w-full px-4 py-2.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 text-red-700 font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
+                    >
+                        Demote to Parishioner
+                    </button>
+                )}
+
                 <div className="flex gap-3 pt-4 border-t border-border">
                     <button
                         type="button"
@@ -314,10 +323,19 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                         className="flex-1 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-600 text-white font-semibold text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         disabled={loading || !canEditThisUser}
                     >
-                        {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : 'Super Admin Locked'}
+                        {loading ? 'Saving...' : canEditThisUser ? 'Save Changes' : isEditingSuperAdmin ? 'Super Admin Locked' : 'Not Allowed'}
                     </button>
                 </div>
             </form>
+
+            {showDemote && (
+                <DemoteConfirmModal
+                    user={user}
+                    churchName={user.assigned_church_id ? getChurchName(user.assigned_church_id) : null}
+                    onClose={() => setShowDemote(false)}
+                    onSuccess={onSuccess}
+                />
+            )}
         </Modal>
     );
 }

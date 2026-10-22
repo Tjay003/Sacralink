@@ -6,7 +6,7 @@ import { ANON_KEY, LOCAL_URL, PASSWORD, USERS, clientAs, getSeed, loginAs, servi
  * Messaging privacy (migration 059, ADR 0002):
  *  - Direct Messages are readable only by their participants, not by church admins, admins or the super admin.
  *  - Parishioners are never members of, and can never read, a Parish Staff Channel.
- *  - Parish Office Tickets are readable by the requester and that parish's staff, never by other parishes.
+ *  - Parish Office Tickets are readable by the requester and the handler only (migration 067), never by other parishes.
  *  - Browser: signing out clears the cached ministry conversations so the next account never sees them.
  */
 
@@ -213,10 +213,11 @@ test.describe('Parish Staff Channel', () => {
 });
 
 test.describe('Parish Office Tickets', () => {
-  test('visible to the requester and the parish staff only, and staff can still reply and change status', async () => {
+  test('visible to the requester and the handler only; the handler can reply and change status, an unassigned Priest or Volunteer cannot even read it', async () => {
     const parishioner = await clientAs('parishioner');
     const churchAdmin = await clientAs('church_admin');
     const otherAdmin = await clientAs('other_admin');
+    const priest = await clientAs('priest');
 
     // The requester opens a ticket the same way the app does
     const created = await parishioner.rpc('create_ticket', {
@@ -229,14 +230,14 @@ test.describe('Parish Office Tickets', () => {
     expect(created.error).toBeNull();
     const ticketId = created.data as string;
 
-    // Requester and the parish church admin can read it (other staff and the Super Admin only after ticket 11/14 rules)
+    // Requester and the Church Admin (the handler) can read it
     for (const reader of [parishioner, churchAdmin]) {
       expect(await visibleConversationIds(reader, [ticketId])).toEqual([ticketId]);
       expect(await visibleMessageCount(reader, ticketId)).toBe(1);
     }
 
-    // Another parish's admin and an unrelated parishioner cannot
-    for (const outsider of [otherAdmin, stranger.client]) {
+    // Another parish's admin, an unrelated parishioner, an unassigned Priest, an unassigned Volunteer and the Super Admin (not escalated) cannot read it
+    for (const outsider of [otherAdmin, stranger.client, priest, volunteer.client, superAdmin.client]) {
       expect(await visibleConversationIds(outsider, [ticketId])).toEqual([]);
       expect(await visibleMessageCount(outsider, ticketId)).toBe(0);
     }
@@ -244,28 +245,28 @@ test.describe('Parish Office Tickets', () => {
       .from('messages')
       .insert({ conversation_id: ticketId, sender_id: (await otherAdmin.auth.getUser()).data.user!.id, content: 'not mine' });
     expect(outsiderReply.error).not.toBeNull();
+    const volunteerReply = await volunteer.client.from('messages').insert({ conversation_id: ticketId, sender_id: volunteer.id, content: 'Ready tomorrow' });
+    expect(volunteerReply.error).not.toBeNull();
     const outsiderStatus = await otherAdmin.from('conversations').update({ status: 'closed' }).eq('id', ticketId).select('id');
     expect(outsiderStatus.data ?? []).toHaveLength(0);
+    const volunteerStatus = await volunteer.client.rpc('ticket_set_status', { p_ticket_id: ticketId, p_status: 'resolved' });
+    expect(volunteerStatus.error).not.toBeNull();
 
-    // Staff reply and move the ticket along
+    // The handler replies (which starts the ticket) and moves it along through ticket_set_status
     const adminReply = await churchAdmin.from('messages').insert({ conversation_id: ticketId, sender_id: seed.ids.church_admin, content: 'On it' });
     expect(adminReply.error).toBeNull();
-    const volunteerReply = await volunteer.client.from('messages').insert({ conversation_id: ticketId, sender_id: volunteer.id, content: 'Ready tomorrow' });
-    expect(volunteerReply.error).toBeNull();
-
-    const inProgress = await churchAdmin.from('conversations').update({ status: 'in_progress' }).eq('id', ticketId).select('status');
-    expect(inProgress.error).toBeNull();
-    expect(inProgress.data).toEqual([{ status: 'in_progress' }]);
-    const resolved = await volunteer.client.from('conversations').update({ status: 'resolved' }).eq('id', ticketId).select('status');
+    const started = await db.from('conversations').select('status').eq('id', ticketId).single();
+    expect(started.data?.status).toBe('in_progress');
+    const resolved = await churchAdmin.rpc('ticket_set_status', { p_ticket_id: ticketId, p_status: 'resolved' });
     expect(resolved.error).toBeNull();
-    expect(resolved.data).toEqual([{ status: 'resolved' }]);
 
-    // The requester sees the replies and can follow up and reopen
-    expect(await visibleMessageCount(parishioner, ticketId)).toBe(3);
+    // The requester sees the replies, and a follow-up on a resolved ticket reopens it
+    const { data: texts } = await parishioner.from('messages').select('id').eq('conversation_id', ticketId).neq('message_type', 'system');
+    expect(texts).toHaveLength(2);
     const followUp = await parishioner.from('messages').insert({ conversation_id: ticketId, sender_id: seed.ids.parishioner, content: 'Thank you' });
     expect(followUp.error).toBeNull();
-    const reopened = await parishioner.from('conversations').update({ status: 'open' }).eq('id', ticketId).select('status');
-    expect(reopened.data).toEqual([{ status: 'open' }]);
+    const reopened = await db.from('conversations').select('status').eq('id', ticketId).single();
+    expect(reopened.data?.status).toBe('open');
   });
 });
 

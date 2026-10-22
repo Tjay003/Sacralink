@@ -3,6 +3,9 @@ import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
+import DemoteConfirmModal from '../../components/admin/DemoteConfirmModal';
+import DeleteUserModal from '../../components/admin/DeleteUserModal';
+import { getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
 import Pagination from '../../components/common/Pagination';
 import { 
@@ -74,6 +77,8 @@ export default function UsersPage() {
 
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [demoteTarget, setDemoteTarget] = useState<Profile | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
 
     const [transferTargetUser, setTransferTargetUser] = useState<Profile | null>(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
@@ -144,10 +149,7 @@ export default function UsersPage() {
     const tabCounts = useMemo(() => {
         let base = [...users];
         if (currentUser?.role === 'church_admin') {
-            base = base.filter(u => {
-                if (u.role === 'super_admin') return false;
-                return u.assigned_church_id === currentUser.assigned_church_id || !u.role || u.role === 'user';
-            });
+            base = base.filter(u => isVisibleToChurchAdmin(u, currentUser.assigned_church_id));
             const staff = base.filter(u => u.assigned_church_id === currentUser.assigned_church_id).length;
             const parishioners = base.filter(u => !u.role || u.role === 'user').length;
             return { staff, parishioners, all: base.length };
@@ -164,15 +166,9 @@ export default function UsersPage() {
 
         // 1. Role visibility & parish scope restrictions
         if (currentUser?.role === 'church_admin') {
-            filtered = filtered.filter(user => {
-                if (user.role === 'super_admin') return false;
-                // Church admin can view:
-                // a) users assigned to their parish (staff / volunteers / self)
-                // b) regular parishioners (available for sacraments or volunteer promotion)
-                const isAssignedToMyChurch = user.assigned_church_id === currentUser.assigned_church_id;
-                const isPlainUser = !user.role || user.role === 'user';
-                return isAssignedToMyChurch || isPlainUser;
-            });
+            // Church admin can view their own church's people and Parishioners who have no church yet
+            // (the same set set_user_role lets them change).
+            filtered = filtered.filter(user => isVisibleToChurchAdmin(user, currentUser.assigned_church_id));
 
             if (directoryTab === 'staff') {
                 filtered = filtered.filter(user => user.assigned_church_id === currentUser.assigned_church_id);
@@ -338,6 +334,17 @@ export default function UsersPage() {
     const handleEditRole = (user: Profile) => {
         setSelectedUser(user);
         setShowEditModal(true);
+    };
+
+    const handleDemoted = () => {
+        setDemoteTarget(null);
+        fetchData();
+        refreshProfile();
+    };
+
+    const handleDeleted = () => {
+        setDeleteTarget(null);
+        fetchData();
     };
 
     const handleRoleUpdated = () => {
@@ -834,22 +841,15 @@ export default function UsersPage() {
                                                                             Owner Locked
                                                                         </button>
                                                                     ) : isSelf ? (
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleEditRole(user)}
-                                                                            className="btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold flex items-center gap-1.5 transition-all"
-                                                                        >
-                                                                            <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                                                            <span>Edit Clergy Status</span>
-                                                                        </button>
+                                                                        <button type="button" disabled title="You cannot change your own role." className="px-3.5 py-1.5 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
                                                                     ) : (
-                                                                        <button
+                                                                        <><button
                                                                             type="button"
                                                                             onClick={() => handleEditRole(user)}
                                                                             className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                         >
                                                                             Edit Role
-                                                                        </button>
+                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -967,22 +967,15 @@ export default function UsersPage() {
                                                     Platform Owner (Locked)
                                                 </button>
                                             ) : isSelf ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEditRole(user)}
-                                                    className="w-full btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
-                                                >
-                                                    <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                                    <span>Edit Clergy Status</span>
-                                                </button>
+                                                <button type="button" disabled title="You cannot change your own role." className="w-full py-2 px-3 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
                                             ) : (
-                                                <button
+                                                <><button
                                                     type="button"
                                                     onClick={() => handleEditRole(user)}
                                                     className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
                                                 >
                                                     Edit Role & Parish Access
-                                                </button>
+                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                             )}
                                         </div>
                                     </div>
@@ -1145,22 +1138,15 @@ export default function UsersPage() {
                                                                     Owner Locked
                                                                 </button>
                                                             ) : isSelf ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleEditRole(user)}
-                                                                    className="btn-outline border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold flex items-center gap-1.5 transition-all"
-                                                                >
-                                                                    <Cross className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                                                    <span>Edit Clergy Status</span>
-                                                                </button>
+                                                                <button type="button" disabled title="You cannot change your own role." className="px-3.5 py-1.5 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
                                                             ) : (
-                                                                <button
+                                                                <><button
                                                                     type="button"
                                                                     onClick={() => handleEditRole(user)}
                                                                     className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                 >
                                                                     Edit Role
-                                                                </button>
+                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                                             )}
                                                         </div>
                                                     </td>
@@ -1201,6 +1187,30 @@ export default function UsersPage() {
                     }}
                     onSuccess={handleRoleUpdated}
                     onOpenTransferModal={handleTransferOwnership}
+                />
+            )}
+
+            {/* Demote to Parishioner confirmation */}
+            {demoteTarget && (
+                <DemoteConfirmModal
+                    user={demoteTarget}
+                    churchName={demoteTarget.assigned_church_id ? getChurchName(demoteTarget.assigned_church_id) : null}
+                    onClose={() => setDemoteTarget(null)}
+                    onSuccess={handleDemoted}
+                />
+            )}
+
+            {/* Delete user confirmation (Super Admin only) */}
+            {deleteTarget && isSuperAdmin && (
+                <DeleteUserModal
+                    user={deleteTarget}
+                    isLastChurchAdmin={
+                        deleteTarget.role === 'church_admin' &&
+                        !!deleteTarget.assigned_church_id &&
+                        !users.some(u => u.id !== deleteTarget.id && u.role === 'church_admin' && u.assigned_church_id === deleteTarget.assigned_church_id)
+                    }
+                    onClose={() => setDeleteTarget(null)}
+                    onSuccess={handleDeleted}
                 />
             )}
 

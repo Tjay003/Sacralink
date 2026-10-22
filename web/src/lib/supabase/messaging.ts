@@ -1658,7 +1658,8 @@ export async function submitParishOfficeInquiry({
 }
 
 /**
- * Update the status of a ticket conversation (open, in_progress, resolved, closed)
+ * Update the status of a ticket conversation (open, in_progress, resolved, closed) through ticket_set_status.
+ * The database allows only the ticket's handler and reports every refusal as an error (no silent no-op).
  */
 export async function updateTicketStatus(
     conversationId: string,
@@ -1680,13 +1681,10 @@ export async function updateTicketStatus(
             return { error: null };
         }
 
-        const { error } = await supabase
-            .from('conversations')
-            .update({
-                status,
-                updated_at: now,
-            } as any)
-            .eq('id', conversationId);
+        const { error } = await supabase.rpc('ticket_set_status', {
+            p_ticket_id: conversationId,
+            p_status: status,
+        });
 
         if (error) throw error;
         return { error: null };

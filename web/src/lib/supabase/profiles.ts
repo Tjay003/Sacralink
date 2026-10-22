@@ -236,6 +236,41 @@ export async function updateProfile(userId: string, updates: ProfileUpdate): Pro
 }
 
 /**
+ * Change a person's role through the database function set_user_role (the only sanctioned path).
+ * Throws an Error whose message is safe to show to the user.
+ */
+export async function setUserRole(
+    userId: string,
+    role: Database['public']['Enums']['user_role'],
+    churchId?: string | null,
+    isPriest?: boolean | null
+): Promise<void> {
+    const { error } = await supabase.rpc('set_user_role', {
+        p_user_id: userId,
+        p_role: role,
+        p_church_id: churchId ?? null,
+        p_is_priest: isPriest ?? null,
+    });
+    if (error) {
+        if (error.code === '23514') {
+            throw new Error('This church must keep at least one Church Admin. Promote someone else to Church Admin first.');
+        }
+        throw new Error(error.message || 'Failed to update the role');
+    }
+}
+
+/**
+ * Delete a user through the database function delete_user_account (Super Admin only). The account is anonymized in
+ * place: history is kept and shown as Deleted User. Throws an Error whose message is safe to show to the user.
+ */
+export async function deleteUserAccount(userId: string): Promise<void> {
+    const { error } = await supabase.rpc('delete_user_account', { p_user_id: userId });
+    if (error) {
+        throw new Error(error.message || 'Failed to delete the user');
+    }
+}
+
+/**
  * Fetch priests and ordained clergy profiles for a church (or all clergy)
  */
 export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
@@ -243,6 +278,7 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
         let query = supabase
             .from('profiles')
             .select('*')
+            .is('deleted_at', null)
             .or('role.eq.priest,role.eq.church_admin,role.eq.admin,is_priest.eq.true');
 
         if (churchId) {
@@ -263,6 +299,7 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
         let fallbackQuery = supabase
             .from('profiles')
             .select('*')
+            .is('deleted_at', null)
             .in('role', ['priest', 'church_admin']);
         if (churchId) {
             fallbackQuery = fallbackQuery.or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`);
