@@ -35,6 +35,7 @@ interface NavigationItem {
     superAdminOnly?: boolean;
     staffOnly?: boolean;
     churchAdminOnly?: boolean;
+    hiddenForDioceseAdmins?: boolean;
 }
 
 interface NavSection {
@@ -166,6 +167,8 @@ export default function DashboardLayout() {
                     href: '/appointments',
                     icon: Calendar,
                     featureKey: 'appointments',
+                    // Hidden for the diocese admins for now (client request)
+                    hiddenForDioceseAdmins: true,
                     badge: sidebarCounts.pendingAppointments > 0 ? sidebarCounts.pendingAppointments : undefined,
                 },
                 {
@@ -195,6 +198,9 @@ export default function DashboardLayout() {
     ];
 
     const canRenderItem = (item: NavigationItem) => {
+        if (item.hiddenForDioceseAdmins && ['admin', 'super_admin'].includes(profile?.role || '')) {
+            return false;
+        }
         if (item.churchAdminOnly && profile?.role !== 'church_admin') {
             return false;
         }
