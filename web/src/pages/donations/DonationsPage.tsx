@@ -79,13 +79,13 @@ export default function DonationsPage() {
     // Stats
     const [stats, setStats] = useState({
         receivedThisMonth: 0,
-        growthPct: 6.1,
+        growthPct: null as number | null,
         awaitingCount: 0,
         awaitingAmount: 0,
         averageGift: 0,
         giftsThisMonthCount: 0,
-        verificationRate: 94,
-        medianReviewTime: '4 hours',
+        verificationRate: 0,
+        reviewedCount: 0,
         counts: {
             all: 0,
             pending: 0,
@@ -131,7 +131,7 @@ export default function DonationsPage() {
                 const receivedThisMonth = thisMonthVerified.reduce((sum, d) => sum + Number(d.amount || 0), 0);
                 const receivedLastMonth = lastMonthVerified.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
-                let growthPct = 6.1; // realistic default
+                let growthPct: number | null = null;
                 if (receivedLastMonth > 0) {
                     growthPct = Math.round(((receivedThisMonth - receivedLastMonth) / receivedLastMonth) * 1000) / 10;
                 }
@@ -141,11 +141,11 @@ export default function DonationsPage() {
                 const awaitingAmount = pendingList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
 
                 const giftsThisMonthCount = thisMonthVerified.length;
-                const averageGift = giftsThisMonthCount > 0 ? Math.round(receivedThisMonth / giftsThisMonthCount) : 540;
+                const averageGift = giftsThisMonthCount > 0 ? Math.round(receivedThisMonth / giftsThisMonthCount) : 0;
 
                 const totalDecided = data.filter((d) => d.status === 'verified' || d.status === 'rejected').length;
                 const totalVerified = data.filter((d) => d.status === 'verified').length;
-                const verificationRate = totalDecided > 0 ? Math.round((totalVerified / totalDecided) * 100) : 94;
+                const verificationRate = totalDecided > 0 ? Math.round((totalVerified / totalDecided) * 100) : 0;
 
                 setStats({
                     receivedThisMonth,
@@ -155,7 +155,7 @@ export default function DonationsPage() {
                     averageGift,
                     giftsThisMonthCount,
                     verificationRate,
-                    medianReviewTime: '4 hours',
+                    reviewedCount: totalDecided,
                     counts: {
                         all: data.length,
                         pending: awaitingCount,
@@ -435,9 +435,17 @@ export default function DonationsPage() {
                 {/* 1. Received this month */}
                 <StatCard
                     title="Received this month"
-                    value={stats.receivedThisMonth ? `₱ ${stats.receivedThisMonth.toLocaleString('en-PH')}` : '₱ 41,200'}
+                    value={`₱ ${stats.receivedThisMonth.toLocaleString('en-PH')}`}
                     icon={Heart}
-                    trend={{ value: stats.growthPct, isUp: true, label: `Up ${stats.growthPct}% from September` }}
+                    trend={
+                        stats.growthPct === null
+                            ? { value: 0, isUp: true, label: 'No verified gifts last month', showPercentage: false }
+                            : {
+                                  value: Math.abs(stats.growthPct),
+                                  isUp: stats.growthPct >= 0,
+                                  label: `${stats.growthPct >= 0 ? 'Up' : 'Down'} ${Math.abs(stats.growthPct)}% from last month`,
+                              }
+                    }
                     iconBgColor="bg-blue-100"
                     iconColor="text-blue-600"
                     gradientFrom="from-blue-600"
@@ -450,7 +458,7 @@ export default function DonationsPage() {
                     title="Awaiting verification"
                     value={stats.awaitingCount}
                     icon={Clock}
-                    trend={{ value: stats.awaitingCount, isUp: false, label: `₱ ${(stats.awaitingAmount || 5300).toLocaleString('en-PH')} on hold`, showPercentage: false }}
+                    trend={{ value: stats.awaitingCount, isUp: false, label: `₱ ${stats.awaitingAmount.toLocaleString('en-PH')} on hold`, showPercentage: false }}
                     iconBgColor="bg-yellow-100"
                     iconColor="text-yellow-600"
                     gradientFrom="from-amber-600"
@@ -461,9 +469,9 @@ export default function DonationsPage() {
                 {/* 3. Average gift */}
                 <StatCard
                     title="Average gift"
-                    value={`₱ ${(stats.averageGift || 540).toLocaleString('en-PH')}`}
+                    value={`₱ ${stats.averageGift.toLocaleString('en-PH')}`}
                     icon={BarChart3}
-                    trend={{ value: stats.giftsThisMonthCount, isUp: true, label: `${stats.giftsThisMonthCount || 76} gifts this month`, showPercentage: false }}
+                    trend={{ value: stats.giftsThisMonthCount, isUp: true, label: `${stats.giftsThisMonthCount} gifts this month`, showPercentage: false }}
                     iconBgColor="bg-purple-100"
                     iconColor="text-purple-600"
                     gradientFrom="from-blue-600"
@@ -476,7 +484,7 @@ export default function DonationsPage() {
                     title="Verification rate"
                     value={`${stats.verificationRate}%`}
                     icon={CheckCircle2}
-                    trend={{ value: stats.verificationRate, isUp: true, label: `Median review time ${stats.medianReviewTime || '4 hours'}`, showPercentage: false }}
+                    trend={{ value: stats.verificationRate, isUp: true, label: `${stats.reviewedCount} reviewed`, showPercentage: false }}
                     iconBgColor="bg-emerald-100"
                     iconColor="text-emerald-600"
                     gradientFrom="from-emerald-600"
@@ -675,10 +683,10 @@ export default function DonationsPage() {
                         <div className="inline-flex items-center bg-secondary-50 p-1 rounded-xl border border-border/70 overflow-x-auto">
                             {(
                                 [
-                                    { id: 'all', label: 'All', count: stats.counts.all || 7 },
-                                    { id: 'pending', label: 'Awaiting', count: stats.counts.pending || 3 },
-                                    { id: 'verified', label: 'Verified', count: stats.counts.verified || 3 },
-                                    { id: 'rejected', label: 'Rejected', count: stats.counts.rejected || 1 },
+                                    { id: 'all', label: 'All', count: stats.counts.all },
+                                    { id: 'pending', label: 'Awaiting', count: stats.counts.pending },
+                                    { id: 'verified', label: 'Verified', count: stats.counts.verified },
+                                    { id: 'rejected', label: 'Rejected', count: stats.counts.rejected },
                                 ] as const
                             ).map((tab) => (
                                 <button

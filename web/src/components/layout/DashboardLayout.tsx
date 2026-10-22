@@ -53,6 +53,28 @@ export default function DashboardLayout() {
         const [largeTextMode, setLargeTextMode] = useState(false);
     const [pendingDonationsCount, setPendingDonationsCount] = useState<number>(0);
     const sidebarCounts = useSidebarCounts(profile);
+    const [dioceseSummary, setDioceseSummary] = useState<{ parishes: number; members: number } | null>(null);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+        let cancelled = false;
+        const fetchDioceseSummary = async () => {
+            try {
+                const [parishesRes, membersRes] = await Promise.all([
+                    supabase.from('churches').select('*', { count: 'exact', head: true }).eq('is_active', true),
+                    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                ]);
+                if (cancelled || parishesRes.error || membersRes.error) return;
+                setDioceseSummary({ parishes: parishesRes.count ?? 0, members: membersRes.count ?? 0 });
+            } catch (err) {
+                console.error('Error fetching diocese summary:', err);
+            }
+        };
+        void fetchDioceseSummary();
+        return () => {
+            cancelled = true;
+        };
+    }, [profile?.id]);
 
     const isChurchAdmin = profile?.role === 'church_admin';
     const churchId = profile?.assigned_church_id || profile?.church_id;
@@ -334,14 +356,14 @@ export default function DashboardLayout() {
                     ) : null}
 
                     {/* Diocese Summary Pill */}
-                    {!sidebarCollapsed && (
+                    {!sidebarCollapsed && dioceseSummary && (
                         <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs">
                             <div className="flex items-center gap-2 font-semibold text-amber-950">
                                 <Church className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
                                 <span className="truncate">CSJDM Diocese</span>
                             </div>
                             <p className="text-[11px] text-amber-800/90 mt-0.5 pl-5.5">
-                                5 parishes · 29 members
+                                {dioceseSummary.parishes} {dioceseSummary.parishes === 1 ? 'parish' : 'parishes'} · {dioceseSummary.members} {dioceseSummary.members === 1 ? 'member' : 'members'}
                             </p>
                         </div>
                     )}
