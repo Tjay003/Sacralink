@@ -190,7 +190,7 @@ export default function ParishAttentionWidget({ churchId, className }: ParishAtt
                         Queue is all clear
                     </h4>
                     <p className="text-xs text-secondary-500 max-w-xs mx-auto mt-1 leading-relaxed">
-                        No pending sacrament documents or donation proofs requiring attention.
+                        No pending request documents or donation proofs requiring attention.
                     </p>
                 </div>
 
@@ -273,7 +273,7 @@ export default function ParishAttentionWidget({ churchId, className }: ParishAtt
                     </div>
                 )}
 
-                {/* 2. Pending Sacrament Requests */}
+                {/* 2. Pending Requests */}
                 {pendingAppointments.map((appt) => {
                     const action = getActionDetails(appt);
                     const applicantName = appt.profile?.full_name || 'Parishioner';

@@ -372,7 +372,7 @@ export default function BookAppointmentPage() {
                 message.includes('limit of 3 pending sacrament appointments') ||
                 rawErrorStr.includes('limit of 3 pending sacrament appointments')
             ) {
-                message = 'You have reached the limit of 3 pending sacrament appointments. Please await confirmation before submitting additional requests.';
+                message = 'You have reached the limit of 3 pending appointments. Please await confirmation before submitting additional requests.';
             }
 
             setError(message);

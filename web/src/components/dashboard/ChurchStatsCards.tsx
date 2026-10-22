@@ -11,9 +11,9 @@ interface ChurchStatsCardsProps {
 /**
  * ChurchStatsCards - 4 KPI stat cards with interactive hover gradients matching DioceseStatsCards:
  * 1. Total Parishioners (purple icon, blue to-tr gradient)
- * 2. Pending Sacraments (yellow icon, amber to-br gradient)
+ * 2. Pending Requests (yellow icon, amber to-br gradient)
  * 3. Scheduled Celebrations (blue icon, blue to-bl gradient)
- * 4. Sacraments Celebrated (amber icon, blue to-tl gradient)
+ * 4. Services Completed (amber icon, blue to-tl gradient)
  */
 export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
     const [stats, setStats] = useState({
@@ -56,7 +56,7 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
             // 2 & 3. Pending & Upcoming Appointments
             const { pendingCount, upcomingApprovedCount } = await getDashboardAppointmentCounts(churchId);
 
-            // 4. Celebrated Sacraments (completed or approved)
+            // 4. Completed Services (completed or approved)
             const { count: celebratedCount } = await supabase
                 .from('appointments')
                 .select('*', { count: 'exact', head: true })
@@ -99,9 +99,9 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 loading={loading}
             />
 
-            {/* 2. Pending Sacraments */}
+            {/* 2. Pending Requests */}
             <StatCard
-                title="Pending Sacraments"
+                title="Pending Requests"
                 value={stats.pending}
                 icon={Calendar}
                 trend={{
@@ -135,15 +135,15 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 loading={loading}
             />
 
-            {/* 4. Sacraments Celebrated */}
+            {/* 4. Services Completed */}
             <StatCard
-                title="Sacraments Celebrated"
+                title="Services Completed"
                 value={stats.celebrated}
                 icon={Award}
                 trend={{
                     value: stats.celebrated,
                     isUp: true,
-                    label: 'Completed rites',
+                    label: 'Completed services',
                 }}
                 iconBgColor="bg-amber-100"
                 iconColor="text-amber-600"
