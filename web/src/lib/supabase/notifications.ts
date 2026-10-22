@@ -161,18 +161,18 @@ export async function notifyAdminsOfNewAppointment(
     try {
         console.log('🔔 Notifying church admins of new appointment:', { churchId, userName, serviceType });
 
-        // Step 1: Find admins/church_admins/volunteers assigned to this church.
+        // Step 1: Find church_admins/volunteers assigned to this church.
         // We use two separate simple queries to avoid complex OR syntax issues.
         const [byChurchId, byAssignedChurchId] = await Promise.all([
             supabase
                 .from('profiles')
                 .select('id')
-                .in('role', ['admin', 'church_admin', 'volunteer'])
+                .in('role', ['church_admin', 'volunteer'])
                 .eq('church_id', churchId),
             supabase
                 .from('profiles')
                 .select('id')
-                .in('role', ['admin', 'church_admin', 'volunteer'])
+                .in('role', ['church_admin', 'volunteer'])
                 .eq('assigned_church_id', churchId),
         ]);
 

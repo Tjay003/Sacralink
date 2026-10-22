@@ -133,7 +133,7 @@ test.describe('Direct Message privacy', () => {
     }
   });
 
-  test('a parishioner can still start a Direct Message with the parish office and get a reply', async () => {
+  test('a parishioner can no longer start a Direct Message with the parish office; an old chat is read-only for them', async () => {
     const parishioner = await clientAs('parishioner');
     const churchAdmin = await clientAs('church_admin');
 
@@ -142,18 +142,19 @@ test.describe('Direct Message privacy', () => {
       .insert({ title: `${TAG}-dm-office`, type: 'direct', created_by: seed.ids.parishioner })
       .select('id')
       .single();
-    expect(created.error).toBeNull();
-    const dmId = created.data!.id as string;
+    expect(created.error).not.toBeNull();
+    const started = await parishioner.rpc('start_direct_conversation', { p_target: seed.ids.other_admin });
+    expect(started.error?.message).toContain('Raise a ticket instead');
 
-    const joined = await parishioner.from('conversation_participants').insert([
-      { conversation_id: dmId, user_id: seed.ids.parishioner },
-      { conversation_id: dmId, user_id: seed.ids.church_admin },
+    // A chat the parishioner opened before the matrix stays readable, but only the office can still reply
+    const dmId = await makeConversation({ title: `${TAG}-dm-office`, type: 'direct', created_by: seed.ids.parishioner }, [
+      seed.ids.parishioner,
+      seed.ids.church_admin,
     ]);
-    expect(joined.error).toBeNull();
+    await postMessage(dmId, seed.ids.parishioner, 'hello office');
 
-    const sent = await parishioner.from('messages').insert({ conversation_id: dmId, sender_id: seed.ids.parishioner, content: 'hello office' });
-    expect(sent.error).toBeNull();
-
+    const blocked = await parishioner.from('messages').insert({ conversation_id: dmId, sender_id: seed.ids.parishioner, content: 'again' });
+    expect(blocked.error?.message).toContain('Please open a ticket');
     expect(await visibleMessageCount(churchAdmin, dmId)).toBe(1);
     const reply = await churchAdmin.from('messages').insert({ conversation_id: dmId, sender_id: seed.ids.church_admin, content: 'hello back' });
     expect(reply.error).toBeNull();
@@ -218,33 +219,18 @@ test.describe('Parish Office Tickets', () => {
     const otherAdmin = await clientAs('other_admin');
 
     // The requester opens a ticket the same way the app does
-    const created = await parishioner
-      .from('conversations')
-      .insert({
-        title: `${TAG}-ticket`,
-        type: 'group',
-        church_id: seed.churchId,
-        created_by: seed.ids.parishioner,
-        category: 'general',
-        status: 'open',
-        ticket_number: `TCK-${Date.now().toString().slice(-6)}`,
-      })
-      .select('id')
-      .single();
+    const created = await parishioner.rpc('create_ticket', {
+      p_lane: 'church',
+      p_church_id: seed.churchId,
+      p_category: 'general',
+      p_subject: `${TAG}-ticket`,
+      p_message: 'I need a certificate',
+    });
     expect(created.error).toBeNull();
-    const ticketId = created.data!.id as string;
+    const ticketId = created.data as string;
 
-    const joined = await parishioner.from('conversation_participants').insert(
-      [seed.ids.parishioner, seed.ids.church_admin, seed.ids.priest].map((user_id) => ({ conversation_id: ticketId, user_id })),
-    );
-    expect(joined.error).toBeNull();
-    const opening = await parishioner
-      .from('messages')
-      .insert({ conversation_id: ticketId, sender_id: seed.ids.parishioner, content: 'I need a certificate' });
-    expect(opening.error).toBeNull();
-
-    // Requester, the parish church admin, the parish volunteer (not a participant) and the super admin can read it
-    for (const reader of [parishioner, churchAdmin, volunteer.client, superAdmin.client]) {
+    // Requester and the parish church admin can read it (other staff and the Super Admin only after ticket 11/14 rules)
+    for (const reader of [parishioner, churchAdmin]) {
       expect(await visibleConversationIds(reader, [ticketId])).toEqual([ticketId]);
       expect(await visibleMessageCount(reader, ticketId)).toBe(1);
     }

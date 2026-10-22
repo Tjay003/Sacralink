@@ -1351,18 +1351,27 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_to?: string | null
           category?: string | null
           church_id: string | null
           created_at: string
           created_by: string | null
           id: string
+          /** Computed column (migration 065): request with select('*, is_legacy_direct') */
+          is_legacy_direct?: boolean | null
           status?: string | null
           ticket_number?: string | null
+          ticket_lane?: 'church' | 'platform' | null
+          escalated_at?: string | null
+          reopen_count?: number
+          linked_ticket_id?: string | null
+          sent_back_at?: string | null
           title: string | null
           type: string
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           category?: string | null
           church_id?: string | null
           created_at?: string
@@ -1370,11 +1379,17 @@ export type Database = {
           id?: string
           status?: string | null
           ticket_number?: string | null
+          ticket_lane?: 'church' | 'platform' | null
+          escalated_at?: string | null
+          reopen_count?: number
+          linked_ticket_id?: string | null
+          sent_back_at?: string | null
           title?: string | null
           type?: string
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           category?: string | null
           church_id?: string | null
           created_at?: string
@@ -1382,6 +1397,11 @@ export type Database = {
           id?: string
           status?: string | null
           ticket_number?: string | null
+          ticket_lane?: 'church' | 'platform' | null
+          escalated_at?: string | null
+          reopen_count?: number
+          linked_ticket_id?: string | null
+          sent_back_at?: string | null
           title?: string | null
           type?: string
           updated_at?: string
@@ -1511,6 +1531,22 @@ export type Database = {
         Args: { p_appointment_id: string; p_reason: string }
         Returns: undefined
       }
+      church_has_admin: {
+        Args: { _church_id: string }
+        Returns: boolean
+      }
+      create_ticket: {
+        Args: {
+          p_lane: string
+          p_church_id: string
+          p_category: string
+          p_subject: string
+          p_message: string
+          p_linked_ticket_id?: string | null
+          p_subject_user_id?: string | null
+        }
+        Returns: string
+      }
       change_appointment_celebrant: {
         Args: { p_appointment_id: string; p_new_priest_id: string; p_reason: string }
         Returns: undefined
@@ -1518,6 +1554,18 @@ export type Database = {
       approve_appointment: {
         Args: { p_appointment_id: string; p_priest_id?: string | null; p_admin_feedback?: string | null }
         Returns: undefined
+      }
+      may_start_direct: {
+        Args: { _initiator: string; _target: string }
+        Returns: boolean
+      }
+      start_direct_conversation: {
+        Args: { p_target: string }
+        Returns: string
+      }
+      direct_is_legacy: {
+        Args: { _conversation_id: string }
+        Returns: boolean
       }
       get_my_unread_message_count: {
         Args: Record<PropertyKey, never>
@@ -1607,6 +1655,15 @@ export type Database = {
         Returns: number
       }
       refresh_church_stats: { Args: never; Returns: undefined }
+      set_user_role: {
+        Args: {
+          p_user_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_church_id?: string | null
+          p_is_priest?: boolean | null
+        }
+        Returns: undefined
+      }
       transfer_super_admin: {
         Args: { target_user_id: string }
         Returns: Json

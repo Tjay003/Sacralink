@@ -112,16 +112,6 @@ export interface ContactProfile extends Profile {
 /** Fired on window after a conversation is marked read, so the sidebar unread badge can refresh. */
 export const UNREAD_CHANGED_EVENT = 'sacralink:unread_changed';
 
-/** Volunteers may only start Direct Messages with church admins and volunteers of their own parish. */
-function isVolunteerAllowedContact(
-    me: { church_id?: string | null; assigned_church_id?: string | null },
-    target: { role?: string | null; is_priest?: boolean | null; church_id?: string | null; assigned_church_id?: string | null }
-): boolean {
-    if (!['church_admin', 'volunteer'].includes(target.role || '') || target.is_priest) return false;
-    const myChurches = [me.church_id, me.assigned_church_id].filter(Boolean);
-    return [target.church_id, target.assigned_church_id].some((id) => id && myChurches.includes(id));
-}
-
 // ============================================================================
 // OFFLINE & DEMO FALLBACK STORAGE HELPERS
 // ============================================================================
@@ -315,7 +305,7 @@ export async function fetchUserConversations(userId: string): Promise<{
             .maybeSingle();
 
         const staffChurchId = myProfile?.assigned_church_id || myProfile?.church_id || null;
-        const isStaffOrClergy = ['super_admin', 'admin', 'church_admin', 'priest', 'volunteer'].includes(myProfile?.role || '');
+        const isStaffOrClergy = ['super_admin', 'church_admin', 'priest', 'volunteer'].includes(myProfile?.role || '');
 
         // 1. Get all conversation IDs that user is participant in from Supabase
         const { data: participantRows, error: participantError } = await supabase
@@ -798,145 +788,11 @@ export async function getOrCreateDirectConversation(
             throw new Error('Cannot create direct conversation with oneself');
         }
 
-        console.log(`[Messaging] Checking direct conversation between ${userId} and ${targetUserId}...`);
-
-        // Office Gateway validation:
-        const [callerProfileRes, targetProfileRes] = await Promise.all([
-            supabase.from('profiles').select('id, role, is_priest, church_id, assigned_church_id').eq('id', userId).maybeSingle(),
-            supabase.from('profiles').select('id, role, is_priest, church_id, assigned_church_id').eq('id', targetUserId).maybeSingle(),
-        ]);
-
-        const callerRole = callerProfileRes.data?.role || 'user';
-        const targetRole = targetProfileRes.data?.role || 'user';
-        const isTargetPriest = targetRole === 'priest' || targetProfileRes.data?.is_priest === true;
-        const isCallerPriest = callerRole === 'priest' || callerProfileRes.data?.is_priest === true;
-
-        if (callerRole === 'user' && isTargetPriest) {
-            throw new Error('Parishioners cannot initiate direct conversations with clergy. Please message the Parish Office instead.');
-        }
-
-        if (callerRole === 'user' && !['super_admin', 'admin', 'church_admin'].includes(targetRole)) {
-            throw new Error('Parishioners can only initiate direct conversations with Parish Office and Admin staff.');
-        }
-
-        if (
-            callerRole === 'volunteer' &&
-            (!callerProfileRes.data ||
-                !targetProfileRes.data ||
-                !isVolunteerAllowedContact(callerProfileRes.data, targetProfileRes.data))
-        ) {
-            throw new Error('Volunteers can only start direct messages with the church admins and volunteers of their own parish.');
-        }
-
-        if (isCallerPriest && targetRole === 'user') {
-            const { data: appts, error: apptErr } = await supabase
-                .from('appointments')
-                .select('id')
-                .eq('priest_id', userId)
-                .eq('user_id', targetUserId)
-                .limit(1);
-
-            if (apptErr) throw apptErr;
-
-            if (!appts || appts.length === 0) {
-                throw new Error('Priests can only initiate direct messages with parishioners who have an appointment assigned to them.');
-            }
-        }
-
-        // 1. Find all conversations userId is in
-        const { data: userConvs, error: partError } = await supabase
-            .from('conversation_participants')
-            .select('conversation_id')
-            .eq('user_id', userId);
-
-        if (partError) {
-            console.error('❌ [Messaging] Error fetching user participants:', partError);
-            throw partError;
-        }
-
-        const candidateIds = (userConvs || []).map((c) => c.conversation_id);
-
-        if (candidateIds.length > 0) {
-            // Find direct conversations among candidateIds
-            const { data: directConvs, error: convError } = await supabase
-                .from('conversations')
-                .select('id, type')
-                .in('id', candidateIds)
-                .eq('type', 'direct');
-
-            if (convError) {
-                console.error('❌ [Messaging] Error fetching candidate direct conversations:', convError);
-                throw convError;
-            }
-
-            const directIds = (directConvs || []).map((c) => c.id);
-
-            if (directIds.length > 0) {
-                // Check which of these has targetUserId as a participant
-                const { data: matchingParticipants, error: matchError } = await supabase
-                    .from('conversation_participants')
-                    .select('conversation_id')
-                    .in('conversation_id', directIds)
-                    .eq('user_id', targetUserId)
-                    .limit(1);
-
-                if (matchError) {
-                    console.error('❌ [Messaging] Error checking target participant:', matchError);
-                    throw matchError;
-                }
-
-                if (matchingParticipants && matchingParticipants.length > 0) {
-                    console.log(`[Messaging] Existing conversation found: ${matchingParticipants[0].conversation_id}`);
-                    return { conversationId: matchingParticipants[0].conversation_id, error: null };
-                }
-            }
-        }
-
-        // 2. No existing conversation found -> Create new direct conversation
-        console.log('[Messaging] Creating new direct conversation...');
-        const { data: newConv, error: createConvError } = await supabase
-            .from('conversations')
-            .insert({
-                type: 'direct',
-                created_by: userId,
-                title: null,
-            } as any)
-            .select('id')
-            .single();
-
-        if (createConvError) {
-            console.error('❌ [Messaging] Error creating conversation:', createConvError);
-            throw createConvError;
-        }
-
-        if (!newConv?.id) {
-            throw new Error('Failed to create direct conversation: No conversation ID returned.');
-        }
-
-        const newId = newConv.id;
-        console.log(`[Messaging] Created conversation ${newId}. Adding participants...`);
-
-        // 3. Add both users as participants
-        const { error: addPartsError } = await supabase
-            .from('conversation_participants')
-            .insert([
-                { conversation_id: newId, user_id: userId },
-                { conversation_id: newId, user_id: targetUserId },
-            ] as any);
-
-        if (addPartsError) {
-            console.error('❌ [Messaging] Error adding participants to conversation:', addPartsError);
-            // Attempt cleanup to prevent orphaned conversations
-            try {
-                await supabase.from('conversations').delete().eq('id', newId);
-            } catch (cleanupErr: any) {
-                console.warn('[Messaging] Could not clean up orphaned conversation:', cleanupErr);
-            }
-            throw addPartsError;
-        }
-
-        console.log(`✅ [Messaging] Direct conversation created successfully: ${newId}`);
-        return { conversationId: newId, error: null };
+        // The database decides who may start a Direct chat (matrix, migration 065) and reuses an existing one
+        const { data, error } = await supabase.rpc('start_direct_conversation', { p_target: targetUserId });
+        if (error) throw new Error(error.message);
+        if (!data) throw new Error('Failed to start the direct conversation: no conversation ID returned.');
+        return { conversationId: data as string, error: null };
     } catch (err: any) {
         console.error('❌ Error getting/creating direct conversation:', err);
         return { conversationId: null, error: err };
@@ -1367,7 +1223,7 @@ export async function fetchAvailableContacts(
         // Strict Gateway for parishioners: push role filtering directly to DB query
         // before applying limit(100) so staff are not starved out by parishioners
         if (resolvedRole === 'user') {
-            query = query.in('role', ['super_admin', 'admin', 'church_admin']);
+            query = query.in('role', ['super_admin', 'church_admin']);
         }
 
         query = applyVolunteerScope(query);
@@ -1389,12 +1245,8 @@ export async function fetchAvailableContacts(
             // Parishioners can NEVER contact other parishioners or cold-message clergy.
             if (resolvedRole === 'user') {
                 normalizedData = normalizedData.filter(
-                    (p) => ['super_admin', 'admin', 'church_admin'].includes(p.role || '') && !p.is_priest
+                    (p) => ['super_admin', 'church_admin'].includes(p.role || '') && !p.is_priest
                 );
-            }
-
-            if (isVolunteer && myProfile) {
-                normalizedData = normalizedData.filter((p) => isVolunteerAllowedContact(myProfile!, p));
             }
 
             return { data: normalizedData, error: null };
@@ -1411,7 +1263,7 @@ export async function fetchAvailableContacts(
                 .order('full_name', { ascending: true });
 
             if (resolvedRole === 'user') {
-                fallbackQuery = fallbackQuery.in('role', ['super_admin', 'admin', 'church_admin']);
+                fallbackQuery = fallbackQuery.in('role', ['super_admin', 'church_admin']);
             }
 
             fallbackQuery = applyVolunteerScope(fallbackQuery);
@@ -1446,12 +1298,8 @@ export async function fetchAvailableContacts(
             // Strict Gateway: Parishioners can ONLY contact leadership/administrators
             if (resolvedRole === 'user') {
                 mappedData = mappedData.filter(
-                    (p) => ['super_admin', 'admin', 'church_admin'].includes(p.role || '') && !p.is_priest
+                    (p) => ['super_admin', 'church_admin'].includes(p.role || '') && !p.is_priest
                 );
-            }
-
-            if (isVolunteer && myProfile) {
-                mappedData = mappedData.filter((p) => isVolunteerAllowedContact(myProfile!, p));
             }
 
             return { data: mappedData, error: null };
@@ -1721,6 +1569,8 @@ export async function deleteConversationForEveryone(
     }
 }
 
+export type TicketLane = 'church' | 'platform';
+
 export interface SubmitParishOfficeInquiryParams {
     churchId: string;
     userId: string;
@@ -1728,13 +1578,61 @@ export interface SubmitParishOfficeInquiryParams {
     message: string;
     category?: string;
     churchName?: string;
+    /** `church` (default) goes to the parish office; `platform` goes to the Super Admin. */
+    lane?: TicketLane;
+}
+
+export interface CreateTicketParams {
+    lane: TicketLane;
+    churchId: string;
+    category: string;
+    subject: string;
+    message: string;
+    linkedTicketId?: string | null;
+    subjectUserId?: string | null;
 }
 
 /**
- * Submit an inquiry ticket to a parish office.
- * Creates or links a shared group conversation tagged with church_id,
- * adds the inquiring user and all parish office administrators/staff/priests as participants,
- * and inserts the initial inquiry message with category and ticket_number.
+ * Creates a ticket through the database function, which decides the number, the participants, the allowed
+ * categories and the limits. A ticket that cannot be created returns the database's error; nothing is stored locally.
+ */
+export async function createTicket({
+    lane,
+    churchId,
+    category,
+    subject,
+    message,
+    linkedTicketId = null,
+    subjectUserId = null,
+}: CreateTicketParams): Promise<{
+    conversationId: string | null;
+    error: Error | null;
+}> {
+    const { data, error } = await supabase.rpc('create_ticket', {
+        p_lane: lane,
+        p_church_id: churchId,
+        p_category: category,
+        p_subject: subject,
+        p_message: message,
+        p_linked_ticket_id: linkedTicketId,
+        p_subject_user_id: subjectUserId,
+    });
+    if (error || !data) {
+        return { conversationId: null, error: new Error(error?.message || 'Could not create the ticket') };
+    }
+    return { conversationId: data as string, error: null };
+}
+
+/** Whether a church has at least one Church Admin to receive a church-lane ticket. */
+export async function churchHasAdmin(churchId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('church_has_admin', { _church_id: churchId });
+    if (error) return false;
+    return data === true;
+}
+
+/**
+ * Submit an inquiry ticket to a parish office (or, with `lane: 'platform'`, to the Super Admin).
+ * A thin wrapper over createTicket(); the church modal, the church page and /messages all go through it.
  */
 export async function submitParishOfficeInquiry({
     churchId,
@@ -1742,139 +1640,21 @@ export async function submitParishOfficeInquiry({
     subject,
     message,
     category,
-    churchName,
+    lane = 'church',
 }: SubmitParishOfficeInquiryParams): Promise<{
     conversationId: string | null;
     error: Error | null;
 }> {
-    try {
-        if (!churchId || !userId) {
-            throw new Error('Church ID and User ID are required to submit an inquiry');
-        }
-        if (!subject || subject.trim().length < 3) {
-            throw new Error('Subject must be at least 3 characters long');
-        }
-        if (!message || message.trim().length < 10) {
-            throw new Error('Message must be at least 10 characters long');
-        }
-
-        console.log(`[Messaging] Submitting parish office inquiry for church: ${churchId}, user: ${userId}`);
-
-        // 1. Fetch church name if not provided
-        let resolvedChurchName = churchName;
-        if (!resolvedChurchName) {
-            const { data: churchData } = await supabase
-                .from('churches')
-                .select('name')
-                .eq('id', churchId)
-                .maybeSingle();
-            resolvedChurchName = churchData?.name || 'Parish';
-        }
-
-        // 2. Find all active staff and priests for the church (church_admin, admin, super_admin, priest)
-        const [staffQuery1, staffQuery2] = await Promise.all([
-            supabase
-                .from('profiles')
-                .select('id, role, is_priest')
-                .eq('church_id', churchId)
-                .or('role.in.(church_admin,admin,super_admin,priest),is_priest.eq.true'),
-            supabase
-                .from('profiles')
-                .select('id, role, is_priest')
-                .eq('assigned_church_id', churchId)
-                .or('role.in.(church_admin,admin,super_admin,priest),is_priest.eq.true'),
-        ]);
-
-        const staffIds = new Set<string>();
-        (staffQuery1.data || []).forEach((p: any) => staffIds.add(p.id));
-        (staffQuery2.data || []).forEach((p: any) => staffIds.add(p.id));
-
-        const now = new Date().toISOString();
-        const convTitle = `Inquiry: ${subject.trim()}`;
-        const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
-        const ticketCategory = category || 'general';
-
-        // 3. Create a shared conversation tagged with church_id, ticket_number, status, and category
-        const { data: newConv, error: createError } = await supabase
-            .from('conversations')
-            .insert({
-                title: convTitle,
-                type: 'group',
-                church_id: churchId,
-                created_by: userId,
-                category: ticketCategory,
-                status: 'open',
-                ticket_number: ticketNumber,
-                created_at: now,
-                updated_at: now,
-            } as any)
-            .select('id')
-            .single();
-
-        let conversationId = newConv?.id;
-
-        if (createError || !conversationId) {
-            console.warn('⚠️ [Messaging] Supabase insert failed, checking fallback:', createError);
-            // Local fallback for offline/demo environments
-            conversationId = `inquiry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-            const allParticipants = Array.from(new Set([userId, ...staffIds]));
-            saveLocalMinistryConv({
-                id: conversationId,
-                title: convTitle,
-                type: 'group',
-                church_id: churchId,
-                church_name: resolvedChurchName,
-                created_by: userId,
-                category: ticketCategory,
-                status: 'open',
-                ticket_number: ticketNumber,
-                created_at: now,
-                updated_at: now,
-                participants: allParticipants,
-            });
-        } else {
-            // 4. Ensure inquiring user and all parish staff are added as conversation participants
-            const allParticipants = Array.from(new Set([userId, ...staffIds]));
-            const participantInserts = allParticipants.map((uid) => ({
-                conversation_id: conversationId!,
-                user_id: uid,
-                created_at: now,
-                last_read_at: uid === userId ? now : null,
-            }));
-
-            const { error: partError } = await supabase
-                .from('conversation_participants')
-                .insert(participantInserts as any);
-
-            if (partError) {
-                console.warn('⚠️ [Messaging] Could not insert all participants in Supabase:', partError);
-            }
-        }
-
-        // 5. Insert initial message with the inquiry format and ticket metadata
-        const initialContent = `[Inquiry: ${subject.trim()}]\n\n${message.trim()}`;
-        const { error: msgError } = await sendMessage(
-            conversationId,
-            userId,
-            initialContent,
-            'text',
-            {
-                inquiry_subject: subject.trim(),
-                church_id: churchId,
-                category: ticketCategory,
-                ticket_number: ticketNumber,
-            }
-        );
-
-        if (msgError) {
-            console.warn('⚠️ [Messaging] Could not post initial inquiry message:', msgError);
-        }
-
-        return { conversationId, error: null };
-    } catch (err: any) {
-        console.error('❌ Error submitting parish office inquiry:', err);
-        return { conversationId: null, error: err };
+    if (!churchId || !userId) {
+        return { conversationId: null, error: new Error('Church ID and User ID are required to submit an inquiry') };
     }
+    return createTicket({
+        lane,
+        churchId,
+        category: category || 'general',
+        subject: subject.trim(),
+        message: message.trim(),
+    });
 }
 
 /**

@@ -20,8 +20,7 @@ export default function Navbar() {
     if (!user) return null;
 
     const isSuperAdmin = profile?.role === 'super_admin';
-    const isAdmin = profile?.role === 'admin' || isSuperAdmin;
-    const canViewDonations = ['admin', 'super_admin', 'church_admin', 'priest'].includes(
+    const canViewDonations = ['super_admin', 'church_admin', 'priest'].includes(
         profile?.role || ''
     );
 
@@ -52,7 +51,7 @@ export default function Navbar() {
                                 Dashboard
                             </NavLink>
 
-                            {isAdmin && (
+                            {isSuperAdmin && (
                                 <NavLink
                                     to="/users"
                                     className={({ isActive }) =>

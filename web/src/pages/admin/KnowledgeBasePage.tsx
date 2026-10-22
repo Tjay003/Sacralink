@@ -18,7 +18,7 @@ export default function KnowledgeBasePage() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const churchId = (profile as any)?.church_id ?? (profile as any)?.assigned_church_id ?? null;
-    const canEdit = profile?.role === 'super_admin' || profile?.role === 'church_admin' || profile?.role === 'admin';
+    const canEdit = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     const [sections, setSections] = useState<KnowledgeSection[]>([]);
     const [loading, setLoading] = useState(true);

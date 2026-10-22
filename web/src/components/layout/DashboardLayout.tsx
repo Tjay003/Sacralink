@@ -34,7 +34,7 @@ interface NavigationItem {
     superAdminOnly?: boolean;
     staffOnly?: boolean;
     churchAdminOnly?: boolean;
-    hiddenForDioceseAdmins?: boolean;
+    hiddenForSuperAdmin?: boolean;
 }
 
 interface NavSection {
@@ -166,7 +166,7 @@ export default function DashboardLayout() {
                     icon: Calendar,
                     featureKey: 'appointments',
                     // Hidden for the admins for now (client request)
-                    hiddenForDioceseAdmins: true,
+                    hiddenForSuperAdmin: true,
                     badge: sidebarCounts.pendingAppointments > 0 ? sidebarCounts.pendingAppointments : undefined,
                 },
                 {
@@ -196,16 +196,16 @@ export default function DashboardLayout() {
     ];
 
     const canRenderItem = (item: NavigationItem) => {
-        if (item.hiddenForDioceseAdmins && ['admin', 'super_admin'].includes(profile?.role || '')) {
+        if (item.hiddenForSuperAdmin && profile?.role === 'super_admin') {
             return false;
         }
         if (item.churchAdminOnly && profile?.role !== 'church_admin') {
             return false;
         }
-        if (item.superAdminOnly && !['admin', 'super_admin'].includes(profile?.role || '')) {
+        if (item.superAdminOnly && profile?.role !== 'super_admin') {
             return false;
         }
-        if (item.adminOnly && !['admin', 'super_admin', 'church_admin'].includes(profile?.role || '')) {
+        if (item.adminOnly && !['super_admin', 'church_admin'].includes(profile?.role || '')) {
             return false;
         }
         if (item.staffOnly && ['user'].includes(profile?.role || '')) {

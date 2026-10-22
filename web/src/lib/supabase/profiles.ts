@@ -263,7 +263,7 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
         let fallbackQuery = supabase
             .from('profiles')
             .select('*')
-            .in('role', ['priest', 'church_admin', 'admin']);
+            .in('role', ['priest', 'church_admin']);
         if (churchId) {
             fallbackQuery = fallbackQuery.or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`);
         }

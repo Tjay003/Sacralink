@@ -254,3 +254,76 @@ export async function loginAs(page: Page, role: Role) {
   await page.getByRole('button', { name: 'Login' }).click();
   await page.waitForURL('**/dashboard**');
 }
+
+/** A throwaway account created by a spec: the auth user, its profile and a client signed in as it. */
+export interface TempAccount {
+  id: string;
+  email: string;
+  client: SupabaseClient;
+}
+
+/**
+ * Creates (or recreates) a throwaway user with the given profile role and church and signs a client in as it.
+ * `tag` namespaces the email so a spec can find and remove its own accounts; pair with `deleteTempAccounts`.
+ */
+export async function tempUser(tag: string, label: string, role: string, churchId: string | null): Promise<TempAccount> {
+  const db = serviceClient();
+  const email = `${tag}-${label}@local.test`;
+  const { data: list } = await db.auth.admin.listUsers({ perPage: 200 });
+  const stale = list?.users.find((u) => u.email === email);
+  if (stale) await db.auth.admin.deleteUser(stale.id);
+  const { data, error } = await db.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true });
+  if (error) throw error;
+  const id = data.user.id;
+  const { error: profileErr } = await db.from('profiles').upsert({
+    id,
+    email,
+    full_name: `Temp ${label}`,
+    role,
+    is_priest: role === 'priest',
+    church_id: churchId,
+    assigned_church_id: churchId,
+    is_verified: true,
+  });
+  if (profileErr) throw profileErr;
+  const client = createClient(LOCAL_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { error: signInErr } = await client.auth.signInWithPassword({ email, password: PASSWORD });
+  if (signInErr) throw signInErr;
+  return { id, email, client };
+}
+
+/** Removes the auth users (and through the cascade their profiles) created by `tempUser`. */
+export async function deleteTempAccounts(accounts: Array<TempAccount | null | undefined>) {
+  const db = serviceClient();
+  for (const account of accounts) {
+    if (account) await db.auth.admin.deleteUser(account.id);
+  }
+}
+
+/**
+ * Makes a throwaway account the only Super Admin (the seed has none, and a hand-tested local database may have one).
+ * `restore` deletes the account and puts any previous Super Admin back.
+ */
+export async function soleSuperAdmin(tag: string): Promise<{ account: TempAccount; restore: () => Promise<void> }> {
+  const db = serviceClient();
+  const { data: previous } = await db.from('profiles').select('id').eq('role', 'super_admin');
+  const previousIds = (previous ?? []).map((p) => p.id as string);
+  if (previousIds.length) await db.from('profiles').update({ role: 'user' }).in('id', previousIds);
+  const account = await tempUser(tag, 'super-admin', 'super_admin', null);
+  return {
+    account,
+    restore: async () => {
+      await deleteTempAccounts([account]);
+      if (previousIds.length) await db.from('profiles').update({ role: 'super_admin' }).in('id', previousIds);
+    },
+  };
+}
+
+/** Signs a browser page in as a throwaway account through the real login form. */
+export async function loginAsAccount(page: Page, account: TempAccount) {
+  await page.goto('/login');
+  await page.locator('#email').fill(account.email);
+  await page.locator('#password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Login' }).click();
+  await page.waitForURL('**/dashboard**');
+}

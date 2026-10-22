@@ -22,7 +22,7 @@ import { Users, Building2, Calendar as CalendarIcon, TrendingUp } from 'lucide-r
  * - 'priest' role → PriestDashboard (celebrant schedule, blackout, lectionary)
  * - 'church_admin' role → ChurchAdminDashboard (full parish ops, financials, staff attention)
  * - 'volunteer' role → VolunteerDashboard (liturgical header, livestream studio, announcements)
- * - 'super_admin' & 'admin' → SuperAdminDashboard (all-churches governance)
+ * - 'super_admin' → SuperAdminDashboard (all-churches governance)
  */
 export default function DashboardPage() {
     const { profile } = useAuth();
@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
     // Fetch user count for admin dashboard
     useEffect(() => {
-        if (profile?.role === 'admin' || profile?.role === 'super_admin') {
+        if (profile?.role === 'super_admin') {
             fetchUserCount();
         }
         fetchDashboardStats();
@@ -108,8 +108,8 @@ export default function DashboardPage() {
         return <VolunteerDashboard churchId={profile.assigned_church_id || null} />;
     }
 
-    // Show super admin dashboard for super_admin and admin
-    if (profile?.role === 'super_admin' || profile?.role === 'admin') {
+    // Show super admin dashboard for super_admin
+    if (profile?.role === 'super_admin') {
         return <SuperAdminDashboard />;
     }
 

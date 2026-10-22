@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Church as ChurchIcon, Send, AlertCircle, Building2 } from 'lucide-react';
 import Modal from '../ui/Modal';
-import { submitParishOfficeInquiry } from '../../lib/supabase/messaging';
+import { churchHasAdmin, submitParishOfficeInquiry, type TicketLane } from '../../lib/supabase/messaging';
 
 export interface ParishInquiryModalProps {
     isOpen: boolean;
@@ -15,6 +15,12 @@ export interface ParishInquiryModalProps {
     /** Parish preselected in the selector (the sender's home or assigned parish). */
     defaultChurchId?: string | null;
     userId: string;
+    /** Role of the sender; decides which platform categories are offered. Defaults to a Parishioner. */
+    role?: string;
+    /** Which desk the ticket goes to: the parish office or the Super Admin. */
+    lane?: TicketLane;
+    /** A Volunteer chooses between the parish office and the Super Admin at the top of the form. */
+    allowLaneChoice?: boolean;
     onSuccess: (conversationId: string) => void;
 }
 
@@ -34,6 +40,25 @@ export const INQUIRY_CATEGORIES: InquiryCategoryOption[] = [
     { id: 'general', label: 'General Question', emoji: '💬', description: 'Parish office inquiries, priest availability & events' },
 ];
 
+/** Platform-lane categories per role (spec decision 28); the database enforces the same lists. */
+const REPORT_CHURCH_CATEGORY: InquiryCategoryOption = {
+    id: 'report_church',
+    label: 'Report a concern about my church',
+    emoji: '🚩',
+    description: 'Goes straight to the Super Admin. Your church administrator will not see it',
+};
+
+const PLATFORM_GENERAL: InquiryCategoryOption = { id: 'general', label: 'General Question', emoji: '💬', description: 'Any question for the Super Admin' };
+const PLATFORM_PROBLEM: InquiryCategoryOption = { id: 'report_problem', label: 'Report a problem', emoji: '🛠️', description: 'Something in Sacralink is not working' };
+const PLATFORM_PERSON: InquiryCategoryOption = { id: 'report_person', label: 'Report a person or abuse', emoji: '⚠️', description: 'Report a person or abusive behaviour' };
+const PLATFORM_SETUP: InquiryCategoryOption = { id: 'church_setup', label: 'Church verification and setup', emoji: '⛪', description: 'Verify your church or finish its setup' };
+
+function platformCategoriesForRole(role: string): InquiryCategoryOption[] {
+    if (role === 'church_admin') return [PLATFORM_GENERAL, PLATFORM_SETUP, PLATFORM_PROBLEM, PLATFORM_PERSON];
+    if (role === 'priest' || role === 'volunteer') return [PLATFORM_GENERAL, PLATFORM_PROBLEM, PLATFORM_PERSON];
+    return [REPORT_CHURCH_CATEGORY];
+}
+
 export default function ParishInquiryModal({
     isOpen,
     onClose,
@@ -43,18 +68,50 @@ export default function ParishInquiryModal({
     parishOptions = [],
     defaultChurchId,
     userId,
+    role = 'user',
+    lane: initialLane = 'church',
+    allowLaneChoice = false,
     onSuccess,
 }: ParishInquiryModalProps) {
-    const needsParishSelector = !churchId;
+    const [lane, setLane] = useState<TicketLane>(initialLane);
+    const isParishioner = role === 'user';
+    // Church staff write to the Super Admin about their own church; Parishioners pick the church they are reporting
+    const needsParishSelector = lane === 'platform' ? isParishioner : !churchId;
     const [selectedChurchId, setSelectedChurchId] = useState<string>(defaultChurchId || '');
-    const activeChurchId = churchId || selectedChurchId || (parishOptions.length === 1 ? parishOptions[0].id : '');
+    const activeChurchId =
+        lane === 'platform' && !isParishioner
+            ? defaultChurchId || ''
+            : (lane === 'church' ? churchId : null) || selectedChurchId || (parishOptions.length === 1 ? parishOptions[0].id : '');
+    const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
     const activeChurchName =
         churchName || parishOptions.find((p) => p.id === activeChurchId)?.name || 'Select a parish';
-    const [category, setCategory] = useState('general');
+    const categories = lane === 'platform' ? platformCategoriesForRole(role) : INQUIRY_CATEGORIES;
+    const [category, setCategory] = useState(lane === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // A Parishioner whose chosen church has no Church Admin can only report a concern about it
+    useEffect(() => {
+        if (!isParishioner || lane !== 'church' || !activeChurchId) {
+            setHasAdmin(null);
+            return;
+        }
+        let cancelled = false;
+        churchHasAdmin(activeChurchId).then((ok) => {
+            if (!cancelled) setHasAdmin(ok);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [isParishioner, lane, activeChurchId]);
+
+    const chooseLane = (next: TicketLane) => {
+        setLane(next);
+        setError(null);
+        setCategory(next === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general');
+    };
 
     const isSubjectValid = subject.trim().length >= 3;
     const isMessageValid = message.trim().length >= 10;
@@ -74,6 +131,7 @@ export default function ParishInquiryModal({
                 subject: subject.trim(),
                 message: message.trim(),
                 category,
+                lane,
                 churchName: activeChurchName === 'Select a parish' ? undefined : activeChurchName,
             });
 
@@ -84,7 +142,7 @@ export default function ParishInquiryModal({
             // Reset state and notify parent
             setSubject('');
             setMessage('');
-            setCategory('general');
+            setCategory(lane === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general');
             onSuccess(conversationId);
         } catch (err: unknown) {
             console.error('Error submitting inquiry modal:', err);
@@ -122,11 +180,15 @@ export default function ParishInquiryModal({
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-primary uppercase tracking-wider">
-                                Parish Office Online Desk
+                                {lane === 'platform' ? 'Sacralink Platform Desk' : 'Parish Office Online Desk'}
                             </span>
                         </div>
                         <h2 className="text-lg sm:text-xl font-bold text-foreground truncate">
-                            Contact Parish Office
+                            {lane === 'platform' && !isParishioner
+                                ? 'Contact the Super Admin'
+                                : lane === 'platform'
+                                  ? 'Report a concern about my church'
+                                  : 'Contact Parish Office'}
                         </h2>
                         <p className="text-xs text-muted truncate mt-0.5">
                             {activeChurchName}
@@ -143,10 +205,37 @@ export default function ParishInquiryModal({
                     </div>
                 )}
 
+                {allowLaneChoice && (
+                    <div className="space-y-1.5">
+                        <span className="block text-xs font-bold text-foreground">Send to</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            {([
+                                ['church', 'Parish office'],
+                                ['platform', 'Super Admin'],
+                            ] as Array<[TicketLane, string]>).map(([value, label]) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => chooseLane(value)}
+                                    disabled={loading}
+                                    aria-pressed={lane === value}
+                                    className={`p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                                        lane === value
+                                            ? 'bg-blue-50/80 border-primary text-primary ring-1 ring-primary/20'
+                                            : 'bg-white border-border text-foreground hover:bg-secondary-50'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {needsParishSelector && (
                     <div className="space-y-1.5">
                         <label htmlFor="inquiry-parish" className="block text-xs font-bold text-foreground">
-                            Parish <span className="text-destructive">*</span>
+                            {lane === 'platform' ? 'Church the concern is about' : 'Parish'} <span className="text-destructive">*</span>
                         </label>
                         <select
                             id="inquiry-parish"
@@ -155,7 +244,7 @@ export default function ParishInquiryModal({
                             disabled={loading}
                             className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-60 cursor-pointer"
                         >
-                            <option value="">Choose the parish office to contact</option>
+                            <option value="">{lane === 'platform' ? 'Choose the church' : 'Choose the parish office to contact'}</option>
                             {parishOptions.map((parish) => (
                                 <option key={parish.id} value={parish.id}>
                                     {parish.name}
@@ -165,13 +254,39 @@ export default function ParishInquiryModal({
                     </div>
                 )}
 
+                {isParishioner && lane === 'church' && hasAdmin === false && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                        This church has no administrator yet. You can report a concern about the church instead.
+                    </div>
+                )}
+                {isParishioner && lane === 'church' && activeChurchId && (
+                    <button
+                        type="button"
+                        onClick={() => chooseLane('platform')}
+                        disabled={loading}
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                        Report a concern about my church
+                    </button>
+                )}
+                {isParishioner && lane === 'platform' && !allowLaneChoice && (
+                    <button
+                        type="button"
+                        onClick={() => chooseLane('church')}
+                        disabled={loading}
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                        Back to contacting the parish office
+                    </button>
+                )}
+
                 {/* Ticket Category Selector */}
-                <div className="space-y-2">
+                <div className="space-y-2" hidden={isParishioner && lane === 'church' && hasAdmin === false}>
                     <label className="block text-xs font-bold text-foreground">
                         Inquiry Category <span className="text-destructive">*</span>
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {INQUIRY_CATEGORIES.map((cat) => {
+                        {categories.map((cat) => {
                             const isSelected = category === cat.id;
                             return (
                                 <button
@@ -192,7 +307,7 @@ export default function ParishInquiryModal({
                         })}
                     </div>
                     <p className="text-[11px] text-muted">
-                        {INQUIRY_CATEGORIES.find((c) => c.id === category)?.description}
+                        {categories.find((c) => c.id === category)?.description}
                     </p>
                 </div>
 
@@ -250,7 +365,7 @@ export default function ParishInquiryModal({
                     </button>
                     <button
                         type="submit"
-                        disabled={!isFormValid || loading}
+                        disabled={!isFormValid || loading || (isParishioner && lane === 'church' && hasAdmin === false)}
                         className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs inline-flex items-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
                         {loading ? (

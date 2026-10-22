@@ -17,10 +17,10 @@ interface EditRoleModalProps {
  * EditRoleModal - Modal to change a user's role and assigned church
  * 
  * Permissions & Invariants:
- * - Super Admin: Can set standard roles ('admin', 'church_admin', 'priest', 'volunteer', 'user') across any church.
+ * - Super Admin: Can set standard roles ('church_admin', 'priest', 'volunteer', 'user') across any church.
  * - Church Admin: Can set limited roles ('user', 'volunteer', 'priest', 'church_admin') ONLY for their assigned church.
  * - Super Admin role is immutable via standard role pickers and can ONLY be transferred via TransferOwnershipModal.
- * - Dual-role Priest-Administrators (church_admin/admin who are ordained priests) can be toggled as is_priest.
+ * - Dual-role Priest-Administrators (church_admin who are ordained priests) can be toggled as is_priest.
  * - Dedicated priests (role = 'priest') are automatically is_priest = true.
  */
 export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransferModal }: EditRoleModalProps) {
@@ -46,11 +46,11 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
 
     // Available roles: super_admin is strictly excluded for all callers
     const availableRoles = isSuperAdmin
-        ? ['user', 'volunteer', 'priest', 'church_admin', 'admin']
+        ? ['user', 'volunteer', 'priest', 'church_admin']
         : ['user', 'volunteer', 'priest', 'church_admin'];
 
-    // Clergy toggle is available for admin or church_admin roles
-    const isClergyToggleEligible = selectedRole === 'church_admin' || selectedRole === 'admin';
+    // Clergy toggle is available for the church_admin role
+    const isClergyToggleEligible = selectedRole === 'church_admin';
 
     // Handler when role selection changes
     const handleRoleChange = (newRole: UserRole) => {

@@ -66,7 +66,6 @@ export default function AnnouncementsPage() {
     const effectiveChurchId = profile?.assigned_church_id || profile?.church_id || '';
     const isChurchAdmin = Boolean(effectiveChurchId) && (
         profile?.role === 'church_admin' ||
-        profile?.role === 'admin' ||
         profile?.role === 'priest' ||
         profile?.role === 'volunteer'
     );

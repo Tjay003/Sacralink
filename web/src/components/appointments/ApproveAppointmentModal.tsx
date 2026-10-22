@@ -50,11 +50,10 @@ export default function ApproveAppointmentModal({
     const [evaluatingCelebrants, setEvaluatingCelebrants] = useState<boolean>(false);
     const [recommendedPriest, setRecommendedPriest] = useState<Profile | null>(null);
 
-    // Whether the logged in user is eligible to preside (church admin, admin, priest)
+    // Whether the logged in user is eligible to preside (church admin, priest)
     const isCurrentUserEligible = Boolean(
         currentUser && (
             currentUser.role === 'church_admin' ||
-            currentUser.role === 'admin' ||
             currentUser.role === 'priest' ||
             currentUser.is_priest
         )

@@ -328,9 +328,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                     const name = prof.full_name || 'Parishioner';
                     const parish = (prof.church as { name?: string } | null)?.name || 'the parish';
                     const roleLabel =
-                        prof.role === 'admin'
-                            ? 'administrator'
-                            : prof.role === 'priest'
+                        prof.role === 'priest'
                             ? 'clergy member'
                             : 'volunteer';
                     const dt = new Date(prof.created_at || Date.now());

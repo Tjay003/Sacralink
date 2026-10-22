@@ -44,11 +44,11 @@ export function useSidebarCounts(profile: Profile | null): SidebarCounts {
                 if (churchId) apptQuery = apptQuery.eq('church_id', churchId);
             }
 
-            const isDioceseAdmin = role === 'admin' || role === 'super_admin';
+            const isSuperAdmin = role === 'super_admin';
             const [unreadRes, apptRes, appsRes] = await Promise.all([
                 supabase.rpc('get_my_unread_message_count'),
                 apptQuery,
-                isDioceseAdmin
+                isSuperAdmin
                     ? supabase
                           .from('parish_applications')
                           .select('*', { count: 'exact', head: true })

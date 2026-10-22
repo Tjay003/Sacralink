@@ -45,7 +45,7 @@ export default function EditChurchPage() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     // Services & Documents: the parish church admin, admin and super admin (row level security is the real guard)
-    const canManageServices = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin';
+    const canManageServices = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     // Form state
     const [formData, setFormData] = useState({
@@ -135,7 +135,7 @@ export default function EditChurchPage() {
 
         if (id && profile.role) {
             const userChurchId = profile.assigned_church_id || profile.church_id;
-            const staffRoles: string[] = ['admin', 'church_admin', 'priest'];
+            const staffRoles: string[] = ['church_admin', 'priest'];
             if (staffRoles.includes(profile.role) && userChurchId === id) {
                 return true;
             }

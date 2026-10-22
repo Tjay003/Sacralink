@@ -361,18 +361,21 @@ export async function approveParishApplication(
           .eq('id', application.applicant_id)
           .single();
 
-        const updates: { assigned_church_id: string; role?: 'church_admin' } = {
-          assigned_church_id: finalChurchId,
-        };
+        // Role and church changes only go through set_user_role (migration 063); the applicant keeps a staff role they already hold.
+        const currentRole = userProfile?.role;
+        const nextRole =
+          currentRole === 'volunteer' || currentRole === 'priest' || currentRole === 'church_admin'
+            ? currentRole
+            : 'church_admin';
 
-        if (userProfile && userProfile.role === 'user') {
-          updates.role = 'church_admin';
+        if (currentRole !== 'super_admin') {
+          const { error: roleErr } = await supabase.rpc('set_user_role', {
+            p_user_id: application.applicant_id,
+            p_role: nextRole,
+            p_church_id: finalChurchId,
+          });
+          if (roleErr) throw roleErr;
         }
-
-        await supabase
-          .from('profiles')
-          .update(updates)
-          .eq('id', application.applicant_id);
       } catch (profErr) {
         console.warn('Failed to update applicant assigned church profile:', profErr);
       }

@@ -107,7 +107,7 @@ export default function SystemAnnouncementsPage() {
     const [deletingAnnouncement, setDeletingAnnouncement] = useState(false);
 
     // Authorization guard
-    if (!profile || (profile.role !== 'super_admin' && profile.role !== 'admin')) {
+    if (!profile || profile.role !== 'super_admin') {
         return (
             <div className="space-y-6">
                 <div className="card p-8 text-center max-w-md mx-auto">

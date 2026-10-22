@@ -180,34 +180,18 @@ test.describe('Volunteer messaging scope', () => {
     await expect(dialog.getByRole('button', { name: 'Parishioners' })).toHaveCount(0);
   });
 
-  test('the database refuses a volunteer-started DM with a parishioner, a priest or another parish, and allows own-parish staff', async () => {
-    for (const targetId of [seed.ids.parishioner, seed.ids.priest, seed.ids.other_admin]) {
-      const created = await volunteerClient
-        .from('conversations')
-        .insert({ title: `${TAG} cold-dm`, type: 'direct', created_by: volunteerId })
-        .select('id')
-        .single();
-      expect(created.error).toBeNull();
-      const joined = await volunteerClient.from('conversation_participants').insert([
-        { conversation_id: created.data!.id, user_id: volunteerId },
-        { conversation_id: created.data!.id, user_id: targetId },
-      ]);
-      expect(joined.error).not.toBeNull();
-      const members = await db.from('conversation_participants').select('id').eq('conversation_id', created.data!.id);
-      expect(members.data ?? []).toHaveLength(0);
+  test('the database refuses every volunteer-started DM, through the function and through REST', async () => {
+    for (const targetId of [seed.ids.parishioner, seed.ids.priest, seed.ids.other_admin, seed.ids.church_admin]) {
+      const started = await volunteerClient.rpc('start_direct_conversation', { p_target: targetId });
+      expect(started.error).not.toBeNull();
     }
 
-    const ok = await volunteerClient
+    const created = await volunteerClient
       .from('conversations')
-      .insert({ title: `${TAG} office-dm`, type: 'direct', created_by: volunteerId })
+      .insert({ title: `${TAG} cold-dm`, type: 'direct', created_by: volunteerId })
       .select('id')
       .single();
-    expect(ok.error).toBeNull();
-    const allowed = await volunteerClient.from('conversation_participants').insert([
-      { conversation_id: ok.data!.id, user_id: volunteerId },
-      { conversation_id: ok.data!.id, user_id: seed.ids.church_admin },
-    ]);
-    expect(allowed.error).toBeNull();
+    expect(created.error).not.toBeNull();
   });
 
   test('a volunteer replies to a parish ticket, resolves it and uses the Staff Channel', async ({ page }) => {

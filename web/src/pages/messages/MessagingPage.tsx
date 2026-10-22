@@ -103,11 +103,6 @@ const getRoleBadge = (role?: string | null) => {
                 label: 'Super Admin',
                 className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300',
             };
-        case 'admin':
-            return {
-                label: 'Admin',
-                className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300',
-            };
         case 'church_admin':
             return {
                 label: 'Church Admin',
@@ -168,6 +163,16 @@ const getCategoryBadge = (category?: string | null) => {
             return { label: 'Mass Intention', emoji: '🙏', className: 'bg-amber-50 text-amber-700 border-amber-200' };
         case 'certificate':
             return { label: 'Certificate', emoji: '📜', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+        case 'church_setup':
+            return { label: 'Church setup', emoji: '⛪', className: 'bg-blue-50 text-blue-700 border-blue-200' };
+        case 'report_problem':
+            return { label: 'Problem', emoji: '🛠️', className: 'bg-amber-50 text-amber-700 border-amber-200' };
+        case 'report_person':
+            return { label: 'Report a person', emoji: '⚠️', className: 'bg-rose-50 text-rose-700 border-rose-200' };
+        case 'report_church':
+            return { label: 'Church concern', emoji: '🚩', className: 'bg-rose-50 text-rose-700 border-rose-200' };
+        case 'user_deletion_request':
+            return { label: 'Deletion request', emoji: '🗑️', className: 'bg-purple-50 text-purple-700 border-purple-200' };
         case 'general':
         default:
             return { label: 'General Inquiry', emoji: '💬', className: 'bg-secondary-50 text-secondary-700 border-secondary-200' };
@@ -195,11 +200,12 @@ export default function MessagingPage() {
     const location = useLocation();
 
     // Permissions: regular parishioners cannot access staff channels
-    const isStaff = ['super_admin', 'admin', 'church_admin', 'priest', 'volunteer'].includes(profile?.role || '');
-    const isSuperOrDioceseAdmin = ['super_admin', 'admin'].includes(profile?.role || '');
+    const isStaff = ['super_admin', 'church_admin', 'priest', 'volunteer'].includes(profile?.role || '');
+    const isSuperAdmin = profile?.role === 'super_admin';
     const isVolunteer = profile?.role === 'volunteer';
-    // Parishioners and volunteers open Parish Office Tickets; the office itself answers them
-    const canCreateTicket = profile?.role === 'user' || isVolunteer;
+    // Parishioners and volunteers open Parish Office Tickets; Church Admins and Priests write to the Super Admin
+    const canCreateTicket = ['user', 'volunteer', 'church_admin', 'priest'].includes(profile?.role || '');
+    const ticketLane = profile?.role === 'church_admin' || profile?.role === 'priest' ? 'platform' : 'church';
 
     interface NavState {
         conversationId?: string;
@@ -407,7 +413,7 @@ export default function MessagingPage() {
 
     // Load churches for the Super Admin / Admin Parish Staff Channel selector and the New Ticket parish selector
     useEffect(() => {
-        if (!isSuperOrDioceseAdmin && !canCreateTicket) return;
+        if (!isSuperAdmin && !canCreateTicket) return;
         const loadChurches = async () => {
             try {
                 const churches = await directFetchChurches();
@@ -417,7 +423,7 @@ export default function MessagingPage() {
             }
         };
         loadChurches();
-    }, [isSuperOrDioceseAdmin, canCreateTicket]);
+    }, [isSuperAdmin, canCreateTicket]);
 
     // Load messages when activeConversationId changes
     useEffect(() => {
@@ -811,7 +817,7 @@ export default function MessagingPage() {
 
         let churchId: string | undefined;
 
-        if (isSuperOrDioceseAdmin) {
+        if (isSuperAdmin) {
             // Super Admin & Admin can pick any parish channel or open targetChurchId
             if (targetChurchId) {
                 churchId = targetChurchId;
@@ -897,7 +903,7 @@ export default function MessagingPage() {
 
         if (profile?.role === 'user') {
             result = result.filter((c) =>
-                ['super_admin', 'admin', 'church_admin'].includes(c.role || '') && !c.is_priest
+                ['super_admin', 'church_admin'].includes(c.role || '') && !c.is_priest
             );
         }
 
@@ -909,8 +915,6 @@ export default function MessagingPage() {
             result = result.filter(
                 (c) => c.role === 'church_admin' && (profile?.role !== 'user' || !c.is_priest)
             );
-        } else if (contactRoleFilter === 'admin') {
-            result = result.filter((c) => c.role === 'admin');
         } else if (contactRoleFilter === 'super_admin') {
             result = result.filter((c) => c.role === 'super_admin');
         } else if (contactRoleFilter !== 'all') {
@@ -1889,7 +1893,6 @@ export default function MessagingPage() {
                             {(profile?.role === 'user' ? [
                                 { id: 'all', label: 'All Administrators' },
                                 { id: 'church_admin', label: 'Parish Office' },
-                                { id: 'admin', label: 'Admin Office' },
                                 { id: 'super_admin', label: 'Super Admin' },
                             ] : isVolunteer ? [
                                 { id: 'all', label: 'All Contacts' },
@@ -1898,7 +1901,6 @@ export default function MessagingPage() {
                             ] : [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'admin', label: 'Admins' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ]).map((tab) => (
@@ -2000,6 +2002,9 @@ export default function MessagingPage() {
                     parishOptions={allChurches.map((c) => ({ id: c.id, name: c.name }))}
                     defaultChurchId={userChurchId}
                     userId={user.id}
+                    role={profile?.role ?? undefined}
+                    lane={ticketLane}
+                    allowLaneChoice={isVolunteer}
                     onSuccess={handleTicketCreated}
                 />
             )}
@@ -2122,7 +2127,7 @@ export default function MessagingPage() {
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* PARISH STAFF CHANNEL PICKER MODAL (Super Admin / Admin only)    */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            {isSuperOrDioceseAdmin && showParishPickerModal && (
+            {isSuperAdmin && showParishPickerModal && (
                 <Modal
                     isOpen={showParishPickerModal}
                     onClose={() => setShowParishPickerModal(false)}

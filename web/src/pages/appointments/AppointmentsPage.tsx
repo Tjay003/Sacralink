@@ -149,8 +149,8 @@ export default function AppointmentsPage() {
         cancelled: 0,
     });
 
-    // Church filter — admin/super_admin only
-    const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
+    // Church filter — super_admin only
+    const isAdminRole = profile?.role === 'super_admin';
     const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'priest';
     const { churches } = useChurches();
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
@@ -234,14 +234,13 @@ export default function AppointmentsPage() {
 
     const canManageAppointments =
         !isVolunteer &&
-        (profile?.role === 'admin' ||
-            profile?.role === 'super_admin' ||
+        (profile?.role === 'super_admin' ||
             profile?.role === 'church_admin' ||
             profile?.role === 'priest');
 
     // Only the parish office may edit an approved appointment (priests and volunteers cannot)
     const canEditAppointments =
-        profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'church_admin';
+        profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     const fetchMetaCounts = useCallback(async () => {
         try {

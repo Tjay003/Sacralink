@@ -331,7 +331,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Clergy Status & Presiding Privileges (for Church Admin, Admin, and Super Admin) */}
-            {(profileData?.role === 'church_admin' || profileData?.role === 'admin' || (profileData?.role as string) === 'super_admin' || profile?.role === 'church_admin' || profile?.role === 'admin' || profile?.role === 'super_admin') && (
+            {(profileData?.role === 'church_admin' || (profileData?.role as string) === 'super_admin' || profile?.role === 'church_admin' || profile?.role === 'super_admin') && (
                 <div className="card p-6 border border-border rounded-2xl shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                         <div className="flex items-start gap-3">

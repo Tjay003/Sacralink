@@ -536,11 +536,6 @@ export function useAuth() {
 }
 
 // Role-based helpers
-export function useIsAdmin() {
-    const { profile } = useAuth();
-    return profile?.role === 'admin' || profile?.role === 'super_admin';
-}
-
 export function useIsSuperAdmin() {
     const { profile } = useAuth();
     return profile?.role === 'super_admin';
@@ -561,6 +556,5 @@ export function useCanManageChurch(churchId: string) {
     if (!profile) return false;
     if (profile.role === 'super_admin') return true;
     if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === churchId) return true;
-    if (profile.role === 'admin' && profile.assigned_church_id === churchId) return true;
     return false;
 }

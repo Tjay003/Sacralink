@@ -270,7 +270,7 @@ export default function ChurchDetailPage() {
                 .from('profiles')
                 .select('*')
                 .or(`church_id.eq.${id},assigned_church_id.eq.${id}`)
-                .in('role', ['church_admin', 'priest', 'volunteer', 'admin'])
+                .in('role', ['church_admin', 'priest', 'volunteer'])
                 .limit(50);
             if (staffData) {
                 setStaffList(staffData as Profile[]);
@@ -449,7 +449,6 @@ export default function ChurchDetailPage() {
         if (!profile || !church) return false;
         if (profile.role === 'super_admin') return true;
         if ((profile.role === 'church_admin' || profile.role === 'volunteer') && profile.assigned_church_id === church.id) return true;
-        if (profile.role === 'admin' && profile.assigned_church_id === church.id) return true;
         return false;
     };
 
@@ -1087,7 +1086,7 @@ export default function ChurchDetailPage() {
                                             src={`https://www.openstreetmap.org/export/embed.html?bbox=${(church.longitude - 0.005).toFixed(6)}%2C${(church.latitude - 0.005).toFixed(6)}%2C${(church.longitude + 0.005).toFixed(6)}%2C${(church.latitude + 0.005).toFixed(6)}&layer=mapnik&marker=${church.latitude}%2C${church.longitude}`}
                                         />
                                         <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                                        {profile?.role && ['super_admin', 'admin', 'church_admin', 'priest'].includes(profile.role) && (
+                                        {profile?.role && ['super_admin', 'church_admin', 'priest'].includes(profile.role) && (
                                             <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-white/95 text-[11px] font-mono text-secondary-700 shadow-xs border border-border">
                                                 📍 {church.latitude.toFixed(4)}, {church.longitude.toFixed(4)}
                                             </div>
@@ -1911,7 +1910,7 @@ export default function ChurchDetailPage() {
                                             .toUpperCase();
 
                                         const isPriest = member.role === 'priest' || member.is_priest;
-                                        const isChurchAdmin = member.role === 'church_admin' || member.role === 'admin';
+                                        const isChurchAdmin = member.role === 'church_admin';
                                         const isSuperAdminMember = member.role === 'super_admin';
                                         const isMenuOpen = activeStaffDropdownId === member.id;
 

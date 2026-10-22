@@ -26,12 +26,11 @@ export default function ChurchesPage() {
         if (!profile) return false;
         if (profile.role === 'super_admin') return true;
         if (profile.role === 'church_admin' && profile.assigned_church_id === churchId) return true;
-        if (profile.role === 'admin' && profile.assigned_church_id === churchId) return true;
         return false;
     };
 
     const canAddChurch = profile?.role === 'super_admin';
-    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'admin' || profile?.role === 'church_admin';
+    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     // Filter churches by search query and status
     const filteredChurches = churches.filter(church => {

@@ -41,7 +41,7 @@ export default function AddChurchPage() {
     const [uploading, setUploading] = useState(false);
 
     // Redirect if not admin
-    if (profile && profile.role !== 'admin' && profile.role !== 'super_admin') {
+    if (profile && profile.role !== 'super_admin') {
         return <Navigate to="/churches" replace />;
     }
 

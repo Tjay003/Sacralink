@@ -33,7 +33,7 @@ import {
 // Role hierarchy for sorting (lower number = higher priority)
 const ROLE_PRIORITY: Record<UserRole, number> = {
     'super_admin': 1,
-    'admin': 2,
+    'admin': 2, // dormant enum value, kept only because Record<UserRole, number> requires every member
     'church_admin': 3,
     'priest': 4,
     'volunteer': 5,
@@ -42,7 +42,7 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
 
 function calculateRoleStats(userList: Profile[]) {
     return {
-        admins: userList.filter(u => u.role === 'church_admin' || u.role === 'admin' || u.role === 'super_admin').length,
+        admins: userList.filter(u => u.role === 'church_admin' || u.role === 'super_admin').length,
         volunteers: userList.filter(u => u.role === 'volunteer').length,
         priests: userList.filter(u => u.role === 'priest' || u.is_priest).length,
         users: userList.filter(u => !u.role || u.role === 'user').length,
@@ -145,7 +145,7 @@ export default function UsersPage() {
         let base = [...users];
         if (currentUser?.role === 'church_admin') {
             base = base.filter(u => {
-                if (u.role === 'super_admin' || u.role === 'admin') return false;
+                if (u.role === 'super_admin') return false;
                 return u.assigned_church_id === currentUser.assigned_church_id || !u.role || u.role === 'user';
             });
             const staff = base.filter(u => u.assigned_church_id === currentUser.assigned_church_id).length;
@@ -165,7 +165,7 @@ export default function UsersPage() {
         // 1. Role visibility & parish scope restrictions
         if (currentUser?.role === 'church_admin') {
             filtered = filtered.filter(user => {
-                if (user.role === 'super_admin' || user.role === 'admin') return false;
+                if (user.role === 'super_admin') return false;
                 // Church admin can view:
                 // a) users assigned to their parish (staff / volunteers / self)
                 // b) regular parishioners (available for sacraments or volunteer promotion)
@@ -356,7 +356,7 @@ export default function UsersPage() {
         const recipientName = transferTargetUser?.full_name || transferTargetUser?.email || 'the selected user';
         setShowTransferModal(false);
         setTransferTargetUser(null);
-        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account has been updated to Admin.`);
+        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account is now a Parishioner.`);
         fetchData();
     };
 
@@ -364,8 +364,6 @@ export default function UsersPage() {
         switch (role) {
             case 'super_admin':
                 return 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
-            case 'admin':
-                return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
             case 'church_admin':
                 return 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800';
             case 'priest':
@@ -382,12 +380,12 @@ export default function UsersPage() {
         return role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
 
-    const isSuperOrDioceseAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+    const isSuperAdmin = currentUser?.role === 'super_admin';
 
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
         roleFilter !== 'all' ||
-        (isSuperOrDioceseAdmin && churchFilter !== 'all') ||
+        (isSuperAdmin && churchFilter !== 'all') ||
         sortField !== 'role' ||
         sortOrder !== 'asc'
     );
@@ -395,7 +393,7 @@ export default function UsersPage() {
     const handleResetFilters = () => {
         setSearchQuery('');
         setRoleFilter('all');
-        if (isSuperOrDioceseAdmin) {
+        if (isSuperAdmin) {
             setChurchFilter('all');
         }
         setSortField('role');
@@ -575,7 +573,6 @@ export default function UsersPage() {
                             >
                                 <option value="all">All Roles (Default)</option>
                                 <option value="super_admin">Super Admin (Platform Owner)</option>
-                                <option value="admin">Admin</option>
                                 <option value="church_admin">Church Admin</option>
                                 <option value="priest">Priest</option>
                                 <option value="volunteer">Volunteer</option>
@@ -590,14 +587,14 @@ export default function UsersPage() {
                                 value={churchFilter}
                                 onChange={(e) => setChurchFilter(e.target.value)}
                                 aria-label="Filter by parish"
-                                disabled={!isSuperOrDioceseAdmin}
+                                disabled={!isSuperAdmin}
                                 className={`w-full truncate appearance-none rounded-full pl-3.5 pr-8 py-2 text-xs sm:text-sm font-medium shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 disabled:cursor-not-allowed transition-colors ${
                                     churchFilter !== 'all'
                                         ? 'border border-primary/50 text-primary font-semibold bg-blue-50/30 dark:bg-primary/10 dark:text-blue-300'
                                         : 'bg-white dark:bg-secondary-800 border border-border text-secondary-700 dark:text-secondary-200 hover:bg-secondary-50 dark:hover:bg-secondary-700/60'
                                 }`}
                             >
-                                {isSuperOrDioceseAdmin && (
+                                {isSuperAdmin && (
                                     <>
                                         <option value="all">All Parishes (Default)</option>
                                         <option value="unassigned">No Church Assigned (Unassigned)</option>
