@@ -1,7 +1,7 @@
 /** The slice of an appointment the "Requested priest" note depends on. */
 export interface RequestedPriestSource {
     requested_priest_id?: string | null;
-    requested_priest?: { full_name: string | null } | null;
+    requested_priest?: { full_name: string | null; deleted_at?: string | null } | null;
 }
 
 /**
@@ -11,6 +11,7 @@ export interface RequestedPriestSource {
  */
 export function getRequestedPriestLabel(appointment: RequestedPriestSource): string | null {
     if (!appointment.requested_priest_id) return null;
+    if (appointment.requested_priest?.deleted_at) return 'Deleted User';
     const name = appointment.requested_priest?.full_name?.trim();
     if (!name) return 'a specific priest';
     const lower = name.toLowerCase();

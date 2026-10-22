@@ -7,6 +7,7 @@ import {
     type AppointmentChange,
     type AppointmentChangeAction,
 } from '../../lib/supabase/appointments';
+import { UserName } from '../ui/UserName';
 
 interface AppointmentChangeHistoryProps {
     appointmentId: string;
@@ -159,7 +160,7 @@ export default function AppointmentChangeHistory({ appointmentId, refreshKey = n
                             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                                 <span className="text-sm font-bold text-foreground">{ACTION_LABELS[change.action] ?? change.action}</span>
                                 <span className="text-[11px] text-muted">
-                                    {change.changed_by_name} · <time dateTime={change.created_at}>{formatWhen(change.created_at)}</time>
+                                    <UserName name={change.changed_by_name} deletedAt={change.changed_by_deleted ? 'deleted' : null} /> · <time dateTime={change.created_at}>{formatWhen(change.created_at)}</time>
                                 </span>
                             </div>
                             <ul className="space-y-0.5">

@@ -10,6 +10,7 @@ import {
     formatAppointmentTime,
     type HydratedAppointment as Appointment,
 } from '../../lib/supabase/appointments';
+import { UserName } from '../ui/UserName';
 
 // Custom styles to override default calendar appearance to match theme
 const calendarStyles = `
@@ -154,7 +155,7 @@ export default function DashboardCalendar() {
                                 <h4 className="font-semibold text-primary">{app.service_type}</h4>
                                 <div className="text-sm text-gray-600 mt-1 flex items-center gap-1">
                                     <User className="w-3 h-3" />
-                                    {app.profile?.full_name || 'Guest'}
+                                    <UserName name={app.profile?.full_name} deletedAt={app.profile?.deleted_at} fallback="Guest" />
                                 </div>
                                 <div className="text-xs text-muted mt-1">
                                     {app.church?.name}

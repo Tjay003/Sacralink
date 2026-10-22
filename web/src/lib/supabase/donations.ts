@@ -18,8 +18,8 @@ export interface Donation {
     rejection_reason?: string | null;
     // Joined fields
     church?: { name: string };
-    donor?: { full_name: string | null; email: string | null };
-    verifier?: { full_name: string | null };
+    donor?: { full_name: string | null; deleted_at?: string | null; email: string | null };
+    verifier?: { full_name: string | null; deleted_at?: string | null };
 }
 
 function toError(err: unknown): Error {
@@ -177,8 +177,8 @@ export async function getChurchDonations(
             .select(`
                 *,
                 church:churches(name),
-                donor:profiles!donations_user_id_fkey(full_name, email),
-                verifier:profiles!donations_verified_by_fkey(full_name)
+                donor:profiles!donations_user_id_fkey(full_name, deleted_at, email),
+                verifier:profiles!donations_verified_by_fkey(full_name, deleted_at)
             `, { count: 'exact' })
             .eq('church_id', churchId)
             .order('created_at', { ascending: false });
@@ -222,8 +222,8 @@ export async function getAllDonations(
             .select(`
                 *,
                 church:churches(name),
-                donor:profiles!donations_user_id_fkey(full_name, email),
-                verifier:profiles!donations_verified_by_fkey(full_name)
+                donor:profiles!donations_user_id_fkey(full_name, deleted_at, email),
+                verifier:profiles!donations_verified_by_fkey(full_name, deleted_at)
             `, { count: 'exact' })
             .order('created_at', { ascending: false });
 

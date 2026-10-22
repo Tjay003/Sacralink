@@ -63,6 +63,7 @@ import AssignStaffModal from '../../components/admin/AssignStaffModal';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import { directUpdateProfile } from '../../lib/directApi';
 import type { Profile, Database } from '../../types/database';
+import { UserName } from '../../components/ui/UserName';
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 type ScheduleItem = MassSchedule & { mass_type?: string; description?: string };
@@ -74,7 +75,7 @@ const FALLBACK_PANORAMA_URL = 'https://oaczurouvaevebpimply.supabase.co/storage/
 
 interface SupporterRow {
     user_id: string;
-    profiles: { id: string; full_name: string | null } | null;
+    profiles: { id: string; full_name: string | null; deleted_at: string | null } | null;
 }
 
 type TabType = 'overview' | 'liturgy' | 'media' | 'livestream' | 'announcements' | 'governance';
@@ -109,7 +110,7 @@ export default function ChurchDetailPage() {
     // Donations
     const [showDonateModal, setShowDonateModal] = useState(false);
     const [recentDonors, setRecentDonors] = useState<{ id: string; maskedName: string; created_at: string | null }[]>([]);
-    const [supporters, setSupporters] = useState<{ id: string; full_name: string | null }[]>([]);
+    const [supporters, setSupporters] = useState<{ id: string; full_name: string | null; deleted_at?: string | null }[]>([]);
 
     // Follow / Bookmark
     const [isFollowing, setIsFollowing] = useState(false);
@@ -396,7 +397,7 @@ export default function ChurchDetailPage() {
             if (!id) return;
             const { data } = await supabase
                 .from('donations')
-                .select('user_id, profiles!donations_user_id_fkey(id, full_name)')
+                .select('user_id, profiles!donations_user_id_fkey(id, full_name, deleted_at)')
                 .eq('church_id', id)
                 .eq('status', 'verified')
                 .eq('show_as_supporter', true);
@@ -406,7 +407,7 @@ export default function ChurchDetailPage() {
                 const rows = data as unknown as SupporterRow[];
                 const unique = rows
                     .filter((d) => d.profiles && !seen.has(d.user_id) && seen.add(d.user_id))
-                    .map((d) => ({ id: d.user_id, full_name: d.profiles?.full_name || 'Anonymous' }));
+                    .map((d) => ({ id: d.user_id, full_name: d.profiles?.full_name || 'Anonymous', deleted_at: d.profiles?.deleted_at ?? null }));
                 setSupporters(unique);
             }
         };
@@ -1165,7 +1166,7 @@ export default function ChurchDetailPage() {
                                                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-secondary-50 text-secondary-800 text-xs font-medium border border-border"
                                             >
                                                 <Heart className="w-3 h-3 text-rose-400" />
-                                                {s.full_name}
+                                                <UserName name={s.full_name} deletedAt={s.deleted_at} />
                                             </span>
                                         ))}
                                     </div>

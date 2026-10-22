@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { getAppointments, type HydratedAppointment } from '../../lib/supabase/appointments';
 import { isFuneralService } from '../../lib/supabase/serviceTypes';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserName } from '../ui/UserName';
 
 interface ParishAttentionProps {
     churchId: string;
@@ -290,7 +291,7 @@ export default function ParishAttentionWidget({ churchId, className }: ParishAtt
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                                        {formatServiceName(appt.service_type, appt.service_kind)} for {applicantName}
+                                        {formatServiceName(appt.service_type, appt.service_kind)} for <UserName name={applicantName} deletedAt={appt.profile?.deleted_at} />
                                     </p>
                                     <p className="text-[11px] sm:text-xs text-secondary-500 font-medium truncate mt-0.5">
                                         {action.subtext}

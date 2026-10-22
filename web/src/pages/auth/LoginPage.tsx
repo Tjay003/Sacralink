@@ -7,7 +7,7 @@ import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { BLOCKED_ACCOUNT_NOTICE_KEY } from '../../lib/blockedAccountNotice';
+import { BLOCKED_ACCOUNT_NOTICE_KEY, SUSPENDED_ACCOUNT_MESSAGE } from '../../lib/blockedAccountNotice';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import { Button } from "@/components/ui/button"
@@ -106,7 +106,13 @@ export default function LoginPage() {
             await signIn(data.email, data.password);
             recordSuccessfulLogin(data.email);
             navigate('/dashboard');
-        } catch {
+        } catch (signInError) {
+            const authError = signInError as { code?: string; message?: string } | null;
+            if (authError?.code === 'user_banned' || /user is banned/i.test(authError?.message ?? '')) {
+                // A suspended account: the password was right, so this is not a failed-login attempt
+                setError(SUSPENDED_ACCOUNT_MESSAGE);
+                return;
+            }
             const result = recordFailedLogin(data.email);
             if (result.isLocked) {
                 setLockoutSeconds(result.remainingSeconds);

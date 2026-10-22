@@ -38,6 +38,9 @@ import {
     deleteConversationForEveryone,
     updateTicketStatus,
     reopenTicket,
+    listEscalatedTicketStubs,
+    requestTicketReview,
+    type EscalatedTicketStub,
     isLocalConversation,
     getLocalConversationById,
     getLocalMinistryMessages,
@@ -51,6 +54,8 @@ import Modal from '../../components/ui/Modal';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { directFetchChurches } from '../../lib/directApi';
 import type { Profile, Church as ChurchType } from '../../types/database';
+import { isTicket, canHandleTicket, ticketLaneLabel, shouldOfferReviewRequest } from '../../lib/tickets';
+import { UserName } from '../../components/ui/UserName';
 
 // Video calls are hidden for now (client request); flip to true to bring the buttons and call cards back.
 const VIDEO_CALLS_ENABLED = false;
@@ -225,6 +230,10 @@ export default function MessagingPage() {
     const [sending, setSending] = useState(false);
     const [updatingTicketStatus, setUpdatingTicketStatus] = useState(false);
     const [reopeningTicket, setReopeningTicket] = useState(false);
+    const [ticketActionError, setTicketActionError] = useState<string | null>(null);
+    const [requestingReview, setRequestingReview] = useState(false);
+    const [ticketStubs, setTicketStubs] = useState<EscalatedTicketStub[]>([]);
+    const [linkedTicketNumber, setLinkedTicketNumber] = useState<string | null>(null);
 
     // Filter & search
     const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
@@ -320,6 +329,8 @@ export default function MessagingPage() {
             if (error) throw error;
             const convs = data || [];
             setConversations(convs);
+            // A Church Admin also sees one content-free stub line per ticket they escalated
+            setTicketStubs(profile?.role === 'church_admin' ? await listEscalatedTicketStubs() : []);
 
             const directConvId = new URLSearchParams(window.location.search).get('conv') || navState?.conversationId;
             if (directConvId) {
@@ -333,7 +344,7 @@ export default function MessagingPage() {
         } finally {
             setLoadingConversations(false);
         }
-    }, [user, navState?.conversationId]);
+    }, [user, navState?.conversationId, profile?.role]);
 
     // Initial load
     useEffect(() => {
@@ -352,6 +363,38 @@ export default function MessagingPage() {
             }
         }
     }, [convParam, user, conversations, loadConversations]);
+
+    // Opening a ticket from a link or notification lands on the Tickets tab
+    const tabSyncedForRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!convParam || tabSyncedForRef.current === convParam) return;
+        const target = conversations.find((c) => c.id === convParam);
+        if (!target) return;
+        tabSyncedForRef.current = convParam;
+        if (isTicket(target)) setActiveTab('tickets');
+    }, [convParam, conversations]);
+
+    // Clear any ticket error when another conversation opens, and look up the ticket a follow-up continues
+    useEffect(() => {
+        setTicketActionError(null);
+        const linkedId = activeConversation?.linked_ticket_id;
+        if (!linkedId) {
+            setLinkedTicketNumber(null);
+            return;
+        }
+        let cancelled = false;
+        supabase
+            .from('conversations')
+            .select('ticket_number')
+            .eq('id', linkedId)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (!cancelled) setLinkedTicketNumber(data?.ticket_number ?? null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeConversation?.id, activeConversation?.linked_ticket_id]);
 
     // Global user-level listener for incoming messages across all user conversations
     useEffect(() => {
@@ -504,6 +547,7 @@ export default function MessagingPage() {
             return conv.title;
         }
         const other = getParticipantProfile(conv);
+        if (other?.deleted_at) return 'Deleted User';
         if (other?.full_name?.trim()) return other.full_name.trim();
         if (other?.email?.trim()) return other.email.trim();
         return 'Parish Member';
@@ -757,9 +801,14 @@ export default function MessagingPage() {
         setModalError(null);
         setShowNewChatModal(true);
         if (!user) return;
+        // Parishioners and Volunteers start no Direct chat: they are offered New Ticket (and the staff channel)
+        if (profile?.role === 'user' || isVolunteer) {
+            setContacts([]);
+            return;
+        }
         setLoadingContacts(true);
         try {
-            const { data, error } = await fetchAvailableContacts(user.id, undefined, profile?.role);
+            const { data, error } = await fetchAvailableContacts();
             if (error) throw error;
             setContacts(data || []);
         } catch (err) {
@@ -773,19 +822,7 @@ export default function MessagingPage() {
     const handleSelectContact = async (contactUser: ContactProfile | Profile) => {
         if (!user) return;
 
-        // Office Gateway guard: Parishioners cannot message priests directly
-        const isTargetPriest = contactUser.role === 'priest' || ('is_priest' in contactUser && Boolean((contactUser as { is_priest?: boolean }).is_priest));
-        if (profile?.role === 'user' && isTargetPriest) {
-            setModalError('To contact parish clergy, please send a message to the Parish Office.');
-            return;
-        }
-
-        // Volunteers only message their own parish's office staff, never parishioners or priests
-        if (isVolunteer && !['church_admin', 'volunteer'].includes(contactUser.role || '')) {
-            setModalError('Volunteers can message their parish office and fellow volunteers. To reach a parishioner, reply on their Parish Office Ticket.');
-            return;
-        }
-
+        // The picker lists only people the database lets this role start a chat with (list_direct_contacts)
         setShowNewChatModal(false);
         setModalError(null);
         try {
@@ -867,15 +904,19 @@ export default function MessagingPage() {
         }
 
         // Apply Tab Filter
+        // Tickets live only under Tickets; All, Direct and Staff never show one
         if (activeTab === 'tickets') {
-            list = list.filter((c) => c.type === 'group' || (c as any).category || (c as any).ticket_number);
+            list = list.filter((c) => isTicket(c));
             if (ticketStatusFilter !== 'all') {
-                list = list.filter((c) => ((c as any).status || 'open') === ticketStatusFilter);
+                list = list.filter((c) => (c.status || 'open') === ticketStatusFilter);
             }
-        } else if (activeTab === 'direct') {
-            list = list.filter((c) => c.type === 'direct');
-        } else if (activeTab === 'staff') {
-            list = list.filter((c) => c.type === 'channel');
+        } else {
+            list = list.filter((c) => !isTicket(c));
+            if (activeTab === 'direct') {
+                list = list.filter((c) => c.type === 'direct');
+            } else if (activeTab === 'staff') {
+                list = list.filter((c) => c.type === 'channel');
+            }
         }
 
         if (!searchQuery.trim()) return list;
@@ -886,7 +927,7 @@ export default function MessagingPage() {
             const email = other?.email;
             const churchName = c.church?.name;
             const lastMsg = c.lastMessage?.content;
-            const ticketNum = (c as any).ticket_number;
+            const ticketNum = c.ticket_number;
             return (
                 (title && title.toLowerCase().includes(q)) ||
                 (email && email.toLowerCase().includes(q)) ||
@@ -900,16 +941,6 @@ export default function MessagingPage() {
     // Filter contacts in New Message modal
     const filteredContacts = useMemo(() => {
         let result = [...contacts];
-
-        if (profile?.role === 'user') {
-            result = result.filter((c) =>
-                ['super_admin', 'church_admin'].includes(c.role || '') && !c.is_priest
-            );
-        }
-
-        if (isVolunteer) {
-            result = result.filter((c) => ['church_admin', 'volunteer'].includes(c.role || '') && !c.is_priest);
-        }
 
         if (contactRoleFilter === 'church_admin') {
             result = result.filter(
@@ -938,7 +969,7 @@ export default function MessagingPage() {
             });
         }
         return result;
-    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role, isVolunteer]);
+    }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role]);
 
     // Filtered parishes for Super Admin modal
     const filteredParishes = useMemo(() => {
@@ -948,6 +979,41 @@ export default function MessagingPage() {
             (c) => c.name.toLowerCase().includes(q) || (c.address && c.address.toLowerCase().includes(q))
         );
     }, [allChurches, parishSearch]);
+
+    // Ticket rules mirrored from the database (src/lib/tickets.ts); the database stays the authority
+    const viewer = {
+        id: user?.id,
+        role: profile?.role,
+        church_id: profile?.church_id,
+        assigned_church_id: profile?.assigned_church_id,
+    };
+    const activeIsTicket = isTicket(activeConversation);
+    const canHandleActive = canHandleTicket(activeConversation, viewer);
+    const activeLaneLabel = ticketLaneLabel(activeConversation);
+    const offerReviewRequest = Boolean(
+        activeConversation && shouldOfferReviewRequest(activeConversation, viewer, messages)
+    );
+    // Parishioners and Volunteers cannot start a Direct chat: the New Message dialog offers New Ticket instead
+    const noDirectContacts = profile?.role === 'user' || isVolunteer;
+    const visibleStubs = useMemo(() => {
+        if (activeTab !== 'tickets' || ticketStatusFilter !== 'all') return [];
+        const q = searchQuery.trim().toLowerCase();
+        return q ? ticketStubs.filter((stub) => stub.ticket_number.toLowerCase().includes(q)) : ticketStubs;
+    }, [activeTab, ticketStatusFilter, searchQuery, ticketStubs]);
+
+    // Ask the Super Admin to review a church ticket nobody answered for 7 days
+    const handleRequestReview = async () => {
+        if (!activeConversation || requestingReview) return;
+        setRequestingReview(true);
+        setTicketActionError(null);
+        const { error } = await requestTicketReview(activeConversation.id);
+        if (error) {
+            setTicketActionError(error.message);
+        } else {
+            await loadConversations();
+        }
+        setRequestingReview(false);
+    };
 
     return (
         <div className="flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8rem)] min-h-[520px] w-full max-w-7xl mx-auto space-y-3 sm:space-y-4 overflow-hidden">
@@ -1118,15 +1184,21 @@ export default function MessagingPage() {
                                 <div className="animate-spin rounded-full h-7 w-7 border-2 border-primary border-t-transparent mx-auto" />
                                 <p className="text-xs text-secondary-400 font-medium">Loading conversations...</p>
                             </div>
-                        ) : filteredConversations.length === 0 ? (
+                        ) : filteredConversations.length === 0 && visibleStubs.length === 0 ? (
                             <div className="p-8 text-center space-y-3">
                                 <div className="w-12 h-12 rounded-full bg-secondary-100 mx-auto flex items-center justify-center text-secondary-400">
                                     <MessageSquare className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-foreground">No conversations yet</p>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        {activeTab === 'tickets' ? 'No tickets yet' : 'No conversations yet'}
+                                    </p>
                                     <p className="text-xs text-secondary-500 mt-0.5">
-                                        Start a new conversation with parish clergy or parishioners.
+                                        {activeTab === 'tickets'
+                                            ? 'Tickets you open or handle appear here.'
+                                            : noDirectContacts
+                                            ? 'Open a ticket to reach the parish office.'
+                                            : 'Start a new conversation with the people you can message.'}
                                     </p>
                                 </div>
                                 <button
@@ -1139,7 +1211,28 @@ export default function MessagingPage() {
                                 </button>
                             </div>
                         ) : (
-                            filteredConversations.map((conv) => {
+                            <>
+                            {visibleStubs.map((stub) => (
+                                <div
+                                    key={stub.ticket_number}
+                                    data-testid="escalated-ticket-stub"
+                                    aria-disabled="true"
+                                    className="p-3.5 flex items-center gap-3 w-full min-w-0 bg-secondary-50/50 cursor-default"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center shrink-0">
+                                        <Lock className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-xs sm:text-sm font-bold text-secondary-700 truncate">
+                                            {`${stub.ticket_number} · Escalated to Super Admin`}
+                                        </p>
+                                        <p className="text-[11px] text-secondary-400 mt-0.5">
+                                            Escalated {formatConversationDate(stub.escalated_at)}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                            {filteredConversations.map((conv) => {
                                 const isSelected = conv.id === activeConversationId;
                                 const isChannel = conv.type === 'channel';
                                 const isGroup = conv.type === 'group';
@@ -1185,7 +1278,7 @@ export default function MessagingPage() {
                                                 <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shadow-xs">
                                                     <MessageSquare className="w-5 h-5 text-amber-700" />
                                                 </div>
-                                            ) : otherProf?.avatar_url ? (
+                                            ) : otherProf?.avatar_url && !otherProf.deleted_at ? (
                                                 <img
                                                     src={otherProf.avatar_url}
                                                     alt={displayName}
@@ -1204,7 +1297,7 @@ export default function MessagingPage() {
                                         <div className="flex-1 min-w-0 overflow-hidden">
                                             <div className="flex items-baseline justify-between gap-2 min-w-0">
                                                 <h3 className="font-bold text-xs sm:text-sm text-foreground truncate">
-                                                    {displayName}
+                                                    <UserName name={displayName} deletedAt={!isChannel && !isGroup ? otherProf?.deleted_at : null} />
                                                 </h3>
                                                 <span className="text-[11px] text-secondary-400 font-medium whitespace-nowrap shrink-0">
                                                     {formatConversationDate(conv.updated_at)}
@@ -1212,21 +1305,21 @@ export default function MessagingPage() {
                                             </div>
 
                                             {/* Ticket Category & Status Badge Row */}
-                                            {((conv as any).ticket_number || (conv as any).category) && (
+                                            {isTicket(conv) && (
                                                 <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                                    {(conv as any).ticket_number && (
+                                                    {conv.ticket_number && (
                                                         <span className="font-mono text-[9px] font-bold text-secondary-500 bg-secondary-100/70 px-1.5 py-0.5 rounded">
-                                                            {(conv as any).ticket_number}
+                                                            {conv.ticket_number}
                                                         </span>
                                                     )}
-                                                    {(conv as any).category && (
-                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getCategoryBadge((conv as any).category).className}`}>
-                                                            {getCategoryBadge((conv as any).category).emoji} {getCategoryBadge((conv as any).category).label}
+                                                    {conv.category && (
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getCategoryBadge(conv.category).className}`}>
+                                                            {getCategoryBadge(conv.category).emoji} {getCategoryBadge(conv.category).label}
                                                         </span>
                                                     )}
-                                                    {(conv as any).status && (
-                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getStatusBadge((conv as any).status).className}`}>
-                                                            {getStatusBadge((conv as any).status).label}
+                                                    {conv.status && (
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getStatusBadge(conv.status).className}`}>
+                                                            {getStatusBadge(conv.status).label}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1245,7 +1338,8 @@ export default function MessagingPage() {
                                         </div>
                                     </div>
                                 );
-                            })
+                            })}
+                            </>
                         )}
                     </div>
                 </div>
@@ -1291,10 +1385,18 @@ export default function MessagingPage() {
                                             otherContact?.assigned_church?.name ||
                                             otherContact?.church?.name ||
                                             'Parish Community';
+                                        const ticketDesk =
+                                            activeLaneLabel === 'Parish office'
+                                                ? 'Parish office ticket'
+                                                : activeLaneLabel === 'Super Admin'
+                                                ? 'Super Admin ticket'
+                                                : activeLaneLabel;
                                         const headerSubtitle = isChannel
                                             ? `${activeConversation.participants?.length || 1} staff participants · ${churchName}`
+                                            : activeIsTicket
+                                            ? `${ticketDesk} · ${churchName}`
                                             : isGroup
-                                            ? `Parish Office Inquiry · ${churchName}`
+                                            ? `Ministry group · ${churchName}`
                                             : `${roleBadge.label} · ${churchName}`;
 
                                         return (
@@ -1308,7 +1410,7 @@ export default function MessagingPage() {
                                                         <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shadow-xs">
                                                             <MessageSquare className="w-5 h-5 text-amber-700" />
                                                         </div>
-                                                    ) : otherProf?.avatar_url ? (
+                                                    ) : otherProf?.avatar_url && !otherProf.deleted_at ? (
                                                         <img
                                                             src={otherProf.avatar_url}
                                                             alt={headerTitle}
@@ -1326,11 +1428,23 @@ export default function MessagingPage() {
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <h2 className="font-bold text-foreground text-sm sm:text-base truncate leading-tight">
-                                                            {headerTitle}
+                                                            <UserName name={headerTitle} deletedAt={!isChannel && !isGroup ? otherProf?.deleted_at : null} />
                                                         </h2>
-                                                        {(activeConversation as any).ticket_number && (
+                                                        {activeIsTicket && (
                                                             <span className="font-mono text-[10px] font-bold text-secondary-600 bg-secondary-100 px-2 py-0.5 rounded-md border border-secondary-200">
-                                                                {(activeConversation as any).ticket_number}
+                                                                {activeConversation.ticket_number}
+                                                            </span>
+                                                        )}
+                                                        {activeIsTicket && activeLaneLabel && (
+                                                            <span
+                                                                data-testid="ticket-lane"
+                                                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                                                    activeConversation.escalated_at
+                                                                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                                        : 'bg-secondary-50 text-secondary-600 border-secondary-200'
+                                                                }`}
+                                                            >
+                                                                {activeLaneLabel}
                                                             </span>
                                                         )}
                                                     </div>
@@ -1346,16 +1460,17 @@ export default function MessagingPage() {
                                 {/* Right Actions: Start Video Call & Responsive Delete */}
                                 <div className="flex items-center gap-2 shrink-0">
                                     {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner (Only for inquiries/tickets) */}
-                                    {Boolean((activeConversation as any).ticket_number) && (
+                                    {activeIsTicket && (
                                         <div className="flex items-center gap-1.5">
-                                            {isStaff ? (
+                                            {canHandleActive ? (
                                                 <div className="relative">
                                                     <select
                                                         disabled={updatingTicketStatus}
-                                                        value={(activeConversation as any).status || 'open'}
+                                                        value={activeConversation.status || 'open'}
                                                         onChange={async (e) => {
                                                             const newStatus = e.target.value as 'open' | 'in_progress' | 'resolved' | 'closed';
                                                             setUpdatingTicketStatus(true);
+                                                            setTicketActionError(null);
                                                             try {
                                                                 const { error: statusError } = await updateTicketStatus(activeConversation.id, newStatus);
                                                                 if (statusError) throw statusError;
@@ -1363,12 +1478,16 @@ export default function MessagingPage() {
                                                                 setConversations((prev) =>
                                                                     prev.map((c) =>
                                                                         c.id === activeConversation.id
-                                                                            ? { ...c, status: newStatus } as any
+                                                                            ? { ...c, status: newStatus }
                                                                             : c
                                                                     )
                                                                 );
                                                             } catch (err) {
+                                                                // The list keeps the old status, so the dropdown snaps back to it
                                                                 console.error('Failed to update ticket status:', err);
+                                                                setTicketActionError(
+                                                                    err instanceof Error ? err.message : 'Could not change the ticket status.'
+                                                                );
                                                             } finally {
                                                                 setUpdatingTicketStatus(false);
                                                             }
@@ -1382,8 +1501,8 @@ export default function MessagingPage() {
                                                     </select>
                                                 </div>
                                             ) : (
-                                                <span className={`text-xs px-2.5 py-1 rounded-xl font-semibold border ${getStatusBadge((activeConversation as any).status).className}`}>
-                                                    {getStatusBadge((activeConversation as any).status).label}
+                                                <span className={`text-xs px-2.5 py-1 rounded-xl font-semibold border ${getStatusBadge(activeConversation.status).className}`}>
+                                                    {getStatusBadge(activeConversation.status).label}
                                                 </span>
                                             )}
                                         </div>
@@ -1418,6 +1537,44 @@ export default function MessagingPage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Ticket notices: follow-up link, review request and status errors */}
+                            {activeIsTicket && (
+                                (linkedTicketNumber || activeConversation.linked_ticket_id || offerReviewRequest || ticketActionError) && (
+                                    <div className="px-4 py-2.5 border-b border-border/70 bg-secondary-50/40 space-y-2 shrink-0">
+                                        {activeConversation.linked_ticket_id && (
+                                            <p className="text-xs font-medium text-secondary-600">
+                                                Follow-up to {linkedTicketNumber || 'an earlier ticket'}
+                                            </p>
+                                        )}
+                                        {offerReviewRequest && (
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                <p className="text-xs text-secondary-600">
+                                                    No reply for 7 days? The Super Admin can step in and review this ticket.
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRequestReview}
+                                                    disabled={requestingReview}
+                                                    className="px-3 py-1.5 rounded-xl border border-primary/40 text-primary hover:bg-blue-50 disabled:opacity-50 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                                                >
+                                                    {requestingReview ? 'Asking...' : 'Ask the Super Admin to review'}
+                                                </button>
+                                            </div>
+                                        )}
+                                        {ticketActionError && (
+                                            <div
+                                                role="alert"
+                                                data-testid="ticket-action-error"
+                                                className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2"
+                                            >
+                                                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                                                <span>{ticketActionError}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            )}
 
                             {/* Message Thread */}
                             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white min-w-0">
@@ -1546,7 +1703,8 @@ export default function MessagingPage() {
                                             );
                                         }
 
-                                        const senderName = msg.sender?.full_name?.trim() || 'Staff Member';
+                                        const senderDeleted = Boolean(msg.sender?.deleted_at);
+                                        const senderName = senderDeleted ? 'Deleted User' : msg.sender?.full_name?.trim() || 'Staff Member';
                                         const senderInitials = getInitials(senderName, msg.sender?.email);
                                         const roleInfo = getRoleBadge(
                                             msg.sender?.is_priest ? 'priest' : msg.sender?.role
@@ -1558,7 +1716,7 @@ export default function MessagingPage() {
                                                 className="flex flex-col items-start max-w-[85%] sm:max-w-md"
                                             >
                                                 <div className="flex items-end gap-2.5 min-w-0 w-full">
-                                                    {msg.sender?.avatar_url ? (
+                                                    {msg.sender?.avatar_url && !senderDeleted ? (
                                                         <img
                                                             src={msg.sender.avatar_url}
                                                             alt={senderName}
@@ -1573,7 +1731,7 @@ export default function MessagingPage() {
                                                     <div className="bg-secondary-100/70 text-foreground rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-2xs min-w-0">
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <span className="font-bold text-xs text-foreground truncate">
-                                                                {senderName}
+                                                                <UserName name={senderName} deletedAt={msg.sender?.deleted_at} />
                                                             </span>
                                                             <span
                                                                 className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${roleInfo.className}`}
@@ -1598,8 +1756,7 @@ export default function MessagingPage() {
 
                             {/* Bottom Input Bar */}
                             <div className="p-4 border-t border-border/70 bg-white shrink-0">
-                                {Boolean((activeConversation as any).ticket_number) &&
-                                (activeConversation as any).status === 'closed' ? (
+                                {activeIsTicket && activeConversation.status === 'closed' ? (
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-secondary-50">
                                         <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-secondary-700 min-w-0">
                                             <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
@@ -1614,6 +1771,53 @@ export default function MessagingPage() {
                                             <RotateCcw className="w-4 h-4" />
                                             <span>{reopeningTicket ? 'Reopening...' : 'Reopen Ticket'}</span>
                                         </button>
+                                    </div>
+                                ) : activeConversation.type === 'direct' &&
+                                  (activeConversation.other_participant_blocked || getParticipantProfile(activeConversation)?.deleted_at) ? (
+                                    <div
+                                        role="status"
+                                        data-testid="composer-unavailable"
+                                        className="flex items-center gap-2 p-3 rounded-xl border border-border bg-secondary-50 text-xs sm:text-sm font-semibold text-secondary-700"
+                                    >
+                                        <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
+                                        <span>This user is no longer available</span>
+                                    </div>
+                                ) : activeConversation.type === 'direct' &&
+                                  activeConversation.is_legacy_direct &&
+                                  (profile?.role === 'user' || isVolunteer) ? (
+                                    <div
+                                        data-testid="legacy-direct-banner"
+                                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-secondary-50"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-xs sm:text-sm font-semibold text-secondary-700 flex items-center gap-2">
+                                                <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
+                                                <span>Please open a ticket</span>
+                                            </p>
+                                            <p className="text-[11px] sm:text-xs text-secondary-500 mt-1">
+                                                This chat is now read-only. Tickets let the parish office track and answer your message.
+                                                {isVolunteer && ' You can also reach your parish team in the staff channel.'}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {isVolunteer && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenChurchStaffChannel()}
+                                                    className="px-3 py-2 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 font-semibold text-xs cursor-pointer transition-colors"
+                                                >
+                                                    Staff channel
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTicketModal(true)}
+                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                                <span>New Ticket</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                 <form
@@ -1659,6 +1863,19 @@ export default function MessagingPage() {
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
                             <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto" />
                             <p className="text-xs text-secondary-500 font-medium">Opening conversation...</p>
+                        </div>
+                    ) : activeConversationId && !loadingConversations ? (
+                        <div
+                            data-testid="conversation-not-found"
+                            className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white"
+                        >
+                            <div className="w-12 h-12 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center">
+                                <MessageSquare className="w-6 h-6" />
+                            </div>
+                            <h3 className="font-serif text-lg font-bold text-foreground">Conversation not found</h3>
+                            <p className="text-xs text-secondary-500 max-w-sm">
+                                It may have been removed, or you may not have access to it.
+                            </p>
                         </div>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
@@ -1712,7 +1929,7 @@ export default function MessagingPage() {
                                         <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl mb-3 shadow-xs">
                                             <Church className="w-8 h-8" />
                                         </div>
-                                    ) : otherProf?.avatar_url ? (
+                                    ) : otherProf?.avatar_url && !otherProf.deleted_at ? (
                                         <img
                                             src={otherProf.avatar_url}
                                             alt={title}
@@ -1728,7 +1945,7 @@ export default function MessagingPage() {
 
                                     {/* Name */}
                                     <h3 className="font-bold text-foreground text-base tracking-tight truncate">
-                                        {title}
+                                        <UserName name={title} deletedAt={!isChannel ? otherProf?.deleted_at : null} />
                                     </h3>
 
                                     {/* Role badge */}
@@ -1753,15 +1970,15 @@ export default function MessagingPage() {
                                     )}
 
                                     {/* LINKED REQUEST / TICKET DETAILS section */}
-                                    {((activeConversation as any).ticket_number || (activeConversation as any).category) ? (
+                                    {activeIsTicket ? (
                                         <div className="mb-6 space-y-3 p-3.5 rounded-xl border border-border/80 bg-secondary-50/50">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="text-[11px] font-bold text-secondary-500 uppercase tracking-wider">
                                                     TICKET INFORMATION
                                                 </span>
-                                                {(activeConversation as any).ticket_number && (
+                                                {activeConversation.ticket_number && (
                                                     <span className="font-mono text-[10px] font-bold text-primary bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                                                        {(activeConversation as any).ticket_number}
+                                                        {activeConversation.ticket_number}
                                                     </span>
                                                 )}
                                             </div>
@@ -1769,17 +1986,33 @@ export default function MessagingPage() {
                                             <div className="space-y-2 text-xs">
                                                 <div className="flex items-center justify-between text-secondary-600">
                                                     <span className="text-secondary-400">Category:</span>
-                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getCategoryBadge((activeConversation as any).category).className}`}>
-                                                        {getCategoryBadge((activeConversation as any).category).emoji} {getCategoryBadge((activeConversation as any).category).label}
+                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getCategoryBadge(activeConversation.category).className}`}>
+                                                        {getCategoryBadge(activeConversation.category).emoji} {getCategoryBadge(activeConversation.category).label}
                                                     </span>
                                                 </div>
 
                                                 <div className="flex items-center justify-between text-secondary-600">
                                                     <span className="text-secondary-400">Status:</span>
-                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getStatusBadge((activeConversation as any).status).className}`}>
-                                                        {getStatusBadge((activeConversation as any).status).label}
+                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getStatusBadge(activeConversation.status).className}`}>
+                                                        {getStatusBadge(activeConversation.status).label}
                                                     </span>
                                                 </div>
+
+                                                {activeLaneLabel && (
+                                                    <div className="flex items-center justify-between text-secondary-600">
+                                                        <span className="text-secondary-400">Desk:</span>
+                                                        <span className="font-medium text-foreground">{activeLaneLabel}</span>
+                                                    </div>
+                                                )}
+
+                                                {activeConversation.linked_ticket_id && (
+                                                    <div className="flex items-center justify-between text-secondary-600">
+                                                        <span className="text-secondary-400">Follow-up to:</span>
+                                                        <span className="font-mono font-medium text-foreground">
+                                                            {linkedTicketNumber || 'an earlier ticket'}
+                                                        </span>
+                                                    </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between text-secondary-600">
                                                     <span className="text-secondary-400">Opened:</span>
@@ -1837,13 +2070,47 @@ export default function MessagingPage() {
                 title="New Direct Conversation"
                 description={
                     profile?.role === 'user'
-                        ? 'Search parish office staff to start chatting'
+                        ? 'Messages to the parish office are sent as tickets'
                         : isVolunteer
-                        ? 'Search your parish office and fellow volunteers to start chatting'
-                        : 'Search parish clergy, administrators, staff, or parishioners to start chatting'
+                        ? 'Reach your parish team in the staff channel, or open a ticket'
+                        : 'Search the people you can start a conversation with'
                 }
                 size="lg"
             >
+                {noDirectContacts ? (
+                    <div data-testid="new-message-ticket-offer" className="space-y-4">
+                        <p className="text-sm text-secondary-700">
+                            Messages to the parish office are tickets so the office can track and answer them.
+                            {isVolunteer && ' Your parish team is also in the staff channel.'}
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowNewChatModal(false);
+                                    setShowTicketModal(true);
+                                }}
+                                className="bg-primary hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2.5 rounded-xl shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                            >
+                                <Mail className="w-4 h-4" />
+                                <span>New Ticket</span>
+                            </button>
+                            {isVolunteer && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNewChatModal(false);
+                                        handleOpenChurchStaffChannel();
+                                    }}
+                                    className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border font-semibold text-sm px-4 py-2.5 rounded-xl shadow-xs inline-flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                                >
+                                    <Church className="w-4 h-4 text-secondary-600" />
+                                    <span>Open staff channel</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
                 <div className="space-y-4">
                     {modalError && (
                         <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
@@ -1890,17 +2157,17 @@ export default function MessagingPage() {
                         </div>
 
                         <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-                            {(profile?.role === 'user' ? [
-                                { id: 'all', label: 'All Administrators' },
-                                { id: 'church_admin', label: 'Parish Office' },
-                                { id: 'super_admin', label: 'Super Admin' },
-                            ] : isVolunteer ? [
+                            {(profile?.role === 'priest' ? [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'volunteer', label: 'Volunteers' },
+                                { id: 'user', label: 'Parishioners' },
+                            ] : profile?.role === 'super_admin' ? [
+                                { id: 'all', label: 'All Church Admins' },
                             ] : [
                                 { id: 'all', label: 'All Contacts' },
+                                { id: 'super_admin', label: 'Super Admin' },
                                 { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'priest', label: 'Priests' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ]).map((tab) => (
@@ -1992,6 +2259,7 @@ export default function MessagingPage() {
                         )}
                     </div>
                 </div>
+                )}
             </Modal>
 
             {/* New Parish Office Ticket (parish selector because no parish is pre-selected) */}

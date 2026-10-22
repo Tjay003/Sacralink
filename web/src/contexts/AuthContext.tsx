@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
-import { BLOCKED_ACCOUNT_NOTICE_KEY } from '../lib/blockedAccountNotice';
+import { BLOCKED_ACCOUNT_NOTICE_KEY, SUSPENDED_ACCOUNT_MESSAGE } from '../lib/blockedAccountNotice';
 import { clearLocalMessagingCache, setLocalMessagingOwner } from '../lib/supabase/messaging';
 import type { Profile } from '../types/database';
 
@@ -198,11 +198,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     /**
-     * endBlockedSession - Signs out a deleted account and sends it to the login page with a message.
+     * endBlockedSession - Signs out a deleted or suspended account and sends it to the login page with a message.
      */
-    const endBlockedSession = async () => {
+    const endBlockedSession = async (reason: 'deleted' | 'suspended' = 'deleted') => {
         try {
-            window.sessionStorage.setItem(BLOCKED_ACCOUNT_NOTICE_KEY, 'This account has been deleted. You can no longer sign in with it.');
+            window.sessionStorage.setItem(
+                BLOCKED_ACCOUNT_NOTICE_KEY,
+                reason === 'suspended' ? SUSPENDED_ACCOUNT_MESSAGE : 'This account has been deleted. You can no longer sign in with it.'
+            );
         } catch {
             // sessionStorage can be unavailable; the redirect still happens
         }
@@ -493,6 +496,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             void endBlockedSession();
                             return;
                         }
+                        if ((payload.new as Profile).suspended_at) {
+                            void endBlockedSession('suspended');
+                            return;
+                        }
                         setProfile(payload.new as Profile);
                     }
                 }
@@ -519,6 +526,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const latest = await directFetchProfile(userId, accessToken);
             if (latest?.deleted_at) {
                 await endBlockedSession();
+                return;
+            }
+            if (latest?.suspended_at) {
+                await endBlockedSession('suspended');
                 return;
             }
             if (!latest) {

@@ -34,18 +34,21 @@ export interface HydratedAppointment {
     profile?: {
         id?: string;
         full_name: string | null;
+        deleted_at?: string | null;
         email?: string | null;
         phone_number?: string | null;
     } | null;
     priest?: {
         id: string;
         full_name: string | null;
+        deleted_at?: string | null;
         email?: string | null;
     } | null;
     /** The priest the parishioner asked for at booking; a preference, not the assignment. */
     requested_priest?: {
         id: string;
         full_name: string | null;
+        deleted_at?: string | null;
     } | null;
 }
 
@@ -108,17 +111,20 @@ interface RawAppointmentQueryResult {
     profile: {
         id: string;
         full_name: string | null;
+        deleted_at?: string | null;
         email: string | null;
         phone_number?: string | null;
     } | null;
     priest?: {
         id: string;
         full_name: string | null;
+        deleted_at?: string | null;
         email: string | null;
     } | null;
     requested_priest?: {
         id: string;
         full_name: string | null;
+        deleted_at?: string | null;
     } | null;
     service?: {
         kind: string | null;
@@ -151,9 +157,9 @@ export async function getAppointments(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
-                priest:profiles!appointments_priest_id_fkey(id, full_name, email),
-                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name),
+                profile:profiles!appointments_user_id_fkey(id, full_name, deleted_at, email, phone_number),
+                priest:profiles!appointments_priest_id_fkey(id, full_name, deleted_at, email),
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name, deleted_at),
                 service:church_service_types!appointments_service_type_id_fkey(kind)
             `, { count: 'exact' });
 
@@ -251,9 +257,9 @@ export async function getAppointments(
             rescheduled_from_date: row.rescheduled_from_date ?? null,
             reschedule_reason: row.reschedule_reason ?? null,
             church: row.church ? { id: row.church.id, name: row.church.name } : null,
-            profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, email: row.profile.email, phone_number: row.profile.phone_number } : null,
-            priest: row.priest ? { id: row.priest.id, full_name: row.priest.full_name, email: row.priest.email } : null,
-            requested_priest: row.requested_priest ? { id: row.requested_priest.id, full_name: row.requested_priest.full_name } : null,
+            profile: row.profile ? { id: row.profile.id, full_name: row.profile.full_name, deleted_at: row.profile.deleted_at ?? null, email: row.profile.email, phone_number: row.profile.phone_number } : null,
+            priest: row.priest ? { id: row.priest.id, full_name: row.priest.full_name, deleted_at: row.priest.deleted_at ?? null, email: row.priest.email } : null,
+            requested_priest: row.requested_priest ? { id: row.requested_priest.id, full_name: row.requested_priest.full_name, deleted_at: row.requested_priest.deleted_at ?? null } : null,
         }));
 
         // Search query filter (by parishioner name or service type)
@@ -287,9 +293,9 @@ export async function getAppointmentById(
             .select(`
                 *,
                 church:churches(id, name),
-                profile:profiles!appointments_user_id_fkey(id, full_name, email, phone_number),
-                priest:profiles!appointments_priest_id_fkey(id, full_name, email),
-                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name),
+                profile:profiles!appointments_user_id_fkey(id, full_name, deleted_at, email, phone_number),
+                priest:profiles!appointments_priest_id_fkey(id, full_name, deleted_at, email),
+                requested_priest:profiles!appointments_requested_priest_id_fkey(id, full_name, deleted_at),
                 service:church_service_types!appointments_service_type_id_fkey(kind)
             `)
             .eq('id', id)
@@ -316,9 +322,9 @@ export async function getAppointmentById(
             requested_priest_id: data.requested_priest_id ?? null,
             admin_feedback: data.admin_feedback ?? null,
             church: data.church ? { id: data.church.id, name: data.church.name } : null,
-            profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, email: data.profile.email, phone_number: data.profile.phone_number } : null,
-            priest: data.priest ? { id: data.priest.id, full_name: data.priest.full_name, email: data.priest.email } : null,
-            requested_priest: data.requested_priest ? { id: data.requested_priest.id, full_name: data.requested_priest.full_name } : null,
+            profile: data.profile ? { id: data.profile.id, full_name: data.profile.full_name, deleted_at: data.profile.deleted_at ?? null, email: data.profile.email, phone_number: data.profile.phone_number } : null,
+            priest: data.priest ? { id: data.priest.id, full_name: data.priest.full_name, deleted_at: data.priest.deleted_at ?? null, email: data.priest.email } : null,
+            requested_priest: data.requested_priest ? { id: data.requested_priest.id, full_name: data.requested_priest.full_name, deleted_at: data.requested_priest.deleted_at ?? null } : null,
         };
 
         return { data: appointment, error: null };
@@ -502,6 +508,10 @@ export interface AppointmentChange {
     changed_by: string | null;
     /** Display name of whoever made the change; "Staff" when it cannot be read. */
     changed_by_name: string;
+    /** True when the actor's account has been deleted. */
+    changed_by_deleted: boolean;
+    /** Celebrant ids in celebrant_names whose accounts have been deleted. */
+    deleted_celebrant_ids: string[];
     created_at: string;
     /** Display names keyed by profile id, for the priest_id values in before_values and after_values. */
     celebrant_names: Record<string, string>;
@@ -536,13 +546,17 @@ export async function fetchAppointmentChanges(
     }
 
     const names = new Map<string, string>();
+    const deletedIds = new Set<string>();
     if (profileIds.size > 0) {
         const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, deleted_at')
             .in('id', Array.from(profileIds));
         for (const profile of profiles ?? []) {
-            if (profile.full_name) names.set(profile.id, profile.full_name);
+            if (profile.deleted_at) {
+                deletedIds.add(profile.id);
+                names.set(profile.id, 'Deleted User');
+            } else if (profile.full_name) names.set(profile.id, profile.full_name);
         }
     }
 
@@ -563,6 +577,8 @@ export async function fetchAppointmentChanges(
             after_values: after,
             changed_by: row.changed_by ?? null,
             changed_by_name: (row.changed_by && names.get(row.changed_by)) || 'Staff',
+            changed_by_deleted: !!row.changed_by && deletedIds.has(row.changed_by),
+            deleted_celebrant_ids: Object.keys(celebrantNames).filter((id) => deletedIds.has(id)),
             created_at: row.created_at,
             celebrant_names: celebrantNames,
         };

@@ -15,6 +15,8 @@ import { ANON_KEY, LOCAL_URL, PASSWORD, getSeed, serviceClient } from './support
 const db = serviceClient();
 const MIGRATION = resolve(process.cwd(), '../supabase/migrations/062_retire_admin_role.sql');
 // 062 recreates transfer_super_admin without the 063 permission flag, so 063 is replayed right after it (production order).
+// 063 redefines guard_profile_role_columns; 068 re-adds its suspension-column guard, so replay it after 063.
+const MIGRATION_068 = resolve(process.cwd(), '../supabase/migrations/068_suspend_and_reactivate_user.sql');
 const MIGRATION_063 = resolve(process.cwd(), '../supabase/migrations/063_database_enforced_role_changes.sql');
 const EMAILS = ['retired-admin@local.test', 'retired-super@local.test', 'retired-target@local.test'];
 
@@ -72,7 +74,7 @@ test.describe('Admin role retired (migration 062)', () => {
     const { data: before } = await db.from('profiles').select('role,is_priest').eq('id', adminId).single();
     expect(before).toMatchObject({ role: 'admin', is_priest: true });
 
-    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8'));
+    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8') + readFileSync(MIGRATION_068, 'utf8'));
 
     const { data: after } = await db.from('profiles').select('role,is_priest,church_id,assigned_church_id').eq('id', adminId).single();
     expect(after).toMatchObject({ role: 'user', is_priest: false, church_id: seed.churchId, assigned_church_id: seed.churchId });
@@ -92,10 +94,10 @@ test.describe('Admin role retired (migration 062)', () => {
     const seed = await getSeed();
     const adminId = await tempUser(EMAILS[0], 'user', seed.churchId);
     forceAdminRole(adminId);
-    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8'));
+    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8') + readFileSync(MIGRATION_068, 'utf8'));
     const { data: first } = await db.from('profiles').select('updated_at').eq('id', adminId).single();
 
-    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8'));
+    psql(readFileSync(MIGRATION, 'utf8') + readFileSync(MIGRATION_063, 'utf8') + readFileSync(MIGRATION_068, 'utf8'));
 
     const { data: second } = await db.from('profiles').select('role,updated_at').eq('id', adminId).single();
     expect(second).toMatchObject({ role: 'user', updated_at: first!.updated_at });

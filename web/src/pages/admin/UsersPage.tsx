@@ -5,6 +5,8 @@ import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import DemoteConfirmModal from '../../components/admin/DemoteConfirmModal';
 import DeleteUserModal from '../../components/admin/DeleteUserModal';
+import SuspendUserModal from '../../components/admin/SuspendUserModal';
+import { reactivateUser } from '../../lib/supabase/profiles';
 import { getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
 import Pagination from '../../components/common/Pagination';
@@ -79,6 +81,8 @@ export default function UsersPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [demoteTarget, setDemoteTarget] = useState<Profile | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+    const [suspendTarget, setSuspendTarget] = useState<Profile | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const [transferTargetUser, setTransferTargetUser] = useState<Profile | null>(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
@@ -196,7 +200,9 @@ export default function UsersPage() {
 
         // 3. Filter by role
         if (roleFilter !== 'all') {
-            if (roleFilter === 'priest') {
+            if (roleFilter === 'suspended') {
+                filtered = filtered.filter(user => !!user.suspended_at);
+            } else if (roleFilter === 'priest') {
                 filtered = filtered.filter(user => (user.role || 'user') === 'priest' || !!user.is_priest);
             } else {
                 filtered = filtered.filter(user => (user.role || 'user') === roleFilter);
@@ -345,6 +351,21 @@ export default function UsersPage() {
     const handleDeleted = () => {
         setDeleteTarget(null);
         fetchData();
+    };
+
+    const handleSuspended = () => {
+        setSuspendTarget(null);
+        fetchData();
+    };
+
+    const handleReactivate = async (user: Profile) => {
+        try {
+            setActionError(null);
+            await reactivateUser(user.id);
+            fetchData();
+        } catch (err: unknown) {
+            setActionError(err instanceof Error ? err.message : 'Failed to reactivate the user');
+        }
     };
 
     const handleRoleUpdated = () => {
@@ -584,6 +605,7 @@ export default function UsersPage() {
                                 <option value="priest">Priest</option>
                                 <option value="volunteer">Volunteer</option>
                                 <option value="user">Parishioner / User</option>
+                                <option value="suspended">Suspended</option>
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
                         </div>
@@ -810,6 +832,11 @@ export default function UsersPage() {
                                                                                     {formatRole(user.role || 'user')}
                                                                                 </span>
                                                                             )}
+                                                                            {user.suspended_at && (
+                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
+                                                                                    Suspended
+                                                                                </span>
+                                                                            )}
                                                                             {user.is_priest && user.role !== 'priest' && (
                                                                                 <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
                                                                                     <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
@@ -849,7 +876,7 @@ export default function UsersPage() {
                                                                             className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                         >
                                                                             Edit Role
-                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -916,6 +943,11 @@ export default function UsersPage() {
                                                                 {formatRole(user.role || 'user')}
                                                             </span>
                                                         )}
+                                                                            {user.suspended_at && (
+                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
+                                                                                    Suspended
+                                                                                </span>
+                                                                            )}
                                                         {user.is_priest && user.role !== 'priest' && (
                                                             <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
                                                                 <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
@@ -975,7 +1007,7 @@ export default function UsersPage() {
                                                     className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
                                                 >
                                                     Edit Role & Parish Access
-                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                             )}
                                         </div>
                                     </div>
@@ -1070,6 +1102,11 @@ export default function UsersPage() {
                                                                     {formatRole(user.role || 'user')}
                                                                 </span>
                                                             )}
+                                                                            {user.suspended_at && (
+                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
+                                                                                    Suspended
+                                                                                </span>
+                                                                            )}
                                                             {user.is_priest && user.role !== 'priest' && (
                                                                 <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
                                                                     <Cross className="w-3 h-3 text-amber-600 dark:text-amber-400" />
@@ -1146,7 +1183,7 @@ export default function UsersPage() {
                                                                     className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
                                                                 >
                                                                     Edit Role
-                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
+                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}</>
                                                             )}
                                                         </div>
                                                     </td>
@@ -1212,6 +1249,22 @@ export default function UsersPage() {
                     onClose={() => setDeleteTarget(null)}
                     onSuccess={handleDeleted}
                 />
+            )}
+
+            {/* Suspend user (Super Admin only) */}
+            {suspendTarget && isSuperAdmin && (
+                <SuspendUserModal
+                    user={suspendTarget}
+                    onClose={() => setSuspendTarget(null)}
+                    onSuccess={handleSuspended}
+                />
+            )}
+
+            {actionError && (
+                <div role="alert" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 p-3 bg-red-50 border border-red-200 rounded-xl shadow-lg flex items-start gap-3">
+                    <p className="text-xs text-red-700 font-medium flex-1">{actionError}</p>
+                    <button type="button" onClick={() => setActionError(null)} className="text-xs font-semibold text-red-700 hover:underline">Dismiss</button>
+                </div>
             )}
 
             {/* Transfer Ownership Modal */}

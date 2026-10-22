@@ -92,6 +92,21 @@ test.afterAll(async () => {
 });
 
 test.describe('No horizontal scroll', () => {
+  test('/messages list and an open ticket fit a phone for a church admin', async ({ page }) => {
+    await loginAs(page, 'church_admin');
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/messages');
+    await expect(page.getByRole('heading', { name: 'Messages' })).toBeVisible();
+    expect(await horizontalOverflow(page), 'messages list at 375px').toEqual([]);
+    await page.getByRole('button', { name: 'Tickets', exact: true }).click();
+    const first = page.locator('div.divide-y.overflow-y-auto h3').first();
+    if (await first.count()) {
+      await first.click();
+      await expect(page.locator('h2').first()).toBeVisible();
+      expect(await horizontalOverflow(page), 'open ticket at 375px').toEqual([]);
+    }
+  });
+
   test('/appointments fits every width for a church admin', async ({ page }) => {
     await loginAs(page, 'church_admin');
     for (const width of WIDTHS) {

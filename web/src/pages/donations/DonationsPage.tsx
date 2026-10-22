@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import { UserName } from '../../components/ui/UserName';
 
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
 
@@ -747,7 +748,7 @@ export default function DonationsPage() {
                                 </tr>
                             ) : (
                                 filteredDonations.map((d) => {
-                                    const donorName = d.donor?.full_name || 'Anonymous donor';
+                                    const donorName = d.donor?.deleted_at ? 'Deleted User' : d.donor?.full_name || 'Anonymous donor';
                                     const initials = getInitials(donorName);
                                     const amountFormatted = `₱ ${Number(d.amount).toLocaleString('en-PH')}`;
                                     const method = d.payment_method || (d.reference_number?.length === 13 ? 'GCash' : 'Maya');
@@ -779,7 +780,7 @@ export default function DonationsPage() {
                                                         {initials}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-bold text-foreground truncate">{donorName}</p>
+                                                        <p className="font-bold text-foreground truncate"><UserName name={donorName} deletedAt={d.donor?.deleted_at} /></p>
                                                         <p className="text-[11px] text-secondary-500 font-medium">
                                                             {maskRef(d.reference_number)}
                                                         </p>

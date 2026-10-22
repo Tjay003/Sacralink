@@ -164,13 +164,15 @@ test.describe('Ticket lifecycle on /messages', () => {
 });
 
 test.describe('Volunteer messaging scope', () => {
-  test('the New Message search offers only own-parish staff, never parishioners or priests', async ({ page }) => {
+  test('the New Message dialog offers a volunteer the staff channel and New Ticket, never a contact', async ({ page }) => {
     await volunteerPage(page);
     await page.goto('/messages');
     await page.getByRole('button', { name: 'New message' }).first().click();
 
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByText('Local Church Admin')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'New Ticket' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Open staff channel' })).toBeVisible();
+    await expect(dialog.getByText('Local Church Admin')).toHaveCount(0);
     await expect(dialog.getByText('Local Parishioner')).toHaveCount(0);
     await expect(dialog.getByText('Fr. Local Priest')).toHaveCount(0);
     await expect(dialog.getByText('Other Parish Admin')).toHaveCount(0);

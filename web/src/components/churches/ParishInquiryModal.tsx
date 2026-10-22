@@ -259,7 +259,7 @@ export default function ParishInquiryModal({
                         This church has no administrator yet. You can report a concern about the church instead.
                     </div>
                 )}
-                {isParishioner && lane === 'church' && activeChurchId && (
+                {isParishioner && lane === 'church' && (
                     <button
                         type="button"
                         onClick={() => chooseLane('platform')}

@@ -32,6 +32,7 @@ import {
   type ParishApplicationWithRelations,
   type ApplicationChecklist,
 } from '../../lib/supabase/parishApplications';
+import { UserName } from '../../components/ui/UserName';
 
 function formatSubmissionDate(dateStr?: string | null): string {
   if (!dateStr) return 'Recently submitted';
@@ -330,7 +331,7 @@ function ParishApplicationDrawer({
                 </p>
                 <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-emerald-800">
                   {app.reviewer && (
-                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Sacralink Admin'}</span>
+                    <span><strong>Reviewed by:</strong> <UserName name={app.reviewer.full_name} deletedAt={app.reviewer.deleted_at} fallback="Sacralink Admin" /></span>
                   )}
                   {app.reviewed_at && (
                     <span><strong>Date:</strong> {new Date(app.reviewed_at).toLocaleDateString()}</span>
@@ -352,7 +353,7 @@ function ParishApplicationDrawer({
                 )}
                 <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-red-800">
                   {app.reviewer && (
-                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Sacralink Admin'}</span>
+                    <span><strong>Reviewed by:</strong> <UserName name={app.reviewer.full_name} deletedAt={app.reviewer.deleted_at} fallback="Sacralink Admin" /></span>
                   )}
                   {app.reviewed_at && (
                     <span><strong>Date:</strong> {new Date(app.reviewed_at).toLocaleDateString()}</span>
@@ -379,7 +380,7 @@ function ParishApplicationDrawer({
               <div className="flex items-center gap-2.5 text-xs sm:text-sm text-foreground">
                 <User className="w-4 h-4 text-secondary-400 shrink-0" />
                 <span className="font-medium text-foreground">
-                  {app.applicant?.full_name || 'Priest / Applicant'}
+                  <UserName name={app.applicant?.full_name} deletedAt={app.applicant?.deleted_at} fallback="Priest / Applicant" />
                 </span>
                 {app.applicant?.email && (
                   <span className="text-xs text-secondary-500">
@@ -1137,7 +1138,7 @@ export default function ParishApplicationsPage() {
                     </div>
                     <div className="flex items-center gap-1.5 truncate">
                       <UserCheck className="w-3.5 h-3.5 shrink-0 text-secondary-400" />
-                      <span className="truncate">{app.applicant?.full_name || 'Applicant'}</span>
+                      <span className="truncate"><UserName name={app.applicant?.full_name} deletedAt={app.applicant?.deleted_at} fallback="Applicant" /></span>
                     </div>
                     <div className="flex items-center gap-1.5 truncate">
                       <Clock className="w-3.5 h-3.5 shrink-0 text-secondary-400" />

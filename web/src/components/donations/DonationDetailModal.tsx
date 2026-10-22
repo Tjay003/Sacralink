@@ -3,6 +3,7 @@ import Modal from '../ui/Modal';
 import { CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-react';
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
+import { UserName } from '../ui/UserName';
 
 interface DonationDetailModalProps {
     donation: Donation;
@@ -94,7 +95,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                             <User className="w-3.5 h-3.5" />
                             Donor
                         </div>
-                        <p className="text-sm font-semibold text-foreground">{donorName}</p>
+                        <p className="text-sm font-semibold text-foreground"><UserName name={donorName} deletedAt={donation.donor?.deleted_at} /></p>
                         {donorEmail && <p className="text-xs text-muted">{donorEmail}</p>}
                     </div>
                     <div className="space-y-1">

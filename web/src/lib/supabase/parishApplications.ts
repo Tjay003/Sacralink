@@ -34,12 +34,14 @@ export interface ParishApplicationWithRelations extends ParishApplication {
   applicant?: {
     id: string;
     full_name: string | null;
+    deleted_at?: string | null;
     email: string | null;
     phone_number: string | null;
   } | null;
   reviewer?: {
     id: string;
     full_name: string | null;
+    deleted_at?: string | null;
   } | null;
   church?: {
     id: string;
@@ -169,8 +171,8 @@ export async function getParishApplications(
       .from('parish_applications')
       .select(`
         *,
-        applicant:profiles!parish_applications_applicant_id_fkey(id, full_name, email, phone_number),
-        reviewer:profiles!parish_applications_reviewed_by_fkey(id, full_name),
+        applicant:profiles!parish_applications_applicant_id_fkey(id, full_name, deleted_at, email, phone_number),
+        reviewer:profiles!parish_applications_reviewed_by_fkey(id, full_name, deleted_at),
         church:churches!parish_applications_church_id_fkey(id, name, status)
       `, { count: 'exact' })
       .order('created_at', { ascending: false });
@@ -241,8 +243,8 @@ export async function getParishApplicationById(id: string): Promise<{
       .from('parish_applications')
       .select(`
         *,
-        applicant:profiles!parish_applications_applicant_id_fkey(id, full_name, email, phone_number),
-        reviewer:profiles!parish_applications_reviewed_by_fkey(id, full_name),
+        applicant:profiles!parish_applications_applicant_id_fkey(id, full_name, deleted_at, email, phone_number),
+        reviewer:profiles!parish_applications_reviewed_by_fkey(id, full_name, deleted_at),
         church:churches!parish_applications_church_id_fkey(id, name, status)
       `)
       .eq('id', id)

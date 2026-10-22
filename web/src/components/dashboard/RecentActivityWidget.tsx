@@ -16,6 +16,7 @@ import { getParishApplications } from '../../lib/supabase/parishApplications';
 import { getSystemAnnouncements } from '../../lib/supabase/announcements';
 import { useChurches } from '../../hooks/useChurches';
 import { cn } from '../../lib/utils';
+import { UserName } from '../ui/UserName';
 
 export type ActivityType =
     | 'sacrament_approved'
@@ -24,10 +25,26 @@ export type ActivityType =
     | 'volunteer_joined'
     | 'announcement_published';
 
+/** Activity headline; a deleted account's name is rendered through UserName so it carries the marker. */
+function ActivityTitle({ item }: { item: ActivityItem }) {
+    const marker = 'Deleted User';
+    const at = item.hasDeletedUser ? item.title.indexOf(marker) : -1;
+    if (at < 0) return <>{item.title}</>;
+    return (
+        <>
+            {item.title.slice(0, at)}
+            <UserName deletedAt="deleted" />
+            {item.title.slice(at + marker.length)}
+        </>
+    );
+}
+
 export interface ActivityItem {
     id: string;
     type: ActivityType;
     title: string;
+    /** True when the title names a deleted account, which is shown with the Deleted User marker. */
+    hasDeletedUser?: boolean;
     timestamp: Date;
     timeAgo: string;
 }
@@ -230,7 +247,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                 try {
                     let query = supabase
                         .from('profiles')
-                        .select('id, full_name, role, church_id, assigned_church_id, created_at, church:churches!profiles_church_id_fkey(name)')
+                        .select('id, full_name, deleted_at, role, church_id, assigned_church_id, created_at, church:churches!profiles_church_id_fkey(name)')
                         .order('created_at', { ascending: false })
                         .limit(15);
 
@@ -256,7 +273,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
             // Process Appointments
             if (apptsRes.data && apptsRes.data.length > 0) {
                 for (const appt of apptsRes.data) {
-                    const userName = appt.profile?.full_name || 'Parishioner';
+                    const userName = appt.profile?.deleted_at ? 'Deleted User' : appt.profile?.full_name || 'Parishioner';
                     const churchName = appt.church?.name || 'the parish';
                     const sacrament = formatSacramentName(appt.service_type);
                     const isApproved = appt.status === 'approved' || appt.status === 'completed';
@@ -269,6 +286,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                         id: `appt-${appt.id}`,
                         type: 'sacrament_approved',
                         title,
+                        hasDeletedUser: Boolean(appt.profile?.deleted_at),
                         timestamp: dt,
                         timeAgo: formatRelativeTime(dt),
                     });
@@ -282,7 +300,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                         continue;
                     }
 
-                    const applicantName = app.applicant?.full_name || 'Parish Admin';
+                    const applicantName = app.applicant?.deleted_at ? 'Deleted User' : app.applicant?.full_name || 'Parish Admin';
                     const parishName = app.parish_name || 'Parish';
                     const dt = new Date(app.created_at || Date.now());
 
@@ -291,6 +309,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                             id: `app-doc-${app.id}`,
                             type: 'document_uploaded',
                             title: `${applicantName} uploaded credentials for ${parishName}`,
+                            hasDeletedUser: Boolean(app.applicant?.deleted_at),
                             timestamp: dt,
                             timeAgo: formatRelativeTime(dt),
                         });
@@ -325,7 +344,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
             // Process Profiles
             if (profilesData && profilesData.length > 0) {
                 for (const prof of profilesData) {
-                    const name = prof.full_name || 'Parishioner';
+                    const name = prof.deleted_at ? 'Deleted User' : prof.full_name || 'Parishioner';
                     const parish = (prof.church as { name?: string } | null)?.name || 'the parish';
                     const roleLabel =
                         prof.role === 'priest'
@@ -337,6 +356,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                         id: `prof-${prof.id}`,
                         type: 'volunteer_joined',
                         title: `${name} joined ${parish} as a ${roleLabel}`,
+                        hasDeletedUser: Boolean(prof.deleted_at),
                         timestamp: dt,
                         timeAgo: formatRelativeTime(dt),
                     });
@@ -517,7 +537,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                                         <div className="flex items-center gap-3 min-w-0 flex-1">
                                             {renderIcon(item.type)}
                                             <p className="text-sm font-semibold text-foreground tracking-tight line-clamp-1">
-                                                {item.title}
+                                                <ActivityTitle item={item} />
                                             </p>
                                         </div>
                                         <span className="text-xs text-secondary-500 font-medium whitespace-nowrap ml-3 flex-shrink-0">
@@ -645,7 +665,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                                                 {renderIcon(item.type)}
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-medium text-foreground tracking-tight leading-snug">
-                                                        {item.title}
+                                                        <ActivityTitle item={item} />
                                                     </p>
                                                     <p className="text-xs text-secondary-400 mt-1">
                                                         {item.timestamp.toLocaleDateString('en-US', {

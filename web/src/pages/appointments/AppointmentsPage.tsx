@@ -28,6 +28,7 @@ import { useChurches } from '../../hooks/useChurches';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import ApproveAppointmentModal from '../../components/appointments/ApproveAppointmentModal';
 import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
+import { UserName } from '../../components/ui/UserName';
 import EditAppointmentModal from '../../components/appointments/EditAppointmentModal';
 import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import Modal from '../../components/ui/Modal';
@@ -95,6 +96,20 @@ function getCandidateDisplay(appointment: Appointment): string {
         }
     }
     return appointment.profile?.full_name || 'Parishioner';
+}
+
+/** The candidate heading: the name from the notes, or the parishioner (with the Deleted User marker when that account is deleted). */
+function CandidateName({ appointment, candidate }: { appointment: Appointment; candidate: string }) {
+    if (appointment.profile?.deleted_at && candidate === (appointment.profile.full_name || 'Parishioner')) {
+        return <UserName name={candidate} deletedAt={appointment.profile.deleted_at} />;
+    }
+    return <>{candidate}</>;
+}
+
+/** Celebrant name with the Deleted User marker when the priest's account is deleted. */
+function CelebrantName({ priest }: { priest: Appointment['priest'] }) {
+    if (priest?.deleted_at) return <UserName deletedAt={priest.deleted_at} />;
+    return <>{formatCelebrantDisplay(priest)}</>;
 }
 
 function formatDateDisplay(dateStr: string): string {
@@ -730,11 +745,11 @@ export default function AppointmentsPage() {
                                                         className="font-bold text-sm text-foreground block break-words"
                                                         title={candidate}
                                                     >
-                                                        {candidate}
+                                                        <CandidateName appointment={appointment} candidate={candidate} />
                                                     </span>
                                                     <div className="text-xs text-secondary-500 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                                                         <span className="break-words min-w-0">
-                                                            by {appointment.profile?.full_name || 'Parishioner'}
+                                                            by <UserName name={appointment.profile?.full_name} deletedAt={appointment.profile?.deleted_at} fallback="Parishioner" />
                                                         </span>
                                                         {!isVolunteer && (
                                                             <>
@@ -772,7 +787,7 @@ export default function AppointmentsPage() {
                                                 <div className="mt-2 min-w-0">
                                                     {appointment.priest ? (
                                                         <span className="text-xs sm:text-sm font-medium text-foreground block break-words">
-                                                            {formatCelebrantDisplay(appointment.priest)}
+                                                            <CelebrantName priest={appointment.priest} />
                                                         </span>
                                                     ) : (
                                                         <span className="text-xs text-secondary-400 font-normal italic">
@@ -1009,7 +1024,7 @@ export default function AppointmentsPage() {
                                         <div className="flex items-start justify-between gap-2">
                                             <span className="text-secondary-500 shrink-0">Requested for:</span>
                                             <div className="font-semibold text-foreground min-w-0 text-right flex flex-wrap items-center justify-end gap-x-1.5">
-                                                <span className="break-words min-w-0" title={candidate}>{candidate}</span>
+                                                <span className="break-words min-w-0" title={candidate}><CandidateName appointment={appointment} candidate={candidate} /></span>
                                                 {!isVolunteer && (
                                                     <>
                                                         <span className="text-secondary-300">·</span>
@@ -1029,7 +1044,7 @@ export default function AppointmentsPage() {
                                             <div className="flex items-start justify-between gap-2 text-secondary-500">
                                                 <span className="shrink-0">Requested by:</span>
                                                 <span className="text-secondary-700 min-w-0 break-words text-right font-medium">
-                                                    {appointment.profile.full_name}
+                                                    <UserName name={appointment.profile.full_name} deletedAt={appointment.profile.deleted_at} />
                                                 </span>
                                             </div>
                                         )}
@@ -1054,7 +1069,7 @@ export default function AppointmentsPage() {
                                             </span>
                                             <span className="font-medium text-foreground text-right min-w-0 break-words max-w-[180px]">
                                                 {appointment.priest ? (
-                                                    formatCelebrantDisplay(appointment.priest)
+                                                    <CelebrantName priest={appointment.priest} />
                                                 ) : (
                                                     <span className="text-secondary-400 italic">Not assigned</span>
                                                 )}

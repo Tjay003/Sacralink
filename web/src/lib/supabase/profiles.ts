@@ -271,6 +271,27 @@ export async function deleteUserAccount(userId: string): Promise<void> {
 }
 
 /**
+ * Suspend a user through the database function suspend_user (Super Admin only). The person is signed out at once and
+ * cannot sign in until reactivated; nothing else changes. Throws an Error whose message is safe to show to the user.
+ */
+export async function suspendUser(userId: string, reason: string): Promise<void> {
+    const { error } = await supabase.rpc('suspend_user', { p_user_id: userId, p_reason: reason });
+    if (error) {
+        throw new Error(error.message || 'Failed to suspend the user');
+    }
+}
+
+/**
+ * Reactivate a suspended user through the database function reactivate_user (Super Admin only).
+ */
+export async function reactivateUser(userId: string): Promise<void> {
+    const { error } = await supabase.rpc('reactivate_user', { p_user_id: userId });
+    if (error) {
+        throw new Error(error.message || 'Failed to reactivate the user');
+    }
+}
+
+/**
  * Fetch priests and ordained clergy profiles for a church (or all clergy)
  */
 export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
@@ -279,6 +300,7 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
             .from('profiles')
             .select('*')
             .is('deleted_at', null)
+            .is('suspended_at', null)
             .or('role.eq.priest,role.eq.church_admin,role.eq.admin,is_priest.eq.true');
 
         if (churchId) {
@@ -300,6 +322,7 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
             .from('profiles')
             .select('*')
             .is('deleted_at', null)
+            .is('suspended_at', null)
             .in('role', ['priest', 'church_admin']);
         if (churchId) {
             fallbackQuery = fallbackQuery.or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`);

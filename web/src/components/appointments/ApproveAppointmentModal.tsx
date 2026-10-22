@@ -21,6 +21,7 @@ import { evaluateParishCelebrants, type CelebrantEvaluation } from '../../lib/li
 import { getRequestedPriestLabel } from '../../lib/requestedPriest';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile } from '../../types/database';
+import { UserName } from '../ui/UserName';
 
 export interface ApproveAppointmentModalProps {
     isOpen: boolean;
@@ -283,7 +284,7 @@ export default function ApproveAppointmentModal({
                             <User className="w-4 h-4 text-muted shrink-0" />
                             <span className="truncate">
                                 <span className="font-medium text-foreground">Parishioner:</span>{' '}
-                                {appointment.profile?.full_name || 'Anonymous User'}
+                                <UserName name={appointment.profile?.full_name} deletedAt={appointment.profile?.deleted_at} fallback="Anonymous User" />
                             </span>
                         </div>
                         <div className="flex items-center gap-2">

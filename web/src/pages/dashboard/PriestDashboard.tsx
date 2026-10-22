@@ -54,6 +54,7 @@ import {
     AlertCircle,
     type LucideIcon,
 } from 'lucide-react';
+import { UserName } from '../../components/ui/UserName';
 
 export interface PriestDashboardProps {
     churchId?: string | null;
@@ -673,7 +674,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                     <RequestedPriestNote appointment={appt} />
                                                 </div>
                                                 <h3 className="text-sm font-bold text-foreground">
-                                                    {meta.title} · {appt.profile?.full_name || 'Parishioner'}
+                                                    {meta.title} · <UserName name={appt.profile?.full_name} deletedAt={appt.profile?.deleted_at} fallback="Parishioner" />
                                                 </h3>
                                                 <p className="text-xs text-muted flex items-center gap-1.5">
                                                     <MapPin className="w-3 h-3 shrink-0" />
@@ -919,7 +920,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-semibold text-foreground truncate">
-                                                {meta.title} · {appt.profile?.full_name || 'Parishioner'}
+                                                {meta.title} · <UserName name={appt.profile?.full_name} deletedAt={appt.profile?.deleted_at} fallback="Parishioner" />
                                             </p>
                                             <p className="text-xs text-muted truncate">
                                                 {format(date, 'EEE')} · {formatAppointmentTime(appt.appointment_time)} ·{' '}
@@ -1028,7 +1029,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                 <div>
                                     <span className="text-muted block">Parishioner</span>
                                     <span className="font-semibold text-foreground text-sm">
-                                        {selectedAppointment.profile?.full_name || 'N/A'}
+                                        <UserName name={selectedAppointment.profile?.full_name} deletedAt={selectedAppointment.profile?.deleted_at} fallback="N/A" />
                                     </span>
                                     {selectedAppointment.profile?.email && (
                                         <p className="text-muted flex items-center gap-1 mt-0.5">

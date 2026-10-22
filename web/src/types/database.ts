@@ -1135,6 +1135,9 @@ export type Database = {
           church_id: string | null
           created_at: string | null
           deleted_at: string | null
+          suspended_at: string | null
+          suspended_by: string | null
+          suspension_reason: string | null
           email: string | null
           fcm_token: string | null
           full_name: string | null
@@ -1151,6 +1154,9 @@ export type Database = {
           church_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           email?: string | null
           fcm_token?: string | null
           full_name?: string | null
@@ -1167,6 +1173,9 @@ export type Database = {
           church_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspension_reason?: string | null
           email?: string | null
           fcm_token?: string | null
           full_name?: string | null
@@ -1362,6 +1371,8 @@ export type Database = {
           id: string
           /** Computed column (migration 065): request with select('*, is_legacy_direct') */
           is_legacy_direct?: boolean | null
+          /** Computed column (migration 072): request with select('*, other_participant_blocked') */
+          other_participant_blocked?: boolean | null
           status?: string | null
           ticket_number?: string | null
           ticket_lane?: 'church' | 'platform' | null
@@ -1566,6 +1577,20 @@ export type Database = {
         Args: { p_appointment_id: string; p_priest_id?: string | null; p_admin_feedback?: string | null }
         Returns: undefined
       }
+      list_direct_contacts: {
+        Args: Record<PropertyKey, never>
+        Returns: Array<{
+          id: string
+          full_name: string | null
+          email: string | null
+          avatar_url: string | null
+          role: string
+          is_priest: boolean
+          church_id: string | null
+          assigned_church_id: string | null
+          church_name: string | null
+        }>
+      }
       may_start_direct: {
         Args: { _initiator: string; _target: string }
         Returns: boolean
@@ -1666,6 +1691,8 @@ export type Database = {
         Returns: number
       }
       delete_user_account: { Args: { p_user_id: string }; Returns: undefined }
+      suspend_user: { Args: { p_user_id: string; p_reason: string }; Returns: undefined }
+      reactivate_user: { Args: { p_user_id: string }; Returns: undefined }
       refresh_church_stats: { Args: never; Returns: undefined }
       set_user_role: {
         Args: {

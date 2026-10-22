@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { Conversation, ConversationParticipant, Message, Profile, Church } from '../../types/database';
+import { canViewTicket } from '../tickets';
 
 export interface ParticipantWithProfile extends ConversationParticipant {
     profile?: Profile | null;
@@ -102,6 +103,10 @@ export interface ConversationWithDetails extends Conversation {
     category?: string | null;
     status?: string | null;
     ticket_number?: string | null;
+    /** True when the database marks this Direct chat legacy (its starter could not start it today); migration 065. */
+    is_legacy_direct?: boolean | null;
+    /** True when the other member of this Direct chat is deleted or suspended; migration 072. */
+    other_participant_blocked?: boolean | null;
 }
 
 export interface ContactProfile extends Profile {
@@ -287,6 +292,9 @@ function notifyLocalMessage(msg: MessageWithSender): void {
 }
 
 
+/** Conversation row plus the church and the two database-computed flags the list needs (migrations 065 and 072). */
+const CONVERSATION_LIST_SELECT = '*, church:churches(*), is_legacy_direct, other_participant_blocked';
+
 /**
  * Fetch all conversations for a given user with participant details and latest message
  */
@@ -338,22 +346,41 @@ export async function fetchUserConversations(userId: string): Promise<{
                     Promise.resolve(
                         supabase
                             .from('conversations')
-                            .select('*, church:churches(*)')
+                            .select(CONVERSATION_LIST_SELECT)
                             .in('id', conversationIds)
                     )
                 );
             }
 
-            // Query B: Church-wide channels and group tickets/inquiries belonging to their assigned church
+            // Query B: Church-wide staff channels and ministry groups of their assigned church. Never tickets:
+            // a ticket reaches a staff member only through Query A (an assignment adds the participant row) or Query C.
             queryPromises.push(
                 Promise.resolve(
                     supabase
                         .from('conversations')
-                        .select('*, church:churches(*)')
+                        .select(CONVERSATION_LIST_SELECT)
                         .eq('church_id', staffChurchId)
                         .in('type', ['channel', 'group'])
+                        .is('ticket_number', null)
                 )
             );
+
+            // Query C: only a Church Admin lists their church's tickets, and only while a ticket is not escalated
+            // (an escalated ticket leaves them; they see a content-free stub instead). Priests and Volunteers never
+            // get a church ticket from here, and the database enforces the same rule.
+            if (myProfile?.role === 'church_admin') {
+                queryPromises.push(
+                    Promise.resolve(
+                        supabase
+                            .from('conversations')
+                            .select(CONVERSATION_LIST_SELECT)
+                            .eq('church_id', staffChurchId)
+                            .eq('ticket_lane', 'church')
+                            .is('escalated_at', null)
+                            .not('ticket_number', 'is', null)
+                    )
+                );
+            }
 
             const results = await Promise.all(queryPromises);
             const combinedMap = new Map<string, any>();
@@ -371,7 +398,7 @@ export async function fetchUserConversations(userId: string): Promise<{
         } else if (conversationIds.length > 0) {
             const res = await supabase
                 .from('conversations')
-                .select('*, church:churches(*)')
+                .select(CONVERSATION_LIST_SELECT)
                 .in('id', conversationIds)
                 .order('updated_at', { ascending: false });
             conversations = res.data;
@@ -380,6 +407,17 @@ export async function fetchUserConversations(userId: string): Promise<{
 
         if (convError) {
             console.warn('⚠️ [Messaging] Could not fetch Supabase conversations:', convError);
+        }
+
+        // Mirror of the database read rule for tickets: only the requester or a handler lists one
+        const viewer = {
+            id: userId,
+            role: myProfile?.role,
+            church_id: myProfile?.church_id,
+            assigned_church_id: myProfile?.assigned_church_id,
+        };
+        if (conversations) {
+            conversations = conversations.filter((c: any) => !c.ticket_number || canViewTicket(c, viewer));
         }
 
         if (conversations && conversations.length > 0) {
@@ -480,13 +518,13 @@ export async function fetchUserConversations(userId: string): Promise<{
                         ? PARISH_MINISTRIES.find((m) => m.name === conv.title) || null
                         : null;
 
-                    // Only assign ticket category/status if conversation has a ticket number or is an inquiry
+                    // Category and status belong to tickets only (every row carries the column defaults)
                     const isTicket = Boolean(conv.ticket_number);
 
                     return {
                         ...conv,
-                        category: isTicket ? (conv.category || 'general') : (conv.category || null),
-                        status: isTicket ? (conv.status || 'open') : (conv.status || null),
+                        category: isTicket ? (conv.category || 'general') : null,
+                        status: isTicket ? (conv.status || 'open') : null,
                         ticket_number: conv.ticket_number || null,
                         participants: parts,
                         lastMessage: lastMsg,
@@ -504,7 +542,9 @@ export async function fetchUserConversations(userId: string): Promise<{
         const localConvs = getLocalMinistryConvs();
         const userLocalConvs = localConvs.filter((lc) => {
             const isParticipantOrCreator = lc.participants.includes(userId) || lc.created_by === userId;
-            const isAssignedStaff = isStaffOrClergy && staffChurchId && lc.church_id === staffChurchId;
+            // Staff of the church share its local channels and groups, never its tickets
+            const isAssignedStaff =
+                isStaffOrClergy && staffChurchId && lc.church_id === staffChurchId && !lc.ticket_number;
             return isParticipantOrCreator || isAssignedStaff;
         });
         userLocalConvs.forEach((lc) => {
@@ -528,8 +568,8 @@ export async function fetchUserConversations(userId: string): Promise<{
                     created_by: lc.created_by,
                     created_at: lc.created_at,
                     updated_at: lc.updated_at,
-                    category: isTicket ? (lc.category || 'general') : (lc.category || null),
-                    status: isTicket ? (lc.status || 'open') : (lc.status || null),
+                    category: isTicket ? (lc.category || 'general') : null,
+                    status: isTicket ? (lc.status || 'open') : null,
                     ticket_number: lc.ticket_number || null,
                     participants: lc.participants.map((pid) => ({
                         id: `part-${pid}`,
@@ -1168,144 +1208,28 @@ export async function markConversationAsRead(
 }
 
 /**
- * Fetch available contacts (clergy, administrators, staff members, and parishioners) to start new conversations.
- * Includes associated church details via PostgREST join or mapped fallback.
+ * Fetch the people the signed-in user may start a Direct chat with. The database decides (list_direct_contacts uses the
+ * same may_start_direct predicate that start_direct_conversation enforces, migrations 065 and 072), so nobody is offered
+ * a person the database would reject. Parishioners and Volunteers get an empty list.
  */
-export async function fetchAvailableContacts(
-    currentUserId: string,
-    churchId?: string | null,
-    currentUserRole?: string | null
-): Promise<{
+export async function fetchAvailableContacts(): Promise<{
     data: ContactProfile[] | null;
     error: Error | null;
 }> {
     try {
-        console.log(`[Messaging] Fetching available contacts (currentUserId: ${currentUserId}, churchId: ${churchId || 'all'}, role: ${currentUserRole || 'auto'})...`);
+        const { data, error } = await supabase.rpc('list_direct_contacts');
+        if (error) throw error;
 
-        // Determine caller's role if not explicitly passed
-        let resolvedRole = currentUserRole;
-        let myProfile: { role?: string | null; church_id?: string | null; assigned_church_id?: string | null } | null = null;
-        if (!resolvedRole || resolvedRole === 'volunteer') {
-            const { data: profileRow } = await supabase
-                .from('profiles')
-                .select('role, church_id, assigned_church_id')
-                .eq('id', currentUserId)
-                .maybeSingle();
-            myProfile = profileRow;
-            resolvedRole = resolvedRole || profileRow?.role || 'user';
-        }
-
-        // Volunteers can only reach the church admins and volunteers of their own parish
-        const isVolunteer = resolvedRole === 'volunteer';
-        const volunteerChurchId = myProfile?.assigned_church_id || myProfile?.church_id || null;
-        if (isVolunteer) {
-            if (!volunteerChurchId) return { data: [], error: null };
-            churchId = null;
-        }
-        const applyVolunteerScope = <T extends { in: (c: string, v: string[]) => T; or: (f: string) => T }>(q: T): T =>
-            isVolunteer
-                ? q
-                      .in('role', ['church_admin', 'volunteer'])
-                      .or(`church_id.eq.${volunteerChurchId},assigned_church_id.eq.${volunteerChurchId}`)
-                : q;
-
-        // Attempt joined query with assigned_church and church relations
-        let query = supabase
-            .from('profiles')
-            .select(`
-                *,
-                assigned_church:churches!assigned_church_id(id, name),
-                church:churches!church_id(id, name)
-            `)
-            .neq('id', currentUserId)
-            .order('full_name', { ascending: true });
-
-        // Strict Gateway for parishioners: push role filtering directly to DB query
-        // before applying limit(100) so staff are not starved out by parishioners
-        if (resolvedRole === 'user') {
-            query = query.in('role', ['super_admin', 'church_admin']);
-        }
-
-        query = applyVolunteerScope(query);
-
-        if (churchId) {
-            query = query.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
-        }
-
-        const { data, error } = await query.limit(100);
-
-        if (!error && data) {
-            let normalizedData: ContactProfile[] = (data as any[]).map((p) => ({
-                ...p,
-                assigned_church: p.assigned_church || p.church || null,
-            }));
-
-            // Strict Gateway: Parishioners can ONLY contact leadership/administrators:
-            // super_admin, admin, church_admin (parish admin).
-            // Parishioners can NEVER contact other parishioners or cold-message clergy.
-            if (resolvedRole === 'user') {
-                normalizedData = normalizedData.filter(
-                    (p) => ['super_admin', 'church_admin'].includes(p.role || '') && !p.is_priest
-                );
-            }
-
-            return { data: normalizedData, error: null };
-        }
-
-        if (error) {
-            console.warn('⚠️ [Messaging] Joined contact query error, falling back to direct mapping:', error);
-
-            // Fallback: simple profile query + mapping church names
-            let fallbackQuery = supabase
-                .from('profiles')
-                .select('*')
-                .neq('id', currentUserId)
-                .order('full_name', { ascending: true });
-
-            if (resolvedRole === 'user') {
-                fallbackQuery = fallbackQuery.in('role', ['super_admin', 'church_admin']);
-            }
-
-            fallbackQuery = applyVolunteerScope(fallbackQuery);
-
-            if (churchId) {
-                fallbackQuery = fallbackQuery.or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId},role.in.(admin,super_admin)`);
-            }
-
-            const { data: rawProfiles, error: fallbackError } = await fallbackQuery.limit(100);
-            if (fallbackError) throw fallbackError;
-
-            // Fetch churches to map names
-            const { data: churchesData } = await supabase
-                .from('churches')
-                .select('id, name');
-
-            const churchMap = new Map<string, { id: string; name: string }>();
-            (churchesData || []).forEach((ch: any) => {
-                churchMap.set(ch.id, { id: ch.id, name: ch.name });
-            });
-
-            let mappedData: ContactProfile[] = (rawProfiles || []).map((p: any) => {
-                const cId = p.assigned_church_id || p.church_id;
-                const churchObj = cId ? churchMap.get(cId) || null : null;
-                return {
-                    ...p,
-                    assigned_church: churchObj,
-                    church: churchObj,
-                };
-            });
-
-            // Strict Gateway: Parishioners can ONLY contact leadership/administrators
-            if (resolvedRole === 'user') {
-                mappedData = mappedData.filter(
-                    (p) => ['super_admin', 'church_admin'].includes(p.role || '') && !p.is_priest
-                );
-            }
-
-            return { data: mappedData, error: null };
-        }
-
-        return { data: [], error: null };
+        const contacts = (data || []).map((row) => {
+            const churchId = row.assigned_church_id || row.church_id;
+            const churchRef = churchId && row.church_name ? { id: churchId, name: row.church_name } : null;
+            return {
+                ...row,
+                assigned_church: churchRef,
+                church: churchRef,
+            } as unknown as ContactProfile;
+        });
+        return { data: contacts, error: null };
     } catch (err: any) {
         console.error('❌ Error fetching contacts:', err);
         return { data: null, error: err };
@@ -1714,4 +1638,34 @@ export async function reopenTicket(
         'system',
         { event: 'ticket_reopened' }
     );
+}
+
+/** One content-free line for a church ticket the Church Admin handed up: the number and when it was escalated. */
+export interface EscalatedTicketStub {
+    ticket_number: string;
+    escalated_at: string;
+}
+
+type LooseRpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+/**
+ * Stub lines for the signed-in Church Admin's escalated tickets (list_escalated_ticket_stubs, ticket 14). The database
+ * returns rows only to a Church Admin of the ticket's church; any failure, including the function not being installed
+ * yet, simply yields no stubs.
+ */
+export async function listEscalatedTicketStubs(): Promise<EscalatedTicketStub[]> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { data, error } = await rpc('list_escalated_ticket_stubs');
+    if (error || !Array.isArray(data)) return [];
+    return (data as EscalatedTicketStub[]).filter((row) => row?.ticket_number && row?.escalated_at);
+}
+
+/**
+ * The requester asks the Super Admin to review a church ticket nobody has answered for 7 days (ticket_request_review,
+ * ticket 14). The database decides eligibility and returns its own message when the request is refused.
+ */
+export async function requestTicketReview(ticketId: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_request_review', { p_ticket_id: ticketId });
+    return { error: error ? new Error(error.message) : null };
 }

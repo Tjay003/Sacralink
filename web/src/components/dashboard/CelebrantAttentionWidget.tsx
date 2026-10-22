@@ -34,6 +34,7 @@ import DocumentViewerModal from '../documents/DocumentViewerModal';
 import Modal from '../ui/Modal';
 import RescheduledNotice from '../appointments/RescheduledNotice';
 import AppointmentChangeHistory from '../appointments/AppointmentChangeHistory';
+import { UserName } from '../ui/UserName';
 
 export interface CelebrantAttentionWidgetProps {
     priestId?: string;
@@ -609,7 +610,7 @@ export default function CelebrantAttentionWidget({
                                         onClick={() => setActiveDetailItem(item)}
                                         className="block text-left text-sm font-bold text-foreground hover:text-primary transition-colors cursor-pointer"
                                     >
-                                        {item.title}
+                                        <UserName name={item.title} deletedAt={item.appointment.profile?.deleted_at} />
                                     </button>
                                     <p className="text-xs text-muted leading-relaxed line-clamp-2">
                                         {item.description}
@@ -692,7 +693,7 @@ export default function CelebrantAttentionWidget({
                             </div>
                             <div>
                                 <h3 className="text-base sm:text-lg font-bold text-foreground">
-                                    {activeDetailItem.title}
+                                    <UserName name={activeDetailItem.title} deletedAt={activeDetailItem.appointment.profile?.deleted_at} />
                                 </h3>
                                 <p className="text-xs text-secondary-500">
                                     Celebrant ministry & sacramental details
@@ -766,7 +767,7 @@ export default function CelebrantAttentionWidget({
                                     <span className="text-secondary-400 block font-medium">Parishioner</span>
                                     <span className="font-bold text-foreground text-sm flex items-center gap-1 mt-0.5">
                                         <User className="w-3.5 h-3.5 text-secondary-400" />
-                                        {activeDetailItem.appointment.profile?.full_name || 'N/A'}
+                                        <UserName name={activeDetailItem.appointment.profile?.full_name} deletedAt={activeDetailItem.appointment.profile?.deleted_at} fallback="N/A" />
                                     </span>
                                     {activeDetailItem.appointment.profile?.email && (
                                         <span className="text-secondary-500 flex items-center gap-1 mt-1 text-[11px]">

@@ -9,6 +9,7 @@ import {
     formatAppointmentTime,
     type HydratedAppointment as Appointment,
 } from '../../lib/supabase/appointments';
+import { UserName } from '../ui/UserName';
 
 interface RecentAppointmentsWidgetProps {
     churchId?: string | null;
@@ -143,7 +144,7 @@ export default function RecentAppointmentsWidget({
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-bold text-foreground truncate">
-                                                {applicantName}
+                                                <UserName name={applicantName} deletedAt={appointment.profile?.deleted_at} />
                                             </p>
                                             <p className="text-xs text-secondary-500 font-medium truncate mt-0.5">
                                                 {formattedDate} · {formatAppointmentTime(appointment.appointment_time)}
