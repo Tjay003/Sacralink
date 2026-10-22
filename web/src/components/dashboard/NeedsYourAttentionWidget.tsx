@@ -34,7 +34,7 @@ export default function NeedsYourAttentionWidget() {
                 pageSize: 5,
             });
 
-            // Fetch pending appointments count across diocese
+            // Fetch pending appointments count across all churches
             const appointmentsPromise = getDashboardAppointmentCounts();
 
             // Fetch active system announcements
@@ -92,7 +92,7 @@ export default function NeedsYourAttentionWidget() {
                         Needs your attention
                     </h3>
                     <p className="text-xs sm:text-sm text-secondary-500 font-medium mt-0.5">
-                        Items waiting on the diocese office
+                        Items waiting for your review
                     </p>
                 </div>
 
@@ -120,8 +120,8 @@ export default function NeedsYourAttentionWidget() {
                         <div className="min-w-0">
                             <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                                 {data.pendingApplicationsCount > 0
-                                    ? `${data.pendingApplicationsCount} parish ${data.pendingApplicationsCount === 1 ? 'application needs' : 'applications need'} review`
-                                    : 'Parish applications up to date'}
+                                    ? `${data.pendingApplicationsCount} church ${data.pendingApplicationsCount === 1 ? 'application needs' : 'applications need'} review`
+                                    : 'Church applications up to date'}
                             </p>
                             <p className="text-[11px] sm:text-xs text-secondary-500 font-medium truncate mt-0.5">
                                 {data.applicationSampleNames.length > 0
@@ -177,12 +177,12 @@ export default function NeedsYourAttentionWidget() {
                             <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                                 {data.activeAnnouncementsCount > 0
                                     ? `${data.activeAnnouncementsCount} system ${data.activeAnnouncementsCount === 1 ? 'announcement' : 'announcements'} currently active`
-                                    : 'No diocese broadcast active'}
+                                    : 'No system announcement active'}
                             </p>
                             <p className="text-[11px] sm:text-xs text-secondary-500 font-medium truncate mt-0.5">
                                 {data.latestAnnouncementTitle
                                     ? `Latest: "${data.latestAnnouncementTitle}"`
-                                    : 'Diocese-wide notices, advisories, and maintenance alerts'}
+                                    : 'System-wide notices, advisories, and maintenance alerts'}
                             </p>
                         </div>
                     </div>
@@ -201,7 +201,7 @@ export default function NeedsYourAttentionWidget() {
             <div className="px-5 py-3.5 bg-secondary-50/70 border-t border-border flex items-center justify-between text-xs text-secondary-600 font-medium">
                 <span className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    Diocese privacy blindspot policy active (financial metrics excluded)
+                    Privacy policy active (financial metrics excluded)
                 </span>
                 <button
                     type="button"

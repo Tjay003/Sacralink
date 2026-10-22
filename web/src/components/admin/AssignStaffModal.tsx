@@ -165,7 +165,7 @@ export default function AssignStaffModal({
                 throw new Error(result.error || 'Failed to update user parish assignment.');
             }
 
-            // Log activity log for chancery governance audit trail
+            // Log activity log for the governance audit trail
             try {
                 if (currentProfile?.id) {
                     await supabase.from('activity_logs').insert({

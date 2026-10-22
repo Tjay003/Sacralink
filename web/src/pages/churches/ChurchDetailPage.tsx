@@ -330,7 +330,7 @@ export default function ChurchDetailPage() {
                 throw new Error(result.error || 'Failed to unassign staff member.');
             }
 
-            // Record activity log for chancery governance
+            // Record activity log for governance
             if (profile?.id) {
                 try {
                     await supabase.from('activity_logs').insert({
@@ -763,7 +763,7 @@ export default function ChurchDetailPage() {
                                     disabled={donationsLocked}
                                     title={
                                         isUnverified
-                                            ? 'Donations locked until Diocese verification'
+                                            ? 'Donations locked until verification'
                                             : cashlessPaused
                                                 ? 'This parish has paused cashless donations'
                                                 : 'Donate to this church'
@@ -1045,13 +1045,13 @@ export default function ChurchDetailPage() {
                             </div>
 
                             <p className="text-sm text-secondary-600 leading-relaxed whitespace-pre-wrap">
-                                {church.description || 'Welcome to our parish community. We offer sacramental rites, community ministries, daily masses, and spiritual guidance to all faithful of the Diocese of San Jose del Monte.'}
+                                {church.description || 'Welcome to our parish community. We offer sacramental rites, community ministries, daily masses, and spiritual guidance to all faithful of San Jose del Monte.'}
                             </p>
 
                             <div className="pt-2 flex flex-wrap gap-2">
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium bg-secondary-50 text-secondary-700 border border-border">
                                     <Globe className="w-3 h-3 text-secondary-400" />
-                                    Diocese of San Jose del Monte
+                                    San Jose del Monte, Bulacan
                                 </span>
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium bg-secondary-50 text-secondary-700 border border-border">
                                     <Clock className="w-3 h-3 text-secondary-400" />
@@ -1277,8 +1277,8 @@ export default function ChurchDetailPage() {
                                     </div>
                                 )}
                                 <div className="flex justify-between py-1 border-b border-border/60">
-                                    <span className="text-muted">Diocese</span>
-                                    <span className="font-semibold text-foreground text-right">Diocese of San Jose del Monte</span>
+                                    <span className="text-muted">Location</span>
+                                    <span className="font-semibold text-foreground text-right">San Jose del Monte, Bulacan</span>
                                 </div>
                                 <div className="flex justify-between py-1 border-b border-border/60">
                                     <span className="text-muted">Mass languages</span>
@@ -1620,11 +1620,11 @@ export default function ChurchDetailPage() {
                                 <div>
                                     <h3 className="text-base font-bold text-foreground">Verification status</h3>
                                     <p className="text-xs text-secondary-500 mt-0.5">
-                                        Decides whether this parish appears in the diocese directory and can receive appointment requests.
+                                        Decides whether this parish appears in the public directory and can receive appointment requests.
                                     </p>
                                 </div>
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-700 w-fit">
-                                    Official Chancery Record
+                                    Official Record
                                 </span>
                             </div>
 
@@ -1692,7 +1692,7 @@ export default function ChurchDetailPage() {
                                             </div>
                                             <h4 className="text-sm font-bold text-foreground">Under audit</h4>
                                             <p className="text-xs text-secondary-600 mt-1 leading-relaxed">
-                                                Stays visible, but new appointments pause while the diocese reviews documents.
+                                                Stays visible, but new appointments pause while Sacralink admins review documents.
                                             </p>
                                         </div>
                                     );
@@ -1736,7 +1736,7 @@ export default function ChurchDetailPage() {
                             <div className="p-3 rounded-xl bg-secondary-50 border border-border/80 flex items-start gap-2.5">
                                 <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                                 <p className="text-xs text-secondary-600 leading-relaxed">
-                                    Parish verification and canonical accreditation status is managed by Chancery Super Administrators.
+                                    Parish verification and canonical accreditation status is managed by Super Administrators.
                                 </p>
                             </div>
                         </div>
@@ -1746,17 +1746,17 @@ export default function ChurchDetailPage() {
                             <div>
                                 <h3 className="text-base font-bold text-foreground">Compliance checklist</h3>
                                 <p className="text-xs text-secondary-500 mt-0.5">
-                                    Documents and details reviewed by the diocese
+                                    Documents and details reviewed by Sacralink admins
                                 </p>
                             </div>
 
                             <div className="divide-y divide-border/60">
-                                {/* Chancery decree on file */}
+                                {/* Appointment decree on file */}
                                 <div className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
                                     <div className="flex items-start gap-3">
                                         <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                                         <div>
-                                            <p className="text-xs font-bold text-foreground">Chancery decree on file</p>
+                                            <p className="text-xs font-bold text-foreground">Appointment decree on file</p>
                                             <p className="text-[11px] text-secondary-500 mt-0.5">Signed and dated, reviewed Apr 10, 2026</p>
                                         </div>
                                     </div>
@@ -2227,7 +2227,7 @@ export default function ChurchDetailPage() {
                 >
                     <div className="space-y-4">
                         <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 text-xs sm:text-sm leading-relaxed">
-                            This will immediately mark the church as Unverified and lock GCash and Maya cashless donation gates across web and mobile. Use this if the church admin account is compromised, under diocesan inquiry, or undergoing chancery credential audits.
+                            This will immediately mark the church as Unverified and lock GCash and Maya cashless donation gates across web and mobile. Use this if the church admin account is compromised, under investigation, or undergoing credential audits.
                         </div>
 
                         <div>
@@ -2243,7 +2243,7 @@ export default function ChurchDetailPage() {
                                 className="input w-full text-sm"
                             />
                             <p className="text-[11px] text-muted mt-1">
-                                This reason will be recorded in audit activity logs for chancery compliance.
+                                This reason will be recorded in audit activity logs for compliance.
                             </p>
                         </div>
                     </div>

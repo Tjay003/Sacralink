@@ -554,7 +554,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                 </div>
             </section>
 
-            {/* Chancery circulars */}
+            {/* Admin circulars */}
 
             {/* Stat Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

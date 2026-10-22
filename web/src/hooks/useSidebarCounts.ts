@@ -16,8 +16,8 @@ const EMPTY_COUNTS: SidebarCounts = { unreadMessages: 0, pendingAppointments: 0,
  * Live counts for the sidebar badges.
  *  - unreadMessages: unread messages in the signed-in user's conversations (everyone).
  *  - pendingAppointments: staff (church admin, priest) see their parish's pending requests,
- *    diocese admins see all of them, parishioners and volunteers see only their own.
- *  - pendingApplications: parish applications awaiting a decision (diocese admins only).
+ *    admins see all of them, parishioners and volunteers see only their own.
+ *  - pendingApplications: parish applications awaiting a decision (admins only).
  * Counts refresh on realtime changes, whenever a conversation is marked read, and on navigation.
  */
 export function useSidebarCounts(profile: Profile | null): SidebarCounts {

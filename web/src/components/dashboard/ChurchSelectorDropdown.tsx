@@ -120,7 +120,7 @@ export default function ChurchSelectorDropdown({
                                 </div>
                                 <div>
                                     <div className="text-sm font-semibold text-foreground">{allLabel}</div>
-                                    <div className="text-xs text-gray-500">Diocese-wide view</div>
+                                    <div className="text-xs text-gray-500">All churches</div>
                                 </div>
                             </div>
                             {selectedChurchId === null && (

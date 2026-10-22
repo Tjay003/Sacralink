@@ -22,7 +22,7 @@ import { Users, Building2, Calendar as CalendarIcon, TrendingUp } from 'lucide-r
  * - 'priest' role → PriestDashboard (celebrant schedule, blackout, lectionary)
  * - 'church_admin' role → ChurchAdminDashboard (full parish ops, financials, staff attention)
  * - 'volunteer' role → VolunteerDashboard (liturgical header, livestream studio, announcements)
- * - 'super_admin' & 'admin' → SuperAdminDashboard (chancery diocese-wide governance)
+ * - 'super_admin' & 'admin' → SuperAdminDashboard (all-churches governance)
  */
 export default function DashboardPage() {
     const { profile } = useAuth();

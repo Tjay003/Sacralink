@@ -54,7 +54,7 @@ function ChurchPerformanceThumbnail({ imageUrl, churchName }: { imageUrl?: strin
  * - Modern 2-tile metric display (Members, Appointments)
  * - Badges: Sacred Gold for "Verified" parishes, Emerald for "Active" parishes
  * - Strict financial privacy: NO donation or giving metrics
- * - "View Dashboard" action switches the diocese view to the selected parish dashboard
+ * - "View Dashboard" action switches the all-churches view to the selected parish dashboard
  */
 export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerformanceGridProps = {}) {
     const navigate = useNavigate();
@@ -302,7 +302,7 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                                  </div>
                             </div>
 
-                            {/* Card Bottom: View Dashboard CTA (Switches diocese view to this parish) */}
+                            {/* Card Bottom: View Dashboard CTA (Switches all-churches view to this parish) */}
                             <div className="pt-2">
                                 <button
                                     type="button"

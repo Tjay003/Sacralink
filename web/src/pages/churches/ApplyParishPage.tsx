@@ -62,7 +62,7 @@ export default function ApplyParishPage() {
   }, [user]);
 
   const validateFile = (file: File | null, label: string): string | null => {
-    if (!file) return `${label} is required for diocese verification`;
+    if (!file) return `${label} is required for verification`;
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return `${label} must be a PDF or image (JPG, PNG, WebP)`;
@@ -92,7 +92,7 @@ export default function ApplyParishPage() {
       return;
     }
 
-    const decreeErr = validateFile(decreeFile, 'Diocesan Chancery Appointment Decree');
+    const decreeErr = validateFile(decreeFile, 'Appointment Decree');
     if (decreeErr) {
       setError(decreeErr);
       return;
@@ -138,7 +138,7 @@ export default function ApplyParishPage() {
           </div>
           <h2 className="text-2xl font-bold text-foreground">Application Submitted Successfully</h2>
           <p className="text-muted text-sm max-w-lg mx-auto leading-relaxed">
-            Your verification request for <strong className="text-foreground">{submittedApp.parish_name}</strong> has been transmitted to the Diocese Chancery Super Admin queue.
+            Your verification request for <strong className="text-foreground">{submittedApp.parish_name}</strong> has been sent to the Super Admin review queue.
           </p>
 
           <div className="bg-secondary-50 dark:bg-secondary-900/40 p-4 rounded-xl text-left border border-border space-y-3">
@@ -147,8 +147,8 @@ export default function ApplyParishPage() {
               What Happens Next:
             </div>
             <ul className="text-xs text-muted space-y-2 list-disc list-inside">
-              <li>Diocese Super Admins verify your official CBCP Clergy ID / Celebret credentials.</li>
-              <li>A Chancery confirmation phone call is made to the parish rectory landline.</li>
+              <li>Super Admins verify your official CBCP Clergy ID / Celebret credentials.</li>
+              <li>A confirmation phone call is made to the parish rectory landline.</li>
               <li>GCash/Maya merchant accounts are validated against the legal parish entity to safeguard donations.</li>
               <li>Upon approval, your parish is marked <span className="font-semibold text-emerald-600">Verified & Active</span>, unlocking cashless donations and public sacrament booking.</li>
             </ul>
@@ -200,14 +200,14 @@ export default function ApplyParishPage() {
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 dark:bg-primary-950/60 text-primary border border-primary-200 dark:border-primary-800">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Diocese Verification Pipeline
+                Verification Pipeline
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-2 text-foreground">
               Parish Onboarding Application
             </h1>
             <p className="text-muted text-sm mt-1 max-w-2xl">
-              Register your Catholic parish with SacraLink. Official CBCP credentials and Chancery decrees are strictly vetted before cashless donation features are unlocked.
+              Register your Catholic parish with SacraLink. Official CBCP credentials and appointment decrees are strictly vetted before cashless donation features are unlocked.
             </p>
           </div>
 
@@ -329,7 +329,7 @@ export default function ApplyParishPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1">
-                Rectory / Office Landline <span className="text-muted text-xs font-normal">(For Chancery phone check)</span>
+                Rectory / Office Landline <span className="text-muted text-xs font-normal">(For verification phone call)</span>
               </label>
               <input
                 type="text"
@@ -350,7 +350,7 @@ export default function ApplyParishPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input w-full"
-                placeholder="e.g., parish.office@diocese.ph"
+                placeholder="e.g., parish.office@gmail.com"
                 disabled={submitting}
               />
             </div>
@@ -409,7 +409,7 @@ export default function ApplyParishPage() {
             <div>
               <h2 className="text-lg font-bold text-foreground">3. Cashless Donation Information (Locked until Verified)</h2>
               <p className="text-xs text-muted">
-                GCash / Maya numbers will be locked and hidden from parishioners until Diocese Super Admin verifies entity ownership.
+                GCash / Maya numbers will be locked and hidden from parishioners until a Super Admin verifies entity ownership.
               </p>
             </div>
           </div>
@@ -447,7 +447,7 @@ export default function ApplyParishPage() {
           </div>
         </div>
 
-        {/* Card 4: Mandatory Clergy & Chancery Credentials Upload */}
+        {/* Card 4: Mandatory Clergy Credentials Upload */}
         <div className="card p-6 space-y-4">
           <div className="flex items-center gap-3 border-b border-border pb-3">
             <div className="p-2 bg-emerald-100 dark:bg-emerald-950/50 rounded-lg text-emerald-600">
@@ -456,7 +456,7 @@ export default function ApplyParishPage() {
             <div>
               <h2 className="text-lg font-bold text-foreground">4. Mandatory Verification Credentials</h2>
               <p className="text-xs text-muted">
-                Upload scans of valid clergy identification and Chancery appointment decrees for Diocese vetting
+                Upload scans of valid clergy identification and appointment decrees for verification
               </p>
             </div>
           </div>
@@ -519,10 +519,10 @@ export default function ApplyParishPage() {
               )}
             </div>
 
-            {/* Chancery Appointment Decree Upload */}
+            {/* Appointment Decree Upload */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-foreground">
-                Diocesan Chancery Appointment Decree <span className="text-red-500">*</span>
+                Appointment Decree <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-muted">
                 Official decree of assignment signed by the Local Ordinary or Vicar General.
@@ -569,7 +569,7 @@ export default function ApplyParishPage() {
                     <Upload className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-primary">Click to upload Chancery Decree</span>
+                    <span className="text-sm font-semibold text-primary">Click to upload Appointment Decree</span>
                     <p className="text-xs text-muted mt-0.5">PDF, PNG, JPG up to 10MB</p>
                   </div>
                 </button>

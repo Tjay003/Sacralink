@@ -105,7 +105,7 @@ const getRoleBadge = (role?: string | null) => {
             };
         case 'admin':
             return {
-                label: 'Diocese Admin',
+                label: 'Admin',
                 className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300',
             };
         case 'church_admin':
@@ -405,7 +405,7 @@ export default function MessagingPage() {
         };
     }, [user, loadConversations]);
 
-    // Load churches for the Super Admin / Diocese Admin Parish Staff Channel selector and the New Ticket parish selector
+    // Load churches for the Super Admin / Admin Parish Staff Channel selector and the New Ticket parish selector
     useEffect(() => {
         if (!isSuperOrDioceseAdmin && !canCreateTicket) return;
         const loadChurches = async () => {
@@ -812,7 +812,7 @@ export default function MessagingPage() {
         let churchId: string | undefined;
 
         if (isSuperOrDioceseAdmin) {
-            // Super Admin & Diocese Admin can pick any parish channel or open targetChurchId
+            // Super Admin & Admin can pick any parish channel or open targetChurchId
             if (targetChurchId) {
                 churchId = targetChurchId;
             } else {
@@ -1889,7 +1889,7 @@ export default function MessagingPage() {
                             {(profile?.role === 'user' ? [
                                 { id: 'all', label: 'All Administrators' },
                                 { id: 'church_admin', label: 'Parish Office' },
-                                { id: 'admin', label: 'Diocese Office' },
+                                { id: 'admin', label: 'Admin Office' },
                                 { id: 'super_admin', label: 'Super Admin' },
                             ] : isVolunteer ? [
                                 { id: 'all', label: 'All Contacts' },
@@ -1898,7 +1898,7 @@ export default function MessagingPage() {
                             ] : [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'admin', label: 'Diocese Admins' },
+                                { id: 'admin', label: 'Admins' },
                                 { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ]).map((tab) => (

@@ -131,7 +131,7 @@ export default function DashboardLayout() {
         navigate('/login');
     };
 
-    // Navigation sections matching the redesigned mockup: OVERVIEW, DIOCESE, OPERATIONS
+    // Navigation sections matching the redesigned mockup: OVERVIEW, MANAGEMENT, OPERATIONS
     const navSections: NavSection[] = [
         {
             title: 'OVERVIEW',
@@ -140,11 +140,11 @@ export default function DashboardLayout() {
             ],
         },
         {
-            title: 'DIOCESE',
+            title: 'MANAGEMENT',
             items: [
-                { name: 'Parishes', href: '/churches', icon: Church, featureKey: 'churches' },
+                { name: 'Churches', href: '/churches', icon: Church, featureKey: 'churches' },
                 {
-                    name: 'Parish applications',
+                    name: 'Church Applications',
                     href: '/admin/applications',
                     icon: ShieldCheck,
                     superAdminOnly: true,
@@ -167,7 +167,7 @@ export default function DashboardLayout() {
                     href: '/appointments',
                     icon: Calendar,
                     featureKey: 'appointments',
-                    // Hidden for the diocese admins for now (client request)
+                    // Hidden for the admins for now (client request)
                     hiddenForDioceseAdmins: true,
                     badge: sidebarCounts.pendingAppointments > 0 ? sidebarCounts.pendingAppointments : undefined,
                 },
@@ -334,7 +334,7 @@ export default function DashboardLayout() {
                     </div>
                 </div>
 
-                {/* Bottom Section (Accessibility Toggle, Diocese Badge, Sign Out) */}
+                {/* Bottom Section (Accessibility Toggle, Churches Badge, Sign Out) */}
                 <div className="p-3.5 border-t border-border/80 bg-white space-y-2">
                                         {/* Large Text Mode Toggle */}
                     {!sidebarCollapsed ? (
@@ -361,15 +361,15 @@ export default function DashboardLayout() {
                         </div>
                     ) : null}
 
-                    {/* Diocese Summary Pill */}
+                    {/* Churches Summary Pill */}
                     {!sidebarCollapsed && dioceseSummary && (
                         <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs">
                             <div className="flex items-center gap-2 font-semibold text-amber-950">
                                 <Church className="w-3.5 h-3.5 text-amber-700 flex-shrink-0" />
-                                <span className="truncate">CSJDM Diocese</span>
+                                <span className="truncate">San Jose del Monte</span>
                             </div>
                             <p className="text-[11px] text-amber-800/90 mt-0.5 pl-5.5">
-                                {dioceseSummary.parishes} {dioceseSummary.parishes === 1 ? 'parish' : 'parishes'} · {dioceseSummary.members} {dioceseSummary.members === 1 ? 'member' : 'members'}
+                                {dioceseSummary.parishes} {dioceseSummary.parishes === 1 ? 'church' : 'churches'} · {dioceseSummary.members} {dioceseSummary.members === 1 ? 'member' : 'members'}
                             </p>
                         </div>
                     )}
@@ -497,7 +497,7 @@ export default function DashboardLayout() {
             <ConfirmationModal
                 isOpen={showLogoutModal}
                 title="Sign Out"
-                message="Are you sure you want to sign out of the Diocese Portal?"
+                message="Are you sure you want to sign out of Sacralink?"
                 confirmLabel="Sign Out"
                 cancelLabel="Cancel"
                 variant="danger"

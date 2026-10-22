@@ -78,7 +78,7 @@ export default function ChurchesPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Parishes</h1>
+                    <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Churches</h1>
                 </div>
                 <div className="flex items-center gap-2.5">
                     <button
@@ -87,7 +87,7 @@ export default function ChurchesPage() {
                         className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
                     >
                         <ShieldCheck className="w-4 h-4 text-secondary-500" />
-                        <span>Onboard parish</span>
+                        <span>Onboard church</span>
                     </button>
                     {canAddChurch && (
                         <button
@@ -96,7 +96,7 @@ export default function ChurchesPage() {
                             className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-2xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                             <Plus className="w-4 h-4" />
-                            <span>Add parish</span>
+                            <span>Add church</span>
                         </button>
                     )}
                 </div>
@@ -108,7 +108,7 @@ export default function ChurchesPage() {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search parishes or priests"
+                        placeholder="Search churches or priests"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 rounded-2xl border border-border bg-white text-xs sm:text-sm text-foreground placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs transition-shadow"

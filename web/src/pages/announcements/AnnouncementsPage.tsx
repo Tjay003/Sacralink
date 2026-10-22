@@ -383,7 +383,7 @@ export default function AnnouncementsPage() {
                         )}
                     </div>
                     <p className="text-muted text-sm mt-0.5">
-                        Share and browse important parish news, sacrament schedules, and diocese system notices
+                        Share and browse important parish news, sacrament schedules, and system notices
                     </p>
                 </div>
 
@@ -512,7 +512,7 @@ export default function AnnouncementsPage() {
                         </span>
                     </button>
 
-                    {/* Tab: System / Diocese Advisories */}
+                    {/* Tab: System / System Advisories */}
                     <button
                         onClick={() => {
                             setActiveTab('system');
@@ -525,7 +525,7 @@ export default function AnnouncementsPage() {
                         }`}
                     >
                         <Megaphone className="w-4 h-4" />
-                        <span>Diocese Advisories</span>
+                        <span>System Advisories</span>
                         <span
                             className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 activeTab === 'system' ? 'bg-primary/10 text-primary' : 'bg-secondary-100 text-muted'

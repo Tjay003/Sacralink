@@ -59,7 +59,7 @@ export default function PriestAvailabilityModal({
     // Blackout form state
     const [blackoutStart, setBlackoutStart] = useState('');
     const [blackoutEnd, setBlackoutEnd] = useState('');
-    const [blackoutReason, setBlackoutReason] = useState('Diocesan Annual Retreat');
+    const [blackoutReason, setBlackoutReason] = useState('Annual Retreat');
     const [addingBlackout, setAddingBlackout] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -140,7 +140,7 @@ export default function PriestAvailabilityModal({
 
             setBlackoutStart('');
             setBlackoutEnd('');
-            setBlackoutReason('Diocesan Annual Retreat');
+            setBlackoutReason('Annual Retreat');
             await loadData();
             onAvailabilityUpdated?.();
         } catch (err) {
@@ -304,7 +304,7 @@ export default function PriestAvailabilityModal({
                                 <div className="flex items-center gap-2">
                                     <Shield className="w-4 h-4 text-primary" />
                                     <h4 className="text-sm font-bold text-foreground">
-                                        Scheduled Diocesan Retreats & Leaves
+                                        Scheduled Retreats & Leaves
                                     </h4>
                                 </div>
                                 <p className="text-xs text-muted leading-relaxed">
@@ -358,7 +358,7 @@ export default function PriestAvailabilityModal({
                                         type="text"
                                         value={blackoutReason}
                                         onChange={(e) => setBlackoutReason(e.target.value)}
-                                        placeholder="e.g. Diocesan Annual Retreat, Canonical Study Leave..."
+                                        placeholder="e.g. Annual Retreat, Canonical Study Leave..."
                                         required
                                         className="w-full px-3 py-2 rounded-xl border border-border bg-white text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs placeholder:text-muted"
                                     />

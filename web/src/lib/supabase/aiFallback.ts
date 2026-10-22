@@ -176,7 +176,7 @@ export async function logChurchChat(entry: {
 
 /**
  * Structured fallback response generator when the Edge Function is offline,
- * hits rate-limits (HTTP 429), or when performing general diocesan inquiries.
+ * hits rate-limits (HTTP 429), or when performing general inquiries.
  */
 export async function generateFallbackResponse(
   message: string,
@@ -354,7 +354,7 @@ export async function generateFallbackResponse(
 
       // Default church overview
       return {
-        reply: `**${churchName}**\n\n* **Address:** ${church?.address || 'San Jose Del Monte Diocese'}\n* **Parish Contact:** ${contact}\n\nI can assist you with Mass schedules, sacrament requirements (Baptism, Wedding, Confirmation), appointments, and cashless donations. How may I help you today?`,
+        reply: `**${churchName}**\n\n* **Address:** ${church?.address || 'San Jose Del Monte, Bulacan'}\n* **Parish Contact:** ${contact}\n\nI can assist you with Mass schedules, sacrament requirements (Baptism, Wedding, Confirmation), appointments, and cashless donations. How may I help you today?`,
         sourcesUsed: 1,
       };
     } catch (err: unknown) {
@@ -362,11 +362,11 @@ export async function generateFallbackResponse(
     }
   }
 
-  // 2. General Diocesan Knowledge when no specific parish is selected
+  // 2. General Knowledge when no specific parish is selected
   if (query.includes('baptism') || query.includes('binyag')) {
     return {
       reply:
-        '**General Diocesan Baptism Guidelines:**\n\n' +
+        '**General Baptism Guidelines:**\n\n' +
         '* **Child’s PSA Birth Certificate** (original & photocopy)\n' +
         '* **Parents’ Catholic Marriage Certificate** (or civil marriage contract)\n' +
         '* **Godparents (Ninong/Ninang):** At least 16 years old, fully initiated Catholics (Baptized and Confirmed)\n' +
@@ -379,7 +379,7 @@ export async function generateFallbackResponse(
   if (query.includes('wedding') || query.includes('kasal') || query.includes('matrimon')) {
     return {
       reply:
-        '**General Diocesan Matrimony Requirements:**\n\n' +
+        '**General Matrimony Requirements:**\n\n' +
         '* **Baptismal & Confirmation Certificates:** Issued within 6 months with the notation *"For Marriage Purposes"*\n' +
         '* **Certificate of No Marriage (CENOMAR)** from the PSA\n' +
         '* **Canonical Interview** with the parish priest\n' +
@@ -417,7 +417,7 @@ export async function generateFallbackResponse(
 /**
  * Main AI Assistant query function for web client.
  * Calls the Supabase Edge Function `church-ai-chat` and falls back
- * gracefully to structured parish/diocesan database queries if unavailable.
+ * gracefully to structured parish database queries if unavailable.
  */
 export async function askParishAI(
   params: AskParishAIParams

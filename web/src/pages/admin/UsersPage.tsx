@@ -356,7 +356,7 @@ export default function UsersPage() {
         const recipientName = transferTargetUser?.full_name || transferTargetUser?.email || 'the selected user';
         setShowTransferModal(false);
         setTransferTargetUser(null);
-        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account has been updated to Diocese Admin.`);
+        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account has been updated to Admin.`);
         fetchData();
     };
 
@@ -419,7 +419,7 @@ export default function UsersPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">User Management</h1>
-                    <p className="text-xs sm:text-sm text-secondary-500 font-normal mt-1">Audit roles, permissions, and church assignments across the diocese</p>
+                    <p className="text-xs sm:text-sm text-secondary-500 font-normal mt-1">Audit roles, permissions, and church assignments across all churches</p>
                 </div>
 
                 {/* View Switcher Toggle */}
@@ -575,7 +575,7 @@ export default function UsersPage() {
                             >
                                 <option value="all">All Roles (Default)</option>
                                 <option value="super_admin">Super Admin (Platform Owner)</option>
-                                <option value="admin">Diocese Admin</option>
+                                <option value="admin">Admin</option>
                                 <option value="church_admin">Church Admin</option>
                                 <option value="priest">Priest</option>
                                 <option value="volunteer">Volunteer</option>
@@ -1120,7 +1120,7 @@ export default function UsersPage() {
                                                                             <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                                                                                 Verified Parish
                                                                             </span>
-                                                                            <span className="font-medium text-muted">Diocese of Malolos</span>
+                                                                            <span className="font-medium text-muted">San Jose del Monte, Bulacan</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>

@@ -700,7 +700,7 @@ export default function EditChurchPage() {
                                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-start gap-2.5">
                                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                                     <div>
-                                        <span className="font-semibold">Anti-Fraud Shield Active:</span> Your parish is currently <em>Unverified / Under Audit</em>. You can upload and save your GCash/Maya QR codes now to assist diocesan verification. Note that cashless giving options remain hidden from parishioners until approved by Diocese Super Admin.
+                                        <span className="font-semibold">Anti-Fraud Shield Active:</span> Your parish is currently <em>Unverified / Under Audit</em>. You can upload and save your GCash/Maya QR codes now to assist verification. Note that cashless giving options remain hidden from parishioners until approved by a Super Admin.
                                     </div>
                                 </div>
                             )}
@@ -1106,7 +1106,7 @@ export default function EditChurchPage() {
                                     </div>
 
                                     <p className="text-xs text-muted leading-relaxed">
-                                        Parish verification and canonical accreditation status is managed exclusively by Chancery Super Administrators.
+                                        Parish verification and canonical accreditation status is managed exclusively by Super Administrators.
                                     </p>
                                 </div>
                             )}

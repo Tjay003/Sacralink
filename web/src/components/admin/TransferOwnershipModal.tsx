@@ -113,7 +113,7 @@ export default function TransferOwnershipModal({
                             You will transfer the <strong>sole Super Admin (Platform Owner)</strong> role to the selected user.
                         </li>
                         <li>
-                            Your account will be demoted to <strong>Diocese Admin (admin)</strong> immediately.
+                            Your account will be demoted to <strong>Admin (admin)</strong> immediately.
                         </li>
                         <li>
                             You will surrender ultimate ownership privileges and cannot undo this action yourself.

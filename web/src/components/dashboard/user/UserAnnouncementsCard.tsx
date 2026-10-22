@@ -158,7 +158,7 @@ export default function UserAnnouncementsCard({ churchId, churchName }: UserAnno
                             ) : (
                                 <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
                                     <Megaphone className="w-3.5 h-3.5" />
-                                    Diocesan / System Announcement
+                                    System Announcement
                                 </span>
                             )}
                             <span>·</span>

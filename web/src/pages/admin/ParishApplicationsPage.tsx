@@ -208,7 +208,7 @@ function ParishApplicationDrawer({
                     Anti-Fraud Criteria Incomplete
                   </h4>
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    One or more mandatory Chancery verification checks have not been marked as verified for{' '}
+                    One or more mandatory verification checks have not been marked as verified for{' '}
                     <strong className="font-semibold text-amber-950">{app.parish_name}</strong>.
                   </p>
                 </div>
@@ -326,11 +326,11 @@ function ParishApplicationDrawer({
               <div className="min-w-0 flex-1 text-xs space-y-1">
                 <p className="font-bold text-sm text-emerald-800">Verified Active Parish</p>
                 <p className="text-emerald-700 leading-relaxed">
-                  This parish was audited and approved by the Chancery. The church is active in the public directory and cashless donations are enabled.
+                  This parish was audited and approved by Sacralink admins. The church is active in the public directory and cashless donations are enabled.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-emerald-800">
                   {app.reviewer && (
-                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Diocesan Chancery'}</span>
+                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Sacralink Admin'}</span>
                   )}
                   {app.reviewed_at && (
                     <span><strong>Date:</strong> {new Date(app.reviewed_at).toLocaleDateString()}</span>
@@ -352,7 +352,7 @@ function ParishApplicationDrawer({
                 )}
                 <div className="flex flex-wrap gap-4 pt-1 text-[11px] text-red-800">
                   {app.reviewer && (
-                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Diocesan Chancery'}</span>
+                    <span><strong>Reviewed by:</strong> {app.reviewer.full_name || 'Sacralink Admin'}</span>
                   )}
                   {app.reviewed_at && (
                     <span><strong>Date:</strong> {new Date(app.reviewed_at).toLocaleDateString()}</span>
@@ -449,16 +449,16 @@ function ParishApplicationDrawer({
                 )}
               </div>
 
-              {/* Chancery Appointment Decree */}
+              {/* Appointment Decree */}
               <div className="flex items-center justify-between py-2.5">
                 <div className="flex items-center gap-3 min-w-0 pr-2">
                   <FileText className="w-5 h-5 text-emerald-600 shrink-0" />
                   <div className="min-w-0">
                     <span className="text-xs sm:text-sm font-medium text-foreground block truncate">
-                      {app.decree_url ? 'Chancery decree attached' : 'Chancery Appointment Decree'}
+                      {app.decree_url ? 'Appointment decree attached' : 'Appointment Decree'}
                     </span>
                     <span className="text-[11px] text-secondary-400 block truncate">
-                      Diocesan Assignment & Jurisdictional Decree
+                      Assignment & Jurisdictional Decree
                     </span>
                   </div>
                 </div>
@@ -492,7 +492,7 @@ function ParishApplicationDrawer({
                         Parish registration attached
                       </span>
                       <span className="text-[11px] text-secondary-400 block truncate">
-                        Official Chancery Parish Registry & Tax Documents
+                        Official Church Registry & Tax Documents
                       </span>
                     </div>
                   </div>
@@ -569,10 +569,10 @@ function ParishApplicationDrawer({
                 />
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs sm:text-sm font-semibold leading-snug ${checklist.rectory_call ? 'text-emerald-950' : 'text-foreground'}`}>
-                    Rectory phone call confirmed with Chancery
+                    Rectory phone call confirmed
                   </p>
                   <p className="text-[11px] text-secondary-500 mt-0.5 leading-relaxed">
-                    Chancery staff verified the applicant by speaking with the rectory office landline.
+                    Admin staff verified the applicant by speaking with the rectory office landline.
                   </p>
                 </div>
               </label>
@@ -646,7 +646,7 @@ function ParishApplicationDrawer({
                 onChange={(e) =>
                   onChecklistChange((prev) => ({ ...prev, notes: e.target.value }))
                 }
-                placeholder="Add a note for the applicant (optional) or record verification notes, diocese call log..."
+                placeholder="Add a note for the applicant (optional) or record verification notes, call log..."
                 rows={3}
                 className="w-full p-3.5 rounded-2xl border border-border bg-white text-xs sm:text-sm placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition shadow-2xs"
                 disabled={actionLoading}
@@ -1007,10 +1007,10 @@ export default function ParishApplicationsPage() {
         <div>
           <span className="bg-blue-50 text-blue-700 border border-blue-200/80 rounded-full px-3 py-0.5 text-xs font-semibold inline-flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Diocese administration
+            Management
           </span>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground mt-2 mb-1">
-            Parish applications
+            Church Applications
           </h1>
           <p className="text-sm text-secondary-600 font-normal">
             Review onboarding requests, inspect CBCP clergy credentials, and verify parishes before they appear in the public directory.
@@ -1137,7 +1137,7 @@ export default function ParishApplicationsPage() {
                     </div>
                     <div className="flex items-center gap-1.5 truncate">
                       <UserCheck className="w-3.5 h-3.5 shrink-0 text-secondary-400" />
-                      <span className="truncate">{app.applicant?.full_name || 'Diocesan Applicant'}</span>
+                      <span className="truncate">{app.applicant?.full_name || 'Applicant'}</span>
                     </div>
                     <div className="flex items-center gap-1.5 truncate">
                       <Clock className="w-3.5 h-3.5 shrink-0 text-secondary-400" />
@@ -1162,12 +1162,12 @@ export default function ParishApplicationsPage() {
                     {app.decree_url ? (
                       <span className="bg-secondary-50 border border-border/80 text-secondary-700 text-xs font-medium px-3 py-1 rounded-lg inline-flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-secondary-500" />
-                        Chancery decree attached
+                        Appointment decree attached
                       </span>
                     ) : (
                       <span className="bg-red-50 border border-red-200/80 text-red-700 text-xs font-medium px-3 py-1 rounded-lg inline-flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                        Chancery decree missing
+                        Appointment decree missing
                       </span>
                     )}
 

@@ -17,7 +17,7 @@ test.describe('Parish Verification & Donation Gate', () => {
     await page.locator('input[placeholder="e.g., St. Joseph the Worker Parish"]').fill('St. Anthony of Padua Parish');
     await page.locator('input[placeholder="e.g., Tungkong Mangga, City of San Jose del Monte, Bulacan"]').fill('Brgy. Kaypian, City of San Jose del Monte, Bulacan');
     await page.locator('input[placeholder*="(044) 123-4567"]').fill('(044) 798-1122');
-    await page.locator('input[placeholder="e.g., parish.office@diocese.ph"]').fill('stanthony@diocese.ph');
+    await page.locator('input[placeholder="e.g., parish.office@gmail.com"]').fill('stanthony@diocese.ph');
 
     // Create and attach mock credential files
     const mockFileBuffer = Buffer.from('Mock PDF Content for Clergy Credential');
@@ -47,7 +47,7 @@ test.describe('Parish Verification & Donation Gate', () => {
 
     // Verify success confirmation screen
     await expect(page.getByRole('heading', { name: 'Application Submitted Successfully' })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('Diocese Chancery Super Admin queue')).toBeVisible();
+    await expect(page.getByText('Super Admin review queue')).toBeVisible();
   });
 
   test('2. Cashless donations are strictly locked on unverified churches', async ({ page }) => {
@@ -88,10 +88,10 @@ test.describe('Parish Verification & Donation Gate', () => {
     // Verify modal content & document links
     await expect(page.getByRole('heading', { name: /Verification Review: St. Vincent Ferrer Parish/i })).toBeVisible();
     await expect(page.getByRole('link', { name: 'CBCP Clergy ID / Celebret' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Chancery Appointment Decree/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Appointment Decree/i })).toBeVisible();
 
     // Verify and check all 3 anti-fraud checklist items
-    const rectoryCheck = page.getByLabel(/Rectory Phone Call Confirmed with Chancery/i);
+    const rectoryCheck = page.getByLabel(/Rectory Phone Call Confirmed/i);
     const celebretCheck = page.getByLabel(/CBCP Clergy ID \/ Celebret Verified with Diocese Roster/i);
     const merchantCheck = page.getByLabel(/Merchant Name \/ GCash \/ Maya Matches Legal Parish Entity/i);
 

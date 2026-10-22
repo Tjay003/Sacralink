@@ -238,7 +238,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
         setSubmitError('');
 
         if (isUnverified) {
-            setSubmitError('Donations are locked. This parish is pending diocese verification.');
+            setSubmitError('Donations are locked. This parish is pending verification.');
             return;
         }
 
@@ -402,7 +402,7 @@ export default function SubmitDonationModal({ church, onClose, onSuccess }: Subm
                         <div>
                             <p className="font-bold text-xs sm:text-sm">Parish Verification Pending</p>
                             <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                                This parish is currently undergoing Diocese anti-fraud and clergy credentials verification. Cashless offerings are locked until verified by the Diocese Chancery.
+                                This church is currently undergoing anti-fraud and clergy credentials verification. Cashless offerings are locked until verified by Sacralink admins.
                             </p>
                         </div>
                     </div>

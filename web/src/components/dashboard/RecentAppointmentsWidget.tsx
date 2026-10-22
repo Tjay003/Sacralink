@@ -19,7 +19,7 @@ interface RecentAppointmentsWidgetProps {
 }
 
 /**
- * RecentAppointmentsWidget - Shows latest appointments for a church or the whole diocese
+ * RecentAppointmentsWidget - Shows latest appointments for a church or all churches
  */
 export default function RecentAppointmentsWidget({
     churchId = null,

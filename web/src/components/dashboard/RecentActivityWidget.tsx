@@ -71,7 +71,7 @@ function formatSacramentName(raw: string): string {
 }
 
 /**
- * Authentic fallbacks representing actual diocesan parishes
+ * Authentic fallbacks representing actual local parishes
  */
 function getFallbackActivities(churchName?: string | null): ActivityItem[] {
     const now = Date.now();
@@ -151,7 +151,7 @@ function getFallbackActivities(churchName?: string | null): ActivityItem[] {
         {
             id: 'fb-5',
             type: 'announcement_published',
-            title: 'Diocesan Synod 2026 preparation guidelines published',
+            title: 'Synod 2026 preparation guidelines published',
             timestamp: new Date(now - dayMs - 3 * hourMs),
             timeAgo: 'Yesterday',
         },
@@ -180,9 +180,9 @@ function getFallbackActivities(churchName?: string | null): ActivityItem[] {
 }
 
 /**
- * RecentActivityWidget - Streamlined diocesan activity feed
+ * RecentActivityWidget - Streamlined church activity feed
  * Displays live narrative events across sacrament bookings, applicant documents,
- * community proofs, newly joined members, and diocesan announcements.
+ * community proofs, newly joined members, and system announcements.
  */
 export default function RecentActivityWidget({ churchId = null, className }: RecentActivityWidgetProps) {
     const { churches } = useChurches();
@@ -315,7 +315,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                     results.push({
                         id: `ann-${ann.id}`,
                         type: 'announcement_published',
-                        title: `"${ann.title}" published diocese-wide`,
+                        title: `"${ann.title}" published system-wide`,
                         timestamp: dt,
                         timeAgo: formatRelativeTime(dt),
                     });
@@ -475,7 +475,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                             <p className="text-xs sm:text-sm text-secondary-500 font-normal">
                                 {selectedChurch?.name
                                     ? `What happened at ${selectedChurch.name}`
-                                    : 'What happened across the diocese'}
+                                    : 'What happened across all churches'}
                             </p>
                         </div>
 
@@ -568,7 +568,7 @@ export default function RecentActivityWidget({ churchId = null, className }: Rec
                                     <p className="text-xs sm:text-sm text-secondary-500 mt-0.5">
                                         {selectedChurch?.name
                                             ? `Complete history for ${selectedChurch.name}`
-                                            : 'Complete chronological history across the diocese'}
+                                            : 'Complete chronological history across all churches'}
                                     </p>
                                 </div>
                                 <button

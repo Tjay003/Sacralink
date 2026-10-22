@@ -181,7 +181,7 @@ export default function AddChurchPage() {
                     Back to Churches
                 </button>
                 <h1 className="text-2xl font-bold">Add New Church</h1>
-                <p className="text-muted">Create a new parish in your diocese</p>
+                <p className="text-muted">Create a new church in San Jose del Monte</p>
             </div>
 
             {/* Form Card */}

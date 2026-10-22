@@ -58,7 +58,7 @@ export default function VolunteerDashboard({ churchId }: VolunteerDashboardProps
                     <h3 className="text-lg font-bold text-amber-900 mb-2">No Parish Assigned</h3>
                     <p className="text-sm text-amber-800 leading-relaxed">
                         You are registered as a Parish Volunteer, but your account is not yet linked to a specific parish.
-                        Please contact your Parish Administrator or Chancery office to assign you to a parish community.
+                        Please contact your Parish Administrator to assign you to a parish community.
                     </p>
                 </div>
             </div>

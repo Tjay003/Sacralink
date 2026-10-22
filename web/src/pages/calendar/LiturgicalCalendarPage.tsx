@@ -58,7 +58,7 @@ const FEAST_DAYS: FeastDay[] = [
         season: 'Lent / Solemnity',
         color: 'white',
         colorName: 'White',
-        description: 'Patron saint of the universal Church and Diocese of San Jose del Monte.',
+        description: 'Patron saint of the universal Church and the City of San Jose del Monte.',
     },
     {
         title: 'Solemnity of the Annunciation of the Lord',
@@ -234,7 +234,7 @@ export default function LiturgicalCalendarPage() {
     };
 
     const handleCopyGospel = async () => {
-        const textToCopy = `${dailyReadings.title} (${dailyReadings.date})\n\nLiturgical Season: ${dailyReadings.season} • Liturgical Color: ${dailyReadings.colorName}\n\nAcclamation:\n${dailyReadings.gospelAcclamation.verse}\n\nGospel (${dailyReadings.gospel.citation}):\n${dailyReadings.gospel.text}\n\nReflection:\n${dailyReadings.reflection || ''}\n\nVia Sacralink - Diocese of San Jose del Monte`;
+        const textToCopy = `${dailyReadings.title} (${dailyReadings.date})\n\nLiturgical Season: ${dailyReadings.season} • Liturgical Color: ${dailyReadings.colorName}\n\nAcclamation:\n${dailyReadings.gospelAcclamation.verse}\n\nGospel (${dailyReadings.gospel.citation}):\n${dailyReadings.gospel.text}\n\nReflection:\n${dailyReadings.reflection || ''}\n\nVia Sacralink - San Jose del Monte, Bulacan`;
 
         try {
             await navigator.clipboard.writeText(textToCopy);
@@ -312,7 +312,7 @@ export default function LiturgicalCalendarPage() {
                 <div>
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary mb-1">
                         <CalendarDays className="w-4 h-4 text-primary" />
-                        <span>Diocese of San Jose del Monte</span>
+                        <span>San Jose del Monte, Bulacan</span>
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
                         Liturgical Calendar

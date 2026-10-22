@@ -816,7 +816,7 @@ export async function getOrCreateDirectConversation(
         }
 
         if (callerRole === 'user' && !['super_admin', 'admin', 'church_admin'].includes(targetRole)) {
-            throw new Error('Parishioners can only initiate direct conversations with Parish Office and Diocese administrators.');
+            throw new Error('Parishioners can only initiate direct conversations with Parish Office and Admin staff.');
         }
 
         if (
@@ -1385,7 +1385,7 @@ export async function fetchAvailableContacts(
             }));
 
             // Strict Gateway: Parishioners can ONLY contact leadership/administrators:
-            // super_admin, admin (diocese admin), church_admin (parish admin).
+            // super_admin, admin, church_admin (parish admin).
             // Parishioners can NEVER contact other parishioners or cold-message clergy.
             if (resolvedRole === 'user') {
                 normalizedData = normalizedData.filter(

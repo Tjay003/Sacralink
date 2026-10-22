@@ -202,7 +202,7 @@ export async function upsertDayOff(
 }
 
 /**
- * Adds a blackout period (e.g., diocesan retreat, sick leave, canonical study leave).
+ * Adds a blackout period (e.g., retreat, sick leave, canonical study leave).
  *
  * Overloads support both:
  * - addBlackoutPeriod(priestId, churchId, start, end, reason)

@@ -62,7 +62,7 @@ test.describe('Branding and parish page polish', () => {
     await expect(page.getByText('Diocese of San Jose del Monte')).toHaveCount(0);
 
     await page.goto('/churches');
-    await expect(page.getByRole('heading', { name: 'Parishes', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Churches', exact: true })).toBeVisible();
     await expect(page.getByText(/Manage the .* parishes of the Diocese/)).toHaveCount(0);
   });
 

@@ -17,7 +17,7 @@ import { getDailyReadings } from '../../lib/liturgy';
  * SuperAdminDashboard - Dashboard for super administrators
  * 
  * Features:
- * - Diocese-wide view (All Churches)
+ * - All-churches view (All Churches)
  * - Individual church dashboard view
  * - System announcements management
  * - Church performance comparison (Privacy-preserving: No donation amounts)
@@ -91,13 +91,13 @@ export default function SuperAdminDashboard() {
         return (
             <div className="space-y-6">
                 {noticeBanner}
-                {/* Back to Diocese View */}
+                {/* Back to All Churches */}
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => handleChurchSelect(null)}
                         className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1 cursor-pointer"
                     >
-                        <span>← Back to Diocese View</span>
+                        <span>← Back to All Churches</span>
                     </button>
                 </div>
 
@@ -107,7 +107,7 @@ export default function SuperAdminDashboard() {
         );
     }
 
-    // Diocese-wide view
+    // All-churches view
     return (
         <div className="space-y-6">
             {noticeBanner}
@@ -134,7 +134,7 @@ export default function SuperAdminDashboard() {
 
                         {/* Subtitle */}
                         <p className="text-xs sm:text-sm text-secondary-600 font-medium">
-                            Here is how the Diocese of San Jose del Monte is doing this {timeOfDay}.
+                            Here is how San Jose del Monte is doing this {timeOfDay}.
                         </p>
                     </div>
 
@@ -183,7 +183,7 @@ export default function SuperAdminDashboard() {
                 </div>
             </div>
 
-            {/* Diocese-Wide Stats (Includes Total Sacraments Celebrated, strictly no Giving) */}
+            {/* All-Churches Stats (Includes Total Services Completed, strictly no Giving) */}
             <DioceseStatsCards selectedChurchId={selectedChurchId} />
 
             {/* Needs Your Attention & Daily Verse Row */}

@@ -221,7 +221,7 @@ export default function VirtualSanctuarySidebar({
         setDonationError(null);
 
         if (isUnverified) {
-            setDonationError('Cashless offertory is temporarily locked pending diocese verification.');
+            setDonationError('Cashless offertory is temporarily locked pending verification.');
             return;
         }
 
@@ -595,7 +595,7 @@ export default function VirtualSanctuarySidebar({
                                 </div>
                                 <p className="text-muted text-[11px] leading-relaxed">
                                     {isUnverified
-                                        ? 'This parish is currently completing diocese verification. In accordance with church transparency protocols, digital collections will open once verified.'
+                                        ? 'This parish is currently completing verification. In accordance with church transparency protocols, digital collections will open once verified.'
                                         : 'This parish has temporarily paused GCash and Maya donations. Please check back later or contact the parish office.'}
                                 </p>
                             </div>
