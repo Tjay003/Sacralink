@@ -14,7 +14,6 @@ import {
     X,
     ChevronDown,
     User,
-    Type,
     type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -51,7 +50,6 @@ export default function DashboardLayout() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
-        const [largeTextMode, setLargeTextMode] = useState(false);
     const [pendingDonationsCount, setPendingDonationsCount] = useState<number>(0);
     const sidebarCounts = useSidebarCounts(profile);
     const [dioceseSummary, setDioceseSummary] = useState<{ parishes: number; members: number } | null>(null);
@@ -259,7 +257,7 @@ export default function DashboardLayout() {
     };
 
     return (
-        <div className={`min-h-screen bg-background ${largeTextMode ? 'text-lg' : ''}`}>
+        <div className="min-h-screen bg-background">
             {/* Mobile Sidebar Backdrop */}
             {sidebarOpen && (
                 <div
@@ -334,33 +332,8 @@ export default function DashboardLayout() {
                     </div>
                 </div>
 
-                {/* Bottom Section (Accessibility Toggle, Churches Badge, Sign Out) */}
+                {/* Bottom Section (Churches Badge, Sign Out) */}
                 <div className="p-3.5 border-t border-border/80 bg-white space-y-2">
-                                        {/* Large Text Mode Toggle */}
-                    {!sidebarCollapsed ? (
-                        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-secondary-50/60 text-secondary-700 text-xs font-medium">
-                            <div className="flex items-center gap-2">
-                                <Type className="w-4 h-4 text-secondary-500" />
-                                <span>Large text mode</span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setLargeTextMode(!largeTextMode)}
-                                className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none ${
-                                    largeTextMode ? 'bg-primary' : 'bg-secondary-200'
-                                }`}
-                                role="switch"
-                                aria-checked={largeTextMode}
-                            >
-                                <span
-                                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                                        largeTextMode ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                />
-                            </button>
-                        </div>
-                    ) : null}
-
                     {/* Churches Summary Pill */}
                     {!sidebarCollapsed && dioceseSummary && (
                         <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-xs">

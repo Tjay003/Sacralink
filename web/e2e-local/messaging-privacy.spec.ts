@@ -83,7 +83,6 @@ let dmPartner: TempUser;
 let stranger: TempUser;
 let parishionerWithChurch: TempUser;
 let volunteer: TempUser;
-let admin: TempUser;
 let superAdmin: TempUser;
 
 test.describe.configure({ mode: 'serial' });
@@ -95,7 +94,6 @@ test.beforeAll(async () => {
   stranger = await tempUser('stranger', 'user', seed.churchId);
   parishionerWithChurch = await tempUser('parishioner-church', 'user', seed.churchId);
   volunteer = await tempUser('volunteer', 'volunteer', seed.churchId);
-  admin = await tempUser('admin', 'admin', seed.churchId);
   superAdmin = await tempUser('super-admin', 'super_admin', null);
 });
 
@@ -122,7 +120,7 @@ test.describe('Direct Message privacy', () => {
       expect(await visibleMessageCount(participant, dmId)).toBe(1);
     }
 
-    for (const outsider of [stranger.client, churchAdmin, admin.client, superAdmin.client]) {
+    for (const outsider of [stranger.client, churchAdmin, superAdmin.client]) {
       expect(await visibleConversationIds(outsider, [dmId])).toEqual([]);
       expect(await visibleMessageCount(outsider, dmId)).toBe(0);
       const participants = await outsider.from('conversation_participants').select('id').eq('conversation_id', dmId);

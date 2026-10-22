@@ -627,14 +627,8 @@ test.describe('Who can write (RLS)', () => {
     expect((await serviceTypeByName(seed.churchId, 'Baptism'))?.id).toBe(baptism!.id);
   });
 
-  test('an admin and a church admin can each manage their own parish, and an admin may manage any parish', async () => {
+  test('a church admin can manage only their own parish', async () => {
     const seed = await getSeed();
-    const admin = await tempUser('admin-services', 'admin', seed.churchId);
-    const own = await admin.client.from('church_service_types').insert({ church_id: seed.churchId, name: 'Admin Added' });
-    expect(own.error).toBeNull();
-    const anyParish = await admin.client.from('church_service_types').insert({ church_id: seed.otherChurchId, name: 'Admin Elsewhere' });
-    expect(anyParish.error).toBeNull();
-
     // A church admin is limited to the parish they are assigned to
     const churchAdmin = await clientAs('church_admin');
     const foreign = await churchAdmin.from('church_service_types').insert({ church_id: seed.otherChurchId, name: 'Church Admin Intruder' });

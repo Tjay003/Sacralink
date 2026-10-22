@@ -531,13 +531,13 @@ test.describe('Funeral default', () => {
 });
 
 test.describe('who can use it', () => {
-  test('only the parish church admin, admin and super admin see the section', async ({ page, browser }) => {
+  test('only the parish church admin and super admin see the section', async ({ page, browser }) => {
     const seed = await getSeed();
     await loginAs(page, 'church_admin');
     await openManager(page, seed.churchId);
 
-    for (const role of ['admin', 'super_admin'] as const) {
-      const user = await tempUser(`services-${role}`, role, role === 'admin' ? seed.churchId : null);
+    for (const role of ['super_admin'] as const) {
+      const user = await tempUser(`services-${role}`, role, null);
       const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
       const other = await context.newPage();
       await loginWithEmail(other, user.email);

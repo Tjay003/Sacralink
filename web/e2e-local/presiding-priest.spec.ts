@@ -122,20 +122,6 @@ test('the roster behind the badge resolves names for a logged-out client', async
 test.describe('Presiding priest select in the schedule modals', () => {
   test.use({ viewport: { width: 1280, height: 1000 } });
 
-  // The mass_schedules write policy admits only the `admin` and `super_admin` roles, so the seeded
-  // church admins are switched to `admin` for these tests and put back afterwards.
-  test.beforeAll(async () => {
-    const seed = await getSeed();
-    const { error } = await db.from('profiles').update({ role: 'admin' }).in('id', [seed.ids.church_admin, seed.ids.other_admin]);
-    if (error) throw error;
-  });
-
-  test.afterAll(async () => {
-    const seed = await getSeed();
-    const { error } = await db.from('profiles').update({ role: 'church_admin' }).in('id', [seed.ids.church_admin, seed.ids.other_admin]);
-    if (error) throw error;
-  });
-
   test('Add lists only the parish priests plus Not assigned, and assigns the chosen priest', async ({ page }) => {
     await loginAs(page, 'church_admin');
     await openLiturgy(page);

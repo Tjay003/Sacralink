@@ -208,7 +208,7 @@ test.describe('Priest-to-parish rule', () => {
       await db.from('profiles').update({ assigned_church_id: seed.churchId, church_id: null }).eq('id', seed.ids.priest);
       expect(await members()).toEqual([seed.ids.priest, seed.ids.priest2].sort());
 
-      await db.from('profiles').update({ is_priest: true, role: 'admin', church_id: seed.churchId }).eq('id', seed.ids.church_admin);
+      await db.from('profiles').update({ is_priest: true, church_id: seed.churchId }).eq('id', seed.ids.church_admin);
       expect(await members()).toEqual([seed.ids.church_admin, seed.ids.priest, seed.ids.priest2].sort());
     } finally {
       await db.from('profiles').update({ assigned_church_id: seed.churchId, church_id: seed.churchId }).eq('id', seed.ids.priest);

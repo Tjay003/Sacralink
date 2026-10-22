@@ -68,15 +68,6 @@ test.describe('Mass schedule write permissions', () => {
     expect(remove.data).toHaveLength(1);
   });
 
-  test('an admin of the parish can write too', async () => {
-    const seed = await getSeed();
-    const admin = await tempUser('admin-schedules', 'admin', seed.churchId);
-    const insert = await admin.client
-      .from('mass_schedules')
-      .insert({ church_id: seed.churchId, day_of_week: 'Tuesday', time: '07:00', language: 'English' });
-    expect(insert.error).toBeNull();
-  });
-
   test('a volunteer, a priest and a parishioner can read but not write', async () => {
     const seed = await getSeed();
     const existing = await db
