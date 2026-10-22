@@ -291,6 +291,48 @@ export async function reactivateUser(userId: string): Promise<void> {
     }
 }
 
+export interface UserReviewActivity {
+    action: string;
+    entity_type: string | null;
+    created_at: string;
+}
+
+export interface UserReviewSummary {
+    user_id: string;
+    full_name: string | null;
+    email: string | null;
+    role: string;
+    is_priest: boolean;
+    church_id: string | null;
+    church_name: string | null;
+    created_at: string | null;
+    last_sign_in_at: string | null;
+    suspended_at: string | null;
+    deleted_at: string | null;
+    counts: {
+        appointments: number;
+        appointments_cancelled: number;
+        donations: number;
+        donations_rejected: number;
+        messages_sent: number;
+        tickets_raised: number;
+    };
+    recent_activity: UserReviewActivity[];
+}
+
+/**
+ * Evidence for the Super Admin before deciding on a deletion request or a report about a person, through the
+ * database function get_user_review_summary (Super Admin only). Counts and recent activity only: never message
+ * text, donation amounts or file URLs.
+ */
+export async function getUserReviewSummary(userId: string): Promise<UserReviewSummary> {
+    const { data, error } = await supabase.rpc('get_user_review_summary', { p_user_id: userId });
+    if (error) {
+        throw new Error(error.message || 'Failed to load the review summary');
+    }
+    return data as unknown as UserReviewSummary;
+}
+
 export interface ChurchPerson {
     id: string;
     full_name: string | null;

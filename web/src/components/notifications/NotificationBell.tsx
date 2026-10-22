@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf, Megaphone } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, Calendar, Paperclip, Leaf, Megaphone, Ticket, MessageSquare, ArrowUpCircle, Undo2, UserCheck, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../../lib/supabase/notifications';
 import { supabase } from '../../lib/supabase';
@@ -121,6 +121,12 @@ export default function NotificationBell() {
             case 'donation_verified': return <Leaf className="w-4 h-4 text-emerald-500" />;
             case 'donation_rejected': return <XCircle className="w-4 h-4 text-red-500" />;
             case 'church_announcement': return <Megaphone className="w-4 h-4 text-blue-500" />;
+            case 'ticket_new': return <Ticket className="w-4 h-4 text-blue-500" />;
+            case 'ticket_assigned': return <UserCheck className="w-4 h-4 text-blue-500" />;
+            case 'ticket_reply': return <MessageSquare className="w-4 h-4 text-blue-500" />;
+            case 'ticket_status': return <RefreshCw className="w-4 h-4 text-amber-500" />;
+            case 'ticket_escalated': return <ArrowUpCircle className="w-4 h-4 text-red-500" />;
+            case 'ticket_sent_back': return <Undo2 className="w-4 h-4 text-amber-500" />;
             default: return <Bell className="w-4 h-4 text-gray-400" />;
         }
     };

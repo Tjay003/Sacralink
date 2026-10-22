@@ -269,9 +269,12 @@ export interface TempAccount {
 export async function tempUser(tag: string, label: string, role: string, churchId: string | null): Promise<TempAccount> {
   const db = serviceClient();
   const email = `${tag}-${label}@local.test`;
-  const { data: list } = await db.auth.admin.listUsers({ perPage: 200 });
-  const stale = list?.users.find((u) => u.email === email);
-  if (stale) await db.auth.admin.deleteUser(stale.id);
+  // Looked up through profiles: the auth user list is paged and the local database collects many throwaway users
+  const { data: stale } = await db.from('profiles').select('id').eq('email', email);
+  for (const row of stale ?? []) {
+    await db.from('activity_logs').delete().eq('user_id', row.id as string);
+    await db.auth.admin.deleteUser(row.id as string);
+  }
   const { data, error } = await db.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true });
   if (error) throw error;
   const id = data.user.id;
@@ -296,7 +299,10 @@ export async function tempUser(tag: string, label: string, role: string, churchI
 export async function deleteTempAccounts(accounts: Array<TempAccount | null | undefined>) {
   const db = serviceClient();
   for (const account of accounts) {
-    if (account) await db.auth.admin.deleteUser(account.id);
+    if (!account) continue;
+    // Audit rows written by the account (a suspension, a deletion) would block removing it
+    await db.from('activity_logs').delete().eq('user_id', account.id);
+    await db.auth.admin.deleteUser(account.id);
   }
 }
 

@@ -58,6 +58,7 @@ import { isTicket, isTicketRequester, canHandleTicket, MAX_REQUESTER_REOPENS, ti
 import { UserName } from '../../components/ui/UserName';
 import TicketAssignment from '../../components/messages/TicketAssignment';
 import TicketEscalationActions from '../../components/messages/TicketEscalationActions';
+import ReviewSummaryPanel from '../../components/messages/ReviewSummaryPanel';
 
 // Video calls are hidden for now (client request); flip to true to bring the buttons and call cards back.
 const VIDEO_CALLS_ENABLED = false;
@@ -240,6 +241,8 @@ export default function MessagingPage() {
 
     // Filter & search
     const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
+    // Unread messages across tickets only; non-ticket conversations never count here
+    const ticketUnreadTotal = conversations.reduce((sum, c) => (isTicket(c) ? sum + (c.unreadCount || 0) : sum), 0);
     const [ticketStatusFilter, setTicketStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(convParam));
@@ -1136,6 +1139,14 @@ export default function MessagingPage() {
                                 }`}
                             >
                                 Tickets
+                                {ticketUnreadTotal > 0 && (
+                                    <span
+                                        data-testid="tickets-tab-badge"
+                                        className="ml-1 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white align-middle"
+                                    >
+                                        {ticketUnreadTotal > 99 ? '99+' : ticketUnreadTotal}
+                                    </span>
+                                )}
                             </button>
                             <button
                                 type="button"
@@ -2031,6 +2042,14 @@ export default function MessagingPage() {
                                             <span className="truncate">{email}</span>
                                         </div>
                                     )}
+
+                                    {/* Super Admin evidence for a deletion request or a report about a person */}
+                                    {isSuperAdmin &&
+                                        activeIsTicket &&
+                                        (activeConversation.category === 'user_deletion_request' || activeConversation.category === 'report_person') &&
+                                        activeConversation.subject_user_id && (
+                                            <ReviewSummaryPanel key={activeConversation.subject_user_id} subjectUserId={activeConversation.subject_user_id} />
+                                        )}
 
                                     {/* LINKED REQUEST / TICKET DETAILS section */}
                                     {activeIsTicket ? (

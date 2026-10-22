@@ -1725,6 +1725,7 @@ export type Database = {
       can_delete_own_account: { Args: never; Returns: Json }
       suspend_user: { Args: { p_user_id: string; p_reason: string }; Returns: undefined }
       reactivate_user: { Args: { p_user_id: string }; Returns: undefined }
+      get_user_review_summary: { Args: { p_user_id: string }; Returns: Json }
       refresh_church_stats: { Args: never; Returns: undefined }
       set_user_role: {
         Args: {

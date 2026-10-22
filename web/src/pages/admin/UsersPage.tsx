@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile, Church, UserRole } from '../../types/database';
@@ -70,6 +71,8 @@ export default function UsersPage() {
         currentUser?.role === 'church_admin' ? 'staff' : 'all'
     );
     const [searchQuery, setSearchQuery] = useState('');
+    const [urlParams] = useSearchParams();
+    const focusUserId = urlParams.get('user');
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [churchFilter, setChurchFilter] = useState<string>(
         currentUser?.role === 'church_admin' ? (currentUser.assigned_church_id || 'all') : 'all'
@@ -132,6 +135,15 @@ export default function UsersPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // ?user=<id> from a ticket review panel: narrow the directory to that person once, on first load
+    const [focusApplied, setFocusApplied] = useState(false);
+    useEffect(() => {
+        if (focusApplied || !focusUserId || users.length === 0) return;
+        const focused = users.find((p) => p.id === focusUserId);
+        if (focused?.email) setSearchQuery(focused.email);
+        setFocusApplied(true);
+    }, [focusApplied, focusUserId, users]);
 
     // Fast lookup map for Church names
     const churchMap = useMemo(() => {
