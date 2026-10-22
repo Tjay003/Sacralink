@@ -67,6 +67,9 @@ import type { Profile, Database } from '../../types/database';
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 type ScheduleItem = MassSchedule & { mass_type?: string; description?: string };
 
+// The audit trail export is hidden until it is built (client request); flip to true to show it again.
+const AUDIT_EXPORT_ENABLED = false;
+
 const FALLBACK_PANORAMA_URL = 'https://oaczurouvaevebpimply.supabase.co/storage/v1/object/public/church-images/panoramas/b2tabj6xh1v.jpg';
 
 interface SupporterRow {
@@ -2011,13 +2014,16 @@ export default function ChurchDetailPage() {
                                     <h3 className="text-base font-bold text-foreground">Audit trail</h3>
                                     <p className="text-xs text-secondary-500 mt-0.5">Every change to this parish</p>
                                 </div>
-                                <button
-                                    onClick={() => alert('Audit logs exported successfully.')}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors cursor-pointer shadow-2xs"
-                                >
-                                    <Download className="w-3.5 h-3.5 text-secondary-500" />
-                                    <span>Export</span>
-                                </button>
+                                {/* Audit export is hidden until it is built (client request) */}
+                                {AUDIT_EXPORT_ENABLED && (
+                                    <button
+                                        onClick={() => alert('Audit logs exported successfully.')}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors cursor-pointer shadow-2xs"
+                                    >
+                                        <Download className="w-3.5 h-3.5 text-secondary-500" />
+                                        <span>Export</span>
+                                    </button>
+                                )}
                             </div>
 
                             <div className="space-y-3 pt-1">

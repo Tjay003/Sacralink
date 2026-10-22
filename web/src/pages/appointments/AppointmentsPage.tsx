@@ -118,6 +118,9 @@ function formatCelebrantDisplay(priest: { full_name: string | null } | null | un
     return `Fr. ${trimmed}`;
 }
 
+// The export button is hidden until export is built (client request); flip to true to show it again.
+const EXPORT_ENABLED = false;
+
 export default function AppointmentsPage() {
     const { profile } = useAuth();
     const navigate = useNavigate();
@@ -478,15 +481,17 @@ export default function AppointmentsPage() {
                         </button>
                     )}
 
-                    {/* Export Button */}
-                    <button
-                        type="button"
-                        onClick={handleExport}
-                        className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
-                    >
-                        <Download className="w-4 h-4 text-secondary-600" />
-                        <span>Export</span>
-                    </button>
+                    {/* Export Button (hidden until export is built, client request) */}
+                    {EXPORT_ENABLED && (
+                        <button
+                            type="button"
+                            onClick={handleExport}
+                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
+                        >
+                            <Download className="w-4 h-4 text-secondary-600" />
+                            <span>Export</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
