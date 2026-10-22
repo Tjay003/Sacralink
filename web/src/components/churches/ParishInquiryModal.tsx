@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Church as ChurchIcon, Send, AlertCircle, Building2 } from 'lucide-react';
 import Modal from '../ui/Modal';
+import { searchChurchPeople, type ChurchPerson } from '../../lib/supabase/profiles';
 import { churchHasAdmin, submitParishOfficeInquiry, type TicketLane } from '../../lib/supabase/messaging';
 
 export interface ParishInquiryModalProps {
@@ -21,6 +22,12 @@ export interface ParishInquiryModalProps {
     lane?: TicketLane;
     /** A Volunteer chooses between the parish office and the Super Admin at the top of the form. */
     allowLaneChoice?: boolean;
+    /** Raising a follow-up: the closed ticket this one continues, plus the subject and category to prefill. */
+    linkedTicketId?: string | null;
+    initialSubject?: string;
+    initialCategory?: string;
+    /** A person already chosen for a deletion request (the Users page row action). */
+    initialSubjectUser?: { id: string; name: string } | null;
     onSuccess: (conversationId: string) => void;
 }
 
@@ -51,10 +58,11 @@ const REPORT_CHURCH_CATEGORY: InquiryCategoryOption = {
 const PLATFORM_GENERAL: InquiryCategoryOption = { id: 'general', label: 'General Question', emoji: '💬', description: 'Any question for the Super Admin' };
 const PLATFORM_PROBLEM: InquiryCategoryOption = { id: 'report_problem', label: 'Report a problem', emoji: '🛠️', description: 'Something in Sacralink is not working' };
 const PLATFORM_PERSON: InquiryCategoryOption = { id: 'report_person', label: 'Report a person or abuse', emoji: '⚠️', description: 'Report a person or abusive behaviour' };
+const PLATFORM_DELETION: InquiryCategoryOption = { id: 'user_deletion_request', label: 'Request user deletion', emoji: '🗑️', description: 'Ask the Super Admin to delete the account of a person in your church' };
 const PLATFORM_SETUP: InquiryCategoryOption = { id: 'church_setup', label: 'Church verification and setup', emoji: '⛪', description: 'Verify your church or finish its setup' };
 
 function platformCategoriesForRole(role: string): InquiryCategoryOption[] {
-    if (role === 'church_admin') return [PLATFORM_GENERAL, PLATFORM_SETUP, PLATFORM_PROBLEM, PLATFORM_PERSON];
+    if (role === 'church_admin') return [PLATFORM_GENERAL, PLATFORM_DELETION, PLATFORM_SETUP, PLATFORM_PROBLEM, PLATFORM_PERSON];
     if (role === 'priest' || role === 'volunteer') return [PLATFORM_GENERAL, PLATFORM_PROBLEM, PLATFORM_PERSON];
     return [REPORT_CHURCH_CATEGORY];
 }
@@ -71,6 +79,10 @@ export default function ParishInquiryModal({
     role = 'user',
     lane: initialLane = 'church',
     allowLaneChoice = false,
+    linkedTicketId = null,
+    initialSubject = '',
+    initialCategory,
+    initialSubjectUser = null,
     onSuccess,
 }: ParishInquiryModalProps) {
     const [lane, setLane] = useState<TicketLane>(initialLane);
@@ -86,8 +98,17 @@ export default function ParishInquiryModal({
     const activeChurchName =
         churchName || parishOptions.find((p) => p.id === activeChurchId)?.name || 'Select a parish';
     const categories = lane === 'platform' ? platformCategoriesForRole(role) : INQUIRY_CATEGORIES;
-    const [category, setCategory] = useState(lane === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general');
-    const [subject, setSubject] = useState('');
+    const [category, setCategory] = useState(
+        initialCategory || (lane === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general')
+    );
+    const [subject, setSubject] = useState(initialSubject);
+    const [subjectUser, setSubjectUser] = useState<{ id: string; name: string } | null>(initialSubjectUser);
+    const [pickerTerm, setPickerTerm] = useState('');
+    const [pickerResults, setPickerResults] = useState<ChurchPerson[]>([]);
+    const [pickerLoading, setPickerLoading] = useState(false);
+    const pickerRequest = useRef(0);
+    const isDeletion = lane === 'platform' && category === 'user_deletion_request';
+    const showPersonPicker = lane === 'platform' && (isDeletion || category === 'report_person');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -107,15 +128,40 @@ export default function ParishInquiryModal({
         };
     }, [isParishioner, lane, activeChurchId]);
 
+    // Search the church's people as the user types; stale answers are dropped
+    useEffect(() => {
+        if (!showPersonPicker || subjectUser || !activeChurchId) {
+            setPickerResults([]);
+            return;
+        }
+        const ticket = ++pickerRequest.current;
+        setPickerLoading(true);
+        const timer = setTimeout(() => {
+            searchChurchPeople(activeChurchId, pickerTerm, userId)
+                .then((people) => {
+                    if (pickerRequest.current === ticket) setPickerResults(people);
+                })
+                .catch(() => {
+                    if (pickerRequest.current === ticket) setPickerResults([]);
+                })
+                .finally(() => {
+                    if (pickerRequest.current === ticket) setPickerLoading(false);
+                });
+        }, 250);
+        return () => clearTimeout(timer);
+    }, [showPersonPicker, subjectUser, activeChurchId, pickerTerm, userId]);
+
     const chooseLane = (next: TicketLane) => {
         setLane(next);
         setError(null);
         setCategory(next === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general');
     };
 
-    const isSubjectValid = subject.trim().length >= 3;
-    const isMessageValid = message.trim().length >= 10;
-    const isFormValid = isSubjectValid && isMessageValid && Boolean(activeChurchId);
+    const minMessageLength = isDeletion ? 20 : 10;
+    // A deletion request is titled by the database from the chosen person, so it has no subject field
+    const isSubjectValid = isDeletion || subject.trim().length >= 3;
+    const isMessageValid = message.trim().length >= minMessageLength;
+    const isFormValid = isSubjectValid && isMessageValid && Boolean(activeChurchId) && (!isDeletion || Boolean(subjectUser));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -128,10 +174,12 @@ export default function ParishInquiryModal({
             const { conversationId, error: submitErr } = await submitParishOfficeInquiry({
                 churchId: activeChurchId,
                 userId,
-                subject: subject.trim(),
+                subject: isDeletion ? 'Deletion request' : subject.trim(),
                 message: message.trim(),
                 category,
                 lane,
+                subjectUserId: showPersonPicker ? subjectUser?.id ?? null : null,
+                linkedTicketId,
                 churchName: activeChurchName === 'Select a parish' ? undefined : activeChurchName,
             });
 
@@ -292,7 +340,10 @@ export default function ParishInquiryModal({
                                 <button
                                     key={cat.id}
                                     type="button"
-                                    onClick={() => setCategory(cat.id)}
+                                    onClick={() => {
+                                        setCategory(cat.id);
+                                        setError(null);
+                                    }}
                                     disabled={loading}
                                     className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                                         isSelected
@@ -311,8 +362,63 @@ export default function ParishInquiryModal({
                     </p>
                 </div>
 
+                {showPersonPicker && (
+                    <div className="space-y-1.5" data-testid="subject-user-picker">
+                        <label htmlFor="inquiry-person" className="block text-xs font-bold text-foreground">
+                            {isDeletion ? 'User to delete' : 'Person you are reporting (optional)'}
+                            {isDeletion && <span className="text-destructive"> *</span>}
+                        </label>
+                        {subjectUser ? (
+                            <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-primary bg-blue-50/80 text-xs sm:text-sm">
+                                <span className="font-semibold text-foreground truncate">{subjectUser.name}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setSubjectUser(null)}
+                                    disabled={loading}
+                                    className="text-xs font-semibold text-primary hover:underline cursor-pointer shrink-0"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <input
+                                    id="inquiry-person"
+                                    type="text"
+                                    value={pickerTerm}
+                                    onChange={(e) => setPickerTerm(e.target.value)}
+                                    placeholder="Search your church's people by name or email"
+                                    disabled={loading}
+                                    autoComplete="off"
+                                    className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-60"
+                                />
+                                <ul className="max-h-40 overflow-y-auto rounded-xl border border-border divide-y divide-border bg-white" role="listbox" aria-label="People in your church">
+                                    {pickerResults.map((person) => (
+                                        <li key={person.id}>
+                                            <button
+                                                type="button"
+                                                role="option"
+                                                aria-selected={false}
+                                                onClick={() => setSubjectUser({ id: person.id, name: person.full_name || person.email || 'Unnamed user' })}
+                                                className="w-full text-left px-3.5 py-2 hover:bg-secondary-50 cursor-pointer"
+                                            >
+                                                <span className="block text-xs font-semibold text-foreground truncate">{person.full_name || 'Unnamed user'}</span>
+                                                <span className="block text-[11px] text-muted truncate">{person.email}</span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                    {!pickerLoading && pickerResults.length === 0 && (
+                                        <li className="px-3.5 py-2 text-[11px] text-muted">No matching people in your church.</li>
+                                    )}
+                                </ul>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {!isDeletion && (
                 <div className="space-y-1.5">
-                    <label htmlFor="inquiry-subject" className="block text-xs font-bold text-foreground">
+                    <label htmlFor="inquiry-subject"className="block text-xs font-bold text-foreground">
                         Subject <span className="text-destructive">*</span>
                     </label>
                     <input
@@ -328,10 +434,11 @@ export default function ParishInquiryModal({
                         Minimum 3 characters ({subject.trim().length}/3)
                     </p>
                 </div>
+                )}
 
                 <div className="space-y-1.5">
                     <label htmlFor="inquiry-message" className="block text-xs font-bold text-foreground">
-                        Message <span className="text-destructive">*</span>
+                        {isDeletion ? 'Reason for the request' : 'Message'} <span className="text-destructive">*</span>
                     </label>
                     <textarea
                         id="inquiry-message"
@@ -343,7 +450,8 @@ export default function ParishInquiryModal({
                         className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors resize-none disabled:opacity-60"
                     />
                     <p className="text-[11px] text-muted">
-                        Minimum 10 characters ({message.trim().length}/10)
+                        Minimum {minMessageLength} characters ({message.trim().length}/{minMessageLength})
+                        {isDeletion && '. The Super Admin sees this reason, the person you named and your church, and decides whether to delete the account.'}
                     </p>
                 </div>
 

@@ -54,8 +54,10 @@ import Modal from '../../components/ui/Modal';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { directFetchChurches } from '../../lib/directApi';
 import type { Profile, Church as ChurchType } from '../../types/database';
-import { isTicket, canHandleTicket, ticketLaneLabel, shouldOfferReviewRequest } from '../../lib/tickets';
+import { isTicket, isTicketRequester, canHandleTicket, MAX_REQUESTER_REOPENS, ticketLaneLabel, shouldOfferReviewRequest } from '../../lib/tickets';
 import { UserName } from '../../components/ui/UserName';
+import TicketAssignment from '../../components/messages/TicketAssignment';
+import TicketEscalationActions from '../../components/messages/TicketEscalationActions';
 
 // Video calls are hidden for now (client request); flip to true to bring the buttons and call cards back.
 const VIDEO_CALLS_ENABLED = false;
@@ -177,7 +179,7 @@ const getCategoryBadge = (category?: string | null) => {
         case 'report_church':
             return { label: 'Church concern', emoji: '🚩', className: 'bg-rose-50 text-rose-700 border-rose-200' };
         case 'user_deletion_request':
-            return { label: 'Deletion request', emoji: '🗑️', className: 'bg-purple-50 text-purple-700 border-purple-200' };
+            return { label: 'Deletion request', emoji: '🗑️', className: 'bg-amber-50 text-amber-700 border-amber-200' };
         case 'general':
         default:
             return { label: 'General Inquiry', emoji: '💬', className: 'bg-secondary-50 text-secondary-700 border-secondary-200' };
@@ -234,6 +236,7 @@ export default function MessagingPage() {
     const [requestingReview, setRequestingReview] = useState(false);
     const [ticketStubs, setTicketStubs] = useState<EscalatedTicketStub[]>([]);
     const [linkedTicketNumber, setLinkedTicketNumber] = useState<string | null>(null);
+    const [followUpSource, setFollowUpSource] = useState<ConversationWithDetails | null>(null);
 
     // Filter & search
     const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
@@ -720,22 +723,28 @@ export default function MessagingPage() {
         }
     };
 
-    // Reopen a closed ticket (requester or parish staff) and log the system note in the thread
+    // Reopen a closed ticket; the database enforces the requester's two-reopen limit and writes the system note
     const handleReopenTicket = async () => {
         if (!activeConversation || !user || reopeningTicket) return;
         const ticketId = activeConversation.id;
+        const asRequester = closedTicketRole === 'requester';
         setReopeningTicket(true);
+        setTicketActionError(null);
         try {
-            const { data: note, error } = await reopenTicket(ticketId, user.id, profile?.full_name);
+            const { error } = await reopenTicket(ticketId);
             if (error) throw error;
             setConversations((prev) =>
-                prev.map((c) => (c.id === ticketId ? ({ ...c, status: 'open' } as ConversationWithDetails) : c))
+                prev.map((c) =>
+                    c.id === ticketId
+                        ? ({ ...c, status: 'open', reopen_count: (c.reopen_count ?? 0) + (asRequester ? 1 : 0) } as ConversationWithDetails)
+                        : c
+                )
             );
-            if (note) {
-                setMessages((prev) => (prev.some((m) => m.id === note.id) ? prev : [...prev, note]));
-            }
+            const { data: fresh } = await fetchMessages(ticketId);
+            if (fresh && activeConversationIdRef.current === ticketId) setMessages(fresh);
         } catch (err) {
             console.error('Error reopening ticket:', err);
+            setTicketActionError(err instanceof Error ? err.message : 'Could not reopen this ticket.');
         } finally {
             setReopeningTicket(false);
         }
@@ -988,6 +997,15 @@ export default function MessagingPage() {
         assigned_church_id: profile?.assigned_church_id,
     };
     const activeIsTicket = isTicket(activeConversation);
+    // Who may reopen a closed ticket: its handler without limit, its requester up to MAX_REQUESTER_REOPENS times
+    const closedTicketRole: 'handler' | 'requester' | null = !activeIsTicket
+        ? null
+        : canHandleTicket(activeConversation, profile)
+          ? 'handler'
+          : isTicketRequester(activeConversation, user)
+            ? 'requester'
+            : null;
+    const reopensUsed = activeConversation?.reopen_count ?? 0;
     const canHandleActive = canHandleTicket(activeConversation, viewer);
     const activeLaneLabel = ticketLaneLabel(activeConversation);
     const offerReviewRequest = Boolean(
@@ -1462,6 +1480,16 @@ export default function MessagingPage() {
                                     {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner (Only for inquiries/tickets) */}
                                     {activeIsTicket && (
                                         <div className="flex items-center gap-1.5">
+                                            <TicketEscalationActions
+                                                conversation={activeConversation}
+                                                viewer={viewer}
+                                                requesterRole={
+                                                    activeConversation.participants?.find(
+                                                        (part) => part.user_id === activeConversation.created_by
+                                                    )?.profile?.role
+                                                }
+                                                onChanged={() => loadConversations()}
+                                            />
                                             {canHandleActive ? (
                                                 <div className="relative">
                                                     <select
@@ -1537,6 +1565,21 @@ export default function MessagingPage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Who handles a parish office ticket, with the Church Admin's assign picker */}
+                            {activeIsTicket && activeConversation.ticket_lane === 'church' && !activeConversation.escalated_at && (
+                                <TicketAssignment
+                                    ticketId={activeConversation.id}
+                                    churchId={activeConversation.church_id}
+                                    assignedTo={activeConversation.assigned_to ?? null}
+                                    canAssign={
+                                        profile?.role === 'church_admin' &&
+                                        canHandleActive &&
+                                        activeConversation.status !== 'closed'
+                                    }
+                                    onChanged={() => loadConversations()}
+                                />
+                            )}
 
                             {/* Ticket notices: follow-up link, review request and status errors */}
                             {activeIsTicket && (
@@ -1758,19 +1801,39 @@ export default function MessagingPage() {
                             <div className="p-4 border-t border-border/70 bg-white shrink-0">
                                 {activeIsTicket && activeConversation.status === 'closed' ? (
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-secondary-50">
-                                        <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-secondary-700 min-w-0">
-                                            <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
-                                            <span>This inquiry ticket is closed</span>
+                                        <div className="flex flex-col gap-0.5 text-xs sm:text-sm font-semibold text-secondary-700 min-w-0">
+                                            <span className="flex items-center gap-2">
+                                                <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
+                                                <span>This inquiry ticket is closed</span>
+                                            </span>
+                                            {closedTicketRole === 'requester' && (
+                                                <span data-testid="reopens-used" className="pl-6 text-[11px] sm:text-xs font-medium text-secondary-500">
+                                                    {reopensUsed >= MAX_REQUESTER_REOPENS
+                                                        ? `All ${MAX_REQUESTER_REOPENS} reopens used`
+                                                        : `${reopensUsed} of ${MAX_REQUESTER_REOPENS} reopens used`}
+                                                </span>
+                                            )}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={handleReopenTicket}
-                                            disabled={reopeningTicket}
-                                            className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
-                                        >
-                                            <RotateCcw className="w-4 h-4" />
-                                            <span>{reopeningTicket ? 'Reopening...' : 'Reopen Ticket'}</span>
-                                        </button>
+                                        {closedTicketRole === 'requester' && reopensUsed >= MAX_REQUESTER_REOPENS ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setFollowUpSource(activeConversation)}
+                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                <span>Raise a new ticket</span>
+                                            </button>
+                                        ) : closedTicketRole ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleReopenTicket}
+                                                disabled={reopeningTicket}
+                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                            >
+                                                <RotateCcw className="w-4 h-4" />
+                                                <span>{reopeningTicket ? 'Reopening...' : 'Reopen Ticket'}</span>
+                                            </button>
+                                        ) : null}
                                     </div>
                                 ) : activeConversation.type === 'direct' &&
                                   (activeConversation.other_participant_blocked || getParticipantProfile(activeConversation)?.deleted_at) ? (
@@ -2261,6 +2324,27 @@ export default function MessagingPage() {
                 </div>
                 )}
             </Modal>
+
+            {/* Follow-up ticket raised from a closed ticket whose reopens ran out */}
+            {followUpSource && user && (
+                <ParishInquiryModal
+                    isOpen
+                    onClose={() => setFollowUpSource(null)}
+                    parishOptions={allChurches.map((c) => ({ id: c.id, name: c.name }))}
+                    defaultChurchId={followUpSource.church_id}
+                    churchId={followUpSource.ticket_lane === 'church' ? followUpSource.church_id : undefined}
+                    userId={user.id}
+                    role={profile?.role ?? undefined}
+                    lane={followUpSource.ticket_lane === 'platform' ? 'platform' : 'church'}
+                    linkedTicketId={followUpSource.id}
+                    initialSubject={`Follow-up: ${(followUpSource.title || '').replace(/^Inquiry:\s*/, '')}`}
+                    initialCategory={followUpSource.category || undefined}
+                    onSuccess={(id) => {
+                        setFollowUpSource(null);
+                        handleTicketCreated(id);
+                    }}
+                />
+            )}
 
             {/* New Parish Office Ticket (parish selector because no parish is pre-selected) */}
             {canCreateTicket && showTicketModal && user && (

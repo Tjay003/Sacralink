@@ -1380,6 +1380,8 @@ export type Database = {
           reopen_count?: number
           linked_ticket_id?: string | null
           sent_back_at?: string | null
+          /** The person a deletion request or Report-a-person ticket is about (migration 073) */
+          subject_user_id?: string | null
           title: string | null
           type: string
           updated_at: string
@@ -1398,6 +1400,8 @@ export type Database = {
           reopen_count?: number
           linked_ticket_id?: string | null
           sent_back_at?: string | null
+          /** The person a deletion request or Report-a-person ticket is about (migration 073) */
+          subject_user_id?: string | null
           title?: string | null
           type?: string
           updated_at?: string
@@ -1416,6 +1420,8 @@ export type Database = {
           reopen_count?: number
           linked_ticket_id?: string | null
           sent_back_at?: string | null
+          /** The person a deletion request or Report-a-person ticket is about (migration 073) */
+          subject_user_id?: string | null
           title?: string | null
           type?: string
           updated_at?: string
@@ -1553,8 +1559,32 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      ticket_escalate: {
+        Args: { p_ticket_id: string; p_reason: string }
+        Returns: undefined
+      }
+      ticket_request_review: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
+      }
+      ticket_send_back: {
+        Args: { p_ticket_id: string; p_note: string }
+        Returns: undefined
+      }
+      list_escalated_ticket_stubs: {
+        Args: Record<string, never>
+        Returns: { ticket_number: string; escalated_at: string }[]
+      }
+      ticket_reopen: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
+      }
       ticket_set_status: {
         Args: { p_ticket_id: string; p_status: string }
+        Returns: undefined
+      }
+      ticket_assign: {
+        Args: { p_ticket_id: string; p_assignee: string | null }
         Returns: undefined
       }
       create_ticket: {
@@ -1691,6 +1721,8 @@ export type Database = {
         Returns: number
       }
       delete_user_account: { Args: { p_user_id: string }; Returns: undefined }
+      delete_own_account: { Args: never; Returns: undefined }
+      can_delete_own_account: { Args: never; Returns: Json }
       suspend_user: { Args: { p_user_id: string; p_reason: string }; Returns: undefined }
       reactivate_user: { Args: { p_user_id: string }; Returns: undefined }
       refresh_church_stats: { Args: never; Returns: undefined }

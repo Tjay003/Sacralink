@@ -186,10 +186,10 @@ test.describe('Status dropdown', () => {
     await loginAs(page, 'church_admin');
     await page.goto(`/messages?conv=${parishionerTicket}`);
     await expect(page.locator('h2', { hasText: `${TAG} dropdown-par` })).toBeVisible();
-    await expect(page.locator('select')).toHaveCount(1);
+    await expect(page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(1);
     await page.goto(`/messages?conv=${volunteerTicket}`);
     await expect(page.locator('h2', { hasText: `${TAG} dropdown-vol` })).toBeVisible();
-    await expect(page.locator('select')).toHaveCount(1);
+    await expect(page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(1);
 
     const requesters: Array<[TempAccount, string, string]> = [
       [parishioner, parishionerTicket, 'dropdown-par'],
@@ -199,7 +199,7 @@ test.describe('Status dropdown', () => {
       const view = await freshPage(page, account);
       await view.page.goto(`/messages?conv=${id}`);
       await expect(view.page.locator('h2', { hasText: `${TAG} ${label}` })).toBeVisible();
-      await expect(view.page.locator('select')).toHaveCount(0);
+      await expect(view.page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(0);
       await expect(view.page.locator('span.rounded-xl', { hasText: /^Open$/ })).toBeVisible();
       await view.close();
     }
@@ -210,7 +210,7 @@ test.describe('Status dropdown', () => {
 
     await loginAs(page, 'church_admin');
     await page.goto(`/messages?conv=${ticketId}`);
-    const select = page.locator('select');
+    const select = page.locator('select:not([data-testid="ticket-assign-select"])');
     await expect(select).toHaveValue('open');
 
     // The ticket is resolved behind the page's back, so choosing Resolved is refused ("already resolved")
@@ -261,7 +261,7 @@ test.describe('Who sees a ticket', () => {
     const priestView = await freshPage(page, assignedPriest);
     await priestView.page.goto(`/messages?conv=${ticketId}`);
     await expect(priestView.page.locator('h2', { hasText: `${TAG} assigned` })).toBeVisible();
-    await expect(priestView.page.locator('select')).toHaveCount(1);
+    await expect(priestView.page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(1);
     await expect(priestView.page.getByPlaceholder('Type a message...')).toBeVisible();
 
     // Escalation (what ticket 14 does): the assignee and the Church Admin lose the ticket, the Super Admin gets it
@@ -285,7 +285,7 @@ test.describe('Who sees a ticket', () => {
     const superView = await freshPage(page, superAdmin);
     await superView.page.goto(`/messages?conv=${ticketId}`);
     await expect(superView.page.locator('h2', { hasText: `${TAG} assigned` })).toBeVisible();
-    await expect(superView.page.locator('select')).toHaveCount(1);
+    await expect(superView.page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(1);
     await expect(superView.page.getByTestId('ticket-lane')).toHaveText('Escalated to Super Admin');
     await superView.close();
   });

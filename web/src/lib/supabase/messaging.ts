@@ -1504,6 +1504,10 @@ export interface SubmitParishOfficeInquiryParams {
     churchName?: string;
     /** `church` (default) goes to the parish office; `platform` goes to the Super Admin. */
     lane?: TicketLane;
+    /** The closed ticket this one follows up on (ticket 15). */
+    linkedTicketId?: string | null;
+    /** The person a deletion request or Report-a-person ticket is about (ticket 17). */
+    subjectUserId?: string | null;
 }
 
 export interface CreateTicketParams {
@@ -1565,6 +1569,8 @@ export async function submitParishOfficeInquiry({
     message,
     category,
     lane = 'church',
+    linkedTicketId = null,
+    subjectUserId = null,
 }: SubmitParishOfficeInquiryParams): Promise<{
     conversationId: string | null;
     error: Error | null;
@@ -1578,6 +1584,8 @@ export async function submitParishOfficeInquiry({
         category: category || 'general',
         subject: subject.trim(),
         message: message.trim(),
+        linkedTicketId,
+        subjectUserId,
     });
 }
 
@@ -1619,25 +1627,13 @@ export async function updateTicketStatus(
 }
 
 /**
- * Reopen a closed ticket (requester or parish staff) and log a system status note in the thread.
+ * Reopen a closed ticket through ticket_reopen. The database checks who may reopen (the handler always, the
+ * requester at most twice), counts the reopen and writes the system note; the client never sends the note itself.
  */
-export async function reopenTicket(
-    conversationId: string,
-    userId: string,
-    actorName?: string | null
-): Promise<{
-    data: MessageWithSender | null;
-    error: Error | null;
-}> {
-    const { error } = await updateTicketStatus(conversationId, 'open');
-    if (error) return { data: null, error };
-    return sendMessage(
-        conversationId,
-        userId,
-        `${actorName?.trim() || 'A participant'} reopened this ticket.`,
-        'system',
-        { event: 'ticket_reopened' }
-    );
+export async function reopenTicket(conversationId: string): Promise<{ error: Error | null }> {
+    const { error } = await supabase.rpc('ticket_reopen', { p_ticket_id: conversationId });
+    if (error) return { error: new Error(error.message) };
+    return { error: null };
 }
 
 /** One content-free line for a church ticket the Church Admin handed up: the number and when it was escalated. */
@@ -1667,5 +1663,28 @@ export async function listEscalatedTicketStubs(): Promise<EscalatedTicketStub[]>
 export async function requestTicketReview(ticketId: string): Promise<{ error: Error | null }> {
     const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
     const { error } = await rpc('ticket_request_review', { p_ticket_id: ticketId });
+    return { error: error ? new Error(error.message) : null };
+}
+
+/** The Church Admin or the assignee hands a church ticket up to the Super Admin with a reason (ticket_escalate). */
+export async function escalateTicket(ticketId: string, reason: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_escalate', { p_ticket_id: ticketId, p_reason: reason });
+    return { error: error ? new Error(error.message) : null };
+}
+
+/** The Super Admin returns a ticket to the church with a note (ticket_send_back). */
+export async function sendBackTicket(ticketId: string, note: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_send_back', { p_ticket_id: ticketId, p_note: note });
+    return { error: error ? new Error(error.message) : null };
+}
+
+/**
+ * The Church Admin assigns a church ticket to one Priest or Volunteer of the church, or takes it back with `null`
+ * (ticket_assign). Assignment is what lets that person see the ticket; the database reports every refusal.
+ */
+export async function assignTicket(ticketId: string, userId: string | null): Promise<{ error: Error | null }> {
+    const { error } = await supabase.rpc('ticket_assign', { p_ticket_id: ticketId, p_assignee: userId });
     return { error: error ? new Error(error.message) : null };
 }

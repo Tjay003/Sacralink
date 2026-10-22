@@ -104,3 +104,40 @@ export function shouldOfferReviewRequest(
     );
     return !handlerReplied;
 }
+
+/** A requester may reopen a closed ticket this many times; after that they raise a linked follow-up ticket (migration 071). */
+export const MAX_REQUESTER_REOPENS = 2;
+
+/** Minimum length of an escalation reason or a send-back note (mirrors ticket_escalate and ticket_send_back). */
+export const TICKET_NOTE_MIN_LENGTH = 10;
+
+/**
+ * Whether to offer "Escalate to Super Admin": the Church Admin or the assignee of an open, never-escalated,
+ * never-sent-back church ticket. The database repeats every check.
+ */
+export function canEscalateTicket(conv: TicketLike | null | undefined, viewer: TicketViewer | null | undefined): boolean {
+    if (!conv || !viewer || !isTicket(conv)) return false;
+    if (viewer.role !== 'church_admin' && viewer.role !== 'priest' && viewer.role !== 'volunteer') return false;
+    if ((conv.ticket_lane || 'church') !== 'church') return false;
+    if (conv.escalated_at || conv.sent_back_at || conv.status === 'closed') return false;
+    return canHandleTicket(conv, viewer);
+}
+
+/**
+ * Whether to offer "Send back to church": the Super Admin on an escalated church ticket, or on a Priest's or
+ * Volunteer's General Question or Report a problem platform ticket. Never for Report a person, a church concern or a
+ * ticket a Church Admin raised. The database repeats every check.
+ */
+export function canSendBackTicket(
+    conv: (TicketLike & { category?: string | null }) | null | undefined,
+    viewer: TicketViewer | null | undefined,
+    requesterRole: string | null | undefined
+): boolean {
+    if (!conv || !viewer || !isTicket(conv) || viewer.role !== 'super_admin') return false;
+    if (conv.status === 'closed' || !canHandleTicket(conv, viewer)) return false;
+    if ((conv.ticket_lane || 'church') === 'church') return Boolean(conv.escalated_at);
+    return (
+        (requesterRole === 'priest' || requesterRole === 'volunteer') &&
+        (conv.category === 'general' || conv.category === 'report_problem')
+    );
+}

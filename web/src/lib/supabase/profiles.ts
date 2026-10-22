@@ -291,6 +291,51 @@ export async function reactivateUser(userId: string): Promise<void> {
     }
 }
 
+export interface ChurchPerson {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    role: string | null;
+}
+
+/**
+ * Search the people of one church by name or email, for the user picker of a deletion request or a
+ * "Report a person" ticket. The Super Admin and deleted accounts are never offered, and neither is `excludeUserId`.
+ */
+export async function searchChurchPeople(churchId: string, term: string, excludeUserId?: string): Promise<ChurchPerson[]> {
+    // Commas and parentheses would break the PostgREST or-filter, and % and _ are LIKE wildcards
+    const safe = term.trim().replace(/[,()%_*\\]/g, ' ').trim();
+    let query = supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`)
+        .is('deleted_at', null)
+        .neq('role', 'super_admin')
+        .order('full_name', { ascending: true })
+        .limit(8);
+    if (safe) query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
+    if (excludeUserId) query = query.neq('id', excludeUserId);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message || 'Could not search for people');
+    return (data ?? []) as ChurchPerson[];
+}
+
+/**
+ * Priests and Volunteers of a church who can be given a ticket (excludes deleted and suspended accounts).
+ */
+export async function getChurchTicketStaff(churchId: string): Promise<Pick<Profile, 'id' | 'full_name' | 'role'>[]> {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .is('deleted_at', null)
+        .is('suspended_at', null)
+        .in('role', ['priest', 'volunteer'])
+        .or(`assigned_church_id.eq.${churchId},church_id.eq.${churchId}`)
+        .order('full_name', { ascending: true });
+    if (error) throw error;
+    return (data || []) as Pick<Profile, 'id' | 'full_name' | 'role'>[];
+}
+
 /**
  * Fetch priests and ordained clergy profiles for a church (or all clergy)
  */

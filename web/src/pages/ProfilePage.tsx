@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { User, Mail, Phone, Shield, Calendar, Heart, CheckCircle, XCircle, Clock, Cross } from 'lucide-react';
 import AvatarUpload from '../components/profile/AvatarUpload';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
+import DeleteMyAccountSection from '../components/profile/DeleteMyAccountSection';
 import { getCurrentProfile, updateProfile } from '../lib/supabase/profiles';
 import { getUserDonations, type Donation } from '../lib/supabase/donations';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -493,6 +494,11 @@ export default function ProfilePage() {
                     </p>
                 </div>
             </div>
+
+            {/* Delete my account (never shown to the Super Admin) */}
+            {profileData?.role !== 'super_admin' && profile?.role !== 'super_admin' && (profileData?.email || profile?.email) && (
+                <DeleteMyAccountSection email={profileData?.email || profile?.email || ''} />
+            )}
 
             {/* Change Password Modal */}
             {showChangePasswordModal && (
