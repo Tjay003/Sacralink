@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, Church, AlertCircle, CheckCircle2, AlertTriangle, Eye, MessageSquare, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import type { HydratedAppointment as Appointment } from '../../../lib/supabase/appointments';
+import RescheduledNotice from '../../appointments/RescheduledNotice';
+import RequestedPriestNote from '../../appointments/RequestedPriestNote';
 
 interface UserNextAppointmentCardProps {
     appointment: Appointment | null;
@@ -110,6 +112,8 @@ export default function UserNextAppointmentCard({
                     </div>
                 )}
             </div>
+            <RescheduledNotice appointment={appointment} className="mt-2" />
+            <RequestedPriestNote appointment={appointment} className="mt-2" />
 
             {/* State A Callout / Status Box */}
             <div className="rounded-xl p-4 bg-amber-50/70 border border-amber-200/80 mt-4 space-y-1.5">
