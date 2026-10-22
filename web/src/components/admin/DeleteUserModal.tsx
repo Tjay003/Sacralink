@@ -5,18 +5,20 @@ import type { Profile } from '../../types/database';
 import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 
 interface DeleteUserModalProps {
-    user: Profile;
+    user: Pick<Profile, 'id' | 'full_name' | 'email'>;
     /** True when the person is the only Church Admin of their church (the church is left without an admin). */
     isLastChurchAdmin: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    /** Replaces the default delete call, e.g. deleting from a deletion-request ticket. Throws an Error to show its message. */
+    onConfirm?: () => Promise<void>;
 }
 
 /**
  * DeleteUserModal - confirmation for the Super Admin deleting a user (anonymize in place).
  * Requires typing the user's exact email, like TransferOwnershipModal. Calls public.delete_user_account.
  */
-export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSuccess }: DeleteUserModalProps) {
+export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSuccess, onConfirm }: DeleteUserModalProps) {
     const [confirmationEmail, setConfirmationEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
         try {
             setLoading(true);
             setError(null);
-            await deleteUserAccount(user.id);
+            await (onConfirm ? onConfirm() : deleteUserAccount(user.id));
             onSuccess();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to delete the user.');

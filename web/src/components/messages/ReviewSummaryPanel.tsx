@@ -3,9 +3,17 @@ import { Link } from 'react-router-dom';
 import { Church, ShieldAlert } from 'lucide-react';
 import { getUserReviewSummary, type UserReviewSummary } from '../../lib/supabase/profiles';
 import { UserName } from '../ui/UserName';
+import DeletionRequestActions from './DeletionRequestActions';
 
 interface ReviewSummaryPanelProps {
     subjectUserId: string;
+    /** On a user deletion request, shows the Super Admin decision buttons under the summary. */
+    decision?: {
+        ticketId: string;
+        ticketStatus: string | null | undefined;
+        /** Called after a decision so the ticket list and thread reload. */
+        onChanged: () => void | Promise<void>;
+    };
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -38,9 +46,10 @@ function humanize(action: string): string {
  * Evidence panel on a deletion request or a "Report a person" ticket, for the Super Admin only. Reads
  * get_user_review_summary (counts and recent activity, never message text, amounts or file URLs).
  */
-export default function ReviewSummaryPanel({ subjectUserId }: ReviewSummaryPanelProps) {
+export default function ReviewSummaryPanel({ subjectUserId, decision }: ReviewSummaryPanelProps) {
     const [summary, setSummary] = useState<UserReviewSummary | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
@@ -54,7 +63,7 @@ export default function ReviewSummaryPanel({ subjectUserId }: ReviewSummaryPanel
         return () => {
             cancelled = true;
         };
-    }, [subjectUserId]);
+    }, [subjectUserId, reloadKey]);
 
     const stale = Boolean(summary?.deleted_at || summary?.suspended_at);
 
@@ -158,6 +167,18 @@ export default function ReviewSummaryPanel({ subjectUserId }: ReviewSummaryPanel
                     <Link to={`/users?user=${summary.user_id}`} className="inline-block font-semibold text-primary hover:underline">
                         Open in Users
                     </Link>
+
+                    {decision && (
+                        <DeletionRequestActions
+                            ticketId={decision.ticketId}
+                            ticketStatus={decision.ticketStatus}
+                            summary={summary}
+                            onChanged={async () => {
+                                setReloadKey((key) => key + 1);
+                                await decision.onChanged();
+                            }}
+                        />
+                    )}
                 </div>
             )}
         </div>

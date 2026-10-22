@@ -1680,6 +1680,27 @@ export async function sendBackTicket(ticketId: string, note: string): Promise<{ 
     return { error: error ? new Error(error.message) : null };
 }
 
+/** Super Admin decision on a deletion request: delete the subject and resolve the ticket (ticket_request_delete). */
+export async function ticketRequestDelete(ticketId: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_request_delete', { p_ticket_id: ticketId });
+    return { error: error ? new Error(error.message) : null };
+}
+
+/** Super Admin decision on a deletion request: suspend the subject and keep the ticket In Progress (ticket_request_suspend). */
+export async function ticketRequestSuspend(ticketId: string, reason: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_request_suspend', { p_ticket_id: ticketId, p_reason: reason });
+    return { error: error ? new Error(error.message) : null };
+}
+
+/** Super Admin decision on a deletion request: close it with a note to the Church Admin (ticket_request_decline). */
+export async function ticketRequestDecline(ticketId: string, note: string): Promise<{ error: Error | null }> {
+    const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
+    const { error } = await rpc('ticket_request_decline', { p_ticket_id: ticketId, p_note: note });
+    return { error: error ? new Error(error.message) : null };
+}
+
 /**
  * The Church Admin assigns a church ticket to one Priest or Volunteer of the church, or takes it back with `null`
  * (ticket_assign). Assignment is what lets that person see the ticket; the database reports every refusal.

@@ -1571,6 +1571,18 @@ export type Database = {
         Args: { p_ticket_id: string; p_note: string }
         Returns: undefined
       }
+      ticket_request_delete: {
+        Args: { p_ticket_id: string }
+        Returns: undefined
+      }
+      ticket_request_suspend: {
+        Args: { p_ticket_id: string; p_reason: string }
+        Returns: undefined
+      }
+      ticket_request_decline: {
+        Args: { p_ticket_id: string; p_note: string }
+        Returns: undefined
+      }
       list_escalated_ticket_stubs: {
         Args: Record<string, never>
         Returns: { ticket_number: string; escalated_at: string }[]

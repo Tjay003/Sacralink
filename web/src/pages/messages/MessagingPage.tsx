@@ -2048,7 +2048,19 @@ export default function MessagingPage() {
                                         activeIsTicket &&
                                         (activeConversation.category === 'user_deletion_request' || activeConversation.category === 'report_person') &&
                                         activeConversation.subject_user_id && (
-                                            <ReviewSummaryPanel key={activeConversation.subject_user_id} subjectUserId={activeConversation.subject_user_id} />
+                                            <ReviewSummaryPanel
+                                                key={activeConversation.subject_user_id}
+                                                subjectUserId={activeConversation.subject_user_id}
+                                                decision={
+                                                    activeConversation.category === 'user_deletion_request' && activeConversation.id
+                                                        ? {
+                                                              ticketId: activeConversation.id,
+                                                              ticketStatus: activeConversation.status,
+                                                              onChanged: () => loadConversations(),
+                                                          }
+                                                        : undefined
+                                                }
+                                            />
                                         )}
 
                                     {/* LINKED REQUEST / TICKET DETAILS section */}

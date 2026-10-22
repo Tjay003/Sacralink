@@ -5,9 +5,11 @@ import type { Profile } from '../../types/database';
 import { Ban, Loader2 } from 'lucide-react';
 
 interface SuspendUserModalProps {
-    user: Profile;
+    user: Pick<Profile, 'id' | 'full_name' | 'email'>;
     onClose: () => void;
     onSuccess: () => void;
+    /** Replaces the default suspend call, e.g. suspending from a deletion-request ticket. Throws an Error to show its message. */
+    onConfirm?: (reason: string) => Promise<void>;
 }
 
 const MIN_REASON_LENGTH = 10;
@@ -16,7 +18,7 @@ const MIN_REASON_LENGTH = 10;
  * SuspendUserModal - confirmation for the Super Admin suspending a user (reversible). Asks for a reason of at
  * least 10 characters and calls public.suspend_user.
  */
-export default function SuspendUserModal({ user, onClose, onSuccess }: SuspendUserModalProps) {
+export default function SuspendUserModal({ user, onClose, onSuccess, onConfirm }: SuspendUserModalProps) {
     const [reason, setReason] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export default function SuspendUserModal({ user, onClose, onSuccess }: SuspendUs
         try {
             setLoading(true);
             setError(null);
-            await suspendUser(user.id, reason.trim());
+            await (onConfirm ? onConfirm(reason.trim()) : suspendUser(user.id, reason.trim()));
             onSuccess();
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to suspend the user.');
