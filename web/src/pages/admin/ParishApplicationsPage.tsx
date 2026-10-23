@@ -484,45 +484,6 @@ function ParishApplicationDrawer({
                 )}
               </div>
 
-              {/* Parish Registration & Tax Documents (if present) */}
-              {Boolean(
-                (app as unknown as Record<string, unknown>).tax_document_url ||
-                  (app as unknown as Record<string, unknown>).registration_url
-              ) && (
-                <div className="flex items-center justify-between py-2.5">
-                  <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <FileText className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-xs sm:text-sm font-medium text-foreground block truncate">
-                        Parish registration attached
-                      </span>
-                      <span className="text-[11px] text-secondary-400 block truncate">
-                        Official Church Registry & Tax Documents
-                      </span>
-                    </div>
-                  </div>
-                  {((app as unknown as Record<string, unknown>).tax_document_url ||
-                    (app as unknown as Record<string, unknown>).registration_url) ? (
-                    <a
-                      href={
-                        ((app as unknown as Record<string, unknown>).tax_document_url ||
-                          (app as unknown as Record<string, unknown>).registration_url) as string
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-1.5 rounded-xl border border-border/80 bg-white hover:bg-secondary-50 text-foreground font-semibold text-xs shadow-2xs transition-colors shrink-0 inline-flex items-center gap-1.5"
-                    >
-                      <span>View</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-secondary-400" />
-                    </a>
-                  ) : (
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-xs font-semibold shrink-0">
-                      Attached
-                    </span>
-                  )}
-                </div>
-              )}
-
               {/* Cashless Verification Accounts (if present) */}
               {(app.gcash_number || app.maya_number) && (
                 <div className="flex items-center justify-between py-2.5 last:pb-0">
@@ -1135,10 +1096,6 @@ export default function ParishApplicationsPage() {
       ) : (
         <div className="bg-white border border-border rounded-2xl shadow-xs overflow-hidden divide-y divide-border/60">
           {filteredApps.map((app) => {
-            const hasParishRegistration = Boolean(
-              (app as unknown as Record<string, unknown>).tax_document_url ||
-              (app as unknown as Record<string, unknown>).registration_url
-            );
             const cashlessLabel = getCashlessLabel(app);
             const isActionReview = app.status === 'pending' || app.status === 'under_review';
 
@@ -1207,18 +1164,6 @@ export default function ParishApplicationsPage() {
                       <span className="bg-red-50 border border-red-200/80 text-red-700 text-xs font-medium px-3 py-1 rounded-lg inline-flex items-center gap-1.5">
                         <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                         Appointment decree missing
-                      </span>
-                    )}
-
-                    {hasParishRegistration ? (
-                      <span className="bg-secondary-50 border border-border/80 text-secondary-700 text-xs font-medium px-3 py-1 rounded-lg inline-flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-secondary-500" />
-                        Parish registration attached
-                      </span>
-                    ) : (
-                      <span className="bg-red-50 border border-red-200/80 text-red-700 text-xs font-medium px-3 py-1 rounded-lg inline-flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                        Parish registration missing
                       </span>
                     )}
 
