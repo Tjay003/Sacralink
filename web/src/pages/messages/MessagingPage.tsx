@@ -309,7 +309,7 @@ export default function MessagingPage() {
                 return {
                     id: local.id,
                     title: local.title,
-                    type: local.type as any,
+                    type: local.type as ConversationWithDetails['type'],
                     church_id: local.church_id,
                     created_by: local.created_by,
                     created_at: local.created_at,
@@ -325,7 +325,7 @@ export default function MessagingPage() {
                     lastMessage: lastMsg,
                     unreadCount: 0,
                     church: local.church_id
-                        ? ({ id: local.church_id, name: local.church_name || 'Parish Office' } as any)
+                        ? ({ id: local.church_id, name: local.church_name || 'Parish Office' } as unknown as ChurchType)
                         : null,
                     otherParticipant: null,
                     ministry: PARISH_MINISTRIES.find((m) => m.name === local.title) || null,
@@ -646,6 +646,26 @@ export default function MessagingPage() {
         };
     }, [activeConversation, user?.id, getParticipantProfile]);
 
+    // Return to the conversation list on small screens; drops ?conv= so the URL sync does not reopen the thread
+    const closeMobileChat = useCallback(() => {
+        setMobileChatOpen(false);
+        setSearchParams({}, { replace: true });
+    }, [setSearchParams]);
+
+    // Back bar for the thread pane's empty states, which have no chat header to carry the back button
+    const mobileBackBar = (
+        <div className="md:hidden p-2 border-b border-border/70 bg-white shrink-0">
+            <button
+                type="button"
+                onClick={closeMobileChat}
+                className="inline-flex items-center gap-1.5 min-h-10 px-2.5 rounded-lg text-sm font-semibold text-secondary-700 hover:text-foreground hover:bg-secondary-100 cursor-pointer"
+            >
+                <ArrowLeft className="w-5 h-5" />
+                <span>Back to messages</span>
+            </button>
+        </div>
+    );
+
     // Handle "Delete for Me"
     const handleDeleteForMe = async () => {
         const targetConv = conversationToDelete || activeConversation;
@@ -666,7 +686,7 @@ export default function MessagingPage() {
             if (activeConversationId === targetConv.id) {
                 setActiveConversationId(null);
                 setMessages([]);
-                setMobileChatOpen(false);
+                closeMobileChat();
             }
             setShowDeleteModal(false);
             setConversationToDelete(null);
@@ -699,7 +719,7 @@ export default function MessagingPage() {
             if (activeConversationId === targetConv.id) {
                 setActiveConversationId(null);
                 setMessages([]);
-                setMobileChatOpen(false);
+                closeMobileChat();
             }
             setShowDeleteModal(false);
             setConversationToDelete(null);
@@ -1467,7 +1487,7 @@ export default function MessagingPage() {
                                     {/* Mobile Back Button */}
                                     <button
                                         type="button"
-                                        onClick={() => setMobileChatOpen(false)}
+                                        onClick={closeMobileChat}
                                         className="md:hidden inline-flex items-center justify-center w-10 h-10 -ml-1.5 rounded-lg text-secondary-600 hover:text-foreground hover:bg-secondary-100 shrink-0 cursor-pointer"
                                         aria-label="Back to conversations"
                                     >
@@ -2016,24 +2036,32 @@ export default function MessagingPage() {
                             </div>
                         </>
                     ) : loadingConversations && activeConversationId ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
-                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto" />
-                            <p className="text-xs text-secondary-500 font-medium">Opening conversation...</p>
-                        </div>
-                    ) : activeConversationId && !loadingConversations ? (
-                        <div
-                            data-testid="conversation-not-found"
-                            className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white"
-                        >
-                            <div className="w-12 h-12 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center">
-                                <MessageSquare className="w-6 h-6" />
+                        <>
+                            {mobileBackBar}
+                            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
+                                <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto" />
+                                <p className="text-xs text-secondary-500 font-medium">Opening conversation...</p>
                             </div>
-                            <h3 className="font-serif text-lg font-bold text-foreground">Conversation not found</h3>
-                            <p className="text-xs text-secondary-500 max-w-sm">
-                                It may have been removed, or you may not have access to it.
-                            </p>
-                        </div>
+                        </>
+                    ) : activeConversationId && !loadingConversations ? (
+                        <>
+                            {mobileBackBar}
+                            <div
+                                data-testid="conversation-not-found"
+                                className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white"
+                            >
+                                <div className="w-12 h-12 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center">
+                                    <MessageSquare className="w-6 h-6" />
+                                </div>
+                                <h3 className="font-serif text-lg font-bold text-foreground">Conversation not found</h3>
+                                <p className="text-xs text-secondary-500 max-w-sm">
+                                    It may have been removed, or you may not have access to it.
+                                </p>
+                            </div>
+                        </>
                     ) : (
+                        <>
+                            {mobileBackBar}
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 bg-white">
                             <div className="w-12 h-12 rounded-full bg-secondary-100 text-secondary-500 flex items-center justify-center">
                                 <MessageSquare className="w-6 h-6" />
@@ -2053,11 +2081,12 @@ export default function MessagingPage() {
                                 <span>New message</span>
                             </button>
                         </div>
+                        </>
                     )}
                 </div>
 
                 {/* ═══════════════════════════════════════════════════════════════ */}
-                {/* COLUMN 3: RIGHT DETAILS SIDEBAR                                */}
+                {/* COLUMN 3: RIGHT DETAILS SIDEBAR                               */}
                 {/* ═══════════════════════════════════════════════════════════════ */}
                 {activeConversation && (
                     <div className="hidden 2xl:flex w-72 lg:w-80 border-l border-border/80 flex-col p-6 bg-white shrink-0 overflow-y-auto">
