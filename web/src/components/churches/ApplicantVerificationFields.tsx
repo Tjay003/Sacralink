@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { FileCheck, Lock, Upload, X } from 'lucide-react';
 import { APPLICANT_POSITIONS } from '../../lib/supabase/parishApplications';
-import type { ApplicantFormValue } from '../../lib/applicantForm';
+import { MAX_OTHER_POSITION_LENGTH, OTHER_POSITION, type ApplicantFormValue } from '../../lib/applicantForm';
 
 interface UploadBoxProps {
   file: File | null;
@@ -117,6 +117,23 @@ export default function ApplicantVerificationFields({ value, onChange, disabled 
             ))}
           </select>
         </div>
+
+        {value.position === OTHER_POSITION && (
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium mb-1">
+              Your Exact Title in the Parish <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={value.otherPosition}
+              onChange={(e) => update({ otherPosition: e.target.value })}
+              className="input w-full"
+              placeholder="e.g., Parish Sacristan"
+              maxLength={MAX_OTHER_POSITION_LENGTH}
+              disabled={disabled}
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-1">

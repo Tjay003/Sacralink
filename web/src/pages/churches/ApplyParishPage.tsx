@@ -17,7 +17,12 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
 import ApplicantVerificationFields from '../../components/churches/ApplicantVerificationFields';
-import { EMPTY_APPLICANT_FORM, validateApplicantForm, type ApplicantFormValue } from '../../lib/applicantForm';
+import {
+  EMPTY_APPLICANT_FORM,
+  applicantPositionLabel,
+  validateApplicantForm,
+  type ApplicantFormValue,
+} from '../../lib/applicantForm';
 import {
   APPLICANT_MAX_ATTEMPTS,
   submitParishApplication,
@@ -122,7 +127,7 @@ export default function ApplyParishPage() {
     setResubmitting(true);
     const { error: submitErr } = await submitApplicantVerification(applicationId, {
       legal_name: resubmitForm.legalName.trim(),
-      position: resubmitForm.position,
+      position: applicantPositionLabel(resubmitForm),
       phone: resubmitForm.phone.trim(),
       id_file: resubmitForm.idFile!,
       selfie_file: resubmitForm.selfieFile!,
@@ -187,7 +192,7 @@ export default function ApplyParishPage() {
         decree_file: decreeFile!,
         applicant: {
           legal_name: applicantForm.legalName.trim(),
-          position: applicantForm.position,
+          position: applicantPositionLabel(applicantForm),
           phone: applicantForm.phone.trim(),
           id_file: applicantForm.idFile!,
           selfie_file: applicantForm.selfieFile!,
