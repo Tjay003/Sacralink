@@ -16,21 +16,25 @@ Before any run, stop a stale dev server on port 5174; the config starts its own 
 
 ## What each ticket ships with
 
-Tests for its **risky parts**, plus **one happy-path test** per new screen or flow:
+Playwright E2E tests are reserved **strictly for high-risk backend logic**:
 
 - Database rules and RLS/permissions: who can read, who can write.
-- Changes to existing rows, and migrations.
-- Notifications.
-- Booking or money logic.
+- Schema migrations and transactional state changes.
+- Booking and donation/financial logic.
 
-Cosmetic, wording and layout checks get no tests. Expect 3 to 8 tests per ticket. A bug fix starts with a test that reproduces the bug, red before the fix.
+**Zero Playwright tests for UI/Cosmetic tickets:** Components, layout, text wording, color styling, and hover effects must be verified through TypeScript static checks (`tsc -b`) and local dev server checks. Do not write Playwright tests for frontend-only tickets.
+
+When a backend bug fix requires a test, write a targeted minimal test that reproduces the defect before fixing it. Do not write E2E tests for minor UI layout or locator glitches.
 
 ## The gate before production
 
-Pushing `main` triggers an automatic GitHub Actions check on that commit alone: typecheck, build, and the full real suite `e2e-local`.
+Pushing `main` triggers an automatic GitHub Actions run on that commit alone, in two jobs (`.github/workflows/ci.yml`):
+
+- **`quick`** (about 1 minute): typecheck and production build. This is the only job to wait for after a push.
+- **`e2e`** (about 10 to 15 minutes): the full real suite `e2e-local` on a fresh Docker Supabase. It starts after `quick` passes and nothing waits on it while building. It is the only place the whole suite runs, and it sees committed code only.
 
 - The mocked suite `web/e2e` is **not** part of the gate. 27 of its tests fail on outdated page wording; leave it untouched until Tyrone decides to fix or retire it.
-- A red check is informational. Tyrone decides whether to merge `main` into the production branch `feature/demo-mode`.
+- Both checks are informational. Before asking Tyrone about merging into the production branch `feature/demo-mode`, confirm `e2e` is green on the exact commit being released (`gh run list --branch main`); if it is still running, say so instead of waiting silently. Tyrone decides whether to merge.
 - Release order: test on `main`, push `main`, then merge into `feature/demo-mode`. Never the reverse.
 - The check sees only committed code, so it never exercises Tyrone's uncommitted work. A green check does not prove his working tree works.
 

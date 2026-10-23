@@ -6,30 +6,19 @@ disable-model-invocation: true
 
 You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
 
-The goal is a PR which implements the entire spec on a single branch.
+The goal is a clean, verified implementation on a single feature branch.
 
-The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
+The tickets form a dependency graph. Process them in small, controlled waves (1–3 tickets at a time).
 
-Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the spec, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
-
-**Implementer subagents** should be run in the background where possible for **maximum concurrency**.
+## Critical Guidelines
+- **Sequential Database Work:** Never run parallel subagents if more than one touches the database, runs migrations, or modifies Supabase schema. Run database changes sequentially to prevent migration version clashing.
+- **Fast Static Validation:** Subagents must validate primarily via static typechecking (`tsc -b`) and linting. Do not let child agents run full Playwright browser suites.
+- **Stop Between Waves:** After completing a wave (1–3 tickets), verify diff, commit cleanly, and pause to report back to the user before grabbing the next wave.
 
 ## Steps
 
-1. Read the spec and tickets. Read enough to understand the task graph.
-
-2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
-
-3. Create a branch, and a draft PR. The PR should be marked as 'closing' the spec issue and tickets.
-
-4. Use **implementer subagents** to implement each ticket. Each implementer subagent should work in its own worktree, on its own branch.
-
-5. Once an **implementer subagent** completes, merge its work to the PR branch with a **merger subagent**.
-
-6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
-
-7. Once all tickets are complete, run /code-review on the PR branch. Fix all issues raised by the code review in a single **implementer subagent**.
-
-8. Mark the PR as ready for review.
-
-9. Clean up all **implementer subagent** worktrees.
+1. Read the spec and tickets to understand the dependency order.
+2. Ensure you are on the correct staging/testing branch (`main` or dedicated feature branch from `main`).
+3. Implement tickets in sequential dependency order. Small tickets can be built directly in the main session.
+4. For database/RLS changes, test locally against Docker Supabase using only the single relevant spec file (`npx playwright test -c playwright.local.config.ts e2e-local/<file>.spec.ts`).
+5. After completing the wave, run `tsc -b`, commit with clear messages (no co-author trailers), and report progress.
