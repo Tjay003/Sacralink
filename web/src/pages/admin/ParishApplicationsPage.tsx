@@ -26,6 +26,7 @@ import Pagination from '../../components/common/Pagination';
 import { supabase } from '../../lib/supabase';
 import {
   getParishApplications,
+  getParishApplicationById,
   approveParishApplication,
   rejectParishApplication,
   updateApplicationChecklist,
@@ -33,6 +34,7 @@ import {
   type ApplicationChecklist,
 } from '../../lib/supabase/parishApplications';
 import { UserName } from '../../components/ui/UserName';
+import ApplicantReviewPanel from '../../components/admin/ApplicantReviewPanel';
 
 function formatSubmissionDate(dateStr?: string | null): string {
   if (!dateStr) return 'Recently submitted';
@@ -97,6 +99,7 @@ interface ParishApplicationDrawerProps {
   actionLoading: boolean;
   actionError: string | null;
   getStatusBadge: (status: string) => React.ReactNode;
+  onApplicantReviewed: () => Promise<void>;
 }
 
 function ParishApplicationDrawer({
@@ -117,6 +120,7 @@ function ParishApplicationDrawer({
   actionLoading,
   actionError,
   getStatusBadge,
+  onApplicantReviewed,
 }: ParishApplicationDrawerProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -632,6 +636,14 @@ function ParishApplicationDrawer({
             </div>
           </div>
 
+          {/* Applicant verification (the person applying) */}
+          <ApplicantReviewPanel
+            key={`${app.id}-${app.applicant_status}`}
+            app={app}
+            locked={isPastDecision}
+            onReviewed={onApplicantReviewed}
+          />
+
           {/* Section 4: REVIEWER NOTES */}
           <div>
             <h3 className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase mb-2">
@@ -740,10 +752,15 @@ function ParishApplicationDrawer({
               >
                 {actionLoading ? 'Saving...' : 'Save progress'}
               </button>
+              {app.applicant_status !== 'passed' && (
+                <p className="text-[11px] text-amber-700 mr-auto max-w-[14rem] leading-snug">
+                  Verify the applicant before approving the parish.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={onApprove}
-                disabled={actionLoading}
+                disabled={actionLoading || app.applicant_status !== 'passed'}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-xs inline-flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
               >
                 {actionLoading ? (
@@ -851,6 +868,13 @@ export default function ParishApplicationsPage() {
     setShowIncompleteConfirmModal(false);
     setRejectionReason('');
     setActionError(null);
+  };
+
+  const refreshSelectedApplication = async () => {
+    if (!selectedApp) return;
+    const { data } = await getParishApplicationById(selectedApp.id);
+    if (data) setSelectedApp(data);
+    await fetchApplications();
   };
 
   const closeReviewModal = () => {
@@ -1128,6 +1152,20 @@ export default function ParishApplicationsPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="font-bold text-lg text-foreground tracking-tight">{app.parish_name}</h3>
                     {getStatusBadge(app.status)}
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${
+                        app.applicant_status === 'passed'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : app.applicant_status === 'rejected'
+                            ? 'bg-red-50 text-red-700 border-red-200'
+                            : app.applicant_status === 'pending'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      Applicant:{' '}
+                      {{ not_submitted: 'not submitted', pending: 'awaiting review', passed: 'verified', rejected: 'rejected' }[app.applicant_status] ?? app.applicant_status}
+                    </span>
                   </div>
 
                   {/* Row 2: Metadata */}
@@ -1259,6 +1297,7 @@ export default function ParishApplicationsPage() {
           actionLoading={actionLoading}
           actionError={actionError}
           getStatusBadge={getStatusBadge}
+          onApplicantReviewed={refreshSelectedApplication}
         />
       )}
     </div>

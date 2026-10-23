@@ -117,6 +117,89 @@ export async function submitApplicantVerification(
   }
 }
 
+export interface ApplicantChecklist {
+  id_valid: boolean;
+  face_matches_selfie: boolean;
+  name_matches_documents: boolean;
+  position_plausible: boolean;
+}
+
+/**
+ * Super Admin: record the applicant outcome. A rejection needs a reason of 10+ characters and notifies the applicant.
+ */
+export async function reviewApplicantVerification(
+  application: Pick<ParishApplication, 'id' | 'applicant_id' | 'parish_name'>,
+  passed: boolean,
+  checklist: ApplicantChecklist,
+  reason: string
+): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase.rpc('review_applicant_verification', {
+      p_application_id: application.id,
+      p_passed: passed,
+      p_checklist: checklist as unknown as Json,
+      p_reason: reason.trim() || null,
+    });
+    if (error) throw error;
+
+    if (!passed && application.applicant_id) {
+      try {
+        await createNotification({
+          userId: application.applicant_id,
+          type: 'parish_applicant_rejected',
+          title: 'Applicant Details Need Attention',
+          message: `Your applicant details for "${application.parish_name}" were not accepted: ${reason.trim()} You can submit them again from My Applications.`,
+          link: '/churches/apply',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to notify applicant of rejected details:', notifErr);
+      }
+    }
+    return { error: null };
+  } catch (err) {
+    console.error('Error reviewing applicant verification:', err);
+    return { error: err instanceof Error ? err : new Error('Failed to record the applicant review') };
+  }
+}
+
+/**
+ * Super Admin: ask an applicant who applied before applicant verification existed to send their details.
+ */
+export async function requestApplicantDetails(
+  application: Pick<ParishApplication, 'applicant_id' | 'parish_name'>
+): Promise<{ error: Error | null }> {
+  if (!application.applicant_id) return { error: new Error('This application has no applicant to notify') };
+  const { error } = await createNotification({
+    userId: application.applicant_id,
+    type: 'parish_applicant_details_requested',
+    title: 'Applicant Details Requested',
+    message: `To continue the review of "${application.parish_name}", please submit your legal name, position, photo ID and a selfie holding it from My Applications.`,
+    link: '/churches/apply',
+  });
+  return { error: error instanceof Error ? error : error ? new Error(String(error.message ?? error)) : null };
+}
+
+/**
+ * Short-lived private links to an applicant's ID and selfie. Only the Super Admin (and the applicant) can create them.
+ */
+export async function getApplicantFileUrls(
+  idPath: string,
+  selfiePath: string,
+  expiresInSeconds = 300
+): Promise<{ idUrl: string | null; selfieUrl: string | null; error: Error | null }> {
+  const storage = supabase.storage.from(APPLICANT_BUCKET);
+  const [idResult, selfieResult] = await Promise.all([
+    storage.createSignedUrl(idPath, expiresInSeconds),
+    storage.createSignedUrl(selfiePath, expiresInSeconds),
+  ]);
+  const failure = idResult.error ?? selfieResult.error;
+  return {
+    idUrl: idResult.data?.signedUrl ?? null,
+    selfieUrl: selfieResult.data?.signedUrl ?? null,
+    error: failure ? new Error(failure.message) : null,
+  };
+}
+
 /**
  * Submit a new parish verification onboarding application
  */

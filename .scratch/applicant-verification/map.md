@@ -10,7 +10,7 @@ Spec: `spec.md` (decisions locked 2026-10-24). Tickets in `issues/`. Database wo
 ## Tasks
 - [x] 01 Applicant verification data, private storage and approval rule
 - [x] 02 Applicant section on the application form (after 01)
-- [ ] 03 Super Admin reviews the applicant (after 01, 02)
+- [x] 03 Super Admin reviews the applicant (after 01, 02)
 
 ## Decisions (all defaults accepted 2026-10-24)
 1. Which proof of identity counts, and is the selfie required? (default: any government photo ID plus a selfie holding it)

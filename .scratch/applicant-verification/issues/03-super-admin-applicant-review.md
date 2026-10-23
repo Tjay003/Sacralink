@@ -1,7 +1,7 @@
 # 03: Super Admin reviews the applicant
 
 Type: task
-Status: needs-decisions
+Status: done locally 2026-10-24 (ApplicantReviewPanel in the review drawer, list badges, approve blocked until applicant passes). Checked by a scripted browser pass: request, reject with reason, resubmit, verify, approve.
 **Blocked by:** 01, 02
 
 **What to build:** in `web/src/pages/admin/ParishApplicationsPage.tsx` (the Church Applications queue) add an **Applicant** panel to the review modal, next to the existing parish checklist: the ID and selfie shown through short-lived signed URLs (no permanent link, no download button by default), and an Applicant checklist (ID valid and unexpired; face matches the selfie; name matches the Celebret or decree; position plausible for this parish). Pass or Reject with a reason (10+ characters) calls `review_applicant_verification` from ticket 01.
