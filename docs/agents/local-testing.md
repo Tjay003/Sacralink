@@ -29,7 +29,7 @@ Studio is at http://127.0.0.1:54323 and the mail inbox at http://127.0.0.1:54324
 ## How it is wired
 
 - `supabase/config.toml`: local stack config. The CLI's own migration replay is **disabled** because the legacy migrations were written for the SQL editor (a drop-all script, duplicate version numbers such as `003_`, `009_`, `052_`) and cannot replay on an empty database.
-- `scripts/local-db-setup.ps1`: applies `supabase/migrations/*.sql` in filename order, skipping `000_drop_all.sql` and `APPLY_ALL_MIGRATIONS.sql`. A few old superseded migrations fail on a fresh database (storage-policy ownership, an older `user_role = text` comparison, duplicated policies); none touch appointments, and the script lists them.
+- `scripts/local-db-setup.ps1`: applies `supabase/migrations/*.sql` in filename order. A few old superseded migrations fail on a fresh database (storage-policy ownership, an older `user_role = text` comparison, duplicated policies); none touch appointments, and the script lists them.
 - `web/.env.e2e`: points the app at `http://127.0.0.1:54321` with the public local demo keys. Loaded only by `vite --mode e2e`.
 - `web/playwright.local.config.ts`: starts its own Vite server on port 5174 (`reuseExistingServer: false`) so it can never reuse a dev server pointed at production.
 - `web/e2e-local/global-setup.ts`: idempotently seeds two parishes and one user per role. `support.ts` refuses to run if the Supabase URL is not local.

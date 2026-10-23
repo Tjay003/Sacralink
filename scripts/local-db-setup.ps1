@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
   Applies supabase/migrations/*.sql to the LOCAL Supabase database (docker) in filename order.
-  Skips 000_drop_all.sql and APPLY_ALL_MIGRATIONS.sql. Never touches a remote project.
+  Never touches a remote project.
   Usage: powershell -File scripts/local-db-setup.ps1 [-Reset] [-AllowFailures <name>,<name>,...]
   -AllowFailures lists migration file names expected to fail (the known legacy baseline). They are
   still reported as FAIL, but only failures outside the list make the script exit 1. Comma-separated
@@ -23,9 +23,7 @@ if ($Reset) {
 
 $allowed = @($AllowFailures | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
-$files = Get-ChildItem (Join-Path $root 'supabase/migrations') -Filter '*.sql' |
-  Where-Object { $_.Name -notin @('000_drop_all.sql', 'APPLY_ALL_MIGRATIONS.sql') } |
-  Sort-Object Name
+$files = Get-ChildItem (Join-Path $root 'supabase/migrations') -Filter '*.sql' | Sort-Object Name
 
 $failed = @()
 # psql writes NOTICE lines to stderr; Windows PowerShell 5.1 would turn them into terminating errors.
