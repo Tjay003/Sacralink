@@ -7,7 +7,7 @@ import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { BLOCKED_ACCOUNT_NOTICE_KEY, SUSPENDED_ACCOUNT_MESSAGE } from '../../lib/blockedAccountNotice';
+import { BLOCKED_ACCOUNT_NOTICE_KEY, SELF_DELETED_ACCOUNT_MESSAGE, SUSPENDED_ACCOUNT_MESSAGE } from '../../lib/blockedAccountNotice';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import { Button } from "@/components/ui/button"
@@ -34,15 +34,17 @@ export default function LoginPage() {
     const { signIn } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
     const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
 
     // A deleted account that was signed out of an open tab sees why
     useEffect(() => {
         try {
-            const notice = window.sessionStorage.getItem(BLOCKED_ACCOUNT_NOTICE_KEY);
-            if (notice) {
+            const stored = window.sessionStorage.getItem(BLOCKED_ACCOUNT_NOTICE_KEY);
+            if (stored) {
                 window.sessionStorage.removeItem(BLOCKED_ACCOUNT_NOTICE_KEY);
-                setError(notice);
+                if (stored === SELF_DELETED_ACCOUNT_MESSAGE) setNotice(stored);
+                else setError(stored);
             }
         } catch {
             // sessionStorage can be unavailable
@@ -156,6 +158,18 @@ export default function LoginPage() {
 
                 <Card className="border-none shadow-none bg-transparent p-0">
                     <CardContent className="p-0">
+                        {notice && (
+                            <motion.div
+                                role="status"
+                                data-testid="login-success-notice"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                className="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-2"
+                            >
+                                <div className="h-1.5 w-1.5 rounded-full bg-success" />
+                                {notice}
+                            </motion.div>
+                        )}
                         {error && (
                             <motion.div
                                 initial={{ opacity: 0, height: 0 }}

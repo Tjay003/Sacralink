@@ -5,6 +5,7 @@ import CountdownPanel from '../common/CountdownPanel';
 import { useCountdown } from '../../hooks/useCountdown';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { BLOCKED_ACCOUNT_NOTICE_KEY, SELF_DELETED_ACCOUNT_MESSAGE } from '../../lib/blockedAccountNotice';
 import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 
 const COUNTDOWN_SECONDS = 5;
@@ -57,6 +58,11 @@ export default function DeleteMyAccountSection({ email }: DeleteMyAccountSection
             setError(rpcError.message || 'Failed to delete your account.');
             setLoading(false);
             return;
+        }
+        try {
+            window.sessionStorage.setItem(BLOCKED_ACCOUNT_NOTICE_KEY, SELF_DELETED_ACCOUNT_MESSAGE);
+        } catch {
+            // sessionStorage can be unavailable; the redirect still happens
         }
         // The server already ended every session, so a failing sign out is expected and harmless.
         try {

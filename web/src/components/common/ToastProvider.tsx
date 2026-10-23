@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
-import { ToastContext, type ToastApi, type ToastKind } from '../../contexts/toastContext';
+import { ToastContext, type SuccessDialogOptions, type ToastApi, type ToastKind } from '../../contexts/toastContext';
+import SuccessDialog from './SuccessDialog';
 
 interface ToastItem {
     id: number;
@@ -33,6 +34,8 @@ const KIND_STYLES: Record<ToastKind, { box: string; icon: ReactNode }> = {
  */
 export default function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<ToastItem[]>([]);
+    const [dialog, setDialog] = useState<SuccessDialogOptions | null>(null);
+    const closeDialog = useCallback(() => setDialog(null), []);
     const nextId = useRef(1);
     const timers = useRef(new Map<number, number>());
 
@@ -66,11 +69,13 @@ export default function ToastProvider({ children }: { children: ReactNode }) {
         error: (message) => show('error', message),
         info: (message) => show('info', message),
         dismiss,
+        showSuccess: setDialog,
     }), [show, dismiss]);
 
     return (
         <ToastContext.Provider value={api}>
             {children}
+            {dialog && <SuccessDialog {...dialog} onClose={closeDialog} />}
             {createPortal(
                 <div
                     className="fixed z-[10000] inset-x-3 bottom-3 sm:inset-x-auto sm:right-4 sm:bottom-4 flex flex-col items-center sm:items-end gap-2 pointer-events-none"

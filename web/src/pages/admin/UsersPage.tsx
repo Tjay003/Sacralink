@@ -365,13 +365,21 @@ export default function UsersPage() {
     };
 
     const handleDeleted = () => {
-        toast.success(`${userLabel(deleteTarget)} was deleted.`);
+        toast.showSuccess({
+            title: 'User deleted',
+            message: `${userLabel(deleteTarget)} can no longer sign in. Their history is kept as Deleted User.`,
+            tone: 'danger',
+        });
         setDeleteTarget(null);
         fetchData();
     };
 
     const handleSuspended = () => {
-        toast.success(`${userLabel(suspendTarget)} was suspended.`);
+        toast.showSuccess({
+            title: 'User suspended',
+            message: `${userLabel(suspendTarget)} was signed out and cannot sign in until reactivated.`,
+            tone: 'warning',
+        });
         setSuspendTarget(null);
         fetchData();
     };
@@ -379,7 +387,11 @@ export default function UsersPage() {
     const handleReactivate = async (user: Profile) => {
         try {
             await reactivateUser(user.id);
-            toast.success(`${userLabel(user)} was reactivated.`);
+            toast.showSuccess({
+                title: 'User reactivated',
+                message: `${userLabel(user)} can sign in again with their previous role.`,
+                tone: 'success',
+            });
             fetchData();
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : 'Failed to reactivate the user');
@@ -1251,7 +1263,11 @@ export default function UsersPage() {
                     initialCategory="user_deletion_request"
                     initialSubjectUser={{ id: requestTarget.id, name: requestTarget.full_name || requestTarget.email || 'Unnamed user' }}
                     onSuccess={() => {
-                        toast.success(`Deletion request for ${userLabel(requestTarget)} was sent to the Super Admin.`);
+                        toast.showSuccess({
+                            title: 'Request sent',
+                            message: `The Super Admin will review the deletion request for ${userLabel(requestTarget)}.`,
+                            tone: 'success',
+                        });
                         setRequestTarget(null);
                     }}
                 />

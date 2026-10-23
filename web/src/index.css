@@ -519,3 +519,30 @@ h6 {
     box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
   }
 }
+
+/* Success dialog check mark: the circle draws, then the tick. */
+.success-check-circle {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: successDraw 0.45s cubic-bezier(0.65, 0, 0.35, 1) 0.1s forwards;
+}
+
+.success-check-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: successDraw 0.3s cubic-bezier(0.65, 0, 0.35, 1) 0.5s forwards;
+}
+
+@keyframes successDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .success-check-circle,
+  .success-check-tick {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

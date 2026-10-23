@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { reactivateUser, type UserReviewSummary } from '../../lib/supabase/profiles';
 import { ticketRequestDecline, ticketRequestDelete, ticketRequestSuspend } from '../../lib/supabase/messaging';
 import { TICKET_NOTE_MIN_LENGTH } from '../../lib/tickets';
-import { useToast } from '../../contexts/toastContext';
+import { useToast, type SuccessDialogOptions } from '../../contexts/toastContext';
 
 interface DeletionRequestActionsProps {
     ticketId: string;
@@ -56,10 +56,12 @@ export default function DeletionRequestActions({ ticketId, ticketStatus, summary
         setModal('delete');
     };
 
-    const finish = async (message: string) => {
+    const subjectName = summary.full_name || summary.email || 'The user';
+
+    const finish = async (result: SuccessDialogOptions) => {
         setModal(null);
         setNote('');
-        toast.success(message);
+        toast.showSuccess(result);
         await onChanged();
     };
 
@@ -78,7 +80,11 @@ export default function DeletionRequestActions({ ticketId, ticketStatus, summary
             toast.error(failure.message);
             return;
         }
-        await finish('Deletion request declined. The Church Admin has been told.');
+        await finish({
+            title: 'Request declined',
+            message: 'The deletion request was declined and the Church Admin has been told.',
+            tone: 'warning',
+        });
     };
 
     const reactivate = async () => {
@@ -86,7 +92,11 @@ export default function DeletionRequestActions({ ticketId, ticketStatus, summary
         setError(null);
         try {
             await reactivateUser(summary.user_id);
-            toast.success('User reactivated. They can sign in again.');
+            toast.showSuccess({
+                title: 'User reactivated',
+                message: `${subjectName} can sign in again with their previous role.`,
+                tone: 'success',
+            });
             await onChanged();
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Failed to reactivate the user.';
@@ -161,7 +171,13 @@ export default function DeletionRequestActions({ ticketId, ticketStatus, summary
                     user={subject}
                     isLastChurchAdmin={lastAdmin}
                     onClose={() => setModal(null)}
-                    onSuccess={() => finish('User deleted. The deletion request is closed.')}
+                    onSuccess={() =>
+                        finish({
+                            title: 'User deleted',
+                            message: `${subjectName} can no longer sign in. Their history is kept as Deleted User. The deletion request is closed.`,
+                            tone: 'danger',
+                        })
+                    }
                     onConfirm={() => run(() => ticketRequestDelete(ticketId))}
                 />
             )}
@@ -169,7 +185,13 @@ export default function DeletionRequestActions({ ticketId, ticketStatus, summary
                 <SuspendUserModal
                     user={subject}
                     onClose={() => setModal(null)}
-                    onSuccess={() => finish('User suspended. The deletion request is closed.')}
+                    onSuccess={() =>
+                        finish({
+                            title: 'User suspended',
+                            message: `${subjectName} was signed out and cannot sign in until reactivated. The deletion request is closed.`,
+                            tone: 'warning',
+                        })
+                    }
                     onConfirm={(reason) => run(() => ticketRequestSuspend(ticketId, reason))}
                 />
             )}
