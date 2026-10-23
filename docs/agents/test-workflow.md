@@ -24,6 +24,8 @@ Playwright E2E tests are reserved **strictly for high-risk backend logic**:
 
 **Zero Playwright tests for UI/Cosmetic tickets:** Components, layout, text wording, color styling, and hover effects must be verified through TypeScript static checks (`tsc -b`) and local dev server checks. Do not write Playwright tests for frontend-only tickets.
 
+**One exception: a flow that crosses from the page into the backend.** A new form that uploads a file, calls a database function or signs someone in gets one short happy-path Playwright test that does the real thing in the browser (fill the form, submit, assert the database row or stored file). Database-rule specs and a screenshot do not catch a broken seam between the page and storage, RLS or an RPC: the parish application form shipped with an upload that failed ("bucket not found") because nothing ever submitted it. Keep it to the happy path, about 15 lines, one per flow.
+
 When a backend bug fix requires a test, write a targeted minimal test that reproduces the defect before fixing it. Do not write E2E tests for minor UI layout or locator glitches.
 
 ## The gate before production
