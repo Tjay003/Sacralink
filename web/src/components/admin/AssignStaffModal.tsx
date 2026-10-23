@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
-import { directFetchProfiles, directUpdateProfile } from '../../lib/directApi';
+import { directFetchProfiles } from '../../lib/directApi';
+import { setUserRole } from '../../lib/supabase/profiles';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
 import type { Profile } from '../../types/database';
 import { 
     Search, 
@@ -35,7 +35,7 @@ export default function AssignStaffModal({
     churchName,
     onSuccess
 }: AssignStaffModalProps) {
-    const { session, profile: currentProfile } = useAuth();
+    const { session } = useAuth();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Profile[]>([]);
@@ -150,41 +150,8 @@ export default function AssignStaffModal({
         const finalIsPriest = selectedRole === 'priest' ? true : (selectedRole === 'church_admin' ? isPriest : false);
 
         try {
-            const result = await directUpdateProfile(
-                selectedUser.id,
-                {
-                    assigned_church_id: churchId,
-                    church_id: churchId,
-                    role: selectedRole,
-                    is_priest: finalIsPriest,
-                },
-                session.access_token
-            );
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to update user parish assignment.');
-            }
-
-            // Log activity log for the governance audit trail
-            try {
-                if (currentProfile?.id) {
-                    await supabase.from('activity_logs').insert({
-                        user_id: currentProfile.id,
-                        action: 'assign_parish_staff',
-                        entity_type: 'churches',
-                        entity_id: churchId,
-                        metadata: {
-                            assigned_user_id: selectedUser.id,
-                            assigned_user_name: selectedUser.full_name,
-                            role: selectedRole,
-                            is_priest: finalIsPriest,
-                            church_name: churchName,
-                        },
-                    });
-                }
-            } catch (auditErr) {
-                console.warn('Could not record activity log:', auditErr);
-            }
+            // set_user_role is the only sanctioned path and writes the activity log entry itself.
+            await setUserRole(selectedUser.id, selectedRole, churchId, finalIsPriest);
 
             onSuccess();
             onClose();

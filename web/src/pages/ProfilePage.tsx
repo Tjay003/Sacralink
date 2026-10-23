@@ -4,7 +4,7 @@ import { User, Mail, Phone, Shield, Calendar, Heart, CheckCircle, XCircle, Clock
 import AvatarUpload from '../components/profile/AvatarUpload';
 import ChangePasswordModal from '../components/profile/ChangePasswordModal';
 import DeleteMyAccountSection from '../components/profile/DeleteMyAccountSection';
-import { getCurrentProfile, updateProfile } from '../lib/supabase/profiles';
+import { getCurrentProfile } from '../lib/supabase/profiles';
 import { getUserDonations, type Donation } from '../lib/supabase/donations';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -23,8 +23,6 @@ export default function ProfilePage() {
     const [donationsLoading, setDonationsLoading] = useState(true);
 
     const [isPriest, setIsPriest] = useState(false);
-    const [priestLoading, setPriestLoading] = useState(false);
-    const [priestMessage, setPriestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
         fetchProfile();
@@ -52,33 +50,6 @@ export default function ProfilePage() {
             console.error('Error fetching profile:', error);
         } finally {
             setLoading(false);
-        }
-    };
-
-    const handleTogglePriest = async (newValue: boolean) => {
-        if (!profileData?.id) return;
-        setPriestLoading(true);
-        setPriestMessage(null);
-        try {
-            await updateProfile(profileData.id, { is_priest: newValue });
-            setIsPriest(newValue);
-            setProfileData((prev: any) => prev ? { ...prev, is_priest: newValue } : prev);
-            await refreshProfile();
-            setPriestMessage({
-                type: 'success',
-                text: newValue
-                    ? 'Ordained Catholic Priest status activated. Your personal liturgical celebrant calendar is now enabled.'
-                    : 'Clergy status updated to inactive.'
-            });
-            setTimeout(() => setPriestMessage(null), 4000);
-        } catch (err: any) {
-            console.error('Error toggling clergy status:', err);
-            setPriestMessage({
-                type: 'error',
-                text: err.message || 'Failed to update clergy status'
-            });
-        } finally {
-            setPriestLoading(false);
         }
     };
 
@@ -358,47 +329,12 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                                 <p className="text-xs text-muted mt-1 leading-relaxed">
-                                    Configure liturgical presiding rights for ordained Catholic priests serving in parish leadership.
+                                    Liturgical presiding rights for ordained Catholic priests serving in parish leadership. Ask your Church Admin or the Super Admin to change this.
                                 </p>
                             </div>
                         </div>
 
-                        {/* Toggle switch */}
-                        <div className="flex items-center gap-3 self-end sm:self-auto">
-                            {priestLoading && (
-                                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                            )}
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isPriest}
-                                onClick={() => handleTogglePriest(!isPriest)}
-                                disabled={priestLoading}
-                                aria-label="Toggle Ordained Catholic Priest status"
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                                    isPriest ? 'bg-amber-500' : 'bg-secondary-200 dark:bg-secondary-700'
-                                }`}
-                            >
-                                <span
-                                    aria-hidden="true"
-                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                        isPriest ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                                />
-                            </button>
-                        </div>
                     </div>
-
-                    {/* Status Message Alert */}
-                    {priestMessage && (
-                        <div className={`p-3 rounded-xl text-xs font-medium mb-3 border animate-in fade-in ${
-                            priestMessage.type === 'success'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800'
-                                : 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-800'
-                        }`}>
-                            {priestMessage.text}
-                        </div>
-                    )}
 
                     <div className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60">
                         <div className="flex items-start gap-2.5">

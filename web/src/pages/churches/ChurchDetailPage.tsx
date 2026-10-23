@@ -61,7 +61,8 @@ import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supaba
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
 import AssignStaffModal from '../../components/admin/AssignStaffModal';
 import EditRoleModal from '../../components/admin/EditRoleModal';
-import { directUpdateProfile } from '../../lib/directApi';
+import { setUserRole } from '../../lib/supabase/profiles';
+import { demotionMessage, getRoleEditBlock } from '../../lib/roleEditing';
 import type { Profile, Database } from '../../types/database';
 import { UserName } from '../../components/ui/UserName';
 
@@ -83,7 +84,7 @@ type TabType = 'overview' | 'liturgy' | 'media' | 'livestream' | 'announcements'
 export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user, profile, session } = useAuth();
+    const { user, profile } = useAuth();
     const isVolunteer = profile?.role === 'volunteer';
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
     const { byId: clergyById } = useParishClergy(id);
@@ -313,47 +314,15 @@ export default function ChurchDetailPage() {
 
         setUnassignLoading(true);
         try {
-            const token = session?.access_token || '';
-            const isOrdained = Boolean(unassignStaffMember.is_priest);
+            const block = getRoleEditBlock(profile, unassignStaffMember);
+            if (block) throw new Error(block);
 
-            const result = await directUpdateProfile(
-                unassignStaffMember.id,
-                {
-                    assigned_church_id: null,
-                    church_id: null,
-                    role: 'user',
-                    is_priest: isOrdained, // Preserves ordination status for clergy
-                },
-                token
-            );
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to unassign staff member.');
-            }
-
-            // Record activity log for governance
-            if (profile?.id) {
-                try {
-                    await supabase.from('activity_logs').insert({
-                        user_id: profile.id,
-                        action: 'unassign_parish_staff',
-                        entity_type: 'churches',
-                        entity_id: id,
-                        metadata: {
-                            unassigned_user_id: unassignStaffMember.id,
-                            unassigned_user_name: unassignStaffMember.full_name,
-                            previous_role: unassignStaffMember.role,
-                            church_name: church?.name,
-                        },
-                    });
-                } catch (auditErr) {
-                    console.warn('Could not record activity log:', auditErr);
-                }
-            }
+            // Unassigning demotes to Parishioner: the person stays a member of this church (set_user_role logs it).
+            await setUserRole(unassignStaffMember.id, 'user', null, false);
 
             setActionFeedback({
                 type: 'success',
-                message: `${unassignStaffMember.full_name || 'Staff member'} was successfully unassigned from ${church?.name || 'this parish'}.`,
+                message: `${unassignStaffMember.full_name || 'Staff member'} is now a Parishioner of ${church?.name || 'this parish'}.`,
             });
 
             await fetchMetricsAndStaff();
@@ -2289,9 +2258,9 @@ export default function ChurchDetailPage() {
             {/* Unassign Staff Member Confirmation Modal */}
             <ConfirmationModal
                 isOpen={Boolean(unassignStaffMember)}
-                title="Unassign Staff Member"
-                message={`Are you sure you want to unassign ${unassignStaffMember?.full_name || 'this staff member'} from ${church?.name}? Their parish assignment will be cleared and role set to parishioner.`}
-                confirmLabel="Unassign from Parish"
+                title="Remove Staff Access"
+                message={demotionMessage(unassignStaffMember?.full_name || 'This staff member', church?.name ?? null)}
+                confirmLabel="Make Parishioner"
                 cancelLabel="Cancel"
                 variant="danger"
                 loading={unassignLoading}

@@ -1,19 +1,7 @@
 import { supabase } from '../supabase';
 import imageCompression from 'browser-image-compression';
 import type { Database, Profile } from '../../types/database';
-import { getStoredPriestStatus, setStoredPriestStatus } from '../directApi';
-
-export type ProfileUpdate = {
-    full_name?: string | null;
-    avatar_url?: string | null;
-    church_id?: string | null;
-    assigned_church_id?: string | null;
-    role?: Database['public']['Enums']['user_role'] | null;
-    is_priest?: boolean | null;
-    phone_number?: string | null;
-    is_verified?: boolean | null;
-    fcm_token?: string | null;
-};
+import { getStoredPriestStatus } from '../directApi';
 
 /**
  * Compress and resize image before upload
@@ -178,61 +166,6 @@ export async function getProfileById(userId: string): Promise<Profile | null> {
         }
     }
     return data;
-}
-
-/**
- * Update user profile
- */
-export async function updateProfile(userId: string, updates: ProfileUpdate): Promise<Profile> {
-    if (updates.is_priest !== undefined && updates.is_priest !== null) {
-        setStoredPriestStatus(userId, updates.is_priest);
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .update({
-                ...updates,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', userId)
-            .select('*')
-            .single();
-
-        if (error) {
-            // Check if error is due to missing is_priest column in remote database
-            if (updates.is_priest !== undefined) {
-                console.warn('updateProfile: remote DB error, retrying without is_priest column:', error);
-                const { is_priest, ...updatesWithoutPriest } = updates;
-                const { data: fallbackData, error: fallbackError } = await supabase
-                    .from('profiles')
-                    .update({
-                        ...updatesWithoutPriest,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', userId)
-                    .select('*')
-                    .single();
-
-                if (fallbackError) {
-                    throw fallbackError;
-                }
-                const result = fallbackData as Profile;
-                result.is_priest = is_priest;
-                return result;
-            }
-            throw error;
-        }
-
-        const result = data as Profile;
-        if (updates.is_priest !== undefined && updates.is_priest !== null) {
-            result.is_priest = updates.is_priest;
-        }
-        return result;
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        throw error;
-    }
 }
 
 /**
