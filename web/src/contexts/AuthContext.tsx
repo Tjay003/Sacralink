@@ -191,10 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Purge cached conversations so the next account on this browser never sees them
         setLocalMessagingOwner(null);
         clearLocalMessagingCache();
-        if (error) throw error;
+        // Cleared even when the server refuses (a session it already ended), so the app never keeps a dead session on screen
         setUser(null);
         setProfile(null);
         setSession(null);
+        if (error) throw error;
     };
 
     /**

@@ -238,6 +238,14 @@ export default function MessagingPage() {
     const [ticketStubs, setTicketStubs] = useState<EscalatedTicketStub[]>([]);
     const [linkedTicketNumber, setLinkedTicketNumber] = useState<string | null>(null);
     const [followUpSource, setFollowUpSource] = useState<ConversationWithDetails | null>(null);
+    // The right-hand info panel only exists from the 2xl breakpoint up; below it the review panel moves into the thread
+    const [wideInfoPanel, setWideInfoPanel] = useState(() => window.matchMedia('(min-width: 1536px)').matches);
+    useEffect(() => {
+        const query = window.matchMedia('(min-width: 1536px)');
+        const onChange = (event: MediaQueryListEvent) => setWideInfoPanel(event.matches);
+        query.addEventListener('change', onChange);
+        return () => query.removeEventListener('change', onChange);
+    }, []);
 
     // Filter & search
     const [activeTab, setActiveTab] = useState<'all' | 'tickets' | 'direct' | 'staff'>('all');
@@ -1036,6 +1044,28 @@ export default function MessagingPage() {
         setRequestingReview(false);
     };
 
+    // Super Admin evidence for a deletion request or a report about a person
+    const renderReviewPanel = () =>
+        isSuperAdmin &&
+        activeConversation &&
+        activeIsTicket &&
+        (activeConversation.category === 'user_deletion_request' || activeConversation.category === 'report_person') &&
+        activeConversation.subject_user_id ? (
+            <ReviewSummaryPanel
+                key={activeConversation.subject_user_id}
+                subjectUserId={activeConversation.subject_user_id}
+                decision={
+                    activeConversation.category === 'user_deletion_request' && activeConversation.id
+                        ? {
+                              ticketId: activeConversation.id,
+                              ticketStatus: activeConversation.status,
+                              onChanged: () => loadConversations(),
+                          }
+                        : undefined
+                }
+            />
+        ) : null;
+
     return (
         <div className="flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8rem)] min-h-[520px] w-full max-w-7xl mx-auto space-y-3 sm:space-y-4 overflow-hidden">
             {/* Top Bar Header */}
@@ -1592,6 +1622,13 @@ export default function MessagingPage() {
                                 />
                             )}
 
+                            {/* Review panel for the Super Admin when the right-hand info panel is not shown */}
+                            {!wideInfoPanel && renderReviewPanel() && (
+                                <div className="px-4 pt-3 border-b border-border/70 shrink-0 max-h-[45vh] overflow-y-auto">
+                                    {renderReviewPanel()}
+                                </div>
+                            )}
+
                             {/* Ticket notices: follow-up link, review request and status errors */}
                             {activeIsTicket && (
                                 (linkedTicketNumber || activeConversation.linked_ticket_id || offerReviewRequest || ticketActionError) && (
@@ -2044,24 +2081,7 @@ export default function MessagingPage() {
                                     )}
 
                                     {/* Super Admin evidence for a deletion request or a report about a person */}
-                                    {isSuperAdmin &&
-                                        activeIsTicket &&
-                                        (activeConversation.category === 'user_deletion_request' || activeConversation.category === 'report_person') &&
-                                        activeConversation.subject_user_id && (
-                                            <ReviewSummaryPanel
-                                                key={activeConversation.subject_user_id}
-                                                subjectUserId={activeConversation.subject_user_id}
-                                                decision={
-                                                    activeConversation.category === 'user_deletion_request' && activeConversation.id
-                                                        ? {
-                                                              ticketId: activeConversation.id,
-                                                              ticketStatus: activeConversation.status,
-                                                              onChanged: () => loadConversations(),
-                                                          }
-                                                        : undefined
-                                                }
-                                            />
-                                        )}
+                                    {wideInfoPanel && renderReviewPanel()}
 
                                     {/* LINKED REQUEST / TICKET DETAILS section */}
                                     {activeIsTicket ? (
