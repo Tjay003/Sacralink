@@ -98,7 +98,8 @@ test('a Church Admin demotes a second Church Admin: confirmation wording, same c
 
   await openUsers(page, admin);
   const row = await findRow(page, second.email);
-  await row.getByRole('button', { name: 'Demote to Parishioner' }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.getByRole('menuitem', { name: 'Demote to Parishioner' }).click();
 
   const confirmation = page.getByTestId('demote-confirmation');
   await expect(confirmation).toContainText('will become a Parishioner and stay in');
@@ -133,7 +134,8 @@ test('the last Church Admin error reads as plain text when a Super Admin demotes
 
   await openUsers(page, owner.account);
   const row = await findRow(page, sole.email);
-  await row.getByRole('button', { name: 'Demote to Parishioner' }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.getByRole('menuitem', { name: 'Demote to Parishioner' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Demote to Parishioner' }).click();
 
   await expect(page.getByRole('alert')).toContainText('at least one Church Admin');

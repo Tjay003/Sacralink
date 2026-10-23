@@ -544,16 +544,7 @@ export default function ChurchDetailPage() {
 
         if (!id) return;
 
-        // Check if church has assigned staff members
-        const hasStaff = staffList.length > 0;
-        if (!hasStaff) {
-            setActionFeedback({
-                type: 'error',
-                message: 'Parish office online desk not yet activated for this church.',
-            });
-            return;
-        }
-
+        // A church without a Church Admin still opens the dialog: it explains that and offers "Report a concern about my church"
         setShowInquiryModal(true);
     };
 
@@ -783,8 +774,7 @@ export default function ChurchDetailPage() {
                                 return (
                                     <button
                                         onClick={handleContactParish}
-                                        disabled={isUnstaffed}
-                                        title={isUnstaffed ? "Parish office online desk not yet activated" : "Message the parish office"}
+                                        title={isUnstaffed ? "No parish office desk yet: you can report a concern about this church" : "Message the parish office"}
                                         className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                     >
                                         <MessageSquare className="w-4 h-4 text-secondary-500" />
@@ -2310,7 +2300,7 @@ export default function ChurchDetailPage() {
             />
 
             {/* AI Parish Assistant Chatbot - floating widget */}
-            {featureFlags.parishionerChatbot.enabled && (
+            {featureFlags.parishionerChatbot.enabled && !isSuperAdmin && (
                 <ChurchChatbot churchId={church.id} churchName={church.name} />
             )}
         </div>

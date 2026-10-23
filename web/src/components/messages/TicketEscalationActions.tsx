@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, Undo2, AlertTriangle } from 'lucide-react';
 import Modal from '../ui/Modal';
+import { useToast } from '../../contexts/toastContext';
 import { escalateTicket, sendBackTicket } from '../../lib/supabase/messaging';
 import {
     TICKET_NOTE_MIN_LENGTH,
@@ -54,6 +55,7 @@ export default function TicketEscalationActions({
     requesterRole,
     onChanged,
 }: TicketEscalationActionsProps) {
+    const toast = useToast();
     const [open, setOpen] = useState<ActionKind | null>(null);
     const [text, setText] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -81,8 +83,10 @@ export default function TicketEscalationActions({
         setSubmitting(false);
         if (failure) {
             setError(failure.message);
+            toast.error(failure.message);
             return;
         }
+        toast.success(open === 'escalate' ? 'Ticket escalated to the Super Admin.' : 'Ticket sent back to the church.');
         setOpen(null);
         setText('');
         await onChanged();
@@ -106,11 +110,11 @@ export default function TicketEscalationActions({
                     type="button"
                     onClick={() => setOpen('escalate')}
                     data-testid="ticket-escalate-button"
-                    className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title={COPY.escalate.label}
+                    className="px-3 py-2 min-h-10 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                     <ArrowUpRight className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{COPY.escalate.label}</span>
-                    <span className="sm:hidden">Escalate</span>
+                    <span className="sr-only sm:not-sr-only">Escalate</span>
                 </button>
             )}
             {showSendBack && (
@@ -118,11 +122,11 @@ export default function TicketEscalationActions({
                     type="button"
                     onClick={() => setOpen('send_back')}
                     data-testid="ticket-send-back-button"
-                    className="px-3 py-1.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title={COPY.send_back.label}
+                    className="px-3 py-2 min-h-10 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                     <Undo2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{COPY.send_back.label}</span>
-                    <span className="sm:hidden">Send back</span>
+                    <span className="sr-only sm:not-sr-only">Send back</span>
                 </button>
             )}
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Church as ChurchIcon, Send, AlertCircle, Building2 } from 'lucide-react';
 import Modal from '../ui/Modal';
+import { supabase } from '../../lib/supabase';
 import { searchChurchPeople, type ChurchPerson } from '../../lib/supabase/profiles';
 import { churchHasAdmin, submitParishOfficeInquiry, type TicketLane } from '../../lib/supabase/messaging';
 
@@ -73,7 +74,7 @@ export default function ParishInquiryModal({
     churchId,
     churchName,
     churchImage,
-    parishOptions = [],
+    parishOptions: suppliedOptions,
     defaultChurchId,
     userId,
     role = 'user',
@@ -89,7 +90,11 @@ export default function ParishInquiryModal({
     const isParishioner = role === 'user';
     // Church staff write to the Super Admin about their own church; Parishioners pick the church they are reporting
     const needsParishSelector = lane === 'platform' ? isParishioner : !churchId;
-    const [selectedChurchId, setSelectedChurchId] = useState<string>(defaultChurchId || '');
+    const [selectedChurchId, setSelectedChurchId] = useState<string>(defaultChurchId || churchId || '');
+    // The caller's list may be missing (the church page passes none) or stale, so a selector that has nothing to offer loads every active church itself
+    const [loadedOptions, setLoadedOptions] = useState<Array<{ id: string; name: string }>>([]);
+    const [parishSearch, setParishSearch] = useState('');
+    const parishOptions = suppliedOptions && suppliedOptions.length > 0 ? suppliedOptions : loadedOptions;
     const activeChurchId =
         lane === 'platform' && !isParishioner
             ? defaultChurchId || ''
@@ -97,6 +102,9 @@ export default function ParishInquiryModal({
     const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
     const activeChurchName =
         churchName || parishOptions.find((p) => p.id === activeChurchId)?.name || 'Select a parish';
+    const visibleParishes = parishSearch.trim()
+        ? parishOptions.filter((p) => p.name.toLowerCase().includes(parishSearch.trim().toLowerCase()) || p.id === activeChurchId)
+        : parishOptions;
     const categories = lane === 'platform' ? platformCategoriesForRole(role) : INQUIRY_CATEGORIES;
     const [category, setCategory] = useState(
         initialCategory || (lane === 'platform' && isParishioner ? REPORT_CHURCH_CATEGORY.id : 'general')
@@ -112,6 +120,22 @@ export default function ParishInquiryModal({
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !needsParishSelector || (suppliedOptions && suppliedOptions.length > 0)) return;
+        let cancelled = false;
+        supabase
+            .from('churches')
+            .select('id, name')
+            .eq('is_active', true)
+            .order('name', { ascending: true })
+            .then(({ data }) => {
+                if (!cancelled) setLoadedOptions((data ?? []) as Array<{ id: string; name: string }>);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, needsParishSelector, suppliedOptions]);
 
     // A Parishioner whose chosen church has no Church Admin can only report a concern about it
     useEffect(() => {
@@ -285,6 +309,17 @@ export default function ParishInquiryModal({
                         <label htmlFor="inquiry-parish" className="block text-xs font-bold text-foreground">
                             {lane === 'platform' ? 'Church the concern is about' : 'Parish'} <span className="text-destructive">*</span>
                         </label>
+                        {parishOptions.length > 8 && (
+                            <input
+                                type="search"
+                                value={parishSearch}
+                                onChange={(e) => setParishSearch(e.target.value)}
+                                placeholder="Search churches"
+                                aria-label="Search churches"
+                                disabled={loading}
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-60"
+                            />
+                        )}
                         <select
                             id="inquiry-parish"
                             value={activeChurchId}
@@ -293,7 +328,7 @@ export default function ParishInquiryModal({
                             className="w-full px-3.5 py-2.5 rounded-xl border border-border text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors disabled:opacity-60 cursor-pointer"
                         >
                             <option value="">{lane === 'platform' ? 'Choose the church' : 'Choose the parish office to contact'}</option>
-                            {parishOptions.map((parish) => (
+                            {visibleParishes.map((parish) => (
                                 <option key={parish.id} value={parish.id}>
                                     {parish.name}
                                 </option>

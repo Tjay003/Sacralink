@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../ui/Modal';
+import CountdownPanel from '../common/CountdownPanel';
+import { useCountdown } from '../../hooks/useCountdown';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
+
+const COUNTDOWN_SECONDS = 5;
 
 interface DeleteMyAccountSectionProps {
     /** The signed-in person's email, typed back to confirm. */
@@ -45,18 +49,7 @@ export default function DeleteMyAccountSection({ email }: DeleteMyAccountSection
     const isConfirmed = target.length > 0 && confirmation.trim().toLowerCase() === target;
     const blocked = check && !check.can_delete ? check : null;
 
-    const close = () => {
-        setOpen(false);
-        setConfirmation('');
-        setError(null);
-    };
-
-    const handleDelete = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isConfirmed) {
-            setError('Please type your exact email address to confirm.');
-            return;
-        }
+    const runDelete = async () => {
         setLoading(true);
         setError(null);
         const { error: rpcError } = await supabase.rpc('delete_own_account');
@@ -72,6 +65,26 @@ export default function DeleteMyAccountSection({ email }: DeleteMyAccountSection
             await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
         }
         navigate('/login', { replace: true });
+    };
+
+    const countdown = useCountdown(COUNTDOWN_SECONDS, () => void runDelete());
+
+    const close = () => {
+        countdown.cancel();
+        setOpen(false);
+        setConfirmation('');
+        setError(null);
+    };
+
+    // Nothing is deleted until the countdown ends; Cancel (or closing the modal) aborts it.
+    const handleDelete = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isConfirmed) {
+            setError('Please type your exact email address to confirm.');
+            return;
+        }
+        setError(null);
+        countdown.start();
     };
 
     return (
@@ -139,7 +152,7 @@ export default function DeleteMyAccountSection({ email }: DeleteMyAccountSection
                                         placeholder={`Enter ${email}`}
                                         value={confirmation}
                                         onChange={(e) => setConfirmation(e.target.value)}
-                                        disabled={loading}
+                                        disabled={loading || countdown.counting}
                                         className={`input w-full text-sm font-medium ${isConfirmed ? 'border-emerald-500' : 'border-border'}`}
                                         autoFocus
                                     />
@@ -155,33 +168,42 @@ export default function DeleteMyAccountSection({ email }: DeleteMyAccountSection
                                 </div>
                             )}
 
-                            <div className="flex items-center gap-3 pt-4 border-t border-border">
-                                <button
-                                    type="button"
-                                    onClick={close}
-                                    disabled={loading}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-100 text-foreground font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={!isConfirmed || loading}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span>Deleting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Trash2 className="w-4 h-4" />
-                                            <span>Delete my account</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                            {countdown.remaining !== null ? (
+                                <CountdownPanel
+                                    label="Deleting your account"
+                                    remaining={countdown.remaining}
+                                    total={COUNTDOWN_SECONDS}
+                                    onCancel={countdown.cancel}
+                                />
+                            ) : (
+                                <div className="flex items-center gap-3 pt-4 border-t border-border">
+                                    <button
+                                        type="button"
+                                        onClick={close}
+                                        disabled={loading}
+                                        className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-100 text-foreground font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!isConfirmed || loading}
+                                        className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Deleting...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Trash2 className="w-4 h-4" />
+                                                <span>Delete my account</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
                         </form>
                     </div>
                 </Modal>

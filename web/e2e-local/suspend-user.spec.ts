@@ -101,7 +101,8 @@ test('the Super Admin suspends and reactivates a user through the Users page: si
   await page.goto('/users');
   await page.getByPlaceholder('Search by name, email, or parish...').fill(victim.email);
   const row = page.getByRole('row').filter({ hasText: victim.email });
-  await row.getByRole('button', { name: 'Suspend user' }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.getByRole('menuitem', { name: 'Suspend user' }).click();
 
   const submit = page.locator('form').filter({ has: page.locator('#suspend-user-reason') }).getByRole('button', { name: 'Suspend user' });
   await expect(submit).toBeDisabled();
@@ -140,7 +141,8 @@ test('the Super Admin suspends and reactivates a user through the Users page: si
   // Filter and Reactivate from the page
   await page.getByLabel('Filter by role').selectOption('suspended');
   await expect(page.getByRole('row').filter({ hasText: victim.email })).toHaveCount(1);
-  await row.getByRole('button', { name: 'Reactivate user' }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.getByRole('menuitem', { name: 'Reactivate user' }).click();
   await expect(row.getByText('Suspended', { exact: true })).toHaveCount(0);
 
   const { data: back } = await db.from('profiles').select('role,assigned_church_id,suspended_at,suspended_by,suspension_reason').eq('id', victim.id).single();

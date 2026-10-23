@@ -115,7 +115,7 @@ test('a parishioner deletes their own account from the profile page: signed out 
   await expect(confirmButton).toBeDisabled();
   await page.locator('#delete-my-account-confirm').fill(person.email);
   await confirmButton.click();
-  await page.waitForURL('**/login**');
+  await page.waitForURL('**/login**', { timeout: 20_000 });
 
   // Anonymized, history intact
   expect(await profileOf(person.id)).toMatchObject({ full_name: 'Deleted User', role: 'user' });

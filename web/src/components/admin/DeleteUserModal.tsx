@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import Modal from '../ui/Modal';
+import CountdownPanel from '../common/CountdownPanel';
+import { useCountdown } from '../../hooks/useCountdown';
 import { deleteUserAccount } from '../../lib/supabase/profiles';
 import type { Profile } from '../../types/database';
 import { AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
@@ -14,9 +16,11 @@ interface DeleteUserModalProps {
     onConfirm?: () => Promise<void>;
 }
 
+const COUNTDOWN_SECONDS = 5;
+
 /**
  * DeleteUserModal - confirmation for the Super Admin deleting a user (anonymize in place).
- * Requires typing the user's exact email, like TransferOwnershipModal. Calls public.delete_user_account.
+ * Requires typing the user's exact email, like TransferOwnershipModal. Calls public.delete_user_account after a 5 second countdown the Super Admin can cancel.
  */
 export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSuccess, onConfirm }: DeleteUserModalProps) {
     const [confirmationEmail, setConfirmationEmail] = useState('');
@@ -26,12 +30,7 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
     const targetEmail = (user.email || '').trim().toLowerCase();
     const isConfirmed = targetEmail.length > 0 && confirmationEmail.trim().toLowerCase() === targetEmail;
 
-    const handleDelete = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isConfirmed) {
-            setError("Please type the user's exact email address to confirm.");
-            return;
-        }
+    const runDelete = async () => {
         try {
             setLoading(true);
             setError(null);
@@ -43,10 +42,23 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
         }
     };
 
+    const countdown = useCountdown(COUNTDOWN_SECONDS, () => void runDelete());
+
+    // Nothing is deleted until the countdown ends; Cancel (or closing the modal) aborts it.
+    const handleDelete = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isConfirmed) {
+            setError("Please type the user's exact email address to confirm.");
+            return;
+        }
+        setError(null);
+        countdown.start();
+    };
+
     return (
         <Modal
             isOpen
-            onClose={loading ? () => {} : onClose}
+            onClose={loading ? () => {} : () => { countdown.cancel(); onClose(); }}
             title={
                 <div className="flex items-center gap-2 text-red-600 min-w-0 flex-1">
                     <Trash2 className="w-6 h-6 shrink-0" />
@@ -96,7 +108,7 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
                                 placeholder={`Enter ${user.email}`}
                                 value={confirmationEmail}
                                 onChange={(e) => setConfirmationEmail(e.target.value)}
-                                disabled={loading}
+                                disabled={loading || countdown.counting}
                                 className={`input w-full text-sm font-medium ${isConfirmed ? 'border-emerald-500' : 'border-border'}`}
                                 autoFocus
                             />
@@ -112,33 +124,42 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
                         </div>
                     )}
 
-                    <div className="flex items-center gap-3 pt-4 border-t border-border">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-100 text-foreground font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={!isConfirmed || loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span>Deleting...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Trash2 className="w-4 h-4" />
-                                    <span>Delete user</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {countdown.remaining !== null ? (
+                        <CountdownPanel
+                            label={`Deleting ${user.full_name || user.email || 'this user'}`}
+                            remaining={countdown.remaining}
+                            total={COUNTDOWN_SECONDS}
+                            onCancel={countdown.cancel}
+                        />
+                    ) : (
+                        <div className="flex items-center gap-3 pt-4 border-t border-border">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={loading}
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-100 text-foreground font-semibold text-xs transition-colors disabled:opacity-50 shadow-sm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={!isConfirmed || loading}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>Deleting...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="w-4 h-4" />
+                                        <span>Delete user</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </form>
             </div>
         </Modal>

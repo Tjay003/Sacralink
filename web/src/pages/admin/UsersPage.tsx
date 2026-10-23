@@ -9,7 +9,9 @@ import DeleteUserModal from '../../components/admin/DeleteUserModal';
 import SuspendUserModal from '../../components/admin/SuspendUserModal';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { reactivateUser } from '../../lib/supabase/profiles';
-import { getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
+import { effectiveChurchId, getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
+import RowActionsMenu, { type RowAction } from '../../components/common/RowActionsMenu';
+import { useToast } from '../../contexts/toastContext';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
 import Pagination from '../../components/common/Pagination';
 import { 
@@ -29,6 +31,10 @@ import {
     Cross,
     Users,
     RotateCcw,
+    Trash2,
+    UserMinus,
+    UserX,
+    UserCheck,
     X
 } from 'lucide-react';
 
@@ -47,6 +53,8 @@ const ROLE_PRIORITY: Record<UserRole, number> = {
     'user': 6
 };
 
+const isParishioner = (user: Profile) => !user.role || user.role === 'user';
+
 function calculateRoleStats(userList: Profile[]) {
     return {
         admins: userList.filter(u => u.role === 'church_admin' || u.role === 'super_admin').length,
@@ -63,6 +71,7 @@ type DirectoryTab = 'staff' | 'parishioners' | 'all';
 
 export default function UsersPage() {
     const { profile: currentUser, session, refreshProfile } = useAuth();
+    const toast = useToast();
     const [churches, setChurches] = useState<Church[]>([]);
 
     const [users, setUsers] = useState<Profile[]>([]);
@@ -87,11 +96,9 @@ export default function UsersPage() {
     const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
     const [requestTarget, setRequestTarget] = useState<Profile | null>(null);
     const [suspendTarget, setSuspendTarget] = useState<Profile | null>(null);
-    const [actionError, setActionError] = useState<string | null>(null);
 
     const [transferTargetUser, setTransferTargetUser] = useState<Profile | null>(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
-    const [transferSuccessMessage, setTransferSuccessMessage] = useState<string | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -127,10 +134,11 @@ export default function UsersPage() {
             }
         } catch (error) {
             console.error('Error fetching users and churches:', error);
+            toast.error('Could not load the user list. Please refresh the page.');
         } finally {
             setLoading(false);
         }
-    }, [session]);
+    }, [session, toast]);
 
     useEffect(() => {
         fetchData();
@@ -163,42 +171,17 @@ export default function UsersPage() {
         return churchMap.get(churchId) || 'Unknown Parish';
     }, [churchMap]);
 
-    // Calculate counts for Directory tabs
-    const tabCounts = useMemo(() => {
-        let base = [...users];
-        if (currentUser?.role === 'church_admin') {
-            base = base.filter(u => isVisibleToChurchAdmin(u, currentUser.assigned_church_id));
-            const staff = base.filter(u => u.assigned_church_id === currentUser.assigned_church_id).length;
-            const parishioners = base.filter(u => !u.role || u.role === 'user').length;
-            return { staff, parishioners, all: base.length };
-        } else {
-            const staff = base.filter(u => u.role && u.role !== 'user').length;
-            const parishioners = base.filter(u => !u.role || u.role === 'user').length;
-            return { staff, parishioners, all: base.length };
-        }
-    }, [users, currentUser]);
-
-    // Filter & Sort Logic
-    const filteredUsers = useMemo(() => {
+    /**
+     * Everything except the directory tab: role scope (what this role may see), search, role and church filters.
+     * Tab counts and rows both come from this one list, so a tab's number always equals the rows it shows.
+     */
+    const scopedUsers = useMemo(() => {
         let filtered = [...users];
 
-        // 1. Role visibility & parish scope restrictions
+        // 1. Role visibility. A Church Admin sees their church's staff, their church's Parishioners and
+        //    Parishioners with no church; a Super Admin sees everyone.
         if (currentUser?.role === 'church_admin') {
-            // Church admin can view their own church's people and Parishioners who have no church yet
-            // (the same set set_user_role lets them change).
             filtered = filtered.filter(user => isVisibleToChurchAdmin(user, currentUser.assigned_church_id));
-
-            if (directoryTab === 'staff') {
-                filtered = filtered.filter(user => user.assigned_church_id === currentUser.assigned_church_id);
-            } else if (directoryTab === 'parishioners') {
-                filtered = filtered.filter(user => !user.role || user.role === 'user');
-            }
-        } else {
-            if (directoryTab === 'staff') {
-                filtered = filtered.filter(user => user.role && user.role !== 'user');
-            } else if (directoryTab === 'parishioners') {
-                filtered = filtered.filter(user => !user.role || user.role === 'user');
-            }
         }
 
         // 2. Search query (matches name, email, or church name)
@@ -207,7 +190,7 @@ export default function UsersPage() {
             filtered = filtered.filter(user => {
                 const name = (user.full_name || '').toLowerCase();
                 const email = (user.email || '').toLowerCase();
-                const churchName = getChurchName(user.assigned_church_id).toLowerCase();
+                const churchName = getChurchName(effectiveChurchId(user)).toLowerCase();
                 return name.includes(query) || email.includes(query) || churchName.includes(query);
             });
         }
@@ -223,18 +206,34 @@ export default function UsersPage() {
             }
         }
 
-        // 4. Filter by church
-        if (churchFilter !== 'all') {
-            if (currentUser?.role === 'church_admin' && directoryTab === 'parishioners') {
-                // Keep parishioners visible to church admin even if churchFilter is their church
-            } else if (churchFilter === 'unassigned') {
-                filtered = filtered.filter(user => !user.assigned_church_id);
+        // 4. Filter by church (assigned church for staff, home church for Parishioners). A Church Admin is already
+        //    limited to their own scope above and the parish selector is locked, so it is not applied again.
+        if (churchFilter !== 'all' && currentUser?.role !== 'church_admin') {
+            if (churchFilter === 'unassigned') {
+                filtered = filtered.filter(user => !effectiveChurchId(user));
             } else {
-                filtered = filtered.filter(user => user.assigned_church_id === churchFilter);
+                filtered = filtered.filter(user => effectiveChurchId(user) === churchFilter);
             }
         }
 
-        // 5. Multi-column Sorting
+        return filtered;
+    }, [users, currentUser, searchQuery, roleFilter, churchFilter, getChurchName]);
+
+    // Counts for the Directory tabs
+    const tabCounts = useMemo(() => {
+        const parishioners = scopedUsers.filter(isParishioner).length;
+        return { staff: scopedUsers.length - parishioners, parishioners, all: scopedUsers.length };
+    }, [scopedUsers]);
+
+    // Tab + Sort Logic
+    const filteredUsers = useMemo(() => {
+        const filtered = scopedUsers.filter(user => {
+            if (directoryTab === 'staff') return !isParishioner(user);
+            if (directoryTab === 'parishioners') return isParishioner(user);
+            return true;
+        });
+
+        // Multi-column Sorting
         filtered.sort((a, b) => {
             let comparison = 0;
 
@@ -249,8 +248,8 @@ export default function UsersPage() {
                     break;
                 }
                 case 'church': {
-                    const churchA = a.assigned_church_id ? getChurchName(a.assigned_church_id) : 'ZZZ_Unassigned';
-                    const churchB = b.assigned_church_id ? getChurchName(b.assigned_church_id) : 'ZZZ_Unassigned';
+                    const churchA = effectiveChurchId(a) ? getChurchName(effectiveChurchId(a)) : 'ZZZ_Unassigned';
+                    const churchB = effectiveChurchId(b) ? getChurchName(effectiveChurchId(b)) : 'ZZZ_Unassigned';
                     comparison = churchA.localeCompare(churchB);
                     if (comparison === 0) {
                         comparison = (a.full_name || '').localeCompare(b.full_name || '');
@@ -275,7 +274,7 @@ export default function UsersPage() {
         });
 
         return filtered;
-    }, [users, currentUser, directoryTab, searchQuery, roleFilter, churchFilter, sortField, sortOrder, getChurchName]);
+    }, [scopedUsers, directoryTab, sortField, sortOrder, getChurchName]);
 
     // Paginated users for flat table mode
     const paginatedUsers = useMemo(() => {
@@ -300,8 +299,8 @@ export default function UsersPage() {
         // Church buckets
         churches.forEach(church => {
             if (currentUser?.role === 'church_admin' && church.id !== currentUser.assigned_church_id) return;
-            if (churchFilter !== 'all' && churchFilter !== church.id && directoryTab !== 'parishioners') return;
-            const churchUsers = filteredUsers.filter(u => u.assigned_church_id === church.id);
+            if (churchFilter !== 'all' && churchFilter !== church.id && currentUser?.role !== 'church_admin') return;
+            const churchUsers = filteredUsers.filter(u => effectiveChurchId(u) === church.id);
             
             // Only show churches with users matching the filter or if explicitly filtered
             if (churchUsers.length > 0 || (currentUser?.role === 'church_admin' && church.id === currentUser.assigned_church_id)) {
@@ -316,7 +315,7 @@ export default function UsersPage() {
         });
 
         // Unassigned bucket
-        const unassignedUsers = filteredUsers.filter(u => !u.assigned_church_id);
+        const unassignedUsers = filteredUsers.filter(u => !effectiveChurchId(u));
         if (unassignedUsers.length > 0) {
             groups.push({
                 churchId: 'unassigned',
@@ -328,7 +327,7 @@ export default function UsersPage() {
         }
 
         return groups;
-    }, [churches, filteredUsers, churchFilter, currentUser, directoryTab]);
+    }, [churches, filteredUsers, churchFilter, currentUser]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -356,33 +355,39 @@ export default function UsersPage() {
         setShowEditModal(true);
     };
 
+    const userLabel = (user: Profile | null | undefined) => user?.full_name || user?.email || 'The user';
+
     const handleDemoted = () => {
+        toast.success(`${userLabel(demoteTarget)} is now a Parishioner.`);
         setDemoteTarget(null);
         fetchData();
         refreshProfile();
     };
 
     const handleDeleted = () => {
+        toast.success(`${userLabel(deleteTarget)} was deleted.`);
         setDeleteTarget(null);
         fetchData();
     };
 
     const handleSuspended = () => {
+        toast.success(`${userLabel(suspendTarget)} was suspended.`);
         setSuspendTarget(null);
         fetchData();
     };
 
     const handleReactivate = async (user: Profile) => {
         try {
-            setActionError(null);
             await reactivateUser(user.id);
+            toast.success(`${userLabel(user)} was reactivated.`);
             fetchData();
         } catch (err: unknown) {
-            setActionError(err instanceof Error ? err.message : 'Failed to reactivate the user');
+            toast.error(err instanceof Error ? err.message : 'Failed to reactivate the user');
         }
     };
 
     const handleRoleUpdated = () => {
+        toast.success(`Role updated for ${userLabel(selectedUser)}.`);
         fetchData();
         refreshProfile();
         setShowEditModal(false);
@@ -395,10 +400,9 @@ export default function UsersPage() {
     };
 
     const handleTransferSuccess = () => {
-        const recipientName = transferTargetUser?.full_name || transferTargetUser?.email || 'the selected user';
+        toast.success(`Platform ownership was transferred to ${userLabel(transferTargetUser)}. Your account is now a Parishioner.`);
         setShowTransferModal(false);
         setTransferTargetUser(null);
-        setTransferSuccessMessage(`Platform ownership has been successfully transferred to ${recipientName}. Your account is now a Parishioner.`);
         fetchData();
     };
 
@@ -426,6 +430,65 @@ export default function UsersPage() {
     // A Church Admin cannot delete accounts; they ask the Super Admin with a ticket
     const canRequestDeletion = (user: Profile) =>
         currentUser?.role === 'church_admin' && user.id !== currentUser.id && user.role !== 'super_admin' && !user.deleted_at;
+
+    /**
+     * One compact primary action (Edit role) plus a "..." menu for everything else. The same permission rules as
+     * before decide which menu items exist; people who cannot be edited keep a single disabled button with its reason.
+     */
+    const renderRowActions = (user: Profile, layout: 'row' | 'card') => {
+        const fullWidth = layout === 'card';
+        if (user.role === 'super_admin') {
+            return (
+                <button
+                    type="button"
+                    disabled
+                    title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
+                    className={`${fullWidth ? 'w-full py-2' : 'py-1.5'} px-3 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed`}
+                >
+                    Owner Locked
+                </button>
+            );
+        }
+        if (user.id === currentUser?.id) {
+            return (
+                <button
+                    type="button"
+                    disabled
+                    title="You cannot change your own role."
+                    className={`${fullWidth ? 'w-full py-2' : 'py-1.5'} px-3.5 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed`}
+                >
+                    Your account
+                </button>
+            );
+        }
+
+        const actions: RowAction[] = [];
+        if (isStaffRole(user.role) && !getRoleEditBlock(currentUser, user)) {
+            actions.push({ key: 'demote', label: 'Demote to Parishioner', tone: 'danger', icon: <UserMinus className="w-4 h-4" />, onSelect: () => setDemoteTarget(user) });
+        }
+        if (isSuperAdmin) {
+            actions.push(user.suspended_at
+                ? { key: 'reactivate', label: 'Reactivate user', tone: 'success', icon: <UserCheck className="w-4 h-4" />, onSelect: () => void handleReactivate(user) }
+                : { key: 'suspend', label: 'Suspend user', tone: 'warning', icon: <UserX className="w-4 h-4" />, onSelect: () => setSuspendTarget(user) });
+            actions.push({ key: 'delete', label: 'Delete user', tone: 'danger', icon: <Trash2 className="w-4 h-4" />, onSelect: () => setDeleteTarget(user) });
+        }
+        if (canRequestDeletion(user)) {
+            actions.push({ key: 'request-deletion', label: 'Request deletion', tone: 'danger', icon: <Trash2 className="w-4 h-4" />, onSelect: () => setRequestTarget(user) });
+        }
+
+        return (
+            <div className={`flex items-center gap-2 ${fullWidth ? 'w-full' : 'justify-end'}`}>
+                <button
+                    type="button"
+                    onClick={() => handleEditRole(user)}
+                    className={`btn-primary text-white text-xs px-3.5 py-2 rounded-lg shadow-sm font-semibold ${fullWidth ? 'flex-1' : ''}`}
+                >
+                    Edit role
+                </button>
+                <RowActionsMenu actions={actions} label={`More actions for ${userLabel(user)}`} />
+            </div>
+        );
+    };
 
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
@@ -493,26 +556,6 @@ export default function UsersPage() {
                     </button>
                 </div>
             </div>
-
-            {/* Success Alert Banner for Transfer Ownership */}
-            {transferSuccessMessage && (
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                        <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 font-semibold truncate">
-                            {transferSuccessMessage}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setTransferSuccessMessage(null)}
-                        className="p-1 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex-shrink-0"
-                        aria-label="Dismiss message"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-            )}
 
             {/* Directory Category Segmented Tabs */}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -819,7 +862,6 @@ export default function UsersPage() {
                                                 <div className="divide-y divide-border">
                                                     {group.users.map((user) => {
                                                         const isUserSuperAdmin = user.role === 'super_admin';
-                                                        const isSelf = user.id === currentUser?.id;
                                                         return (
                                                             <div key={user.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-secondary-50/40 dark:hover:bg-secondary-900/20 transition-colors">
                                                                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -875,26 +917,7 @@ export default function UsersPage() {
                                                                 </div>
 
                                                                 <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-                                                                    {isUserSuperAdmin ? (
-                                                                        <button
-                                                                            type="button"
-                                                                            disabled
-                                                                            title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
-                                                                            className="px-3 py-1.5 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
-                                                                        >
-                                                                            Owner Locked
-                                                                        </button>
-                                                                    ) : isSelf ? (
-                                                                        <button type="button" disabled title="You cannot change your own role." className="px-3.5 py-1.5 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
-                                                                    ) : (
-                                                                        <><button
-                                                                            type="button"
-                                                                            onClick={() => handleEditRole(user)}
-                                                                            className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
-                                                                        >
-                                                                            Edit Role
-                                                                        </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
-                                                                    )}
+                                                                    {renderRowActions(user, 'row')}
                                                                 </div>
                                                             </div>
                                                         );
@@ -923,9 +946,8 @@ export default function UsersPage() {
                             </div>
                         ) : (
                             paginatedUsers.map((user) => {
-                                const churchName = getChurchName(user.assigned_church_id);
+                                const churchName = getChurchName(effectiveChurchId(user));
                                 const isUserSuperAdmin = user.role === 'super_admin';
-                                const isSelf = user.id === currentUser?.id;
                                 return (
                                     <div
                                         key={user.id}
@@ -971,7 +993,7 @@ export default function UsersPage() {
                                                                 <span>Clergy</span>
                                                             </span>
                                                         )}
-                                                        {user.assigned_church_id && (
+                                                        {effectiveChurchId(user) && (
                                                             <span className="px-2 py-0.5 inline-flex text-xs font-medium rounded-md bg-secondary-100 dark:bg-secondary-800 text-foreground border border-border truncate max-w-[150px]">
                                                                 {churchName}
                                                             </span>
@@ -991,7 +1013,7 @@ export default function UsersPage() {
                                                 <div className="flex items-center gap-2 text-muted min-w-0">
                                                     <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-primary" />
                                                     <span className="text-foreground truncate" title={churchName}>
-                                                        {user.assigned_church_id ? (
+                                                        {effectiveChurchId(user) ? (
                                                             <span className="font-medium text-foreground">{churchName}</span>
                                                         ) : (
                                                             <span className="text-muted italic">Unassigned</span>
@@ -1006,26 +1028,8 @@ export default function UsersPage() {
                                         </div>
 
                                         {/* Bottom Action Buttons */}
-                                        <div className="pt-2 border-t border-border/60 flex flex-col gap-2">
-                                            {isUserSuperAdmin ? (
-                                                <button
-                                                    type="button"
-                                                    disabled
-                                                    className="w-full py-2 px-3 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
-                                                >
-                                                    Platform Owner (Locked)
-                                                </button>
-                                            ) : isSelf ? (
-                                                <button type="button" disabled title="You cannot change your own role." className="w-full py-2 px-3 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
-                                            ) : (
-                                                <><button
-                                                    type="button"
-                                                    onClick={() => handleEditRole(user)}
-                                                    className="w-full btn-primary text-white text-xs py-2 px-3 rounded-lg shadow-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
-                                                >
-                                                    Edit Role & Parish Access
-                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="w-full px-3 py-2 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
-                                            )}
+                                        <div className="pt-2 border-t border-border/60">
+                                            {renderRowActions(user, 'card')}
                                         </div>
                                     </div>
                                 );
@@ -1076,9 +1080,8 @@ export default function UsersPage() {
                                         </tr>
                                     ) : (
                                         paginatedUsers.map((user) => {
-                                            const churchName = getChurchName(user.assigned_church_id);
+                                            const churchName = getChurchName(effectiveChurchId(user));
                                             const isUserSuperAdmin = user.role === 'super_admin';
-                                            const isSelf = user.id === currentUser?.id;
                                             return (
                                                 <tr key={user.id} className="hover:bg-secondary-50/60 dark:hover:bg-secondary-900/30 transition-colors">
                                                     {/* User & Email */}
@@ -1134,7 +1137,7 @@ export default function UsersPage() {
 
                                                         {/* Assigned Church with Interactive Hover Tooltip */}
                                                         <div className="mt-2 text-sm">
-                                                            {user.assigned_church_id ? (
+                                                            {effectiveChurchId(user) ? (
                                                                 <div className="relative group/church block">
                                                                     <div className="flex items-start gap-1.5 text-foreground font-medium cursor-help min-w-0">
                                                                         <Building2 className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
@@ -1152,11 +1155,11 @@ export default function UsersPage() {
                                                                                 {churchName}
                                                                             </p>
                                                                         </div>
-                                                                        {churchObjectMap.get(user.assigned_church_id)?.address && (
+                                                                        {churchObjectMap.get(effectiveChurchId(user) ?? '')?.address && (
                                                                             <div className="flex items-start gap-1.5 mt-1 text-[11px] text-muted leading-normal break-words">
                                                                                 <MapPin className="w-3.5 h-3.5 text-muted/70 shrink-0 mt-0.5" />
                                                                                 <span className="break-words">
-                                                                                    {churchObjectMap.get(user.assigned_church_id)?.address}
+                                                                                    {churchObjectMap.get(effectiveChurchId(user) ?? '')?.address}
                                                                                 </span>
                                                                             </div>
                                                                         )}
@@ -1182,26 +1185,7 @@ export default function UsersPage() {
                                                     {/* Actions */}
                                                     <td className="px-4 xl:px-5 py-3.5 align-top text-right text-sm font-medium">
                                                         <div className="flex flex-wrap items-center justify-end gap-2">
-                                                            {isUserSuperAdmin ? (
-                                                                <button
-                                                                    type="button"
-                                                                    disabled
-                                                                    title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
-                                                                    className="px-3 py-1.5 rounded-lg border border-border bg-secondary-100 dark:bg-secondary-800 text-muted text-xs font-semibold opacity-60 cursor-not-allowed"
-                                                                >
-                                                                    Owner Locked
-                                                                </button>
-                                                            ) : isSelf ? (
-                                                                <button type="button" disabled title="You cannot change your own role." className="px-3.5 py-1.5 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed">Your account</button>
-                                                            ) : (
-                                                                <><button
-                                                                    type="button"
-                                                                    onClick={() => handleEditRole(user)}
-                                                                    className="btn-primary text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm font-semibold"
-                                                                >
-                                                                    Edit Role
-                                                                </button>{isStaffRole(user.role) && !getRoleEditBlock(currentUser, user) && (<button type="button" onClick={() => setDemoteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Demote to Parishioner</button>)}{isSuperAdmin && (user.suspended_at ? (<button type="button" onClick={() => void handleReactivate(user)} className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-700 text-xs font-semibold shadow-sm transition-colors">Reactivate user</button>) : (<button type="button" onClick={() => setSuspendTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-700 text-xs font-semibold shadow-sm transition-colors">Suspend user</button>))}{isSuperAdmin && (<button type="button" onClick={() => setDeleteTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-600 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition-colors">Delete user</button>)}{canRequestDeletion(user) && (<button type="button" onClick={() => setRequestTarget(user)} className="px-3.5 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-semibold shadow-sm transition-colors">Request deletion</button>)}</>
-                                                            )}
+                                                            {renderRowActions(user, 'row')}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1266,7 +1250,10 @@ export default function UsersPage() {
                     churchId={currentUser.assigned_church_id}
                     initialCategory="user_deletion_request"
                     initialSubjectUser={{ id: requestTarget.id, name: requestTarget.full_name || requestTarget.email || 'Unnamed user' }}
-                    onSuccess={() => setRequestTarget(null)}
+                    onSuccess={() => {
+                        toast.success(`Deletion request for ${userLabel(requestTarget)} was sent to the Super Admin.`);
+                        setRequestTarget(null);
+                    }}
                 />
             )}
             {deleteTarget && isSuperAdmin && (
@@ -1289,13 +1276,6 @@ export default function UsersPage() {
                     onClose={() => setSuspendTarget(null)}
                     onSuccess={handleSuspended}
                 />
-            )}
-
-            {actionError && (
-                <div role="alert" className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 p-3 bg-red-50 border border-red-200 rounded-xl shadow-lg flex items-start gap-3">
-                    <p className="text-xs text-red-700 font-medium flex-1">{actionError}</p>
-                    <button type="button" onClick={() => setActionError(null)} className="text-xs font-semibold text-red-700 hover:underline">Dismiss</button>
-                </div>
             )}
 
             {/* Transfer Ownership Modal */}

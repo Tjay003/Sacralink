@@ -777,36 +777,9 @@ export async function sendMessage(
 
         return { data: data as any, error: null };
     } catch (err: any) {
-        console.warn('❌ Error sending message, using local fallback:', err);
-        const { data: senderProf } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', senderId)
-            .maybeSingle();
-
-        const localMsg: MessageWithSender = {
-            id: `local-msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            conversation_id: conversationId,
-            sender_id: senderId,
-            content: content.trim(),
-            message_type: messageType,
-            metadata: metadata as any,
-            created_at: now,
-            sender: (senderProf as Profile | null) || null,
-        };
-
-        saveLocalMinistryMessage(localMsg);
-        notifyLocalMessage(localMsg);
-
-        // Also update local conversation updated_at
-        const localConvs = getLocalMinistryConvs();
-        const conv = localConvs.find((c) => c.id === conversationId);
-        if (conv) {
-            conv.updated_at = now;
-            saveLocalMinistryConv(conv);
-        }
-
-        return { data: localMsg, error: null };
+        // A refused or failed insert must never look sent: no local copy is kept, the caller shows the error
+        console.error('❌ Error sending message:', err);
+        return { data: null, error: new Error(err?.message || 'The message could not be sent.') };
     }
 }
 

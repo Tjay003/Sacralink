@@ -52,6 +52,7 @@ import {
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
+import { useToast } from '../../contexts/toastContext';
 import { directFetchChurches } from '../../lib/directApi';
 import type { Profile, Church as ChurchType } from '../../types/database';
 import { isTicket, isTicketRequester, canHandleTicket, MAX_REQUESTER_REOPENS, ticketLaneLabel, shouldOfferReviewRequest } from '../../lib/tickets';
@@ -204,6 +205,7 @@ const getStatusBadge = (status?: string | null) => {
 
 export default function MessagingPage() {
     const { user, profile } = useAuth();
+    const toast = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
@@ -335,10 +337,10 @@ export default function MessagingPage() {
     }, [conversations, activeConversationId]);
 
     // Load conversations for the user
-    const loadConversations = useCallback(async (selectFirst = false) => {
+    const loadConversations = useCallback(async (selectFirst = false, silent = false) => {
         if (!user) return;
         try {
-            setLoadingConversations(true);
+            if (!silent) setLoadingConversations(true);
             const { data, error } = await fetchUserConversations(user.id);
             if (error) throw error;
             const convs = data || [];
@@ -356,7 +358,7 @@ export default function MessagingPage() {
         } catch (err) {
             console.error('Error loading conversations:', err);
         } finally {
-            setLoadingConversations(false);
+            if (!silent) setLoadingConversations(false);
         }
     }, [user, navState?.conversationId, profile?.role]);
 
@@ -428,6 +430,31 @@ export default function MessagingPage() {
                 // If not sent by current user, mark read immediately
                 if (incomingMsg.sender_id !== user.id) {
                     markConversationAsRead(incomingMsg.conversation_id, user.id);
+                }
+            }
+
+            // A ticket's status, assignment or routing changed while this page was open: apply it now so the composer and
+            // header never act on a stale status (for example a requester still typing into a ticket the church just closed)
+            if (incomingMsg.message_type === 'system') {
+                const meta = (incomingMsg.metadata || {}) as { event?: string; to?: string; by?: string };
+                if (meta.event === 'ticket_status_changed' && meta.to) {
+                    setConversations((prev) =>
+                        prev.map((c) => (c.id === incomingMsg.conversation_id ? ({ ...c, status: meta.to } as ConversationWithDetails) : c))
+                    );
+                } else if (meta.event === 'ticket_reopened') {
+                    setConversations((prev) =>
+                        prev.map((c) =>
+                            c.id === incomingMsg.conversation_id
+                                ? ({
+                                      ...c,
+                                      status: 'open',
+                                      reopen_count: (c.reopen_count ?? 0) + (meta.by === 'requester' ? 1 : 0),
+                                  } as ConversationWithDetails)
+                                : c
+                        )
+                    );
+                } else if (meta.event?.startsWith('ticket_')) {
+                    loadConversations(false, true);
                 }
             }
 
@@ -699,6 +726,8 @@ export default function MessagingPage() {
         if (!inputContent.trim() || !activeConversationId || !user || sending) return;
 
         const textToSend = inputContent.trim();
+        const sendingTo = activeConversationId;
+        const sendingToTicket = isTicket(activeConversation);
         setInputContent('');
         setSending(true);
 
@@ -729,6 +758,15 @@ export default function MessagingPage() {
             }
         } catch (err) {
             console.error('Error sending message:', err);
+            // The database refused it (for example the ticket was closed meanwhile): give the text back to the sender,
+            // say so, and refresh the ticket so the composer reflects the real status
+            if (activeConversationIdRef.current === sendingTo) setInputContent((current) => current || textToSend);
+            toast.error(
+                sendingToTicket
+                    ? 'Your message was not sent. This ticket may have been closed or changed, so it was refreshed.'
+                    : 'Your message was not sent. Please try again.'
+            );
+            await loadConversations(false, true);
         } finally {
             setSending(false);
         }
@@ -751,18 +789,22 @@ export default function MessagingPage() {
                         : c
                 )
             );
+            toast.success('Ticket reopened.');
             const { data: fresh } = await fetchMessages(ticketId);
             if (fresh && activeConversationIdRef.current === ticketId) setMessages(fresh);
         } catch (err) {
             console.error('Error reopening ticket:', err);
-            setTicketActionError(err instanceof Error ? err.message : 'Could not reopen this ticket.');
+            const message = err instanceof Error ? err.message : 'Could not reopen this ticket.';
+            setTicketActionError(message);
+            toast.error(message);
         } finally {
             setReopeningTicket(false);
         }
     };
 
     // After the New Ticket dialog succeeds, land directly in the new ticket thread
-    const handleTicketCreated = async (conversationId: string) => {
+    const handleTicketCreated = async (conversationId: string, message = 'Ticket created. You will be notified when it is answered.') => {
+        toast.success(message);
         setShowTicketModal(false);
         setActiveTab('tickets');
         setTicketStatusFilter('all');
@@ -1038,7 +1080,9 @@ export default function MessagingPage() {
         const { error } = await requestTicketReview(activeConversation.id);
         if (error) {
             setTicketActionError(error.message);
+            toast.error(error.message);
         } else {
+            toast.success('Review requested. The Super Admin has been notified.');
             await loadConversations();
         }
         setRequestingReview(false);
@@ -1069,7 +1113,11 @@ export default function MessagingPage() {
     return (
         <div className="flex flex-col h-[calc(100dvh-7.5rem)] sm:h-[calc(100vh-8rem)] min-h-[520px] w-full max-w-7xl mx-auto space-y-3 sm:space-y-4 overflow-hidden">
             {/* Top Bar Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0 min-w-0">
+            <div
+                className={`flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0 min-w-0 ${
+                    mobileChatOpen ? 'hidden md:flex' : 'flex'
+                }`}
+            >
                 <div>
                     <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
                         Messages
@@ -1079,13 +1127,13 @@ export default function MessagingPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2.5 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
                     {/* Staff channel button - guarded by isStaff */}
                     {isStaff && (
                         <button
                             type="button"
                             onClick={() => handleOpenChurchStaffChannel()}
-                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-3.5 sm:px-4 py-2 min-h-10 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
                         >
                             <Church className="w-4 h-4 text-secondary-600" />
                             <span>Staff channel</span>
@@ -1096,7 +1144,7 @@ export default function MessagingPage() {
                         <button
                             type="button"
                             onClick={() => setShowTicketModal(true)}
-                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-3.5 sm:px-4 py-2 min-h-10 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
                         >
                             <Mail className="w-4 h-4 text-secondary-600" />
                             <span>New Ticket</span>
@@ -1107,7 +1155,7 @@ export default function MessagingPage() {
                     <button
                         type="button"
                         onClick={handleOpenNewChatModal}
-                        className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-4 py-2 rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-3.5 sm:px-4 py-2 min-h-10 rounded-xl shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         <span>New message</span>
@@ -1142,16 +1190,16 @@ export default function MessagingPage() {
                                 placeholder="Search conversations or tickets..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                                className="w-full pl-9 pr-3.5 py-2 min-h-10 rounded-xl border border-border text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
                             />
                         </div>
 
                         {/* Category & Type Filter Tabs */}
-                        <div className="flex items-center gap-1 p-1 bg-secondary-100/60 rounded-xl overflow-x-auto text-[11px] font-semibold">
+                        <div className="flex items-center gap-1 p-1 bg-secondary-100/60 rounded-xl overflow-x-auto text-[11px] sm:text-xs font-semibold">
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('all')}
-                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                className={`flex-1 py-2 min-h-10 px-2.5 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
                                     activeTab === 'all'
                                         ? 'bg-white text-primary shadow-2xs font-bold'
                                         : 'text-secondary-600 hover:text-foreground'
@@ -1162,7 +1210,7 @@ export default function MessagingPage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('tickets')}
-                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                className={`flex-1 py-2 min-h-10 px-2.5 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
                                     activeTab === 'tickets'
                                         ? 'bg-white text-primary shadow-2xs font-bold'
                                         : 'text-secondary-600 hover:text-foreground'
@@ -1181,7 +1229,7 @@ export default function MessagingPage() {
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('direct')}
-                                className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                className={`flex-1 py-2 min-h-10 px-2.5 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
                                     activeTab === 'direct'
                                         ? 'bg-white text-primary shadow-2xs font-bold'
                                         : 'text-secondary-600 hover:text-foreground'
@@ -1193,7 +1241,7 @@ export default function MessagingPage() {
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab('staff')}
-                                    className={`flex-1 py-1 px-2 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
+                                    className={`flex-1 py-2 min-h-10 px-2.5 rounded-lg transition-colors cursor-pointer text-center whitespace-nowrap ${
                                         activeTab === 'staff'
                                             ? 'bg-white text-primary shadow-2xs font-bold'
                                             : 'text-secondary-600 hover:text-foreground'
@@ -1224,7 +1272,7 @@ export default function MessagingPage() {
                                     type="button"
                                     onClick={() => setTicketStatusFilter(pill.id)}
                                     aria-pressed={ticketStatusFilter === pill.id}
-                                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
+                                    className={`px-3 py-1.5 min-h-10 lg:min-h-8 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
                                         ticketStatusFilter === pill.id
                                             ? 'bg-primary text-white border-primary'
                                             : 'bg-white text-secondary-600 border-border hover:bg-secondary-50'
@@ -1263,7 +1311,7 @@ export default function MessagingPage() {
                                 <button
                                     type="button"
                                     onClick={handleOpenNewChatModal}
-                                    className="bg-primary hover:bg-blue-700 text-white text-xs px-3.5 py-1.5 rounded-xl font-semibold inline-flex items-center gap-1.5 mx-auto cursor-pointer shadow-xs transition-colors"
+                                    className="bg-primary hover:bg-blue-700 text-white text-xs px-3.5 py-2 min-h-10 rounded-xl font-semibold inline-flex items-center gap-1.5 mx-auto cursor-pointer shadow-xs transition-colors"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
                                     <span>Start Chat</span>
@@ -1414,13 +1462,14 @@ export default function MessagingPage() {
                     {activeConversation ? (
                         <>
                             {/* Chat Header */}
-                            <div className="p-4 border-b border-border/70 flex items-center justify-between gap-3 bg-white shrink-0">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="p-3 sm:p-4 border-b border-border/70 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-white shrink-0">
+                                <div className="flex items-center gap-3 min-w-0 flex-1 basis-52">
                                     {/* Mobile Back Button */}
                                     <button
                                         type="button"
                                         onClick={() => setMobileChatOpen(false)}
-                                        className="md:hidden p-1.5 -ml-1 rounded-lg text-secondary-500 hover:text-foreground hover:bg-secondary-100 shrink-0 cursor-pointer"
+                                        className="md:hidden inline-flex items-center justify-center w-10 h-10 -ml-1.5 rounded-lg text-secondary-600 hover:text-foreground hover:bg-secondary-100 shrink-0 cursor-pointer"
+                                        aria-label="Back to conversations"
                                     >
                                         <ArrowLeft className="w-5 h-5" />
                                     </button>
@@ -1485,8 +1534,8 @@ export default function MessagingPage() {
                                                 </div>
 
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <h2 className="font-bold text-foreground text-sm sm:text-base truncate leading-tight">
+                                                    <div className="flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0">
+                                                        <h2 className="font-bold text-foreground text-sm sm:text-base truncate leading-tight min-w-0 max-w-full">
                                                             <UserName name={headerTitle} deletedAt={!isChannel && !isGroup ? otherProf?.deleted_at : null} />
                                                         </h2>
                                                         {activeIsTicket && (
@@ -1517,10 +1566,10 @@ export default function MessagingPage() {
                                 </div>
 
                                 {/* Right Actions: Start Video Call & Responsive Delete */}
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full ml-auto">
                                     {/* Ticket Status Selector for Clergy & Staff or Status Badge for Parishioner (Only for inquiries/tickets) */}
                                     {activeIsTicket && (
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <TicketEscalationActions
                                                 conversation={activeConversation}
                                                 viewer={viewer}
@@ -1543,6 +1592,7 @@ export default function MessagingPage() {
                                                             try {
                                                                 const { error: statusError } = await updateTicketStatus(activeConversation.id, newStatus);
                                                                 if (statusError) throw statusError;
+                                                                toast.success(`Status changed to ${getStatusBadge(newStatus).label}.`);
                                                                 // Update local state in conversations and activeConversation
                                                                 setConversations((prev) =>
                                                                     prev.map((c) =>
@@ -1554,14 +1604,14 @@ export default function MessagingPage() {
                                                             } catch (err) {
                                                                 // The list keeps the old status, so the dropdown snaps back to it
                                                                 console.error('Failed to update ticket status:', err);
-                                                                setTicketActionError(
-                                                                    err instanceof Error ? err.message : 'Could not change the ticket status.'
-                                                                );
+                                                                const message = err instanceof Error ? err.message : 'Could not change the ticket status.';
+                                                                setTicketActionError(message);
+                                                                toast.error(message);
                                                             } finally {
                                                                 setUpdatingTicketStatus(false);
                                                             }
                                                         }}
-                                                        className="text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50"
+                                                        className="text-xs font-semibold py-2 min-h-10 pl-2.5 pr-7 rounded-xl border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50 max-w-full"
                                                     >
                                                         <option value="open">🔵 Open</option>
                                                         <option value="in_progress">🟡 In Progress</option>
@@ -1570,7 +1620,7 @@ export default function MessagingPage() {
                                                     </select>
                                                 </div>
                                             ) : (
-                                                <span className={`text-xs px-2.5 py-1 rounded-xl font-semibold border ${getStatusBadge(activeConversation.status).className}`}>
+                                                <span className={`text-xs px-2.5 py-1.5 rounded-xl font-semibold border whitespace-nowrap ${getStatusBadge(activeConversation.status).className}`}>
                                                     {getStatusBadge(activeConversation.status).label}
                                                 </span>
                                             )}
@@ -1582,7 +1632,7 @@ export default function MessagingPage() {
                                         <button
                                             type="button"
                                             onClick={() => handleStartVideoCall(activeConversation)}
-                                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
+                                            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs px-3.5 py-2 min-h-10 rounded-xl inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
                                         >
                                             <Video className="w-3.5 h-3.5" />
                                             <span className="hidden sm:inline">Start video call</span>
@@ -1597,7 +1647,7 @@ export default function MessagingPage() {
                                                 setConversationToDelete(activeConversation);
                                                 setShowDeleteModal(true);
                                             }}
-                                            className="2xl:hidden p-2 rounded-xl border border-border text-secondary-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                                            className="2xl:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-border text-secondary-500 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
                                             title="Delete conversation"
                                             aria-label="Delete conversation"
                                         >
@@ -1622,17 +1672,10 @@ export default function MessagingPage() {
                                 />
                             )}
 
-                            {/* Review panel for the Super Admin when the right-hand info panel is not shown */}
-                            {!wideInfoPanel && renderReviewPanel() && (
-                                <div className="px-4 pt-3 border-b border-border/70 shrink-0 max-h-[45vh] overflow-y-auto">
-                                    {renderReviewPanel()}
-                                </div>
-                            )}
-
                             {/* Ticket notices: follow-up link, review request and status errors */}
                             {activeIsTicket && (
                                 (linkedTicketNumber || activeConversation.linked_ticket_id || offerReviewRequest || ticketActionError) && (
-                                    <div className="px-4 py-2.5 border-b border-border/70 bg-secondary-50/40 space-y-2 shrink-0">
+                                    <div className="px-3 sm:px-4 py-2.5 border-b border-border/70 bg-secondary-50/40 space-y-2 shrink-0 min-w-0">
                                         {activeConversation.linked_ticket_id && (
                                             <p className="text-xs font-medium text-secondary-600">
                                                 Follow-up to {linkedTicketNumber || 'an earlier ticket'}
@@ -1647,7 +1690,7 @@ export default function MessagingPage() {
                                                     type="button"
                                                     onClick={handleRequestReview}
                                                     disabled={requestingReview}
-                                                    className="px-3 py-1.5 rounded-xl border border-primary/40 text-primary hover:bg-blue-50 disabled:opacity-50 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                                                    className="px-3 py-2 min-h-10 rounded-xl border border-primary/40 text-primary hover:bg-blue-50 disabled:opacity-50 text-xs font-semibold sm:shrink-0 cursor-pointer transition-colors"
                                                 >
                                                     {requestingReview ? 'Asking...' : 'Ask the Super Admin to review'}
                                                 </button>
@@ -1668,7 +1711,9 @@ export default function MessagingPage() {
                             )}
 
                             {/* Message Thread */}
-                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white min-w-0">
+                            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 bg-white min-w-0">
+                                {/* Review panel for the Super Admin when the right-hand info panel is not shown; it scrolls with the thread so its decision buttons are always reachable */}
+                                {!wideInfoPanel && renderReviewPanel()}
                                 {loadingMessages ? (
                                     <div className="flex items-center justify-center h-full">
                                         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -1846,13 +1891,13 @@ export default function MessagingPage() {
                             </div>
 
                             {/* Bottom Input Bar */}
-                            <div className="p-4 border-t border-border/70 bg-white shrink-0">
+                            <div className="p-3 sm:p-4 border-t border-border/70 bg-white shrink-0 min-w-0">
                                 {activeIsTicket && activeConversation.status === 'closed' ? (
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-border bg-secondary-50">
                                         <div className="flex flex-col gap-0.5 text-xs sm:text-sm font-semibold text-secondary-700 min-w-0">
                                             <span className="flex items-center gap-2">
                                                 <Lock className="w-4 h-4 text-secondary-500 shrink-0" />
-                                                <span>This inquiry ticket is closed</span>
+                                                <span>This ticket is closed</span>
                                             </span>
                                             {closedTicketRole === 'requester' && (
                                                 <span data-testid="reopens-used" className="pl-6 text-[11px] sm:text-xs font-medium text-secondary-500">
@@ -1866,7 +1911,7 @@ export default function MessagingPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setFollowUpSource(activeConversation)}
-                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                                className="px-4 py-2 min-h-10 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer sm:shrink-0"
                                             >
                                                 <Plus className="w-4 h-4" />
                                                 <span>Raise a new ticket</span>
@@ -1876,7 +1921,7 @@ export default function MessagingPage() {
                                                 type="button"
                                                 onClick={handleReopenTicket}
                                                 disabled={reopeningTicket}
-                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                                className="px-4 py-2 min-h-10 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer sm:shrink-0"
                                             >
                                                 <RotateCcw className="w-4 h-4" />
                                                 <span>{reopeningTicket ? 'Reopening...' : 'Reopen Ticket'}</span>
@@ -1910,12 +1955,12 @@ export default function MessagingPage() {
                                                 {isVolunteer && ' You can also reach your parish team in the staff channel.'}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
+                                        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                                             {isVolunteer && (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleOpenChurchStaffChannel()}
-                                                    className="px-3 py-2 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 font-semibold text-xs cursor-pointer transition-colors"
+                                                    className="px-3 py-2 min-h-10 rounded-xl border border-border bg-white hover:bg-secondary-50 text-secondary-800 font-semibold text-xs cursor-pointer transition-colors"
                                                 >
                                                     Staff channel
                                                 </button>
@@ -1923,7 +1968,7 @@ export default function MessagingPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowTicketModal(true)}
-                                                className="px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                                                className="px-4 py-2 min-h-10 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                                             >
                                                 <Mail className="w-4 h-4" />
                                                 <span>New Ticket</span>
@@ -1943,7 +1988,7 @@ export default function MessagingPage() {
                                         value={inputContent}
                                         onChange={(e) => setInputContent(e.target.value)}
                                         placeholder="Type a message..."
-                                        className="flex-1 py-2.5 px-4 rounded-xl border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        className="flex-1 min-w-0 py-2.5 min-h-10 px-3.5 sm:px-4 rounded-xl border border-border text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                                     />
 
                                     {/* Video call restricted to staff & clergy only */}
@@ -1961,7 +2006,7 @@ export default function MessagingPage() {
                                     <button
                                         type="submit"
                                         disabled={!inputContent.trim() || sending}
-                                        className="px-4 py-2.5 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                                        className="px-3.5 sm:px-4 py-2.5 min-h-10 rounded-xl bg-primary hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
                                     >
                                         <Send className="w-4 h-4" />
                                         <span>Send</span>
@@ -2381,7 +2426,7 @@ export default function MessagingPage() {
                 <ParishInquiryModal
                     isOpen
                     onClose={() => setFollowUpSource(null)}
-                    parishOptions={allChurches.map((c) => ({ id: c.id, name: c.name }))}
+                    parishOptions={allChurches.filter((c) => c.is_active !== false).map((c) => ({ id: c.id, name: c.name }))}
                     defaultChurchId={followUpSource.church_id}
                     churchId={followUpSource.ticket_lane === 'church' ? followUpSource.church_id : undefined}
                     userId={user.id}
@@ -2392,7 +2437,7 @@ export default function MessagingPage() {
                     initialCategory={followUpSource.category || undefined}
                     onSuccess={(id) => {
                         setFollowUpSource(null);
-                        handleTicketCreated(id);
+                        handleTicketCreated(id, 'Follow-up ticket raised.');
                     }}
                 />
             )}
@@ -2402,13 +2447,13 @@ export default function MessagingPage() {
                 <ParishInquiryModal
                     isOpen={showTicketModal}
                     onClose={() => setShowTicketModal(false)}
-                    parishOptions={allChurches.map((c) => ({ id: c.id, name: c.name }))}
+                    parishOptions={allChurches.filter((c) => c.is_active !== false).map((c) => ({ id: c.id, name: c.name }))}
                     defaultChurchId={userChurchId}
                     userId={user.id}
                     role={profile?.role ?? undefined}
                     lane={ticketLane}
                     allowLaneChoice={isVolunteer}
-                    onSuccess={handleTicketCreated}
+                    onSuccess={(id) => handleTicketCreated(id)}
                 />
             )}
 

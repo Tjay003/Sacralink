@@ -20,11 +20,28 @@ export function roleLabel(role: UserRole | null | undefined): string {
     }
 }
 
-/** A Church Admin can work with their own church's people and with Parishioners who have no church yet. */
+/** The church a person belongs to: where they serve (staff) or, for a Parishioner, their home church. */
+export function effectiveChurchId(person: Pick<Profile, 'assigned_church_id' | 'church_id'>): string | null {
+    return person.assigned_church_id || person.church_id || null;
+}
+
+/**
+ * Who a Church Admin sees in the directory: staff of their own church, Parishioners whose home church is
+ * theirs, and Parishioners with no church at all. Never the Super Admin, other churches' staff or their Parishioners.
+ */
 export function isVisibleToChurchAdmin(target: Profile, churchId: string | null | undefined): boolean {
     if (target.role === 'super_admin') return false;
-    const churchOfTarget = target.assigned_church_id || null;
-    if (churchOfTarget) return !!churchId && churchOfTarget === churchId;
+    if (target.assigned_church_id) return !!churchId && target.assigned_church_id === churchId;
+    if (target.role && target.role !== 'user') return false;
+    return !target.church_id || (!!churchId && target.church_id === churchId);
+}
+
+/**
+ * What the database function set_user_role lets a Church Admin change: people assigned to their church, and any
+ * Parishioner without an assigned church (whatever their home church). This is wider than what the directory shows.
+ */
+function churchAdminMayChangeRole(target: Profile, churchId: string): boolean {
+    if (target.assigned_church_id) return target.assigned_church_id === churchId;
     return !target.role || target.role === 'user';
 }
 
@@ -38,8 +55,9 @@ export function getRoleEditBlock(current: Profile | null | undefined, target: Pr
     if (target.role === 'super_admin') return 'The Super Admin role can only be moved with Transfer Ownership.';
     if (current.role === 'super_admin') return null;
     if (current.role === 'church_admin') {
-        if (!current.assigned_church_id) return 'You are not assigned to a church.';
-        if (!isVisibleToChurchAdmin(target, current.assigned_church_id)) return 'This person belongs to another church.';
+        const ownChurch = current.assigned_church_id || current.church_id;
+        if (!ownChurch) return 'You are not assigned to a church.';
+        if (!churchAdminMayChangeRole(target, ownChurch)) return 'This person belongs to another church.';
         return null;
     }
     return 'Only a Super Admin or a Church Admin can change roles.';

@@ -124,7 +124,7 @@ test.describe('Ticket lifecycle on /messages', () => {
     expect(closed.error).toBeNull();
 
     await page.goto(`/messages?conv=${ticketId}`);
-    await expect(page.getByText('This inquiry ticket is closed')).toBeVisible();
+    await expect(page.getByText('This ticket is closed')).toBeVisible();
     await expect(page.getByPlaceholder('Type a message...')).toHaveCount(0);
 
     const { data: after } = await db.from('conversations').select('status').eq('id', ticketId).single();

@@ -122,13 +122,15 @@ test('the Super Admin deletes a user through the UI: history is kept, the profil
   await page.goto('/users');
   await page.getByPlaceholder('Search by name, email, or parish...').fill(victim.email);
   const row = page.getByRole('row').filter({ hasText: victim.email });
-  await row.getByRole('button', { name: 'Delete user' }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.getByRole('menuitem', { name: 'Delete user' }).click();
   const form = page.locator('form').filter({ has: page.locator('#delete-user-confirm') });
   const confirmButton = form.getByRole('button', { name: 'Delete user' });
   await expect(confirmButton).toBeDisabled();
   await page.locator('#delete-user-confirm').fill(victim.email);
   await confirmButton.click();
-  await expect(page.locator('#delete-user-confirm')).toHaveCount(0);
+  // The deletion only runs after the 5 second countdown
+  await expect(page.locator('#delete-user-confirm')).toHaveCount(0, { timeout: 20_000 });
   await expect(page.getByRole('row').filter({ hasText: victim.email })).toHaveCount(0);
 
   // History survives with the same owner
