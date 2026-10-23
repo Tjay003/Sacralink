@@ -34,7 +34,7 @@ let superAdmin: TempAccount;
 let restoreSuper: () => Promise<void>;
 
 async function purge() {
-  const { error } = await db.from('conversations').delete().eq('category', 'user_deletion_request').like('title', `%Temp ${TAG}%`);
+  const { error } = await db.from('conversations').delete().eq('category', 'user_deletion_request').like('title', 'Deletion request: Temp %');
   if (error) throw error;
   await db.from('conversations').delete().like('title', `%${TAG}-general%`);
 }
