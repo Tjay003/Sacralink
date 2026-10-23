@@ -208,7 +208,11 @@ export default function ApplicantReviewPanel({ app, locked, onReviewed }: Applic
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-secondary-500 italic">The ID and selfie were deleted after the retention period. The checklist result below is kept.</p>
+              <p className="text-xs text-secondary-500 italic">
+                {app.applicant_files_delete_after
+                  ? 'The ID and selfie were deleted after the retention period. The checklist result below is kept.'
+                  : 'No ID or selfie is on file for this application. The checklist result below is kept.'}
+              </p>
             )}
 
             <div className="divide-y divide-border/60">
