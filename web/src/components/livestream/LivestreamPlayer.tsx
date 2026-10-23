@@ -285,16 +285,13 @@ export default function LivestreamPlayer({
                     <div className="flex-1 w-full flex flex-col justify-between p-4 sm:p-6 md:p-8 text-foreground bg-secondary-50/50 dark:bg-card relative">
                         {/* Background with Ambient Image & Subtle Light/Dark Tint */}
                         <div className="absolute inset-0 z-0">
-                            <img
-                                src={
-                                    church.featured_image_url ||
-                                    church.panorama_url ||
-                                    activePanoramaUrl ||
-                                    'https://images.unsplash.com/photo-1548625361-ec85301ff7a6?auto=format&fit=crop&q=80&w=1200'
-                                }
-                                alt={church.name}
-                                className="w-full h-full object-cover opacity-15 filter blur-xs scale-105"
-                            />
+                            {(church.featured_image_url || church.panorama_url || activePanoramaUrl) && (
+                                <img
+                                    src={church.featured_image_url || church.panorama_url || activePanoramaUrl || ''}
+                                    alt={church.name}
+                                    className="w-full h-full object-cover opacity-15 filter blur-xs scale-105"
+                                />
+                            )}
                             <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/70 to-secondary-50/80 dark:from-card/95 dark:via-card/85 dark:to-card/75" />
                         </div>
 

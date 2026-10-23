@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Plus, Search, MapPin, Phone, Mail, ChevronDown, ChevronUp, LayoutGrid, List, ShieldCheck, Clock } from 'lucide-react';
 import { useChurches } from '../../hooks/useChurches';
 import { useAuth } from '../../contexts/AuthContext';
+import ChurchCover from '../../components/churches/ChurchCover';
 
 /**
  * ChurchesPage - List all churches
@@ -183,13 +184,12 @@ export default function ChurchesPage() {
                                         className="relative group hover:shadow-2xl transition-all duration-300 flex flex-col cursor-pointer overflow-hidden rounded-[2rem] aspect-[3/4]"
                                         onClick={() => navigate(`/churches/${church.id}`)}
                                     >
-                                        {/* Background Image */}
-                                        <div className="absolute inset-0 bg-gray-900">
-                                            {/* Use featured_image_url if exists, otherwise use a beautiful generic church image */}
-                                            <img 
-                                                src={church.featured_image_url || "https://images.unsplash.com/photo-1548625361-ec85301ff7a6?auto=format&fit=crop&q=80&w=800"} 
-                                                alt={church.name}
-                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
+                                        {/* Background: the church photo, or a branded design when it has none */}
+                                        <div className="absolute inset-0 bg-primary-950">
+                                            <ChurchCover
+                                                src={church.featured_image_url}
+                                                name={church.name}
+                                                imageClassName="transition-transform duration-700 group-hover:scale-110 opacity-90"
                                             />
                                         </div>
 
