@@ -52,4 +52,4 @@ Never force-push, never `git checkout`, never `git add -A`: other agents may hav
 
 ## 5. Verify and report
 
-Wait for Vercel: `gh api repos/Tjay003/Sacralink/commits/<sha>/status` shows the `Vercel` context as `success`. Report what shipped, the migrations applied, and the state of any job still running. Commit messages carry no co-author trailers.
+Wait for Vercel: `gh api repos/Tjay003/Sacralink/commits/<sha>/status` shows the `Vercel` context as `success`. Report what shipped, the migrations applied, the previous production commit (the rollback point), and the state of any job still running. End by pointing Tyrone to `docs/release-smoke-checklist.md` and naming the screen for its step 4. Commit messages carry no co-author trailers.
