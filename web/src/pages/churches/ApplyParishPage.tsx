@@ -12,14 +12,37 @@ import {
   MapPin,
   X,
   Lock,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import ApplicantVerificationFields from '../../components/churches/ApplicantVerificationFields';
+import { EMPTY_APPLICANT_FORM, validateApplicantForm, type ApplicantFormValue } from '../../lib/applicantForm';
 import {
+  APPLICANT_MAX_ATTEMPTS,
   submitParishApplication,
+  submitApplicantVerification,
   getMyParishApplications,
   type ParishApplication,
 } from '../../lib/supabase/parishApplications';
+
+const APPLICANT_STATUS_LABEL: Record<string, string> = {
+  not_submitted: 'not submitted',
+  pending: 'pending review',
+  passed: 'verified',
+  rejected: 'rejected',
+};
+
+function statusChipClass(status: string): string {
+  if (status === 'verified_active' || status === 'passed') {
+    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300';
+  }
+  if (status === 'rejected') return 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300';
+  if (status === 'under_review' || status === 'not_submitted') {
+    return 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300';
+  }
+  return 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300';
+}
 
 export default function ApplyParishPage() {
   const navigate = useNavigate();
@@ -41,6 +64,16 @@ export default function ApplyParishPage() {
   const [decreeFile, setDecreeFile] = useState<File | null>(null);
   const celebretInputRef = useRef<HTMLInputElement>(null);
   const decreeInputRef = useRef<HTMLInputElement>(null);
+
+  // Applicant (the person applying) details and proof of identity
+  const [applicantForm, setApplicantForm] = useState<ApplicantFormValue>(EMPTY_APPLICANT_FORM);
+  const [applicantWarning, setApplicantWarning] = useState<string | null>(null);
+
+  // Completing or redoing the applicant part of an earlier application
+  const [resubmitFor, setResubmitFor] = useState<string | null>(null);
+  const [resubmitForm, setResubmitForm] = useState<ApplicantFormValue>(EMPTY_APPLICANT_FORM);
+  const [resubmitting, setResubmitting] = useState(false);
+  const [resubmitError, setResubmitError] = useState<string | null>(null);
 
   // Status & loading
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +106,38 @@ export default function ApplyParishPage() {
     return null;
   };
 
+  const refreshApplications = async () => {
+    const { data } = await getMyParishApplications();
+    if (data) setMyApplications(data);
+  };
+
+  const handleResubmit = async (applicationId: string) => {
+    setResubmitError(null);
+    const problem = validateApplicantForm(resubmitForm);
+    if (problem) {
+      setResubmitError(problem);
+      return;
+    }
+
+    setResubmitting(true);
+    const { error: submitErr } = await submitApplicantVerification(applicationId, {
+      legal_name: resubmitForm.legalName.trim(),
+      position: resubmitForm.position,
+      phone: resubmitForm.phone.trim(),
+      id_file: resubmitForm.idFile!,
+      selfie_file: resubmitForm.selfieFile!,
+    });
+    setResubmitting(false);
+
+    if (submitErr) {
+      setResubmitError(submitErr.message);
+      return;
+    }
+    setResubmitFor(null);
+    setResubmitForm(EMPTY_APPLICANT_FORM);
+    await refreshApplications();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -98,10 +163,17 @@ export default function ApplyParishPage() {
       return;
     }
 
+    const applicantErr = validateApplicantForm(applicantForm);
+    if (applicantErr) {
+      setError(applicantErr);
+      return;
+    }
+
     setSubmitting(true);
+    setApplicantWarning(null);
 
     try {
-      const { data, error: submitErr } = await submitParishApplication({
+      const { data, error: submitErr, applicantError } = await submitParishApplication({
         parish_name: parishName,
         address,
         contact_number: contactNumber,
@@ -113,17 +185,29 @@ export default function ApplyParishPage() {
         maya_number: mayaNumber || undefined,
         celebret_file: celebretFile!,
         decree_file: decreeFile!,
+        applicant: {
+          legal_name: applicantForm.legalName.trim(),
+          position: applicantForm.position,
+          phone: applicantForm.phone.trim(),
+          id_file: applicantForm.idFile!,
+          selfie_file: applicantForm.selfieFile!,
+        },
       });
 
       if (submitErr || !data) {
         throw submitErr || new Error('Failed to submit application');
       }
 
+      if (applicantError) {
+        setApplicantWarning(
+          `Your parish details were saved, but your applicant details could not be submitted: ${applicantError.message}. Open My Applications to send them again.`
+        );
+      }
       setSubmittedApp(data);
       setMyApplications((prev) => [data, ...prev]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Submission failed:', err);
-      setError(err.message || 'Failed to submit parish onboarding application. Please try again.');
+      setError(err instanceof Error && err.message ? err.message : 'Failed to submit parish onboarding application. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -141,6 +225,13 @@ export default function ApplyParishPage() {
             Your verification request for <strong className="text-foreground">{submittedApp.parish_name}</strong> has been sent to the Super Admin review queue.
           </p>
 
+          {applicantWarning && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2.5 text-left text-xs text-amber-800 dark:text-amber-300">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <p>{applicantWarning}</p>
+            </div>
+          )}
+
           <div className="bg-secondary-50 dark:bg-secondary-900/40 p-4 rounded-xl text-left border border-border space-y-3">
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
               <ShieldCheck className="w-4 h-4" />
@@ -148,6 +239,7 @@ export default function ApplyParishPage() {
             </div>
             <ul className="text-xs text-muted space-y-2 list-disc list-inside">
               <li>Super Admins verify your official CBCP Clergy ID / Celebret credentials.</li>
+              <li>Super Admins check your own photo ID and selfie to confirm you are who you say you are.</li>
               <li>A confirmation phone call is made to the parish rectory landline.</li>
               <li>GCash/Maya merchant accounts are validated against the legal parish entity to safeguard donations.</li>
               <li>Upon approval, your parish is marked <span className="font-semibold text-emerald-600">Verified & Active</span>, unlocking cashless donations and public sacrament booking.</li>
@@ -171,6 +263,8 @@ export default function ApplyParishPage() {
                 setDescription('');
                 setCelebretFile(null);
                 setDecreeFile(null);
+                setApplicantForm(EMPTY_APPLICANT_FORM);
+                setApplicantWarning(null);
                 setShowHistory(true);
               }}
               className="btn-secondary px-6 py-2.5 rounded-xl font-medium"
@@ -237,20 +331,13 @@ export default function ApplyParishPage() {
                 key={app.id}
                 className="bg-white dark:bg-secondary-900 border border-border p-4 rounded-xl shadow-sm space-y-2"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="font-semibold text-sm text-foreground truncate">{app.parish_name}</h4>
-                  <span
-                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${
-                      app.status === 'verified_active'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
-                        : app.status === 'rejected'
-                        ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'
-                        : app.status === 'under_review'
-                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-                        : 'bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300'
-                    }`}
-                  >
-                    {app.status.replace('_', ' ')}
+                <h4 className="font-semibold text-sm text-foreground truncate">{app.parish_name}</h4>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${statusChipClass(app.status)}`}>
+                    Parish: {app.status.replace('_', ' ')}
+                  </span>
+                  <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusChipClass(app.applicant_status)}`}>
+                    Applicant: {APPLICANT_STATUS_LABEL[app.applicant_status] ?? app.applicant_status}
                   </span>
                 </div>
                 <p className="text-xs text-muted flex items-center gap-1.5 truncate">
@@ -265,6 +352,58 @@ export default function ApplyParishPage() {
                     <strong>Rejection reason:</strong> {app.rejection_reason}
                   </div>
                 )}
+                {app.applicant_status === 'rejected' && app.applicant_rejection_reason && (
+                  <div className="p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-300">
+                    <strong>Applicant details rejected:</strong> {app.applicant_rejection_reason}
+                  </div>
+                )}
+                {(app.status === 'pending' || app.status === 'under_review') &&
+                  (app.applicant_status === 'not_submitted' || app.applicant_status === 'rejected') &&
+                  (app.applicant_attempts >= APPLICANT_MAX_ATTEMPTS ? (
+                    <p className="text-xs text-muted">
+                      You have used all {APPLICANT_MAX_ATTEMPTS} attempts for your applicant details. Please start a new application.
+                    </p>
+                  ) : resubmitFor === app.id ? (
+                    <div className="space-y-3 pt-2 border-t border-border">
+                      <ApplicantVerificationFields value={resubmitForm} onChange={setResubmitForm} disabled={resubmitting} />
+                      {resubmitError && <p className="text-xs text-red-600">{resubmitError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleResubmit(app.id)}
+                          className="btn-primary px-4 py-2 rounded-xl text-xs font-semibold"
+                          disabled={resubmitting}
+                        >
+                          {resubmitting ? 'Submitting...' : 'Submit applicant details'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResubmitFor(null);
+                            setResubmitError(null);
+                          }}
+                          className="btn-secondary px-4 py-2 rounded-xl text-xs font-medium"
+                          disabled={resubmitting}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResubmitFor(app.id);
+                        setResubmitForm(EMPTY_APPLICANT_FORM);
+                        setResubmitError(null);
+                      }}
+                      className="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      {app.applicant_status === 'rejected' ? 'Resubmit applicant details' : 'Submit applicant details'}
+                      {app.applicant_attempts > 0 && ` (attempt ${app.applicant_attempts + 1} of ${APPLICANT_MAX_ATTEMPTS})`}
+                    </button>
+                  ))}
               </div>
             ))}
           </div>
@@ -576,6 +715,21 @@ export default function ApplyParishPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Card 5: The applicant's own verification */}
+        <div className="card p-6 space-y-4">
+          <div className="flex items-center gap-3 border-b border-border pb-3">
+            <div className="p-2 bg-amber-100 dark:bg-amber-950/50 rounded-lg text-amber-600">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">5. Applicant Verification</h2>
+              <p className="text-xs text-muted">Confirm who you are. You become the parish Church Admin once this and the parish are verified.</p>
+            </div>
+          </div>
+
+          <ApplicantVerificationFields value={applicantForm} onChange={setApplicantForm} disabled={submitting} />
         </div>
 
         {/* Submit Actions */}

@@ -1,7 +1,7 @@
 # 02: Applicant section on the parish application form
 
 Type: task
-Status: needs-decisions
+Status: done locally 2026-10-24 (ApplyParishPage section 5, ApplicantVerificationFields, submit/resubmit from My Applications). Not in production until 03 ships.
 **Blocked by:** 01
 
 **What to build:** in `web/src/pages/churches/ApplyParishPage.tsx` add an **Applicant** section next to the parish section: full legal name, position in the parish (Parish Priest, Parochial Administrator, Parish Secretary, Other), mobile number, government-issued photo ID upload, and a selfie holding the ID. Uploads go to the private `applicant-verification` bucket from ticket 01 (never a public URL), with image/PDF type and size limits and a clear explanation of who will see the files and when they are deleted.

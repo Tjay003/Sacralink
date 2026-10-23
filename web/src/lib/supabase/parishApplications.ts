@@ -16,6 +16,18 @@ export interface ApplicationChecklist {
   notes: string;
 }
 
+export const APPLICANT_BUCKET = 'applicant-verification';
+export const APPLICANT_MAX_ATTEMPTS = 3;
+export const APPLICANT_POSITIONS = ['Parish Priest', 'Parochial Administrator', 'Parish Secretary', 'Other'] as const;
+
+export interface ApplicantVerificationInput {
+  legal_name: string;
+  position: string;
+  phone: string;
+  id_file: File;
+  selfie_file: File;
+}
+
 export interface CreateParishApplicationParams {
   parish_name: string;
   address: string;
@@ -28,6 +40,7 @@ export interface CreateParishApplicationParams {
   maya_number?: string;
   celebret_file: File;
   decree_file: File;
+  applicant: ApplicantVerificationInput;
 }
 
 export interface ParishApplicationWithRelations extends ParishApplication {
@@ -67,11 +80,49 @@ export async function uploadApplicationDocument(file: File, folder: 'celebret' |
 }
 
 /**
+ * Upload the applicant's ID and selfie to the private bucket and submit the applicant part for review.
+ * Files go to <user id>/..., never a public URL; only the applicant and the Super Admin can read them (migration 078).
+ */
+export async function submitApplicantVerification(
+  applicationId: string,
+  input: ApplicantVerificationInput
+): Promise<{ error: Error | null }> {
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) throw new Error('You must be logged in to submit your applicant details');
+
+    const upload = async (kind: 'id' | 'selfie', file: File) => {
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const path = `${authData.user.id}/${Date.now()}_${kind}_${Math.random().toString(36).substring(2, 9)}_${cleanName}`;
+      const { error } = await supabase.storage.from(APPLICANT_BUCKET).upload(path, file, { contentType: file.type });
+      if (error) throw error;
+      return path;
+    };
+
+    const [idPath, selfiePath] = await Promise.all([upload('id', input.id_file), upload('selfie', input.selfie_file)]);
+
+    const { error } = await supabase.rpc('submit_applicant_verification', {
+      p_application_id: applicationId,
+      p_legal_name: input.legal_name,
+      p_position: input.position,
+      p_phone: input.phone,
+      p_id_path: idPath,
+      p_selfie_path: selfiePath,
+    });
+    if (error) throw error;
+    return { error: null };
+  } catch (err: any) {
+    console.error('Error submitting applicant verification:', err);
+    return { error: err instanceof Error ? err : new Error(err.message || 'Failed to submit your applicant details') };
+  }
+}
+
+/**
  * Submit a new parish verification onboarding application
  */
 export async function submitParishApplication(
   params: CreateParishApplicationParams
-): Promise<{ data: ParishApplication | null; error: Error | null }> {
+): Promise<{ data: ParishApplication | null; error: Error | null; applicantError?: Error | null }> {
   try {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError || !authData.user) {
@@ -119,7 +170,10 @@ export async function submitParishApplication(
 
     if (error) throw error;
 
-    // 3. Notify Super Admins of new pending application
+    // 3. Submit the applicant part. If it fails the parish part is still saved and can be completed from My Applications.
+    const { error: applicantError } = await submitApplicantVerification(data.id, params.applicant);
+
+    // 4. Notify Super Admins of new pending application
     try {
       const { data: superAdmins } = await supabase
         .from('profiles')
@@ -143,7 +197,8 @@ export async function submitParishApplication(
       console.warn('Failed to dispatch notifications to super admins:', notifErr);
     }
 
-    return { data: data as ParishApplication, error: null };
+    const { data: saved } = await supabase.from('parish_applications').select('*').eq('id', data.id).single();
+    return { data: (saved ?? data) as ParishApplication, error: null, applicantError };
   } catch (err: any) {
     console.error('Error submitting parish application:', err);
     return { data: null, error: err instanceof Error ? err : new Error(err.message || 'Submission failed') };
