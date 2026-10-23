@@ -983,6 +983,18 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          applicant_attempts: number
+          applicant_checklist: Json | null
+          applicant_files_delete_after: string | null
+          applicant_id_path: string | null
+          applicant_legal_name: string | null
+          applicant_phone: string | null
+          applicant_position: string | null
+          applicant_rejection_reason: string | null
+          applicant_reviewed_at: string | null
+          applicant_reviewed_by: string | null
+          applicant_selfie_path: string | null
+          applicant_status: string
           updated_at: string | null
         }
         Insert: {
@@ -1006,6 +1018,18 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          applicant_attempts?: number
+          applicant_checklist?: Json | null
+          applicant_files_delete_after?: string | null
+          applicant_id_path?: string | null
+          applicant_legal_name?: string | null
+          applicant_phone?: string | null
+          applicant_position?: string | null
+          applicant_rejection_reason?: string | null
+          applicant_reviewed_at?: string | null
+          applicant_reviewed_by?: string | null
+          applicant_selfie_path?: string | null
+          applicant_status?: string
           updated_at?: string | null
         }
         Update: {
@@ -1029,6 +1053,18 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          applicant_attempts?: number
+          applicant_checklist?: Json | null
+          applicant_files_delete_after?: string | null
+          applicant_id_path?: string | null
+          applicant_legal_name?: string | null
+          applicant_phone?: string | null
+          applicant_position?: string | null
+          applicant_rejection_reason?: string | null
+          applicant_reviewed_at?: string | null
+          applicant_reviewed_by?: string | null
+          applicant_selfie_path?: string | null
+          applicant_status?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -1739,6 +1775,30 @@ export type Database = {
       reactivate_user: { Args: { p_user_id: string }; Returns: undefined }
       get_user_review_summary: { Args: { p_user_id: string }; Returns: Json }
       refresh_church_stats: { Args: never; Returns: undefined }
+      submit_applicant_verification: {
+        Args: {
+          p_application_id: string
+          p_legal_name: string
+          p_position: string
+          p_phone: string
+          p_id_path: string
+          p_selfie_path: string
+        }
+        Returns: undefined
+      }
+      review_applicant_verification: {
+        Args: {
+          p_application_id: string
+          p_passed: boolean
+          p_checklist: Json
+          p_reason?: string | null
+        }
+        Returns: undefined
+      }
+      approve_parish_application: {
+        Args: { p_application_id: string; p_checklist: Json }
+        Returns: { church_id: string; church_created: boolean }[]
+      }
       set_user_role: {
         Args: {
           p_user_id: string

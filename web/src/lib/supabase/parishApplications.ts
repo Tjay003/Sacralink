@@ -1,5 +1,5 @@
 import { supabase, uploadFile } from '../supabase';
-import type { Database } from '../../types/database';
+import type { Database, Json } from '../../types/database';
 import { createNotification } from './notifications';
 import { seedDefaultRequirements } from './requirements';
 
@@ -292,114 +292,35 @@ export async function approveParishApplication(
   checklist: ApplicationChecklist
 ): Promise<{ churchId: string | null; error: Error | null }> {
   try {
-    const { data: authData } = await supabase.auth.getUser();
-    const reviewerId = authData.user?.id || null;
+    // 1. One database transaction: both verifications must have passed, then the church is created or activated,
+    //    the applicant gets their role through set_user_role and the application is marked approved (migration 078).
+    const { data, error: approveErr } = await supabase.rpc('approve_parish_application', {
+      p_application_id: id,
+      p_checklist: checklist as unknown as Json,
+    });
+    if (approveErr) throw approveErr;
 
-    // 1. Fetch current application
-    const { data: application, error: appError } = await supabase
-      .from('parish_applications')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const result = (Array.isArray(data) ? data[0] : data) as { church_id: string; church_created: boolean } | null;
+    if (!result?.church_id) throw new Error('Approval did not return a church');
+    const finalChurchId = result.church_id;
 
-    if (appError || !application) {
-      throw new Error(appError?.message || 'Application not found');
-    }
-
-    let finalChurchId = application.church_id;
-
-    // 2. If church doesn't exist yet, insert into churches table with status = 'verified_active'
-    if (!finalChurchId) {
-      const { data: newChurch, error: churchError } = await supabase
-        .from('churches')
-        .insert({
-          name: application.parish_name,
-          address: application.address,
-          contact_number: application.contact_number,
-          email: application.email,
-          description: application.description,
-          latitude: application.latitude,
-          longitude: application.longitude,
-          gcash_number: application.gcash_number,
-          maya_number: application.maya_number,
-          status: 'verified_active',
-          is_active: true,
-        })
-        .select('id')
-        .single();
-
-      if (churchError) throw churchError;
-      finalChurchId = newChurch.id;
-
-      // Seed the starter services and their default requirements for the newly created church
+    // 2. Seed the starter services and their default requirements for a newly created church
+    if (result.church_created) {
       try {
         await seedDefaultRequirements(finalChurchId);
       } catch (seedErr) {
         console.warn('Failed to seed default sacrament requirements for verified church:', seedErr);
       }
-    } else {
-      // If church already existed, set status to verified_active
-      const { error: updateChurchErr } = await supabase
-        .from('churches')
-        .update({
-          status: 'verified_active',
-          is_active: true,
-          gcash_number: application.gcash_number,
-          maya_number: application.maya_number,
-          latitude: application.latitude,
-          longitude: application.longitude,
-        })
-        .eq('id', finalChurchId);
-
-      if (updateChurchErr) throw updateChurchErr;
     }
 
-    // 3. Update the applicant profile to assign them to this church as church_admin
-    if (application.applicant_id && finalChurchId) {
-      try {
-        const { data: userProfile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', application.applicant_id)
-          .single();
-
-        // Role and church changes only go through set_user_role (migration 063); the applicant keeps a staff role they already hold.
-        const currentRole = userProfile?.role;
-        const nextRole =
-          currentRole === 'volunteer' || currentRole === 'priest' || currentRole === 'church_admin'
-            ? currentRole
-            : 'church_admin';
-
-        if (currentRole !== 'super_admin') {
-          const { error: roleErr } = await supabase.rpc('set_user_role', {
-            p_user_id: application.applicant_id,
-            p_role: nextRole,
-            p_church_id: finalChurchId,
-          });
-          if (roleErr) throw roleErr;
-        }
-      } catch (profErr) {
-        console.warn('Failed to update applicant assigned church profile:', profErr);
-      }
-    }
-
-    // 4. Update the parish_applications record
-    const { error: updateAppErr } = await supabase
+    const { data: application } = await supabase
       .from('parish_applications')
-      .update({
-        status: 'verified_active',
-        checklist: checklist as any,
-        reviewed_by: reviewerId,
-        reviewed_at: new Date().toISOString(),
-        church_id: finalChurchId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+      .select('applicant_id, parish_name')
+      .eq('id', id)
+      .single();
 
-    if (updateAppErr) throw updateAppErr;
-
-    // 5. Notify the applicant of approval
-    if (application.applicant_id) {
+    // 3. Notify the applicant of approval
+    if (application?.applicant_id) {
       try {
         await createNotification({
           userId: application.applicant_id,
