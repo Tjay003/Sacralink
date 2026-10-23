@@ -4,7 +4,9 @@ Anything that touches the backend (database functions, RLS, notifications, auth 
 
 ## Why
 
-The mocked specs in `web/e2e` stub `rpc/*` and the REST routes, so they only prove the UI sends the right payload. They cannot prove that a database function writes its history row, that notifications fan out, or that RLS blocks direct updates (see `docs/adr/0001-appointment-edits-via-database-functions.md`). The local suite runs the real thing.
+Only a real database can prove that a database function writes its history row, that notifications fan out, or that RLS blocks direct updates (see `docs/adr/0001-appointment-edits-via-database-functions.md`). An older mocked suite that stubbed `rpc/*` and the REST routes could not, and was deleted on 2026-10-24.
+
+When and what to run is in `docs/agents/test-workflow.md`; this file covers the stack itself.
 
 ## Prerequisites
 
@@ -20,8 +22,8 @@ Run from the repo root unless noted.
 | Start the local stack | `npx supabase start` |
 | Stop it | `npx supabase stop` |
 | Apply / rebuild the schema | `powershell -File scripts/local-db-setup.ps1 -Reset` |
-| Run the real e2e suite | `cd web; npm run test:e2e:local` |
-| Run the mocked UI suite | `cd web; npm run test:e2e` |
+| Run one spec | `cd web; npx playwright test -c playwright.local.config.ts e2e-local/<file>.spec.ts` |
+| Run the full real suite | `cd web; npm run test:e2e:local` |
 | Run the app by hand against the local DB | `cd web; npx vite --mode e2e --port 5174` |
 
 Studio is at http://127.0.0.1:54323 and the mail inbox at http://127.0.0.1:54324 while the stack is running.

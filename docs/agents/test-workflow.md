@@ -30,28 +30,23 @@ When a backend bug fix requires a test, write a targeted minimal test that repro
 
 ## The gate before production
 
-Pushing `main` triggers an automatic GitHub Actions run on that commit alone, in two jobs (`.github/workflows/ci.yml`):
+Two GitHub Actions workflows run on `main`. Both see committed code only, so a green check says nothing about uncommitted work.
 
-- **`quick`** (about 1 minute): typecheck and production build. This is the only job to wait for after a push.
-- **`e2e`** (about 10 to 15 minutes): the full real suite `e2e-local` on a fresh Docker Supabase. It starts after `quick` passes and nothing waits on it while building. It is the only place the whole suite runs, and it sees committed code only.
+- **`CI`** (`.github/workflows/ci.yml`, about 1 minute): typecheck and production build, on every push.
+- **`e2e`** (`.github/workflows/e2e.yml`, about 6 minutes): the full real suite `e2e-local`, split across four runners with a fresh Docker Supabase each. It is the only place the whole suite runs. A push starts it only when it touches the backend paths listed in that file (`supabase/`, `web/src/lib/`, `web/e2e-local/`, the local DB script and config, dependencies), so docs and UI pushes neither start it nor cancel it. It also runs nightly, and by hand with `gh workflow run e2e.yml --ref main`.
 
-- The mocked suite `web/e2e` is **not** part of the gate. 27 of its tests fail on outdated page wording; leave it untouched until Tyrone decides to fix or retire it.
-- Both checks are informational, and Tyrone decides whether to merge. What to wait for before releasing depends on what the release changes (compare with `git diff --stat origin/feature/demo-mode origin/main`):
+What a release waits for depends on what it changes. Both checks are informational; Tyrone decides whether to ship.
 
-  | The release touches | Wait for |
-  | ------------------- | -------- |
-  | Only UI files (`web/src` pages and components, styling, copy) or docs | `quick` green on the exact commit, then release. Do not wait for `e2e`; say it is still running and report its result when it finishes. |
-  | The database (`supabase/`, `web/src/lib/supabase`), roles or permissions, migrations, or `web/e2e-local` | `e2e` green on the exact commit (`gh run list --commit <sha>`). |
+| The release touches | Wait for |
+| ------------------- | -------- |
+| Only UI files (`web/src` pages and components, styling, copy) or docs | `CI` green on the release commit. Do not wait for `e2e`. |
+| The database, migrations, roles or permissions, or `web/e2e-local` | `e2e` green on a commit at or after the last backend change. |
 
-  When in doubt, wait for `e2e`. A push to `main` cancels the run in flight on the previous commit, so do not push while a release is waiting on a run.
-- Release order: test on `main`, push `main`, then merge into `feature/demo-mode`. Never the reverse.
-- The check sees only committed code, so it never exercises Tyrone's uncommitted work. A green check does not prove his working tree works.
+When in doubt, treat it as backend. The release itself (scoping, migrations, the push) is the `/release` skill: `.agents/skills/release/SKILL.md`.
 
 ## One agent runs e2e at a time
 
 The local Docker Supabase and port 5174 are shared. Parallel agents serialize their test step: start yours only when no other agent's run is in flight.
-
-Production migrations are applied from the main conversation, never from a delegated subagent. Order: the relevant local spec passes, back up first when existing data changes, apply, then verify with read-only queries.
 
 ## Known baseline: leave as is
 

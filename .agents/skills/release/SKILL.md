@@ -4,15 +4,15 @@ description: Release main to production (feature/demo-mode): wait rule, migratio
 disable-model-invocation: true
 ---
 
-Release `main` to the production branch `feature/demo-mode`. Typing `/release` is the go-ahead for the push in step 4; a red gate or a missing approval below stops the release. Production Supabase project: `oaczurouvaevebpimply`. Read `docs/agents/test-workflow.md` ("The gate before production") for the CI jobs.
+Release `main` to the production branch `feature/demo-mode`. Typing `/release` is the go-ahead for the push in step 4; a red gate or a missing approval below stops the release. Production Supabase project: `oaczurouvaevebpimply`. The wait rule (which check a release needs) is the table in `docs/agents/test-workflow.md`, "The gate before production".
 
 ## 1. Scope the release
 
 `git fetch origin`, then `git diff --stat origin/feature/demo-mode origin/main` and `git log origin/feature/demo-mode..origin/main --oneline`.
 
-Classify it. **UI/docs only**: `web/src` pages, components, styling, copy, docs, scripts that only matter locally. **Backend**: anything in `supabase/`, `web/src/lib/supabase`, roles or permissions, `web/e2e-local`. When unsure, it is backend.
+Classify it with the wait-rule table: **UI/docs only** or **backend**. When unsure, it is backend.
 
-Done when you can say which of the two it is and name the exact commit (`origin/main`) that will be released.
+Done when you can say which of the two it is and name the exact commit (`origin/main`, called `<sha>` below) that will be released.
 
 ## 2. Migrations (backend releases)
 
@@ -29,14 +29,15 @@ Done when every migration in the release is applied and verified, or there are n
 
 ## 3. Gate
 
-Find the run for the exact commit: `gh run list --commit <sha>`.
+**UI/docs only:** `gh run list --workflow ci.yml --commit <sha>` is green. If it was cancelled because a newer commit reached `main`, go back to step 1 with that commit.
 
-- **UI/docs only**: the `quick` job (typecheck and build) is green. Do not wait for `e2e`; say it is still running and report its result when it finishes.
-- **Backend**: the `e2e` job (full suite) is green on that exact commit.
+**Backend:** a green `e2e` run on a commit `<c>` that covers `<sha>`:
 
-A push to `main` cancels the run in flight, so do not push to `main` while waiting. If the run was cancelled, find the newest commit's run instead and release that commit.
+1. `gh run list --workflow e2e.yml --branch main --limit 5 --json headSha,status,conclusion` and take the newest run.
+2. It covers `<sha>` when `git merge-base --is-ancestor <c> <sha>` succeeds and `git diff --name-only <c> <sha>` lists no file under the `on.push.paths` of `.github/workflows/e2e.yml`. When the release counts as backend only because of roles or permissions in page code (outside those paths), `<c>` must be `<sha>` itself.
+3. Still running: wait for it. Nothing covers `<sha>`: `gh workflow run e2e.yml --ref main`, then wait for that run (about 6 minutes).
 
-Done when the required job is green for the commit being released. If it is red, stop and report the failing tests.
+Done when the required check is green. If it is red, stop and report the failing tests (each of the four shards lists its own).
 
 ## 4. Advance production
 
