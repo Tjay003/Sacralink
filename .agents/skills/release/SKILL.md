@@ -12,7 +12,7 @@ Release `main` to the production branch `feature/demo-mode`. Typing `/release` i
 
 Classify it with the wait-rule table: **UI/docs only** or **backend**. When unsure, it is backend.
 
-Done when you can say which of the two it is and name the exact commit (`origin/main`, called `<sha>` below) that will be released.
+Done when you can say which of the two it is and name the exact commit that will be released: `git rev-parse origin/main`, called `<sha>` below. Use the full 40-character SHA everywhere: `gh run list --commit` silently matches nothing for a short one.
 
 ## 2. Migrations (backend releases)
 

@@ -14,7 +14,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
-import { BLOCKED_ACCOUNT_NOTICE_KEY, SUSPENDED_ACCOUNT_MESSAGE } from '../lib/blockedAccountNotice';
+import { BLOCKED_ACCOUNT_PARAM } from '../lib/blockedAccountNotice';
 import { clearLocalMessagingCache, setLocalMessagingOwner } from '../lib/supabase/messaging';
 import type { Profile } from '../types/database';
 
@@ -203,14 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      */
     const endBlockedSession = async (reason: 'deleted' | 'suspended' = 'deleted') => {
         try {
-            window.sessionStorage.setItem(
-                BLOCKED_ACCOUNT_NOTICE_KEY,
-                reason === 'suspended' ? SUSPENDED_ACCOUNT_MESSAGE : 'This account has been deleted. You can no longer sign in with it.'
-            );
-        } catch {
-            // sessionStorage can be unavailable; the redirect still happens
-        }
-        try {
             await supabase.auth.signOut({ scope: 'local' });
         } catch (e) {
             console.warn('Sign out of a blocked account failed:', e);
@@ -220,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setSession(null);
-        window.location.assign('/login');
+        window.location.assign(`/login?${BLOCKED_ACCOUNT_PARAM}=${reason}`);
     };
 
     /**

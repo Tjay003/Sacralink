@@ -7,7 +7,13 @@ import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { BLOCKED_ACCOUNT_NOTICE_KEY, SELF_DELETED_ACCOUNT_MESSAGE, SUSPENDED_ACCOUNT_MESSAGE } from '../../lib/blockedAccountNotice';
+import {
+    BLOCKED_ACCOUNT_NOTICE_KEY,
+    BLOCKED_ACCOUNT_PARAM,
+    DELETED_ACCOUNT_MESSAGE,
+    SELF_DELETED_ACCOUNT_MESSAGE,
+    SUSPENDED_ACCOUNT_MESSAGE,
+} from '../../lib/blockedAccountNotice';
 import AuthLayout from '../../components/auth/AuthLayout';
 import AuthTabs from '../../components/auth/AuthTabs';
 import { Button } from "@/components/ui/button"
@@ -37,8 +43,11 @@ export default function LoginPage() {
     const [notice, setNotice] = useState<string | null>(null);
     const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
 
-    // A deleted account that was signed out of an open tab sees why
+    // A deleted or suspended account that was signed out of an open tab sees why
     useEffect(() => {
+        const blocked = new URLSearchParams(window.location.search).get(BLOCKED_ACCOUNT_PARAM);
+        if (blocked === 'suspended') setError(SUSPENDED_ACCOUNT_MESSAGE);
+        else if (blocked === 'deleted') setError(DELETED_ACCOUNT_MESSAGE);
         try {
             const stored = window.sessionStorage.getItem(BLOCKED_ACCOUNT_NOTICE_KEY);
             if (stored) {

@@ -89,8 +89,10 @@ jobs:
         run: pwsh -File scripts/local-db-setup.ps1 -Reset -AllowFailures "$LEGACY_MIGRATION_FAILURES"
 
       - name: Install Playwright Chromium
+        # No --with-deps: the runner image already has the system libraries Chromium needs (it ships
+        # Google Chrome), and the apt mirror behind --with-deps sometimes stalls for ten minutes.
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Run e2e-local
         working-directory: web
