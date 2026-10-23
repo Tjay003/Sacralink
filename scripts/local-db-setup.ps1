@@ -41,6 +41,11 @@ foreach ($f in $files) {
   }
 }
 
+# Storage buckets and policies that production has from the dashboard but no migration creates
+Get-Content (Join-Path $root 'scripts/local-storage-parity.sql') -Raw -Encoding UTF8 | docker exec -i $container psql -U postgres -d postgres -q -v ON_ERROR_STOP=1 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) { Write-Output 'FAIL  scripts/local-storage-parity.sql'; exit 1 }
+Write-Output 'ok    scripts/local-storage-parity.sql'
+
 Write-Output ''
 if ($failed.Count) {
   Write-Output "$($failed.Count) migration(s) failed: $($failed -join ', ')"
