@@ -89,7 +89,12 @@ test.afterAll(async () => {
   if (filePaths.length) await db.storage.from(BUCKET).remove(filePaths);
   if (applicationIds.length) await db.from('parish_applications').delete().in('id', applicationIds);
   await deleteTempAccounts([applicant, otherApplicant, churchAdmin, parishioner]);
-  if (createdChurches.length) await db.from('churches').delete().in('id', createdChurches);
+  if (createdChurches.length) {
+    // The role change on approval wrote an activity log row for the church, and that blocks deleting it
+    await db.from('activity_logs').delete().in('church_id', createdChurches);
+    const { error } = await db.from('churches').delete().in('id', createdChurches);
+    if (error) throw error;
+  }
   if (restoreSuperAdmin) await restoreSuperAdmin();
 });
 
