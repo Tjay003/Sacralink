@@ -1799,6 +1799,8 @@ export type Database = {
         Args: { p_application_id: string; p_checklist: Json }
         Returns: { church_id: string; church_created: boolean }[]
       }
+      church_deletion_impact: { Args: { p_church_id: string }; Returns: Json }
+      delete_church: { Args: { p_church_id: string }; Returns: Json }
       set_user_role: {
         Args: {
           p_user_id: string
