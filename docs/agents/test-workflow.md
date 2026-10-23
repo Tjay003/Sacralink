@@ -36,7 +36,14 @@ Pushing `main` triggers an automatic GitHub Actions run on that commit alone, in
 - **`e2e`** (about 10 to 15 minutes): the full real suite `e2e-local` on a fresh Docker Supabase. It starts after `quick` passes and nothing waits on it while building. It is the only place the whole suite runs, and it sees committed code only.
 
 - The mocked suite `web/e2e` is **not** part of the gate. 27 of its tests fail on outdated page wording; leave it untouched until Tyrone decides to fix or retire it.
-- Both checks are informational. Before asking Tyrone about merging into the production branch `feature/demo-mode`, confirm `e2e` is green on the exact commit being released (`gh run list --branch main`); if it is still running, say so instead of waiting silently. Tyrone decides whether to merge.
+- Both checks are informational, and Tyrone decides whether to merge. What to wait for before releasing depends on what the release changes (compare with `git diff --stat origin/feature/demo-mode origin/main`):
+
+  | The release touches | Wait for |
+  | ------------------- | -------- |
+  | Only UI files (`web/src` pages and components, styling, copy) or docs | `quick` green on the exact commit, then release. Do not wait for `e2e`; say it is still running and report its result when it finishes. |
+  | The database (`supabase/`, `web/src/lib/supabase`), roles or permissions, migrations, or `web/e2e-local` | `e2e` green on the exact commit (`gh run list --commit <sha>`). |
+
+  When in doubt, wait for `e2e`. A push to `main` cancels the run in flight on the previous commit, so do not push while a release is waiting on a run.
 - Release order: test on `main`, push `main`, then merge into `feature/demo-mode`. Never the reverse.
 - The check sees only committed code, so it never exercises Tyrone's uncommitted work. A green check does not prove his working tree works.
 
