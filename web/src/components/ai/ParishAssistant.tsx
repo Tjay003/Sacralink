@@ -6,10 +6,12 @@ import { supabase } from '../../lib/supabase';
 import { getUserFavoriteChurchIds } from '../../lib/supabase/churchFavorites';
 import { askParishAssistant } from '../../lib/supabase/parishAssistant';
 import { getBookableServiceTypes, type ServiceType } from '../../lib/supabase/serviceTypes';
+import { getRequirementsForService } from '../../lib/supabase/requirements';
 import { getParishClergy, type ParishClergyMember } from '../../lib/supabase/priestAvailability';
 import { celebrantLabel } from '../../hooks/useParishClergy';
 import {
     type BookingDraft,
+    type BookingStep,
     getStoredBookingDraft,
     saveStoredBookingDraft,
     clearStoredBookingDraft,
@@ -19,6 +21,10 @@ import {
     submitConfirmedBooking,
 } from '../../lib/bookingGuide';
 import BookingSummaryCard from './BookingSummaryCard';
+import DocumentUploadCards from './DocumentUploadCards';
+import type { Database } from '../../types/database';
+
+type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import chatbotIcon from '../../assets/chatbotIcon.png';
@@ -68,6 +74,11 @@ export default function ParishAssistant() {
     const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
     const [bookingSuccessAppointmentId, setBookingSuccessAppointmentId] = useState<string | null>(null);
     const isSubmittingRef = useRef(false);
+
+    // Client-side Documents State (in browser memory only)
+    const [attachedDocuments, setAttachedDocuments] = useState<Map<string, File>>(new Map());
+    const [serviceRequirements, setServiceRequirements] = useState<SacramentRequirement[]>([]);
+    const [loadingRequirements, setLoadingRequirements] = useState(false);
 
     // Dynamic Live Chips State
     const [servicesList, setServicesList] = useState<ServiceType[]>([]);
@@ -226,6 +237,34 @@ export default function ParishAssistant() {
         }
     }, [bookingDraft?.step, bookingDraft?.churchId]);
 
+    // Load sacrament requirements whenever serviceTypeId is selected
+    useEffect(() => {
+        const serviceTypeId = bookingDraft?.serviceTypeId;
+        if (serviceTypeId) {
+            let cancelled = false;
+            setLoadingRequirements(true);
+            void getRequirementsForService(serviceTypeId)
+                .then((reqs) => {
+                    if (!cancelled) {
+                        setServiceRequirements(reqs || []);
+                        setLoadingRequirements(false);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Failed to load service requirements:', err);
+                    if (!cancelled) {
+                        setServiceRequirements([]);
+                        setLoadingRequirements(false);
+                    }
+                });
+            return () => {
+                cancelled = true;
+            };
+        } else {
+            setServiceRequirements([]);
+        }
+    }, [bookingDraft?.serviceTypeId]);
+
     // Candidate future dates (next 7 future days, strictly no past dates)
     const futureDateCandidates = useMemo(() => getFutureDateCandidates(7), []);
 
@@ -279,6 +318,7 @@ export default function ParishAssistant() {
     // Booking Guide Step 1: Select Service
     const handleSelectService = (service: ServiceType) => {
         if (!bookingDraft) return;
+        setAttachedDocuments(new Map());
         const updated: BookingDraft = {
             ...bookingDraft,
             serviceTypeId: service.id,
@@ -364,12 +404,27 @@ export default function ParishAssistant() {
             }
         }
 
+        // Determine if requirements exist for this service
+        let reqs = serviceRequirements;
+        if (reqs.length === 0 && bookingDraft.serviceTypeId) {
+            try {
+                reqs = await getRequirementsForService(bookingDraft.serviceTypeId);
+                setServiceRequirements(reqs || []);
+            } catch {
+                reqs = [];
+            }
+        }
+
+        const hasReqs = reqs.length > 0;
+        const nextStep: BookingStep = hasReqs ? 'documents' : 'notes';
+
         const updated: BookingDraft = {
             ...bookingDraft,
             requestedPriestId: priestId || null,
             requestedPriestName: priestLabel,
             priestWarning: warning || null,
-            step: 'notes',
+            hasRequirements: hasReqs,
+            step: nextStep,
         };
         setBookingDraft(updated);
         saveStoredBookingDraft(updated);
@@ -387,13 +442,73 @@ export default function ParishAssistant() {
             });
         }
 
-        newMessages.push({
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: 'Would you like to add any notes or special intentions for the parish office? (Optional)',
-        });
+        if (hasReqs) {
+            newMessages.push({
+                id: `assistant-${Date.now()}`,
+                role: 'assistant',
+                content: `${bookingDraft.serviceTypeName || 'This service'} requires supporting documents. Please attach the required documents below:`,
+            });
+        } else {
+            newMessages.push({
+                id: `assistant-${Date.now()}`,
+                role: 'assistant',
+                content: 'Would you like to add any notes or special intentions for the parish office? (Optional)',
+            });
+        }
 
         setMessages(newMessages);
+    };
+
+    // Booking Guide Step 4.5: Document Upload Handlers
+    const handleFileSelect = (reqId: string, file: File) => {
+        setAttachedDocuments((prev) => {
+            const next = new Map(prev);
+            next.set(reqId, file);
+            return next;
+        });
+    };
+
+    const handleFileRemove = (reqId: string) => {
+        setAttachedDocuments((prev) => {
+            const next = new Map(prev);
+            next.delete(reqId);
+            return next;
+        });
+    };
+
+    const handleContinueFromDocuments = () => {
+        if (!bookingDraft) return;
+        const updated: BookingDraft = {
+            ...bookingDraft,
+            step: 'notes',
+        };
+        setBookingDraft(updated);
+        saveStoredBookingDraft(updated);
+
+        const count = attachedDocuments.size;
+        const userContent = count > 0
+            ? `${count} document${count > 1 ? 's' : ''} attached`
+            : 'Proceed to notes';
+
+        setMessages((prev) => [
+            ...prev,
+            { id: `user-${Date.now()}`, role: 'user', content: userContent },
+            {
+                id: `assistant-${Date.now()}`,
+                role: 'assistant',
+                content: 'Would you like to add any notes or special intentions for the parish office? (Optional)',
+            },
+        ]);
+    };
+
+    const handleGoToDocuments = () => {
+        if (!bookingDraft) return;
+        const updated: BookingDraft = {
+            ...bookingDraft,
+            step: 'documents',
+        };
+        setBookingDraft(updated);
+        saveStoredBookingDraft(updated);
     };
 
     // Booking Guide Step 5: Notes / Skip
@@ -432,12 +547,15 @@ export default function ParishAssistant() {
                 draft: bookingDraft,
                 userId: profile.id,
                 userName: profile.full_name || 'A parishioner',
+                documents: attachedDocuments,
+                requirements: serviceRequirements,
             });
 
             if (result.success && result.appointmentId) {
                 setBookingSuccessAppointmentId(result.appointmentId);
                 const confirmedDraft = { ...bookingDraft, step: 'confirmed' as const };
                 setBookingDraft(confirmedDraft);
+                setAttachedDocuments(new Map());
                 clearStoredBookingDraft();
 
                 setMessages((prev) => [
@@ -449,12 +567,17 @@ export default function ParishAssistant() {
                     },
                 ]);
             } else {
+                const errorMsg = typeof result.error === 'string'
+                    ? result.error
+                    : (result.error && typeof result.error === 'object' && 'message' in (result.error as { message?: string })
+                        ? String((result.error as { message?: string }).message)
+                        : 'The selected slot could not be booked. Please select an alternative slot or change the date and time.');
                 setMessages((prev) => [
                     ...prev,
                     {
                         id: `assistant-fail-${Date.now()}`,
                         role: 'assistant',
-                        content: `⚠️ ${result.error || 'The selected slot could not be booked. Please select an alternative slot or change the date and time.'}`,
+                        content: `⚠️ ${errorMsg}`,
                     },
                 ]);
             }
@@ -477,6 +600,7 @@ export default function ParishAssistant() {
     // Booking Guide: Change details
     const handleChangeBooking = () => {
         if (!bookingDraft) return;
+        setAttachedDocuments(new Map());
         const resetDraft: BookingDraft = {
             ...bookingDraft,
             step: 'service',
@@ -498,6 +622,7 @@ export default function ParishAssistant() {
     // Booking Guide: Cancel
     const handleCancelBooking = useCallback(() => {
         setBookingDraft(null);
+        setAttachedDocuments(new Map());
         clearStoredBookingDraft();
         setBookingSuccessAppointmentId(null);
         setMessages((prev) => [
@@ -903,6 +1028,18 @@ export default function ParishAssistant() {
                             </div>
                         )}
 
+                        {/* Step 4.5: Document Upload Cards */}
+                        {bookingDraft?.step === 'documents' && (
+                            <DocumentUploadCards
+                                requirements={serviceRequirements}
+                                documents={attachedDocuments}
+                                onFileSelect={handleFileSelect}
+                                onFileRemove={handleFileRemove}
+                                onContinue={handleContinueFromDocuments}
+                                isLoading={loadingRequirements}
+                            />
+                        )}
+
                         {/* Step 5: Notes Selection / Skip Chip */}
                         {bookingDraft?.step === 'notes' && (
                             <div className="space-y-2 pt-1">
@@ -924,10 +1061,13 @@ export default function ParishAssistant() {
                         {bookingDraft?.step === 'summary' && (
                             <BookingSummaryCard
                                 draft={bookingDraft}
+                                requirements={serviceRequirements}
+                                attachedDocuments={attachedDocuments}
                                 isSubmitting={isBookingSubmitting}
                                 onConfirm={() => void handleConfirmBooking()}
                                 onChange={handleChangeBooking}
                                 onCancel={handleCancelBooking}
+                                onGoToDocuments={handleGoToDocuments}
                             />
                         )}
 

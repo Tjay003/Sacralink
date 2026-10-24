@@ -1,8 +1,13 @@
 import { checkParishSlot, evaluateParishPool } from './supabase/priestAvailability';
-import { createAppointmentWithDocuments, validateBookingSubmission, validateFutureDate } from './supabase/appointments';
+import {
+  createAppointmentWithDocuments,
+  validateBookingSubmission,
+  validateFutureDate,
+  type BookingRequirementLike,
+} from './supabase/appointments';
 import { formatDateDisplay, formatTimeDisplay, STANDARD_TIME_SLOTS } from './recommender';
 
-export type BookingStep = 'service' | 'date' | 'time' | 'priest' | 'notes' | 'summary' | 'confirmed';
+export type BookingStep = 'service' | 'date' | 'time' | 'priest' | 'documents' | 'notes' | 'summary' | 'confirmed';
 
 export interface BookingDraft {
   churchId: string;
@@ -17,6 +22,8 @@ export interface BookingDraft {
   requestedPriestId?: string | null;
   requestedPriestName?: string | null;
   priestWarning?: string | null;
+  hasRequirements?: boolean;
+  attachedRequirementIds?: string[];
   notes?: string;
   step: BookingStep;
 }
@@ -156,6 +163,8 @@ export interface SubmitBookingParams {
   draft: BookingDraft;
   userId: string;
   userName?: string;
+  documents?: Map<string, File> | Array<{ requirementId: string; file: File }>;
+  requirements?: BookingRequirementLike[];
 }
 
 export interface SubmitBookingResult {
@@ -166,13 +175,13 @@ export interface SubmitBookingResult {
 
 /**
  * Submits the confirmed booking draft through createAppointmentWithDocuments.
- * Validates future date, verifies slot availability, stores preference as requested_priest_id,
- * and notifies parish office admins.
+ * Validates future date, verifies slot availability, validates required documents,
+ * stores preference as requested_priest_id, and notifies parish office admins.
  */
 export async function submitConfirmedBooking(
   params: SubmitBookingParams
 ): Promise<SubmitBookingResult> {
-  const { draft, userId, userName } = params;
+  const { draft, userId, userName, documents, requirements } = params;
 
   if (!draft.churchId || !draft.serviceTypeName || !draft.date || !draft.time) {
     return { success: false, error: 'Incomplete booking details.' };
@@ -183,6 +192,8 @@ export async function submitConfirmedBooking(
     appointmentDate: draft.date,
     appointmentTime: draft.time,
     availability: true,
+    requirements,
+    documents,
   });
 
   if (!validation.ok) {
@@ -209,12 +220,18 @@ export async function submitConfirmedBooking(
     notes: draft.notes || null,
     userName: userName || 'A parishioner',
     requestedPriestId: draft.requestedPriestId || null,
+    documents,
   });
 
   if (error || !appointment) {
+    const errorMsg = error instanceof Error
+      ? error.message
+      : (error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: string }).message)
+        : (error ? String(error) : 'Failed to submit appointment booking. Please try again.'));
     return {
       success: false,
-      error: error?.message || 'Failed to submit appointment booking. Please try again.',
+      error: errorMsg,
     };
   }
 

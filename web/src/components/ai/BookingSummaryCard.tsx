@@ -1,21 +1,36 @@
-import { Calendar, Clock, User, FileText, Church, AlertTriangle, Check, Loader2, Edit3, X } from 'lucide-react';
+import { useMemo } from 'react';
+import { Calendar, Clock, User, FileText, Church, AlertTriangle, Check, Loader2, Edit3, X, Paperclip } from 'lucide-react';
 import type { BookingDraft } from '../../lib/bookingGuide';
+import { validateRequiredDocuments } from '../../lib/supabase/appointments';
+import type { Database } from '../../types/database';
+
+type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
 
 interface BookingSummaryCardProps {
   draft: BookingDraft;
+  requirements?: SacramentRequirement[];
+  attachedDocuments?: Map<string, File>;
   isSubmitting: boolean;
   onConfirm: () => void;
   onChange: () => void;
   onCancel: () => void;
+  onGoToDocuments?: () => void;
 }
 
 export default function BookingSummaryCard({
   draft,
+  requirements = [],
+  attachedDocuments,
   isSubmitting,
   onConfirm,
   onChange,
   onCancel,
+  onGoToDocuments,
 }: BookingSummaryCardProps) {
+  const docValidation = useMemo(() => {
+    return validateRequiredDocuments(requirements, attachedDocuments);
+  }, [requirements, attachedDocuments]);
+
   return (
     <div
       data-testid="booking-summary-card"
@@ -78,6 +93,20 @@ export default function BookingSummaryCard({
           </div>
         </div>
 
+        {requirements.length > 0 && (
+          <div className="flex items-start gap-2 pt-1.5">
+            <Paperclip className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <span className="text-muted block text-[11px]">Supporting Documents</span>
+              <span data-testid="summary-documents" className="font-medium text-foreground block">
+                {attachedDocuments && attachedDocuments.size > 0
+                  ? `${attachedDocuments.size} document${attachedDocuments.size > 1 ? 's' : ''} attached`
+                  : 'None attached'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-start gap-2 pt-1.5">
           <FileText className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -96,11 +125,33 @@ export default function BookingSummaryCard({
         </div>
       )}
 
+      {!docValidation.ok && (
+        <div
+          data-testid="missing-documents-warning"
+          className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-2.5 text-xs flex items-start gap-2"
+        >
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1">
+            <p className="font-semibold leading-snug">{docValidation.error}</p>
+            {onGoToDocuments && (
+              <button
+                type="button"
+                data-testid="summary-goto-documents-button"
+                onClick={onGoToDocuments}
+                className="text-primary font-medium underline text-[11px] block hover:text-primary-700"
+              >
+                Attach required documents
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="pt-2 space-y-2">
         <button
           type="button"
           data-testid="booking-confirm-button"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !docValidation.ok}
           onClick={onConfirm}
           className="w-full bg-primary hover:bg-primary-600 active:scale-[0.98] text-white font-semibold text-xs py-2.5 px-4 rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
         >
