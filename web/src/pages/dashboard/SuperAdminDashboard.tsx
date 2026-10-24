@@ -113,10 +113,12 @@ export default function SuperAdminDashboard() {
             {noticeBanner}
 
             {/* Super Admin Welcome & Operations Card */}
-            <div className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 overflow-hidden z-20">
-                {/* Ambient Faith Blue and Sacred Gold glows (2x richness) */}
-                <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative rounded-3xl bg-gradient-to-r from-blue-100/70 via-white/80 via-40% to-amber-100/80 border border-amber-200/60 shadow-sm p-6 sm:p-7 z-20">
+                {/* Ambient Faith Blue and Sacred Gold glows (2x richness), clipped on their own layer so the church dropdown can open past the card */}
+                <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                    <div className="absolute -top-14 -left-14 w-80 h-80 bg-blue-200/60 rounded-full blur-3xl" />
+                    <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl" />
+                </div>
 
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
                     {/* Left Column: Liturgical tag + Heading + Subtitle */}

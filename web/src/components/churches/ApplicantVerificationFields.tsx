@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { FileCheck, Lock, Upload, X } from 'lucide-react';
 import { APPLICANT_POSITIONS } from '../../lib/supabase/parishApplications';
 import { MAX_OTHER_POSITION_LENGTH, OTHER_POSITION, type ApplicantFormValue } from '../../lib/applicantForm';
+import { MOBILE_NUMBER_LENGTH, toMobileDigits } from '../../lib/phoneNumbers';
 
 interface UploadBoxProps {
   file: File | null;
@@ -141,10 +142,12 @@ export default function ApplicantVerificationFields({ value, onChange, disabled 
           </label>
           <input
             type="tel"
+            inputMode="numeric"
             value={value.phone}
-            onChange={(e) => update({ phone: e.target.value })}
+            onChange={(e) => update({ phone: toMobileDigits(e.target.value) })}
+            maxLength={MOBILE_NUMBER_LENGTH}
             className="input w-full"
-            placeholder="e.g., 0917 123 4567"
+            placeholder="e.g., 09171234567"
             disabled={disabled}
           />
         </div>

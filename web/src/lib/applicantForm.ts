@@ -1,5 +1,7 @@
 // Applicant details on the parish application form: shape, empty value and validation.
 
+import { isMobileNumber, MOBILE_NUMBER_HINT } from './phoneNumbers';
+
 export interface ApplicantFormValue {
   legalName: string;
   position: string;
@@ -39,6 +41,7 @@ export function validateApplicantForm(value: ApplicantFormValue): string | null 
   if (!value.position) return 'Please choose your position in the parish';
   if (value.position === OTHER_POSITION && !value.otherPosition.trim()) return 'Please type your exact title in the parish';
   if (!value.phone.trim()) return 'Please provide your mobile number';
+  if (!isMobileNumber(value.phone.trim())) return `Mobile number must be ${MOBILE_NUMBER_HINT}`;
   return validateFile(value.idFile, 'Government-issued photo ID', true) ?? validateFile(value.selfieFile, 'Selfie holding your ID', false);
 }
 

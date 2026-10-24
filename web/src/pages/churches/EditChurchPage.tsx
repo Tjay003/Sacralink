@@ -26,6 +26,7 @@ import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker
 import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDocumentsManager';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
+import { isMobileNumber, MOBILE_NUMBER_HINT, MOBILE_NUMBER_LENGTH, toMobileDigits } from '../../lib/phoneNumbers';
 
 type ChurchStatus = 'verified_active' | 'unverified' | 'inactive' | 'active';
 
@@ -264,6 +265,15 @@ export default function EditChurchPage() {
             return;
         }
 
+        // Older saved numbers may hold dashes or spaces ("0917-123-4567"); compare and save them as digits
+        const gcash = toMobileDigits(formData.gcash_number);
+        const maya = toMobileDigits(formData.maya_number);
+        if ((gcash && !isMobileNumber(gcash)) || (maya && !isMobileNumber(maya))) {
+            setError(`GCash and Maya numbers must be ${MOBILE_NUMBER_HINT}.`);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
         if (!id) return;
 
         setLoading(true);
@@ -288,8 +298,8 @@ export default function EditChurchPage() {
                     livestream_platform: formData.livestream_platform,
                     is_live: formData.is_live,
                     facebook_url: formData.facebook_url.trim() || null,
-                    gcash_number: formData.gcash_number.trim() || null,
-                    maya_number: formData.maya_number.trim() || null,
+                    gcash_number: gcash || null,
+                    maya_number: maya || null,
                     gcash_qr_url: formData.gcash_qr_url.trim() || null,
                     maya_qr_url: formData.maya_qr_url.trim() || null,
                     featured_image_url: formData.featured_image_url?.trim() || null,
@@ -718,12 +728,14 @@ export default function EditChurchPage() {
                                             GCash Account Number
                                         </label>
                                         <input
-                                            type="text"
+                                            type="tel"
+                                            inputMode="numeric"
                                             value={formData.gcash_number}
-                                            onChange={(e) => setFormData({ ...formData, gcash_number: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, gcash_number: toMobileDigits(e.target.value) })}
+                                            maxLength={MOBILE_NUMBER_LENGTH}
                                             disabled={loading}
                                             className="input w-full text-xs font-mono"
-                                            placeholder="e.g., 0917-123-4567"
+                                            placeholder="e.g., 09171234567"
                                         />
                                     </div>
 
@@ -778,12 +790,14 @@ export default function EditChurchPage() {
                                             Maya Account Number
                                         </label>
                                         <input
-                                            type="text"
+                                            type="tel"
+                                            inputMode="numeric"
                                             value={formData.maya_number}
-                                            onChange={(e) => setFormData({ ...formData, maya_number: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, maya_number: toMobileDigits(e.target.value) })}
+                                            maxLength={MOBILE_NUMBER_LENGTH}
                                             disabled={loading}
                                             className="input w-full text-xs font-mono"
-                                            placeholder="e.g., 0917-987-6543"
+                                            placeholder="e.g., 09179876543"
                                         />
                                     </div>
 

@@ -18,6 +18,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
 import ApplicantVerificationFields from '../../components/churches/ApplicantVerificationFields';
 import {
+  isMobileNumber,
+  MAX_LANDLINE_LENGTH,
+  MOBILE_NUMBER_HINT,
+  MOBILE_NUMBER_LENGTH,
+  toLandlineChars,
+  toMobileDigits,
+} from '../../lib/phoneNumbers';
+import {
   EMPTY_APPLICANT_FORM,
   applicantPositionLabel,
   validateApplicantForm,
@@ -165,6 +173,15 @@ export default function ApplyParishPage() {
     const decreeErr = validateFile(decreeFile, 'Appointment Decree');
     if (decreeErr) {
       setError(decreeErr);
+      return;
+    }
+
+    if (gcashNumber && !isMobileNumber(gcashNumber)) {
+      setError(`GCash number must be ${MOBILE_NUMBER_HINT}`);
+      return;
+    }
+    if (mayaNumber && !isMobileNumber(mayaNumber)) {
+      setError(`Maya number must be ${MOBILE_NUMBER_HINT}`);
       return;
     }
 
@@ -476,9 +493,11 @@ export default function ApplyParishPage() {
                 Rectory / Office Landline <span className="text-muted text-xs font-normal">(For verification phone call)</span>
               </label>
               <input
-                type="text"
+                type="tel"
+                inputMode="tel"
                 value={contactNumber}
-                onChange={(e) => setContactNumber(e.target.value)}
+                onChange={(e) => setContactNumber(toLandlineChars(e.target.value))}
+                maxLength={MAX_LANDLINE_LENGTH}
                 className="input w-full"
                 placeholder="e.g., (044) 123-4567 or 0917-xxx-xxxx"
                 disabled={submitting}
@@ -564,9 +583,11 @@ export default function ApplyParishPage() {
                 GCash Registered Number <span className="text-muted text-xs font-normal">(Optional)</span>
               </label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 value={gcashNumber}
-                onChange={(e) => setGcashNumber(e.target.value)}
+                onChange={(e) => setGcashNumber(toMobileDigits(e.target.value))}
+                maxLength={MOBILE_NUMBER_LENGTH}
                 className="input w-full"
                 placeholder="e.g., 09171234567"
                 disabled={submitting}
@@ -579,9 +600,11 @@ export default function ApplyParishPage() {
                 Maya Registered Number <span className="text-muted text-xs font-normal">(Optional)</span>
               </label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 value={mayaNumber}
-                onChange={(e) => setMayaNumber(e.target.value)}
+                onChange={(e) => setMayaNumber(toMobileDigits(e.target.value))}
+                maxLength={MOBILE_NUMBER_LENGTH}
                 className="input w-full"
                 placeholder="e.g., 09181234567"
                 disabled={submitting}
