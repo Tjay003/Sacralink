@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers } from 'lucide-react';
+import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTicket } from '../../lib/supabase/messaging';
@@ -75,6 +75,7 @@ export default function ParishAssistant() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'chat' | 'inspector'>('chat');
+    const [isMaximized, setIsMaximized] = useState(false);
     const [churches, setChurches] = useState<ChurchOption[]>([]);
     const [activeChurchId, setActiveChurchId] = useState<string | null>(null);
     const [showChurchPicker, setShowChurchPicker] = useState(false);
@@ -801,6 +802,12 @@ export default function ParishAssistant() {
             const trimmed = questionText.trim();
             if (!trimmed || isLoading || isBookingSubmitting || isTicketSubmitting) return;
 
+            // If previous booking was confirmed, automatically dismiss the confirmation card when new question is asked
+            if (bookingDraft?.step === 'confirmed') {
+                setBookingDraft(null);
+                clearStoredBookingDraft();
+            }
+
             // If user explicitly asks to cancel mid-booking
             if (bookingDraft && /^(?:cancel|stop|quit)$/i.test(trimmed)) {
                 handleCancelBooking();
@@ -1069,10 +1076,10 @@ export default function ParishAssistant() {
                 <button
                     data-testid="parish-assistant-button"
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-primary hover:bg-primary-600 text-white px-4 py-3 rounded-full shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-primary/20"
+                    className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-primary via-primary-600 to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white px-5 py-3.5 rounded-full shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/35 border border-white/20 transition-all duration-300 hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-primary/20 backdrop-blur-sm"
                     aria-label="Open AI Parish Assistant"
                 >
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-white/20 p-0.5 flex items-center justify-center">
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-white/20 p-0.5 flex items-center justify-center ring-1 ring-white/40 shadow-xs">
                         <img src={chatbotIcon} alt="AI" className="w-full h-full object-cover rounded-full" />
                     </div>
                     <span className="font-semibold text-sm tracking-tight pr-1">Parish Assistant</span>
@@ -1084,12 +1091,19 @@ export default function ParishAssistant() {
             {isOpen && (
                 <div
                     data-testid="parish-assistant-panel"
-                    className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[410px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-5rem)] flex flex-col bg-white border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+                    className={`fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+                        isMaximized
+                            ? 'w-[calc(100vw-1.5rem)] sm:w-[860px] md:w-[940px] lg:w-[1040px] h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-3rem)]'
+                            : 'w-[calc(100vw-1.5rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] h-[640px] sm:h-[680px] max-h-[calc(100vh-3rem)]'
+                    }`}
                 >
+                    {/* Sacred Gold & Faith Blue Top Ribbon */}
+                    <div className="h-1.5 w-full bg-gradient-to-r from-primary via-amber-400 to-primary shrink-0" />
+
                     {/* Header */}
-                    <div className="bg-white border-b border-border px-4 py-3 flex items-center justify-between gap-2 shadow-xs">
+                    <div className="bg-white/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center justify-between gap-2 shadow-2xs shrink-0">
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-200 bg-amber-50 p-0.5 flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-300/80 bg-amber-50 p-0.5 flex-shrink-0 shadow-xs ring-2 ring-amber-400/20">
                                 <img
                                     src={chatbotIcon}
                                     alt="Parish Assistant"
@@ -1098,11 +1112,12 @@ export default function ParishAssistant() {
                             </div>
                             <div className="min-w-0 flex flex-col">
                                 <div className="flex items-center gap-1.5">
-                                    <h2 className="text-sm font-bold text-foreground truncate">
+                                    <h2 className="text-sm font-bold text-foreground truncate tracking-tight">
                                         Parish Assistant
                                     </h2>
-                                    <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200">
-                                        AI
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Live AI
                                     </span>
                                 </div>
 
@@ -1111,14 +1126,14 @@ export default function ParishAssistant() {
                                     <button
                                         data-testid="parish-assistant-church-chip"
                                         onClick={() => setShowChurchPicker(!showChurchPicker)}
-                                        className="text-[11px] text-muted hover:text-foreground flex items-center gap-1 truncate font-medium hover:underline text-left"
+                                        className="text-[11px] text-muted hover:text-foreground flex items-center gap-1 truncate font-medium hover:underline text-left mt-0.5"
                                         title="Switch parish"
                                     >
                                         <Church className="w-3 h-3 text-primary flex-shrink-0" />
-                                        <span className="truncate max-w-[170px] sm:max-w-[200px]">
+                                        <span className="truncate max-w-[190px] sm:max-w-[240px]">
                                             {activeChurch?.name || 'Select Parish'}
                                         </span>
-                                        <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                                        <ChevronDown className="w-3 h-3 flex-shrink-0 text-muted" />
                                     </button>
 
                                     {/* Church Picker Dropdown */}
@@ -1128,7 +1143,7 @@ export default function ParishAssistant() {
                                                 className="fixed inset-0 z-10"
                                                 onClick={() => setShowChurchPicker(false)}
                                             />
-                                            <div className="absolute left-0 top-full mt-1.5 w-64 max-h-48 overflow-y-auto bg-white border border-border rounded-xl shadow-xl py-1 z-20">
+                                            <div className="absolute left-0 top-full mt-1.5 w-68 max-h-56 overflow-y-auto bg-white border border-border rounded-xl shadow-xl py-1 z-20">
                                                 <div className="px-3 py-1.5 text-[10px] font-semibold text-muted uppercase tracking-wider border-b border-border">
                                                     Select Active Parish
                                                 </div>
@@ -1141,7 +1156,7 @@ export default function ParishAssistant() {
                                                         <button
                                                             key={c.id}
                                                             onClick={() => handleSelectChurchFromChip(c)}
-                                                            className={`w-full text-left px-3 py-1.5 text-xs truncate transition-colors ${
+                                                            className={`w-full text-left px-3 py-2 text-xs truncate transition-colors ${
                                                                 c.id === activeChurchId
                                                                     ? 'bg-primary/10 text-primary font-semibold'
                                                                     : 'text-foreground hover:bg-secondary-50'
@@ -1176,9 +1191,19 @@ export default function ParishAssistant() {
                                 <ALargeSmall className="w-4 h-4" />
                             </button>
                             <button
+                                type="button"
+                                data-testid="parish-assistant-maximize-toggle"
+                                onClick={() => setIsMaximized((prev) => !prev)}
+                                aria-label={isMaximized ? 'Restore size' : 'Maximize assistant'}
+                                title={isMaximized ? 'Restore normal view' : 'Maximize view'}
+                                className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 transition-colors hidden sm:flex items-center justify-center"
+                            >
+                                {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                            </button>
+                            <button
                                 data-testid="parish-assistant-close"
                                 onClick={handleCloseAssistant}
-                                className="text-muted hover:text-foreground p-1.5 rounded-lg hover:bg-secondary-100 transition-colors"
+                                className="text-muted hover:text-foreground p-1.5 rounded-lg hover:bg-secondary-100 transition-colors flex items-center justify-center"
                                 aria-label="Close assistant"
                             >
                                 <X className="w-4 h-4" />
@@ -1397,6 +1422,38 @@ export default function ParishAssistant() {
                         {/* Live Guided Booking Chips & Cards                            */}
                         {/* ============================================================ */}
 
+                        {/* Mid-Booking Progress & Cancel Action Bar */}
+                        {bookingDraft && ['service', 'date', 'time', 'priest', 'documents', 'notes'].includes(bookingDraft.step) && (
+                            <div className="flex items-center justify-between gap-2 px-3.5 py-2 mb-2 bg-amber-50/90 border border-amber-200/90 rounded-xl shadow-2xs text-xs animate-in fade-in duration-150">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                                    <div className="flex items-center gap-1.5 truncate">
+                                        <span className="font-semibold text-amber-950 truncate">
+                                            Booking: {bookingDraft.serviceTypeName || 'Sacrament'}
+                                        </span>
+                                        <span className="text-[10px] bg-amber-200/70 text-amber-900 font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                                            {bookingDraft.step === 'service' && 'Step 1/6'}
+                                            {bookingDraft.step === 'date' && 'Step 2/6'}
+                                            {bookingDraft.step === 'time' && 'Step 3/6'}
+                                            {bookingDraft.step === 'priest' && 'Step 4/6'}
+                                            {bookingDraft.step === 'documents' && 'Step 5/6'}
+                                            {bookingDraft.step === 'notes' && 'Step 6/6'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    data-testid="cancel-booking-midway"
+                                    onClick={handleCancelBooking}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:text-red-700 hover:bg-amber-100 rounded-lg border border-amber-300/80 transition-colors shrink-0"
+                                    title="Cancel sacrament booking and exit"
+                                >
+                                    <X className="w-3.5 h-3.5 text-amber-700 hover:text-red-600" />
+                                    <span>Cancel</span>
+                                </button>
+                            </div>
+                        )}
+
                         {/* Step 1: Service Selection Chips */}
                         {bookingDraft?.step === 'service' && (
                             <div className="space-y-1.5 pt-1">
@@ -1595,16 +1652,31 @@ export default function ParishAssistant() {
                         {bookingDraft?.step === 'confirmed' && (
                             <div
                                 data-testid="booking-success-card"
-                                className="card bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-xs space-y-2.5 my-2"
+                                className="card bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-xs space-y-2.5 my-2 animate-in fade-in duration-200"
                             >
-                                <div className="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
-                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                    <span>Booking Confirmed</span>
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                                        <span>Booking Confirmed</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        data-testid="dismiss-booking-success"
+                                        onClick={() => {
+                                            setBookingDraft(null);
+                                            clearStoredBookingDraft();
+                                        }}
+                                        className="text-emerald-700/70 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-100/70 transition-colors"
+                                        aria-label="Dismiss booking confirmation card"
+                                        title="Dismiss card"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
                                 <p className="text-xs text-emerald-700 leading-relaxed">
                                     Your request has been submitted to <strong>{bookingDraft.churchName}</strong> and is currently <strong>Pending Review</strong>.
                                 </p>
-                                <div className="pt-1">
+                                <div className="pt-1 flex items-center justify-between gap-2">
                                     <button
                                         type="button"
                                         data-testid="view-appointment-link"
@@ -1621,6 +1693,16 @@ export default function ParishAssistant() {
                                     >
                                         <span>View My Appointments</span>
                                         <ArrowRight className={isLargeText ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setBookingDraft(null);
+                                            clearStoredBookingDraft();
+                                        }}
+                                        className="text-xs text-emerald-800 hover:text-emerald-950 hover:underline font-medium"
+                                    >
+                                        Dismiss
                                     </button>
                                 </div>
                             </div>
@@ -1688,19 +1770,25 @@ export default function ParishAssistant() {
 
                     {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
                     {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (
-                        <div className={`px-3 pt-2 pb-1 bg-white border-t border-border/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar ${
-                            isLargeText ? 'py-2.5' : ''
+                        <div className={`px-3.5 pt-2.5 pb-1.5 bg-white border-t border-border/60 flex items-center gap-2 overflow-x-auto no-scrollbar ${
+                            isLargeText ? 'py-3' : ''
                         }`}>
                             {STARTER_CHIPS.map((chip) => (
                                 <button
                                     key={chip}
                                     data-testid={`starter-chip-${chip.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-                                    onClick={() => void handleSendMessage(chip)}
+                                    onClick={() => {
+                                        if (bookingDraft?.step === 'confirmed') {
+                                            setBookingDraft(null);
+                                            clearStoredBookingDraft();
+                                        }
+                                        void handleSendMessage(chip);
+                                    }}
                                     disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
-                                    className={`whitespace-nowrap font-medium rounded-full border border-border transition-all active:scale-95 disabled:opacity-50 ${
+                                    className={`whitespace-nowrap font-medium rounded-full border border-border/80 transition-all active:scale-95 disabled:opacity-50 shadow-2xs hover:shadow-xs ${
                                         isLargeText
-                                            ? 'min-h-[56px] text-base px-4 py-3 bg-secondary-100 hover:bg-secondary-200 text-secondary-900 flex items-center justify-center'
-                                            : 'text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 px-3 py-1.5'
+                                            ? 'min-h-[56px] text-base px-5 py-3 bg-secondary-50 hover:bg-primary/10 hover:border-primary/40 text-secondary-900 flex items-center justify-center'
+                                            : 'text-xs bg-secondary-50/80 hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-secondary-800 px-3.5 py-1.5'
                                     }`}
                                 >
                                     {chip}
