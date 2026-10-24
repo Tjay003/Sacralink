@@ -150,7 +150,7 @@ test.describe('Ticket 02: Knowledge Base Page Linter & Confirmation Modal E2E', 
     // 8. Test Edit mode warning box & confirmation flow
     // Find section row and click Edit (Pencil button)
     const sectionRow = page.locator('div', { hasText: TEST_TITLE }).first();
-    const editBtn = sectionRow.locator('button[title="Edit section"]');
+    const editBtn = sectionRow.locator('button[title="Edit section"]').first();
     await editBtn.click();
 
     // Edit content with a new fee pattern

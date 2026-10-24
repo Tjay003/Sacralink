@@ -745,6 +745,129 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json().catch(() => ({}));
+
+    // AI Scribe Action for Knowledge Base Polishing
+    if (body.action === 'polish_knowledge') {
+      const { title = '', content = '', churchName = '' } = body;
+      if (!content || typeof content !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'content string is required for polishing' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || 'mock-key';
+      const rawBaseUrl =
+        Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
+      const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
+
+      const GEMINI_CHAT_MODELS = Deno.env.get('GEMINI_CHAT_MODELS')
+        ? Deno.env.get('GEMINI_CHAT_MODELS')!
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        : ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+
+      const geminiHeaders: Record<string, string> = {};
+      const testSimulateQuota = req.headers.get('x-test-simulate-quota');
+      if (testSimulateQuota) {
+        geminiHeaders['x-test-simulate-quota'] = testSimulateQuota;
+      }
+
+      const polishSystemInstruction = `You are a Catholic parish pastoral communications director in the Philippines.
+Your mission is to transform raw admin notes, shorthand notes, and rough bullet points into warm, welcoming, reverent, and clear parish guidelines and policies for Catholic parishioners.
+Context:
+Parish/Church Name: ${churchName || 'Catholic Parish'}
+Title: ${title || 'Parish Guidelines'}
+
+RULES:
+1. Tone: Warm, welcoming, reverent, respectful, and clear pastoral tone.
+2. Faithfulness: Preserve all factual rules, timeframes, document requirements, and restrictions faithfully. Never invent new obligations, fees, or requirements.
+3. Formatting: Format with clear markdown headings (###, ####), bulleted lists, and respectful language.
+4. Output Requirement: Return ONLY a valid JSON object with keys "polishedTitle" and "polishedContent". No other commentary.
+Format:
+{
+  "polishedTitle": "<refined title>",
+  "polishedContent": "<refined pastoral markdown content>"
+}`;
+
+      const polishUserPrompt = `Please polish the following parish policy notes into dignified Catholic parish guidelines:
+
+Draft Title: ${title || 'Untitled'}
+Draft Content:
+${content}
+
+Return ONLY valid JSON matching:
+{
+  "polishedTitle": "...",
+  "polishedContent": "..."
+}`;
+
+      let polishedTitle = title ? title.trim() : 'Parish Guidelines';
+      let polishedContent = '';
+      let geminiSuccess = false;
+
+      for (const model of GEMINI_CHAT_MODELS) {
+        try {
+          const endpoint = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+          const response = await postToGemini(endpoint, {
+            system_instruction: { parts: [{ text: polishSystemInstruction }] },
+            contents: [{ role: 'user', parts: [{ text: polishUserPrompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 1200,
+            },
+          }, geminiHeaders);
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const respData = await response.json();
+          const candidateText = respData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (candidateText) {
+            try {
+              const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+              const parsed = JSON.parse(cleanJson);
+              if (parsed.polishedContent) {
+                polishedTitle = parsed.polishedTitle || title || 'Parish Guidelines';
+                polishedContent = parsed.polishedContent;
+                geminiSuccess = true;
+                break;
+              }
+            } catch {
+              polishedContent = candidateText;
+              geminiSuccess = true;
+              break;
+            }
+          }
+        } catch {
+          // Model error, continue to next model
+        }
+      }
+
+      if (!geminiSuccess || !polishedContent) {
+        // Fallback cleanup
+        polishedTitle = title ? title.trim() : 'Parish Guidelines';
+        const lines = content.split('\n').map((l: string) => l.trim()).filter(Boolean);
+        const bullets = lines.map((l: string) => {
+          const stripped = l.replace(/^[-*•\d.]\s*/, '').trim();
+          return `• ${stripped.charAt(0).toUpperCase() + stripped.slice(1)}`;
+        }).join('\n');
+
+        polishedContent = `### Liturgical Decorum & Guidelines\n\nTo preserve the sacredness of our parish celebrations and ensure a prayerful experience for all worshippers, we kindly invite all parishioners to observe the following pastoral guidelines:\n\n${bullets || '• Please observe all standard parish guidelines and liturgical decorum.'}\n\n*For further inquiries, sacramental verification, or pastoral guidance, please visit or contact the parish office.*`;
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          polishedTitle,
+          polishedContent,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { message, churchId, conversationHistory, simulateQuota, bookingDraft } = body;
 
     if (!message || typeof message !== 'string') {

@@ -80,6 +80,57 @@ const server = http.createServer(async (req, res) => {
       const lastUserTurn = [...contents].reverse().find((c) => c.role === 'user');
       const lastUserText = lastUserTurn?.parts?.map((p) => p.text || '').join(' ') || userText;
 
+      // Polish Knowledge / AI Scribe request
+      const isPolishRequest =
+        systemText.includes('pastoral communications director') ||
+        /polish the following/i.test(userText) ||
+        /AI Scribe/i.test(systemText);
+
+      if (isPolishRequest) {
+        const titleMatch = userText.match(/Draft Title:\s*([^\r\n]+)/i);
+        const contentMatch = userText.match(/Draft Content:\s*([\s\S]+?)(?:Return ONLY|$)/i);
+        const draftTitle = titleMatch ? titleMatch[1].trim() : 'Parish Guidelines';
+        const draftContent = contentMatch ? contentMatch[1].trim() : userText;
+
+        let polishedTitle = draftTitle;
+        if (draftTitle.toLowerCase().includes('dress') || draftContent.toLowerCase().includes('dress') || draftContent.toLowerCase().includes('sleeveless') || draftContent.toLowerCase().includes('sumbrero')) {
+          polishedTitle = 'Church Dress Code & Liturgical Decorum';
+        } else if (draftTitle.toLowerCase().includes('baptism') || draftContent.toLowerCase().includes('binyag')) {
+          polishedTitle = 'Holy Baptism Requirements & Godparent Guidelines';
+        } else if (draftTitle.toLowerCase().includes('wedding') || draftContent.toLowerCase().includes('kasal')) {
+          polishedTitle = 'Wedding Requirements & Document Timeline';
+        }
+
+        const lines = draftContent
+          .split('\n')
+          .map((l) => l.trim().replace(/^[-*•\d.]\s*/, ''))
+          .filter(Boolean);
+
+        const bullets = lines.length > 0
+          ? lines.map((l) => `• ${l.charAt(0).toUpperCase() + l.slice(1)}`).join('\n')
+          : '• Please observe reverent liturgical decorum and pastoral guidance.';
+
+        const polishedPayload = {
+          polishedTitle,
+          polishedContent: `### Liturgical Decorum & Parish Policy\n\nTo preserve the sanctity of our church and foster a prayerful environment for all worshippers, our parish kindly requests your faithful cooperation with the following guidelines:\n\n${bullets}\n\n*We thank you for your understanding and reverence in the House of God.*`,
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: JSON.stringify(polishedPayload) }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
       // Check if there is a functionResponse in any turn
       let functionResponsePart = null;
       for (const turn of contents) {

@@ -16,11 +16,16 @@ import {
     Bot,
     Clock,
     AlertTriangle,
+    Sparkles,
+    Check,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import Modal from '../../components/ui/Modal';
 import { lintKnowledgeSection } from '../../utils/knowledgeLinter';
+import { STARTER_FAQ_TEMPLATES } from '../../config/starterFaqTemplates';
+import { polishKnowledgeContent } from '../../lib/supabase/aiScribe';
 
 interface KnowledgeSection {
     id: string;
@@ -38,6 +43,7 @@ export default function KnowledgeBasePage() {
     const churchId = (profile as any)?.church_id ?? (profile as any)?.assigned_church_id ?? null;
     const canEdit = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
+    const [churchName, setChurchName] = useState<string>('');
     const [sections, setSections] = useState<KnowledgeSection[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -49,6 +55,34 @@ export default function KnowledgeBasePage() {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
+
+    // AI Scribe & Polish state
+    const [isPolishing, setIsPolishing] = useState(false);
+    const [showPolishReviewModal, setShowPolishReviewModal] = useState(false);
+    const [polishedCandidate, setPolishedCandidate] = useState<{ title: string; content: string } | null>(null);
+    const [polishedNotice, setPolishedNotice] = useState(false);
+
+    // Starter FAQ Templates Modal state
+    const [showStarterTemplatesModal, setShowStarterTemplatesModal] = useState(false);
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(
+        new Set(STARTER_FAQ_TEMPLATES.map(t => t.id))
+    );
+    const [bulkInserting, setBulkInserting] = useState(false);
+    const [previewingTemplateId, setPreviewingTemplateId] = useState<string | null>(null);
+
+    // Fetch Church Name for AI context
+    useEffect(() => {
+        if (!churchId) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any)
+            .from('churches')
+            .select('name')
+            .eq('id', churchId)
+            .maybeSingle()
+            .then(({ data }: { data: { name: string } | null }) => {
+                if (data?.name) setChurchName(data.name);
+            });
+    }, [churchId]);
 
     // Real-time SSOT discrepancy linter
     const lintResult = useMemo(
@@ -218,6 +252,68 @@ export default function KnowledgeBasePage() {
         await handleSync(true);
     };
 
+    // Polish with AI
+    const handlePolishWithAI = async () => {
+        if (!formContent.trim() || formContent.trim().length < 10 || isPolishing) return;
+        setIsPolishing(true);
+        try {
+            const result = await polishKnowledgeContent(formTitle, formContent, churchName);
+            setPolishedCandidate({
+                title: result.polishedTitle,
+                content: result.polishedContent,
+            });
+            setShowPolishReviewModal(true);
+        } catch (err) {
+            console.error('Failed to polish content:', err);
+        } finally {
+            setIsPolishing(false);
+        }
+    };
+
+    const handleApplyPolishedVersion = () => {
+        if (!polishedCandidate) return;
+        setFormTitle(polishedCandidate.title);
+        setFormContent(polishedCandidate.content);
+        setShowPolishReviewModal(false);
+        setPolishedCandidate(null);
+        setPolishedNotice(true);
+        setTimeout(() => setPolishedNotice(false), 4000);
+    };
+
+    // Bulk create starter templates
+    const handleCreateSelectedTemplates = async () => {
+        if (!churchId || !profile || selectedTemplateIds.size === 0 || bulkInserting) return;
+        setBulkInserting(true);
+        try {
+            const templatesToInsert = STARTER_FAQ_TEMPLATES.filter(t => selectedTemplateIds.has(t.id));
+            const currentMaxOrder = sections.length > 0 ? Math.max(...sections.map(s => s.display_order)) : -1;
+
+            const rows = templatesToInsert.map((t, idx) => ({
+                church_id: churchId,
+                title: t.title,
+                content: t.content,
+                display_order: currentMaxOrder + 1 + idx,
+                created_by: profile.id,
+            }));
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await (supabase as any)
+                .from('church_knowledge_sections')
+                .insert(rows);
+
+            if (error) throw error;
+
+            setShowStarterTemplatesModal(false);
+            await fetchSections();
+            await handleSync(true);
+        } catch (err) {
+            console.error('Failed to insert starter templates:', err);
+            alert('Failed to insert templates. Please try again.');
+        } finally {
+            setBulkInserting(false);
+        }
+    };
+
     const charCount = (text: string) => {
         if (text.length < 1000) return `${text.length} chars`;
         return `${(text.length / 1000).toFixed(1)}k chars`;
@@ -272,14 +368,24 @@ export default function KnowledgeBasePage() {
 
                 <div className="flex items-center gap-3 flex-wrap">
                     {canEdit && (
-                        <button
-                            onClick={openNew}
-                            disabled={editingId !== null}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary-100 text-secondary-800 text-sm font-medium hover:bg-secondary-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Add Section
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setShowStarterTemplatesModal(true)}
+                                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-sm font-medium hover:bg-amber-100 transition-all shadow-xs"
+                                title="Browse pre-crafted parish policy templates"
+                            >
+                                <Sparkles className="w-4 h-4 text-amber-600" />
+                                Starter Templates
+                            </button>
+                            <button
+                                onClick={openNew}
+                                disabled={editingId !== null}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary-100 text-secondary-800 text-sm font-medium hover:bg-secondary-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Section
+                            </button>
+                        </>
                     )}
                     <button
                         onClick={() => handleSync()}
@@ -334,10 +440,58 @@ export default function KnowledgeBasePage() {
             {/* New Section Form */}
             {editingId === 'new' && (
                 <div className="bg-white border-2 border-primary/30 rounded-xl p-5 shadow-sm space-y-4">
-                    <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        <Plus className="w-4 h-4 text-primary" />
-                        New Knowledge Section
-                    </h2>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <Plus className="w-4 h-4 text-primary" />
+                            New Knowledge Section
+                        </h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {polishedNotice && (
+                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ✨ Polished with AI!
+                                </span>
+                            )}
+                            <select
+                                onChange={(e) => {
+                                    const tmpl = STARTER_FAQ_TEMPLATES.find(t => t.id === e.target.value);
+                                    if (tmpl) {
+                                        setFormTitle(tmpl.title);
+                                        setFormContent(tmpl.content);
+                                    }
+                                    e.target.value = '';
+                                }}
+                                defaultValue=""
+                                className="text-xs border border-secondary-200 rounded-lg px-2.5 py-1.5 bg-white text-secondary-700 hover:bg-secondary-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                                title="Load a pre-crafted template"
+                            >
+                                <option value="" disabled>✨ Insert Template...</option>
+                                {STARTER_FAQ_TEMPLATES.map(t => (
+                                    <option key={t.id} value={t.id}>{t.title}</option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={handlePolishWithAI}
+                                disabled={isPolishing || formContent.trim().length < 10}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                                title={formContent.trim().length < 10 ? 'Type at least 10 characters to polish' : 'Polish draft with AI Scribe'}
+                            >
+                                {isPolishing ? (
+                                    <>
+                                        <div className="w-3 h-3 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" />
+                                        <span>Polishing...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                        <span>✨ Polish with AI</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
                     <input
                         type="text"
                         placeholder="Section title (e.g. Parish History, FAQs, Office Hours)"
@@ -410,14 +564,27 @@ export default function KnowledgeBasePage() {
                     <p className="text-sm text-muted">Loading knowledge base...</p>
                 </div>
             ) : sections.length === 0 && editingId !== 'new' ? (
-                <div className="text-center py-16 bg-secondary-50 rounded-xl border border-dashed border-secondary-200">
-                    <BookOpen className="w-10 h-10 text-muted mx-auto mb-3 opacity-50" />
-                    <p className="text-sm font-medium text-foreground mb-1">No knowledge sections yet</p>
-                    <p className="text-xs text-muted mb-4">Add your first section to teach the AI about your parish.</p>
-                    <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all mx-auto">
-                        <Plus className="w-4 h-4" />
-                        Add First Section
-                    </button>
+                <div className="text-center py-16 bg-secondary-50 rounded-xl border border-dashed border-secondary-200 p-6 space-y-4">
+                    <BookOpen className="w-10 h-10 text-muted mx-auto mb-1 opacity-50" />
+                    <div>
+                        <p className="text-sm font-medium text-foreground mb-1">No knowledge sections yet</p>
+                        <p className="text-xs text-muted max-w-md mx-auto">
+                            Add policies or choose from pre-crafted Catholic parish templates so the AI knows how to answer parishioner questions.
+                        </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 flex-wrap pt-2">
+                        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary-100 text-secondary-800 text-sm font-medium hover:bg-secondary-200 transition-all">
+                            <Plus className="w-4 h-4" />
+                            Add First Section
+                        </button>
+                        <button
+                            onClick={() => setShowStarterTemplatesModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-all shadow-xs"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            Generate Starter FAQs
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -426,10 +593,58 @@ export default function KnowledgeBasePage() {
                             {editingId === section.id ? (
                                 /* Edit Mode */
                                 <div className="p-5 space-y-4">
-                                    <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                        <Pencil className="w-4 h-4 text-primary" />
-                                        Editing Section
-                                    </h2>
+                                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                                        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                            <Pencil className="w-4 h-4 text-primary" />
+                                            Editing Section
+                                        </h2>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {polishedNotice && (
+                                                <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
+                                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                                    ✨ Polished with AI!
+                                                </span>
+                                            )}
+                                            <select
+                                                onChange={(e) => {
+                                                    const tmpl = STARTER_FAQ_TEMPLATES.find(t => t.id === e.target.value);
+                                                    if (tmpl) {
+                                                        setFormTitle(tmpl.title);
+                                                        setFormContent(tmpl.content);
+                                                    }
+                                                    e.target.value = '';
+                                                }}
+                                                defaultValue=""
+                                                className="text-xs border border-secondary-200 rounded-lg px-2.5 py-1.5 bg-white text-secondary-700 hover:bg-secondary-50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                                                title="Load a pre-crafted template"
+                                            >
+                                                <option value="" disabled>✨ Insert Template...</option>
+                                                {STARTER_FAQ_TEMPLATES.map(t => (
+                                                    <option key={t.id} value={t.id}>{t.title}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={handlePolishWithAI}
+                                                disabled={isPolishing || formContent.trim().length < 10}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                                                title={formContent.trim().length < 10 ? 'Type at least 10 characters to polish' : 'Polish draft with AI Scribe'}
+                                            >
+                                                {isPolishing ? (
+                                                    <>
+                                                        <div className="w-3 h-3 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" />
+                                                        <span>Polishing...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                                        <span>✨ Polish with AI</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <input
                                         type="text"
                                         value={formTitle}
@@ -569,6 +784,236 @@ export default function KnowledgeBasePage() {
                 onConfirm={handleProceedAnyway}
                 onCancel={() => setShowDiscrepancyModal(false)}
             />
+
+            {/* Review & Apply AI Polish Modal */}
+            <Modal
+                isOpen={showPolishReviewModal && !!polishedCandidate}
+                onClose={() => {
+                    setShowPolishReviewModal(false);
+                    setPolishedCandidate(null);
+                }}
+                title={
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-foreground">Review Polished Pastoral Guidelines</h3>
+                            <p className="text-xs text-muted">Review the AI Scribe transformation before applying it to your section editor.</p>
+                        </div>
+                    </div>
+                }
+                size="4xl"
+                showCloseButton={true}
+                footer={
+                    <div className="flex items-center justify-between gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowPolishReviewModal(false);
+                                setPolishedCandidate(null);
+                            }}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-secondary-600 hover:bg-secondary-100 transition-colors"
+                        >
+                            Revert / Keep Original
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleApplyPolishedVersion}
+                            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 shadow-sm transition-all"
+                        >
+                            <Check className="w-4 h-4" />
+                            Apply Polished Version
+                        </button>
+                    </div>
+                }
+            >
+                {polishedCandidate && (
+                    <div className="p-1 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                        {/* Original Draft */}
+                        <div className="flex flex-col border border-secondary-200 rounded-xl overflow-hidden bg-secondary-50/40">
+                            <div className="px-4 py-2.5 bg-secondary-100/70 border-b border-secondary-200 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-secondary-700 uppercase tracking-wider">Original Draft</span>
+                                <span className="text-[11px] text-muted">{formContent.length} chars</span>
+                            </div>
+                            <div className="p-4 flex-1 overflow-y-auto max-h-80 space-y-2">
+                                <p className="text-xs font-bold text-foreground">{formTitle || '(Untitled Draft)'}</p>
+                                <pre className="text-xs text-secondary-700 whitespace-pre-wrap font-sans leading-relaxed">
+                                    {formContent}
+                                </pre>
+                            </div>
+                        </div>
+
+                        {/* Polished Pastoral Version */}
+                        <div className="flex flex-col border-2 border-amber-300 rounded-xl overflow-hidden bg-amber-50/20 shadow-xs">
+                            <div className="px-4 py-2.5 bg-amber-100/60 border-b border-amber-200 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                    Polished Pastoral Version
+                                </span>
+                                <span className="text-[11px] text-amber-800">{polishedCandidate.content.length} chars</span>
+                            </div>
+                            <div className="p-4 flex-1 overflow-y-auto max-h-80 space-y-2">
+                                <p className="text-xs font-bold text-amber-950">{polishedCandidate.title}</p>
+                                <pre className="text-xs text-secondary-800 whitespace-pre-wrap font-sans leading-relaxed">
+                                    {polishedCandidate.content}
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Starter FAQ Templates Modal */}
+            <Modal
+                isOpen={showStarterTemplatesModal}
+                onClose={() => setShowStarterTemplatesModal(false)}
+                title={
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-foreground">Starter FAQ & Policy Templates</h3>
+                            <p className="text-xs text-muted">Select standard Philippine Catholic parish policies to quickly populate your AI knowledge base.</p>
+                        </div>
+                    </div>
+                }
+                size="3xl"
+                showCloseButton={true}
+                footer={
+                    <div className="flex items-center justify-between gap-3 w-full">
+                        <button
+                            type="button"
+                            onClick={() => setShowStarterTemplatesModal(false)}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-secondary-600 hover:bg-secondary-100 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCreateSelectedTemplates}
+                            disabled={selectedTemplateIds.size === 0 || bulkInserting}
+                            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-all"
+                        >
+                            {bulkInserting ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Creating Sections...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Plus className="w-4 h-4" />
+                                    <span>Create Selected Sections ({selectedTemplateIds.size})</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-4">
+                    {/* Quick Select Actions */}
+                    <div className="flex items-center justify-between p-2.5 bg-secondary-50 border border-secondary-200 rounded-lg text-xs">
+                        <span className="text-secondary-600 font-medium">
+                            {selectedTemplateIds.size} of {STARTER_FAQ_TEMPLATES.length} templates selected
+                        </span>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedTemplateIds(new Set(STARTER_FAQ_TEMPLATES.map(t => t.id)))}
+                                className="text-primary hover:underline font-semibold"
+                            >
+                                Select All
+                            </button>
+                            <span className="text-secondary-300">|</span>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedTemplateIds(new Set())}
+                                className="text-secondary-600 hover:underline font-semibold"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Templates List */}
+                    <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                        {STARTER_FAQ_TEMPLATES.map((tmpl) => {
+                            const isSelected = selectedTemplateIds.has(tmpl.id);
+                            const isExpanded = previewingTemplateId === tmpl.id;
+
+                            return (
+                                <div
+                                    key={tmpl.id}
+                                    className={`border rounded-xl p-4 transition-all ${
+                                        isSelected ? 'border-primary/40 bg-primary/[0.02]' : 'border-secondary-200 bg-white'
+                                    }`}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <label className="flex items-start gap-3 cursor-pointer flex-1">
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    const next = new Set(selectedTemplateIds);
+                                                    if (e.target.checked) next.add(tmpl.id);
+                                                    else next.delete(tmpl.id);
+                                                    setSelectedTemplateIds(next);
+                                                }}
+                                                className="mt-1 h-4 w-4 rounded border-secondary-300 text-primary focus:ring-primary"
+                                            />
+                                            <div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-sm font-semibold text-foreground">{tmpl.title}</span>
+                                                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-secondary-100 text-secondary-700">
+                                                        {tmpl.category}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-muted mt-1 line-clamp-2">
+                                                    {tmpl.content.slice(0, 150)}...
+                                                </p>
+                                            </div>
+                                        </label>
+
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            {editingId !== null && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormTitle(tmpl.title);
+                                                        setFormContent(tmpl.content);
+                                                        setShowStarterTemplatesModal(false);
+                                                    }}
+                                                    className="text-xs px-2.5 py-1 rounded-lg bg-secondary-100 text-secondary-700 hover:bg-secondary-200 font-medium transition-colors"
+                                                >
+                                                    Load into Editor
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setPreviewingTemplateId(isExpanded ? null : tmpl.id)}
+                                                className="p-1 text-secondary-400 hover:text-secondary-600 rounded transition-colors"
+                                                title={isExpanded ? 'Collapse preview' : 'Expand full preview'}
+                                            >
+                                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Collapsible Full Markdown Preview */}
+                                    {isExpanded && (
+                                        <div className="mt-3 pt-3 border-t border-secondary-100">
+                                            <pre className="text-xs text-secondary-700 whitespace-pre-wrap font-sans leading-relaxed max-h-60 overflow-y-auto bg-secondary-50/60 p-3 rounded-lg">
+                                                {tmpl.content}
+                                            </pre>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
