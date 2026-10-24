@@ -148,7 +148,7 @@ export function createKalapati(opts) {
 
   /* ---------- styles (scoped with the kal- prefix, colours can be overridden with CSS variables) ---------- */
   var CSS = [
-    '.kal-fx{position:fixed;left:0;top:0;right:0;bottom:var(--kal-bottom,0px);overflow:hidden;pointer-events:none;z-index:var(--kal-z,2147483000)}',
+    '.kal-fx{position:fixed;left:0;top:0;right:0;bottom:var(--kal-bottom,0px);overflow:hidden;pointer-events:none;z-index:var(--kal-z,50)}',
     '.kal-fx canvas{position:absolute;inset:0;width:100%;height:100%}',
     '.kal-shadow{position:absolute;left:0;top:0;width:70px;height:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(15,23,42,.35),rgba(15,23,42,0));will-change:transform,opacity}',
     '.kal-dove{position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;cursor:grab;will-change:transform;transform-origin:0 0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;border-radius:40%}',
@@ -172,13 +172,14 @@ export function createKalapati(opts) {
     label: opts.label || 'Kalapati, your assistant. Press Enter to chat, or drag to move him.',
     tipTitle: opts.tipTitle || 'Need a hand?', tipText: opts.tipText || 'Tap to ask Kalapati',
     mobileBreakpoint: opts.mobileBreakpoint || 700,
-    dock: opts.dockSize || { desktop: 150, mobile: 116 },
-    perch: opts.perchSize || { desktop: 120, mobile: 92 },
+    dock: opts.dockSize || { desktop: 150, mobile: 138 },
+    perch: opts.perchSize || { desktop: 120, mobile: 108 },
     tipEveryMs: opts.tipEveryMs == null ? 15000 : opts.tipEveryMs,
     bottomInset: opts.bottomInset || 0,
     getPanelRect: opts.getPanelRect, onStateChange: opts.onStateChange
   };
   var fx = doc.createElement('div'); fx.className = 'kal-fx'; fx.style.setProperty('--kal-bottom', o.bottomInset + 'px');
+  fx.style.setProperty('--kal-z', String(opts.zIndex != null ? opts.zIndex : 50));
   fx.innerHTML = '<canvas aria-hidden="true"></canvas><div class="kal-shadow" aria-hidden="true"></div>' +
     '<div class="kal-dove" data-testid="parish-assistant-button" role="button" tabindex="0" aria-label="' + o.label.replace(/"/g, '&quot;') + '"><div class="kal-svg" style="width:100%;height:100%"></div>' +
     '<button class="kal-hide" type="button" aria-label="Minimize Kalapati to the edge" title="Send to the edge"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>' +
@@ -219,8 +220,11 @@ export function createKalapati(opts) {
     var z = dockSz();
     if (S.state === 'chat') {
       var pr = panelRect(), vis = S.psz; S.tsc = vis / z;
-      S.tx = Math.max(4, Math.min(S.W - vis - 4, pr.l + (S.m ? 14 : 24)));
-      S.ty = Math.max(4, pr.t - vis * .86);
+      var targetX = S.m
+        ? Math.min(pr.w - vis - 52, Math.max(130, pr.w * 0.40))
+        : Math.min(260, pr.w * 0.45);
+      S.tx = Math.max(4, Math.min(S.W - vis - 4, pr.l + targetX));
+      S.ty = Math.max(4, Math.round(pr.t - vis * 0.82));
     } else if (S.state === 'min') {
       S.tsc = .8; var v = z * .8; S.tx = S.W - v - 20; S.ty = S.H - v * .5 - (S.hover ? 14 : 0);
     } else { S.tsc = 1; S.tx = S.home.x; S.ty = S.home.y; }

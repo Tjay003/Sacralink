@@ -262,14 +262,14 @@ export default function DashboardLayout() {
             {/* Mobile Sidebar Backdrop */}
             {sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 lg:hidden"
+                    className="fixed inset-0 bg-black/40 backdrop-blur-xs z-60 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
             )}
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 z-50 h-full bg-white border-r border-border flex flex-col justify-between transform transition-all duration-200 ease-in-out ${
+                className={`fixed top-0 left-0 z-70 h-full bg-white border-r border-border flex flex-col justify-between transform transition-all duration-200 ease-in-out ${
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
                 } ${sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64`}
             >
@@ -479,7 +479,7 @@ export default function DashboardLayout() {
                 onCancel={() => setShowLogoutModal(false)}
             />
             {/* Global AI Parish Assistant (for Parishioners only) */}
-            <ParishAssistant />
+            <ParishAssistant isSidebarOpen={sidebarOpen} />
         </div>
     );
 }

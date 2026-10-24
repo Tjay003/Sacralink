@@ -60,7 +60,11 @@ const STARTER_CHIPS = [
     'Talk to the parish office',
 ];
 
-export default function ParishAssistant() {
+interface ParishAssistantProps {
+    isSidebarOpen?: boolean;
+}
+
+export default function ParishAssistant({ isSidebarOpen = false }: ParishAssistantProps = {}) {
     const { profile } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
@@ -196,7 +200,9 @@ export default function ParishAssistant() {
         });
         kalRef.current = kal;
 
-        if (isOpen) {
+        if (isSidebarOpen) {
+            kal.setVisible(false);
+        } else if (isOpen) {
             kal.setState('chat');
         }
 
@@ -205,6 +211,12 @@ export default function ParishAssistant() {
             kalRef.current = null;
         };
     }, [profile?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Hide Kalapati if the mobile sidebar is open so he doesn't overlap navigation
+    useEffect(() => {
+        if (!kalRef.current) return;
+        kalRef.current.setVisible(!isSidebarOpen);
+    }, [isSidebarOpen]);
 
     // Sync open state changes to Kalapati
     useEffect(() => {
@@ -1162,10 +1174,10 @@ export default function ParishAssistant() {
                 <div
                     ref={drawerRef}
                     data-testid="parish-assistant-panel"
-                    className={`fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+                    className={`fixed bottom-2 right-2 sm:bottom-3 sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
                         isMaximized
-                            ? 'w-[calc(100vw-1.5rem)] sm:w-[860px] md:w-[940px] lg:w-[1040px] h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-3rem)]'
-                            : 'w-[calc(100vw-1.5rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] h-[640px] sm:h-[680px] max-h-[calc(100vh-3rem)]'
+                            ? 'w-[calc(100vw-1rem)] sm:w-[860px] md:w-[940px] lg:w-[1040px] h-[calc(100dvh-5rem)] sm:h-[calc(100vh-5rem)] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)]'
+                            : 'w-[calc(100vw-1rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] h-[calc(100dvh-5rem)] sm:h-[680px] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)]'
                     }`}
                 >
                     {/* Sacred Gold & Faith Blue Top Ribbon */}

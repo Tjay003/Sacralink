@@ -53,8 +53,12 @@
    BASE STYLES
    ================================ */
 
-html {
-  scrollbar-gutter: stable;
+@utility z-60 {
+  z-index: 60;
+}
+
+@utility z-70 {
+  z-index: 70;
 }
 
 * {
