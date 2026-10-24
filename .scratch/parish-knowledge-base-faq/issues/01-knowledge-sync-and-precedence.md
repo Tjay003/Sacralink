@@ -1,7 +1,7 @@
 # 01: Streamline Knowledge Sync & Enforce Tool Precedence
 
 Type: task  
-**Status:** ready-for-agent  
+**Status:** completed  
 **Blocked by:** None (can start immediately)  
 
 ---
@@ -40,12 +40,12 @@ Under our **Hybrid SSOT** architectural decision:
 
 ## Acceptance Criteria
 
-- [ ] `supabase/functions/sync-church-knowledge/index.ts` no longer queries `mass_schedules` or embeds Mass schedule chunks.
-- [ ] Running `sync-church-knowledge` deletes any lingering chunks with `source_type = 'mass_schedule'` for that church.
-- [ ] `supabase/functions/parish-assistant/index.ts` contains explicit SSOT precedence directives in `systemInstruction`.
-- [ ] Asking `parish-assistant` "What time is Mass?" retrieves answers strictly via `get_mass_schedule` and never returns stale vectorized text.
-- [ ] The sync response summary accurately reflects the processed chunks without errors.
-- [ ] TypeScript type checks (`deno check` or `tsc -b`) and linting pass with zero warnings.
+- [x] `supabase/functions/sync-church-knowledge/index.ts` no longer queries `mass_schedules` or embeds Mass schedule chunks.
+- [x] Running `sync-church-knowledge` deletes any lingering chunks with `source_type = 'mass_schedule'` for that church.
+- [x] `supabase/functions/parish-assistant/index.ts` contains explicit SSOT precedence directives in `systemInstruction`.
+- [x] Asking `parish-assistant` "What time is Mass?" retrieves answers strictly via `get_mass_schedule` and never returns stale vectorized text.
+- [x] The sync response summary accurately reflects the processed chunks without errors.
+- [x] TypeScript type checks (`deno check` or `tsc -b`) and linting pass with zero warnings.
 
 ---
 
@@ -62,3 +62,10 @@ Under our **Hybrid SSOT** architectural decision:
 ---
 
 ## Comments
+
+- Implemented in Ticket 01:
+  - Streamlined `supabase/functions/sync-church-knowledge/index.ts` to purge any lingering `mass_schedule` chunks upon sync and stopped embedding recurring schedules into vector chunks.
+  - Updated `supabase/functions/parish-assistant/index.ts` to explicitly define the hierarchy of truth (Live DB Tools SSOT > Knowledge Base Search) and mandatory discrepancy resolution rule.
+  - Added migration `supabase/migrations/083_church_knowledge_base.sql` bringing `church_knowledge_chunks`, `church_knowledge_sections`, `church_knowledge_files`, and `match_church_knowledge` to the local migration pipeline.
+  - Added Playwright test suite `web/e2e-local/parish-knowledge-sync-and-precedence.spec.ts` covering purge behavior, knowledge synchronization, and precedence resolution with conflicting notes. All 3 tests passed in 8.6s.
+  - Verified `tsc -b` static checks pass with zero errors.

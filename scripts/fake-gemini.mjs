@@ -20,6 +20,17 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ status: 'ok', service: 'fake-gemini' }));
   }
 
+  if (req.method === 'POST' && url.pathname.includes(':embedContent')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(
+      JSON.stringify({
+        embedding: {
+          values: new Array(768).fill(0.01),
+        },
+      })
+    );
+  }
+
   if (req.method === 'POST' && url.pathname.includes(':generateContent')) {
     let bodyText = '';
     for await (const chunk of req) {

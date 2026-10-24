@@ -6,9 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function getEmbedding(text: string, apiKey: string): Promise<number[]> {
+async function getEmbedding(
+  text: string,
+  apiKey: string,
+  baseUrl = 'https://generativelanguage.googleapis.com'
+): Promise<number[]> {
+  const cleanBase = baseUrl.replace(/\/+$/, '');
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
+    `${cleanBase}/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,7 +56,7 @@ function chunkText(text: string, maxChars = 500, overlap = 100): string[] {
       lastChunkEnd = block.slice(-overlap);
     } else {
       // Block too long — split on sentence boundaries
-      const sentences = block.split(/(?<=[.!??])\s+/);
+      const sentences = block.split(/(?<=[.!?])\s+/);
       let current = lastChunkEnd ? lastChunkEnd + '\n' : '';
 
       for (const sentence of sentences) {
@@ -83,6 +88,9 @@ Deno.serve(async (req: Request) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const rawBaseUrl =
+      Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
+    const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 
     if (!GEMINI_API_KEY) {
       return new Response(JSON.stringify({ error: 'GEMINI_API_KEY is not configured.' }), {
@@ -115,6 +123,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Hybrid SSOT Cleanup: Purge any existing mass_schedule chunks for this church.
+    // Mass schedules are queried live via get_mass_schedule and must never be stored as static vector chunks.
+    // Even if there are no new chunks to process, this guarantees stale mass_schedule chunks are removed.
+    const { error: purgeError } = await supabase
+      .from('church_knowledge_chunks')
+      .delete()
+      .eq('church_id', churchId)
+      .eq('source_type', 'mass_schedule');
+
+    if (purgeError) {
+      console.error('Failed to purge mass_schedule chunks:', purgeError);
+    }
+
     const chunks: Array<{ church_id: string; content: string; source_type: string; source_id?: string }> = [];
 
     // 1. Church basic info
@@ -134,29 +156,7 @@ Deno.serve(async (req: Request) => {
       chunks.push({ church_id: churchId, content: info.trim(), source_type: 'church_info', source_id: church.id });
     }
 
-    // 2. Mass schedules grouped by day
-    const { data: schedules } = await supabase
-      .from('mass_schedules').select('*').eq('church_id', churchId);
-
-    if (schedules && schedules.length > 0) {
-      const byDay: Record<string, string[]> = {};
-      for (const s of schedules) {
-        const day = s.day_of_week || 'Unknown';
-        if (!byDay[day]) byDay[day] = [];
-        let entry = s.time;
-        if (s.language) entry += ` (${s.language})`;
-        byDay[day].push(entry);
-      }
-      for (const [day, times] of Object.entries(byDay)) {
-        chunks.push({
-          church_id: churchId,
-          content: `${day} Mass Schedule: ${times.join(', ')}`,
-          source_type: 'mass_schedule'
-        });
-      }
-    }
-
-    // 3. Sacrament requirements
+    // 2. Sacrament requirements
     const { data: requirements } = await supabase
       .from('sacrament_requirements')
       .select('id, service_type, requirement_name, description, is_required')
@@ -187,7 +187,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 4. Announcements (latest 10)
+    // 3. Announcements (latest 10)
     const { data: announcements } = await supabase
       .from('church_announcements')
       .select('id, title, content')
@@ -203,7 +203,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 5. Custom Knowledge Sections — semantic chunking with overlap
+    // 4. Custom Knowledge Sections — semantic chunking with overlap
     const { data: sections } = await supabase
       .from('church_knowledge_sections')
       .select('id, title, content')
@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
 
     // Test embedding before wiping
     try {
-      await getEmbedding('test', GEMINI_API_KEY);
+      await getEmbedding('test', GEMINI_API_KEY, GEMINI_BASE_URL);
     } catch (testErr: any) {
       return new Response(
         JSON.stringify({ error: `Gemini embedding error: ${testErr.message}` }),
@@ -249,7 +249,7 @@ Deno.serve(async (req: Request) => {
     const rows = [];
     for (const chunk of chunks) {
       try {
-        const embedding = await getEmbedding(chunk.content, GEMINI_API_KEY);
+        const embedding = await getEmbedding(chunk.content, GEMINI_API_KEY, GEMINI_BASE_URL);
         rows.push({ ...chunk, embedding: `[${embedding.join(',')}]` });
         await new Promise(r => setTimeout(r, 150));
       } catch (e: any) {

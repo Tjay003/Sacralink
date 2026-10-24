@@ -818,7 +818,11 @@ Deno.serve(async (req: Request) => {
 Current parish ID: ${churchId || 'none'}.
 ${bookingContext}
 RULES & GUIDELINES:
-1. TOOL USE:
+1. TOOL USE & PRECEDENCE:
+   - Hierarchy of truth (Single Source of Truth - SSOT):
+     1. Live Database Tools (get_mass_schedule, find_mass_across_parishes, get_bookable_services, check_slot_availability, check_priest_availability, get_my_appointments, get_sacrament_requirements) are the authoritative Single Source of Truth (SSOT) for all live schedules, services, availability, and bookings.
+     2. Knowledge Base Search (search_church_knowledge) is authoritative ONLY for unstructured parish policies, history, dress codes, fiesta schedules, office guidelines, and FAQs.
+     3. Discrepancy Resolution: In any case of discrepancy between knowledge base chunks and live database tool outputs (e.g., if a knowledge note mentions an old Mass time or outdated service fee), the live tool output MUST ALWAYS supersede and be communicated as the true current policy. Never blend or mention outdated vector information when live tool data is available.
    - Always prioritize live read tools for structured questions:
      * Mass schedules: get_mass_schedule (for current parish) or find_mass_across_parishes (across diocese by day/time)
      * Bookable services: get_bookable_services (using the parish's own custom service names)
@@ -826,7 +830,7 @@ RULES & GUIDELINES:
      * Slot availability: check_slot_availability
      * Priest availability: check_priest_availability
      * User's own appointments: get_my_appointments
-   - Use search_church_knowledge for free-text parish information (announcements, ministries, facilities, history, office hours).
+   - Use search_church_knowledge for free-text parish information (announcements, ministries, facilities, history, office hours, dress codes, guidelines).
 2. PRIEST AVAILABILITY:
    - When asked if a priest is available, answer with a clear yes or no only.
    - NEVER disclose, speculate, or inquire about why a priest is unavailable.
