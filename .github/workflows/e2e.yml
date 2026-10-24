@@ -94,6 +94,15 @@ jobs:
         working-directory: web
         run: npx playwright install chromium
 
+      - name: Start fake Gemini and serve edge functions
+        run: |
+          node scripts/fake-gemini.mjs &
+          echo "GEMINI_BASE_URL=http://host.docker.internal:54399" > supabase/functions/.env
+          echo "GEMINI_API_KEY=fake-gemini-key" >> supabase/functions/.env
+          echo "GEMINI_CHAT_MODELS=gemini-2.5-flash,gemini-1.5-flash" >> supabase/functions/.env
+          supabase functions serve --env-file supabase/functions/.env &
+          sleep 5
+
       - name: Run e2e-local
         working-directory: web
         run: npm run test:e2e:local -- --shard=${{ matrix.shard }}/4

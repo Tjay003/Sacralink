@@ -1,7 +1,7 @@
 # 03: Tracer bullet: global assistant answers Mass times from live data
 
 Type: task
-**Status:** ready-for-agent
+**Status:** resolved
 **Blocked by:** None (can start immediately)
 
 **What to build:** the thinnest complete path through every layer. A Parishioner on any page opens the new Parish Assistant, asks "What are the Mass times?", and gets the current parish's live Mass Schedule.
@@ -13,10 +13,10 @@ Type: task
 - **CI:** the `e2e` workflow serves the function and points it at the fake. No Gemini key ever goes into CI.
 - The old `church-ai-chat` function stays deployed and untouched.
 
-- [ ] A Parishioner sees the assistant on the dashboard, appointments and parish pages; staff roles never see it
-- [ ] On a parish page the assistant uses that parish; elsewhere it uses the favourite parish or asks with parish chips
-- [ ] Asking for Mass times returns the parish's live Mass Schedule (a schedule changed in the database shows up immediately, with no sync)
-- [ ] An unauthenticated call to `parish-assistant` is refused
-- [ ] One short Playwright spec drives the panel against local Supabase with the fake Gemini and asserts the live schedule appears
-- [ ] The `e2e` workflow runs that spec green with no real Gemini key
-- [ ] `tsc -b` and lint are clean; the panel has no horizontal scroll at phone width
+- [x] A Parishioner sees the assistant on the dashboard, appointments and parish pages; staff roles never see it
+- [x] On a parish page the assistant uses that parish; elsewhere it uses the favourite parish or asks with parish chips
+- [x] Asking for Mass times returns the parish's live Mass Schedule (a schedule changed in the database shows up immediately, with no sync)
+- [x] An unauthenticated call to `parish-assistant` is refused
+- [x] One short Playwright spec drives the panel against local Supabase with the fake Gemini and asserts the live schedule appears
+- [x] The `e2e` workflow runs that spec green with no real Gemini key
+- [x] `tsc -b` and lint are clean; the panel has no horizontal scroll at phone width

@@ -23,6 +23,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { supabase } from '../../lib/supabase';
 import { useSidebarCounts } from '../../hooks/useSidebarCounts';
 import logo from '../../assets/logo.png';
+import ParishAssistant from '../ai/ParishAssistant';
 
 interface NavigationItem {
     name: string;
@@ -477,6 +478,8 @@ export default function DashboardLayout() {
                 onConfirm={handleConfirmSignOut}
                 onCancel={() => setShowLogoutModal(false)}
             />
+            {/* Global AI Parish Assistant (for Parishioners only) */}
+            <ParishAssistant />
         </div>
     );
 }

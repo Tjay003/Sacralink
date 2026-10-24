@@ -421,3 +421,8 @@ verify_jwt = false
 
 [functions.sync-church-knowledge]
 verify_jwt = false
+
+
+# AI Parish Assistant (Ticket 03) - JWT verification strictly ON
+[functions.parish-assistant]
+verify_jwt = true

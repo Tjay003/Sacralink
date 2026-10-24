@@ -55,8 +55,7 @@ import Modal from '../../components/ui/Modal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
-import { featureFlags, isFeatureEnabled } from '../../config/featureFlags';
-import ChurchChatbot from '../../components/ai/ChurchChatbot';
+import { isFeatureEnabled } from '../../config/featureFlags';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
 import AssignStaffModal from '../../components/admin/AssignStaffModal';
@@ -2264,10 +2263,6 @@ export default function ChurchDetailPage() {
                 onCancel={() => setUnassignStaffMember(null)}
             />
 
-            {/* AI Parish Assistant Chatbot - floating widget */}
-            {featureFlags.parishionerChatbot.enabled && !isSuperAdmin && (
-                <ChurchChatbot churchId={church.id} churchName={church.name} />
-            )}
         </div>
     );
 }
