@@ -787,7 +787,7 @@ Deno.serve(async (req: Request) => {
           .split(',')
           .map((s: string) => s.trim())
           .filter(Boolean)
-      : ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+      : ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
 
     const geminiHeaders: Record<string, string> = {};
     const testSimulateQuota =
