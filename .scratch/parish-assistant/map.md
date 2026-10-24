@@ -17,7 +17,7 @@ Spec: `spec.md` (decisions locked 2026-10-24). Tickets in `issues/`. Branch: `fe
 
 ## Tasks
 - [x] 01 Commit the live edge functions as a baseline
-- [ ] 02 Prefactor: booking rules out of the booking page
+- [x] 02 Prefactor: booking rules out of the booking page
 - [ ] 03 Tracer bullet: global assistant answers Mass times from live data
 - [ ] 04 Live read tools, and "my appointments" shows only your own (after 03)
 - [ ] 05 Reliability: server rate limit, one log per exchange, model list, fallback (after 03)

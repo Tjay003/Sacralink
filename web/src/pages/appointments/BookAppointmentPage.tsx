@@ -16,7 +16,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getRequirementsForService } from '../../lib/supabase/requirements';
 import { findServiceByName, getBookableServiceTypes, type ServiceType } from '../../lib/supabase/serviceTypes';
-import { createAppointmentWithDocuments } from '../../lib/supabase/appointments';
+import {
+    createAppointmentWithDocuments,
+    validateBookingSubmission,
+} from '../../lib/supabase/appointments';
 import { evaluateParishPool } from '../../lib/supabase/priestAvailability';
 import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 import {
@@ -281,18 +284,6 @@ export default function BookAppointmentPage() {
     // Testing bypass for document requirements
     const [bypassDocsForTesting, setBypassDocsForTesting] = useState(false);
 
-    const validateRequiredDocuments = (): boolean => {
-        if (bypassDocsForTesting) return true;
-        const requiredReqs = requirements.filter(r => r.is_required);
-        for (const req of requiredReqs) {
-            if (!documents.has(req.id)) {
-                setError(`Missing required document: ${req.requirement_name}`);
-                return false;
-            }
-        }
-        return true;
-    };
-
     // Handler for Card A: Select same church next slot
     const handleSelectSameChurchSlot = (rec: SlotRecommendation) => {
         setFormData(prev => ({
@@ -326,13 +317,17 @@ export default function BookAppointmentPage() {
         if (!user || !id || !selectedService) return;
         if (submitting) return; // Prevent double submit from rapid clicks
 
-        if (availabilityResult && !availabilityResult.isAvailable) {
-            setError('The selected slot is unavailable. Please select an alternative slot or change the date and time.');
-            return;
-        }
+        const validation = validateBookingSubmission({
+            appointmentDate: formData.appointment_date,
+            appointmentTime: formData.appointment_time,
+            availability: availabilityResult,
+            requirements,
+            documents,
+            bypassDocsForTesting,
+        });
 
-        // Validate required documents
-        if (!validateRequiredDocuments()) {
+        if (!validation.ok) {
+            setError(validation.error || '');
             return;
         }
 

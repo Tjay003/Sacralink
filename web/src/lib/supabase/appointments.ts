@@ -769,3 +769,217 @@ export function subscribeToAppointments(
         supabase.removeChannel(channel);
     };
 }
+
+
+// ============================================================================
+// Booking Validation Rules (Pure Functions)
+// ============================================================================
+
+export const SLOT_UNAVAILABLE_ERROR_MESSAGE =
+    'The selected slot is unavailable. Please select an alternative slot or change the date and time.';
+
+export const PAST_DATE_ERROR_MESSAGE = 'Appointment date must be today or in the future.';
+
+export interface BookingRequirementLike {
+    id: string;
+    requirement_name: string;
+    is_required?: boolean | null;
+}
+
+export type AttachedDocumentsInput =
+    | Map<string, unknown>
+    | Array<{ requirementId: string } | string>
+    | Record<string, unknown>
+    | Set<string>
+    | null
+    | undefined;
+
+export type SlotAvailabilityInput =
+    | { isAvailable?: boolean | null }
+    | boolean
+    | null
+    | undefined;
+
+export interface BookingValidationResult {
+    ok: boolean;
+    valid: boolean;
+    error?: string;
+    problems: string[];
+}
+
+/**
+ * Checks if a document has been provided for a given requirement ID.
+ * Supports Map, Set, Array of objects with requirementId, Array of requirement IDs, and Record objects.
+ */
+function hasAttachedDocument(documents: AttachedDocumentsInput, requirementId: string): boolean {
+    if (!documents) return false;
+    if (documents instanceof Map) {
+        const val = documents.get(requirementId);
+        return documents.has(requirementId) && val !== null && val !== undefined && val !== '';
+    }
+    if (documents instanceof Set) {
+        return documents.has(requirementId);
+    }
+    if (Array.isArray(documents)) {
+        return documents.some((item) => {
+            if (typeof item === 'string') return item === requirementId;
+            return item && typeof item === 'object' && 'requirementId' in item && item.requirementId === requirementId;
+        });
+    }
+    if (typeof documents === 'object') {
+        const val = (documents as Record<string, unknown>)[requirementId];
+        return val !== null && val !== undefined && val !== '';
+    }
+    return false;
+}
+
+/**
+ * Pure validation function for required documents.
+ * Returns { ok: true, valid: true, problems: [] } when all required documents are attached or testing bypass is active.
+ * If any required document is missing, returns the exact error message:
+ * `Missing required document: ${req.requirement_name}`
+ */
+export function validateRequiredDocuments(
+    requirements: BookingRequirementLike[],
+    documents?: AttachedDocumentsInput,
+    options?: { bypassDocsForTesting?: boolean }
+): BookingValidationResult {
+    if (options?.bypassDocsForTesting) {
+        return { ok: true, valid: true, problems: [] };
+    }
+
+    const requiredReqs = (requirements || []).filter((r) => Boolean(r?.is_required));
+    const problems: string[] = [];
+
+    for (const req of requiredReqs) {
+        if (!hasAttachedDocument(documents, req.id)) {
+            problems.push(`Missing required document: ${req.requirement_name}`);
+        }
+    }
+
+    const ok = problems.length === 0;
+    return {
+        ok,
+        valid: ok,
+        ...(ok ? {} : { error: problems[0] }),
+        problems,
+    };
+}
+
+/**
+ * Pure validation function for slot availability.
+ * If unavailable, returns the exact error message:
+ * `The selected slot is unavailable. Please select an alternative slot or change the date and time.`
+ */
+export function validateSlotAvailability(
+    availability: SlotAvailabilityInput
+): BookingValidationResult {
+    const isUnavailable =
+        availability === false ||
+        (typeof availability === 'object' && availability !== null && availability.isAvailable === false);
+
+    if (isUnavailable) {
+        return {
+            ok: false,
+            valid: false,
+            error: SLOT_UNAVAILABLE_ERROR_MESSAGE,
+            problems: [SLOT_UNAVAILABLE_ERROR_MESSAGE],
+        };
+    }
+
+    return { ok: true, valid: true, problems: [] };
+}
+
+/**
+ * Validates that an appointment date (YYYY-MM-DD) is today or in the future.
+ * Matches the HTML date input min={new Date().toISOString().split('T')[0]} enforcement.
+ */
+export function validateFutureDate(
+    dateStr: string | null | undefined,
+    _timeStr?: string | null | undefined,
+    now: Date = new Date()
+): BookingValidationResult {
+    if (!dateStr || !dateStr.trim()) {
+        const error = 'Please select an appointment date.';
+        return { ok: false, valid: false, error, problems: [error] };
+    }
+
+    const cleanDate = dateStr.trim().split('T')[0];
+    const parts = cleanDate.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) {
+        const error = 'Invalid appointment date format.';
+        return { ok: false, valid: false, error, problems: [error] };
+    }
+
+    const [year, month, day] = parts;
+    const dateEndOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+    if (dateEndOfDay.getTime() < now.getTime()) {
+        return {
+            ok: false,
+            valid: false,
+            error: PAST_DATE_ERROR_MESSAGE,
+            problems: [PAST_DATE_ERROR_MESSAGE],
+        };
+    }
+
+    return { ok: true, valid: true, problems: [] };
+}
+
+export interface ValidateBookingSubmissionInput {
+    appointmentDate?: string | null;
+    appointmentTime?: string | null;
+    requirements?: BookingRequirementLike[];
+    documents?: AttachedDocumentsInput;
+    availability?: SlotAvailabilityInput;
+    bypassDocsForTesting?: boolean;
+}
+
+/**
+ * High-level composite validator for appointment booking submission.
+ * Enforces:
+ * 1. Date is today or in the future
+ * 2. Slot is available
+ * 3. Required documents are attached (unless testing bypass is active)
+ *
+ * Returns { ok: boolean; valid: boolean; error?: string; problems: string[] }.
+ */
+export function validateBookingSubmission(
+    input: ValidateBookingSubmissionInput,
+    now: Date = new Date()
+): BookingValidationResult {
+    const problems: string[] = [];
+
+    // 1. Future date check
+    if (input.appointmentDate !== undefined && input.appointmentDate !== null) {
+        const dateRes = validateFutureDate(input.appointmentDate, input.appointmentTime, now);
+        if (!dateRes.ok && dateRes.error) {
+            problems.push(...dateRes.problems);
+        }
+    }
+
+    // 2. Slot availability check
+    if (input.availability !== undefined) {
+        const slotRes = validateSlotAvailability(input.availability);
+        if (!slotRes.ok && slotRes.error) {
+            problems.push(...slotRes.problems);
+        }
+    }
+
+    // 3. Required documents check
+    if (input.requirements !== undefined) {
+        const docsRes = validateRequiredDocuments(input.requirements, input.documents, {
+            bypassDocsForTesting: input.bypassDocsForTesting,
+        });
+        if (!docsRes.ok && docsRes.error) {
+            problems.push(...docsRes.problems);
+        }
+    }
+
+    const ok = problems.length === 0;
+    return {
+        ok,
+        valid: ok,
+        ...(ok ? {} : { error: problems[0] }),
+        problems,
+    };
+}
