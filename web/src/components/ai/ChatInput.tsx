@@ -4,9 +4,10 @@ import { Send } from 'lucide-react';
 interface ChatInputProps {
     onSend: (message: string) => void;
     disabled?: boolean;
+    isLargeText?: boolean;
 }
 
-export default function ChatInput({ onSend, disabled }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, isLargeText = false }: ChatInputProps) {
     const [value, setValue] = useState('');
 
     const handleSend = () => {
@@ -24,7 +25,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
     };
 
     return (
-        <div className="flex items-end gap-2 p-3 border-t border-gray-100 bg-white">
+        <div className={`flex items-end gap-2 bg-white border-t border-gray-100 ${isLargeText ? 'p-3.5' : 'p-3'}`}>
             <textarea
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
@@ -32,24 +33,28 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
                 disabled={disabled}
                 placeholder="Ask about masses, sacraments, or services..."
                 rows={1}
-                className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 bg-gray-50 placeholder-gray-400 leading-relaxed"
+                className={`flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 bg-gray-50 placeholder-gray-400 leading-relaxed ${
+                    isLargeText ? 'text-base sm:text-lg' : 'text-sm'
+                }`}
                 style={{
-                    maxHeight: '100px',
+                    maxHeight: '120px',
                     overflowY: 'auto',
                 }}
                 onInput={(e) => {
                     const el = e.currentTarget;
                     el.style.height = 'auto';
-                    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+                    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
                 }}
             />
             <button
                 onClick={handleSend}
                 disabled={disabled || !value.trim()}
-                className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                className={`rounded-full bg-primary text-white flex items-center justify-center shrink-0 hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 ${
+                    isLargeText ? 'w-12 h-12 min-h-[48px] min-w-[48px]' : 'w-9 h-9'
+                }`}
                 aria-label="Send message"
             >
-                <Send className="w-4 h-4" />
+                <Send className={isLargeText ? 'w-5 h-5' : 'w-4 h-4'} />
             </button>
         </div>
     );

@@ -1,10 +1,13 @@
 import React from 'react';
-import { User } from 'lucide-react';
+import { User, Volume2, VolumeX } from 'lucide-react';
 import chatbotIcon from '../../assets/chatbotIcon.png';
 
 interface ChatMessageProps {
     role: 'user' | 'assistant';
     content: string;
+    isLargeText?: boolean;
+    onReadAloud?: () => void;
+    isSpeaking?: boolean;
 }
 
 interface BulletItem {
@@ -245,7 +248,15 @@ function parseBlocks(content: string): Block[] {
 /**
  * Rich message formatter supporting paragraphs, lists, bold, italics, and liturgical Sacred Gold styling.
  */
-export function FormattedMessageContent({ content, isUser }: { content: string; isUser: boolean }) {
+export function FormattedMessageContent({
+    content,
+    isUser,
+    isLargeText = false,
+}: {
+    content: string;
+    isUser: boolean;
+    isLargeText?: boolean;
+}) {
     const blocks = parseBlocks(content);
 
     return (
@@ -254,7 +265,10 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
                 switch (block.type) {
                     case 'paragraph':
                         return (
-                            <p key={bIdx} className="leading-relaxed">
+                            <p
+                                key={bIdx}
+                                className={`leading-relaxed ${isLargeText ? 'text-base sm:text-lg' : 'text-sm'}`}
+                            >
                                 {block.lines.map((line, lIdx) => (
                                     <React.Fragment key={lIdx}>
                                         {lIdx > 0 && <br />}
@@ -267,8 +281,12 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
                     case 'heading': {
                         const headingClass =
                             block.level <= 2
-                                ? `font-bold text-base mt-2.5 mb-1 first:mt-0 ${isUser ? 'text-white' : 'text-foreground'}`
-                                : `font-semibold text-sm mt-2 mb-1 first:mt-0 ${isUser ? 'text-white' : 'text-foreground'}`;
+                                ? `${isLargeText ? 'font-bold text-lg sm:text-xl' : 'font-bold text-base'} mt-2.5 mb-1 first:mt-0 ${
+                                      isUser ? 'text-white' : 'text-foreground'
+                                  }`
+                                : `${isLargeText ? 'font-semibold text-base sm:text-lg' : 'font-semibold text-sm'} mt-2 mb-1 first:mt-0 ${
+                                      isUser ? 'text-white' : 'text-foreground'
+                                  }`;
                         return (
                             <div key={bIdx} className={headingClass}>
                                 {parseInline(block.text, isUser)}
@@ -282,12 +300,14 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
                                 {block.items.map((item, iIdx) => (
                                     <li
                                         key={iIdx}
-                                        className={`flex items-start gap-2.5 ${item.indented ? 'ml-4' : ''}`}
+                                        className={`flex items-start gap-2.5 ${item.indented ? 'ml-4' : ''} ${
+                                            isLargeText ? 'text-base sm:text-lg' : 'text-sm'
+                                        }`}
                                     >
                                         <span
-                                            className={`inline-block w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${
-                                                isUser ? 'bg-white/80' : 'bg-amber-500'
-                                            }`}
+                                            className={`inline-block rounded-full shrink-0 ${
+                                                isLargeText ? 'w-2 h-2 mt-2.5' : 'w-1.5 h-1.5 mt-2'
+                                            } ${isUser ? 'bg-white/80' : 'bg-amber-500'}`}
                                             aria-hidden="true"
                                         />
                                         <span className="flex-1 leading-relaxed">
@@ -304,10 +324,16 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
                                 {block.items.map((item, iIdx) => (
                                     <li
                                         key={iIdx}
-                                        className={`flex items-start gap-2.5 ${item.indented ? 'ml-4' : ''}`}
+                                        className={`flex items-start gap-2.5 ${item.indented ? 'ml-4' : ''} ${
+                                            isLargeText ? 'text-base sm:text-lg' : 'text-sm'
+                                        }`}
                                     >
                                         <span
-                                            className={`inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-semibold shrink-0 mt-0.5 ${
+                                            className={`inline-flex items-center justify-center rounded-full font-semibold shrink-0 mt-0.5 ${
+                                                isLargeText
+                                                    ? 'min-w-[1.5rem] h-6 px-1.5 text-xs sm:text-sm'
+                                                    : 'min-w-[1.25rem] h-5 px-1 text-xs'
+                                            } ${
                                                 isUser
                                                     ? 'bg-white/20 text-white'
                                                     : 'bg-amber-100 text-amber-800 border border-amber-200/60'
@@ -329,6 +355,8 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
                             <blockquote
                                 key={bIdx}
                                 className={`pl-3 border-l-2 my-2 italic ${
+                                    isLargeText ? 'text-base sm:text-lg' : 'text-sm'
+                                } ${
                                     isUser
                                         ? 'border-white/50 text-white/90'
                                         : 'border-amber-400 text-secondary-700 bg-amber-50/40 py-1 rounded-r'
@@ -361,32 +389,79 @@ export function FormattedMessageContent({ content, isUser }: { content: string; 
     );
 }
 
-export default function ChatMessage({ role, content }: ChatMessageProps) {
+export default function ChatMessage({
+    role,
+    content,
+    isLargeText = false,
+    onReadAloud,
+    isSpeaking = false,
+}: ChatMessageProps) {
     const isUser = role === 'user';
 
     return (
         <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* Avatar */}
             {isUser ? (
-                <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                    <User className="w-4 h-4" />
+                <div
+                    className={`${
+                        isLargeText ? 'w-8 h-8' : 'w-7 h-7'
+                    } rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-xs`}
+                >
+                    <User className={isLargeText ? 'w-4.5 h-4.5' : 'w-4 h-4'} />
                 </div>
             ) : (
-                <div className="w-7 h-7 rounded-full overflow-hidden border border-amber-200/80 shadow-xs bg-amber-50 flex items-center justify-center flex-shrink-0">
+                <div
+                    className={`${
+                        isLargeText ? 'w-8 h-8' : 'w-7 h-7'
+                    } rounded-full overflow-hidden border border-amber-200/80 shadow-xs bg-amber-50 flex items-center justify-center flex-shrink-0`}
+                >
                     <img src={chatbotIcon} alt="Parish AI" className="w-full h-full object-cover rounded-full" />
                 </div>
             )}
 
-            {/* Bubble */}
-            <div
-                className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-                    isUser
-                        ? 'bg-primary text-white rounded-tr-sm shadow-sm'
-                        : 'card bg-white border border-border text-foreground rounded-tl-sm shadow-sm'
-                }`}
-                style={{ wordBreak: 'break-word' }}
-            >
-                <FormattedMessageContent content={content} isUser={isUser} />
+            {/* Bubble & Read Aloud Action */}
+            <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} gap-1.5 max-w-[85%]`}>
+                <div
+                    className={`px-3.5 py-2.5 rounded-2xl leading-relaxed break-words ${
+                        isUser
+                            ? 'bg-primary text-white rounded-tr-sm shadow-sm'
+                            : 'card bg-white border border-border text-foreground rounded-tl-sm shadow-sm'
+                    } ${isLargeText ? 'text-base sm:text-lg' : 'text-sm'}`}
+                    style={{ wordBreak: 'break-word' }}
+                >
+                    <FormattedMessageContent content={content} isUser={isUser} isLargeText={isLargeText} />
+                </div>
+
+                {!isUser && onReadAloud && (
+                    <button
+                        type="button"
+                        data-testid="read-aloud-button"
+                        onClick={onReadAloud}
+                        aria-label={isSpeaking ? 'Stop reading' : 'Read aloud'}
+                        title={isSpeaking ? 'Stop reading' : 'Read aloud'}
+                        className={`inline-flex items-center gap-1.5 font-medium rounded-xl transition-all border shadow-2xs focus:outline-none focus:ring-2 focus:ring-primary/20 active:scale-95 ${
+                            isSpeaking
+                                ? 'bg-amber-100 border-amber-300 text-amber-900 animate-pulse'
+                                : 'bg-white border-border text-muted hover:text-foreground hover:bg-secondary-50'
+                        } ${
+                            isLargeText
+                                ? 'min-h-[56px] text-base px-4 py-2.5'
+                                : 'text-xs px-2.5 py-1.5'
+                        }`}
+                    >
+                        {isSpeaking ? (
+                            <>
+                                <VolumeX className={isLargeText ? 'w-5 h-5 text-amber-700' : 'w-3.5 h-3.5 text-amber-700'} />
+                                <span>Stop reading</span>
+                            </>
+                        ) : (
+                            <>
+                                <Volume2 className={isLargeText ? 'w-5 h-5 text-primary' : 'w-3.5 h-3.5 text-primary'} />
+                                <span>Read aloud</span>
+                            </>
+                        )}
+                    </button>
+                )}
             </div>
         </div>
     );

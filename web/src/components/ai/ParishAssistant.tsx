@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar } from 'lucide-react';
+import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTicket } from '../../lib/supabase/messaging';
@@ -30,6 +30,7 @@ import TicketDraftCard, { type TicketDraftData } from './TicketDraftCard';
 import type { Database } from '../../types/database';
 
 type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
+import { isSpeechSynthesisSupported, speakReply, stopSpeaking } from '../../lib/speechSynthesis';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import chatbotIcon from '../../assets/chatbotIcon.png';
@@ -84,6 +85,63 @@ export default function ParishAssistant() {
     const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
     const [bookingSuccessAppointmentId, setBookingSuccessAppointmentId] = useState<string | null>(null);
     const isSubmittingRef = useRef(false);
+
+    // Accessibility: Large Text & Speech Synthesis
+    const [isLargeText, setIsLargeText] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem('sacralink_assistant_large_text') === 'true';
+        } catch {
+            return false;
+        }
+    });
+    const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+    const speechSupported = useMemo(() => isSpeechSynthesisSupported(), []);
+
+    const handleToggleLargeText = () => {
+        setIsLargeText((prev) => {
+            const next = !prev;
+            try {
+                localStorage.setItem('sacralink_assistant_large_text', String(next));
+            } catch {
+                // ignore in private mode
+            }
+            return next;
+        });
+    };
+
+    const handleToggleSpeech = (messageId: string, textContent: string) => {
+        if (!isSpeechSynthesisSupported()) return;
+
+        if (speakingMessageId === messageId) {
+            stopSpeaking();
+            setSpeakingMessageId(null);
+            return;
+        }
+
+        stopSpeaking();
+        const utt = speakReply(textContent, {
+            onStart: () => setSpeakingMessageId(messageId),
+            onEnd: () => setSpeakingMessageId((curr) => (curr === messageId ? null : curr)),
+            onError: () => setSpeakingMessageId((curr) => (curr === messageId ? null : curr)),
+        });
+        if (utt) {
+            setSpeakingMessageId(messageId);
+        } else {
+            setSpeakingMessageId(null);
+        }
+    };
+
+    const handleCloseAssistant = () => {
+        stopSpeaking();
+        setSpeakingMessageId(null);
+        setIsOpen(false);
+    };
+
+    useEffect(() => {
+        return () => {
+            stopSpeaking();
+        };
+    }, []);
 
     // Ticket Drafting State
     const [ticketDraft, setTicketDraft] = useState<TicketDraftData | null>(null);
@@ -1098,28 +1156,45 @@ export default function ParishAssistant() {
                         </div>
 
                         {/* Close button */}
-                        <button
-                            data-testid="parish-assistant-close"
-                            onClick={() => setIsOpen(false)}
-                            className="text-muted hover:text-foreground p-1.5 rounded-lg hover:bg-secondary-100 transition-colors"
-                            aria-label="Close assistant"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                data-testid="parish-assistant-large-text-toggle"
+                                onClick={handleToggleLargeText}
+                                aria-label="Toggle large text"
+                                aria-pressed={isLargeText}
+                                title={isLargeText ? 'Disable large text' : 'Toggle large text'}
+                                className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+                                    isLargeText
+                                        ? 'bg-primary text-white shadow-xs'
+                                        : 'text-muted hover:text-foreground hover:bg-secondary-100'
+                                }`}
+                            >
+                                <ALargeSmall className="w-4 h-4" />
+                            </button>
+                            <button
+                                data-testid="parish-assistant-close"
+                                onClick={handleCloseAssistant}
+                                className="text-muted hover:text-foreground p-1.5 rounded-lg hover:bg-secondary-100 transition-colors"
+                                aria-label="Close assistant"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Chat Messages Flow */}
-                    <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-background/50">
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 space-y-3 bg-background/50">
                         {/* Welcome card if empty */}
                         {messages.length === 0 && !bookingDraft && (
-                            <div className="card bg-white border border-border rounded-2xl p-4 shadow-xs text-center space-y-2 mt-2">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-                                    <MessageSquare className="w-5 h-5" />
+                            <div className={`card bg-white border border-border rounded-2xl shadow-xs text-center space-y-2 mt-2 ${isLargeText ? 'p-5' : 'p-4'}`}>
+                                <div className={`${isLargeText ? 'w-12 h-12' : 'w-10 h-10'} rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center`}>
+                                    <MessageSquare className={`${isLargeText ? 'w-6 h-6' : 'w-5 h-5'}`} />
                                 </div>
-                                <h3 className="text-sm font-semibold text-foreground">
+                                <h3 className={`${isLargeText ? 'text-base sm:text-lg font-bold' : 'text-sm font-semibold'} text-foreground`}>
                                     Peace be with you!
                                 </h3>
-                                <p className="text-xs text-muted leading-relaxed">
+                                <p className={`${isLargeText ? 'text-sm sm:text-base leading-relaxed' : 'text-xs leading-relaxed'} text-muted`}>
                                     I can help you check live Mass schedules, guide sacrament bookings, or connect with the parish office.
                                 </p>
                             </div>
@@ -1128,7 +1203,17 @@ export default function ParishAssistant() {
                         {/* Render conversation turns */}
                         {messages.map((m) => (
                             <div key={m.id} data-testid={m.role === 'assistant' ? 'assistant-reply' : undefined}>
-                                <ChatMessage role={m.role} content={m.content} />
+                                <ChatMessage
+                                    role={m.role}
+                                    content={m.content}
+                                    isLargeText={isLargeText}
+                                    onReadAloud={
+                                        m.role === 'assistant' && speechSupported
+                                            ? () => handleToggleSpeech(m.id, m.content)
+                                            : undefined
+                                    }
+                                    isSpeaking={speakingMessageId === m.id}
+                                />
                                 {m.handoff && (
                                     <div className="mt-2 pt-1 pl-1">
                                         <button
@@ -1136,18 +1221,22 @@ export default function ParishAssistant() {
                                             data-testid="handoff-button"
                                             data-handoff-type={m.handoff.type}
                                             onClick={() => {
-                                                setIsOpen(false);
+                                                handleCloseAssistant();
                                                 navigate(m.handoff!.url);
                                             }}
-                                            className="inline-flex items-center gap-2 text-xs font-semibold bg-primary hover:bg-primary-600 text-white px-3.5 py-2 rounded-xl shadow-xs transition-colors"
+                                            className={`inline-flex items-center gap-2 font-semibold bg-primary hover:bg-primary-600 text-white rounded-xl shadow-xs transition-colors ${
+                                                isLargeText
+                                                    ? 'min-h-[56px] text-base px-5 py-3'
+                                                    : 'text-xs px-3.5 py-2'
+                                            }`}
                                         >
                                             {m.handoff.type === 'appointment' ? (
-                                                <Calendar className="w-4 h-4 text-white flex-shrink-0" />
+                                                <Calendar className={`${isLargeText ? 'w-5 h-5' : 'w-4 h-4'} text-white flex-shrink-0`} />
                                             ) : (
-                                                <MessageSquare className="w-4 h-4 text-white flex-shrink-0" />
+                                                <MessageSquare className={`${isLargeText ? 'w-5 h-5' : 'w-4 h-4'} text-white flex-shrink-0`} />
                                             )}
                                             <span>{m.handoff.label}</span>
-                                            <ArrowRight className="w-3.5 h-3.5 text-white/80" />
+                                            <ArrowRight className={`${isLargeText ? 'w-4 h-4' : 'w-3.5 h-3.5'} text-white/80`} />
                                         </button>
                                     </div>
                                 )}
@@ -1161,7 +1250,11 @@ export default function ParishAssistant() {
                                     <button
                                         key={church.id}
                                         onClick={() => handleSelectChurchFromChip(church)}
-                                        className="text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 font-medium px-3 py-1.5 rounded-full border border-border shadow-xs transition-colors"
+                                        className={`font-medium rounded-full border border-border shadow-xs transition-colors ${
+                                            isLargeText
+                                                ? 'min-h-[56px] text-base px-4 py-3 bg-white hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                : 'text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 px-3 py-1.5'
+                                        }`}
                                     >
                                         {church.name}
                                     </button>
@@ -1189,7 +1282,11 @@ export default function ParishAssistant() {
                                                 type="button"
                                                 data-testid={`service-chip-${service.id}`}
                                                 onClick={() => handleSelectService(service)}
-                                                className="text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 font-medium px-3.5 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                                className={`font-medium rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                                    isLargeText
+                                                        ? 'min-h-[56px] text-base px-4 py-3 bg-white hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                        : 'text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 px-3.5 py-1.5'
+                                                }`}
                                             >
                                                 {service.name}
                                             </button>
@@ -1210,7 +1307,11 @@ export default function ParishAssistant() {
                                             data-testid={`date-chip-${candidate.date}`}
                                             data-date={candidate.date}
                                             onClick={() => handleSelectDate(candidate.date, candidate.label)}
-                                            className="text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 font-medium px-3.5 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                            className={`font-medium rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                                isLargeText
+                                                    ? 'min-h-[56px] text-base px-4 py-3 bg-white hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                    : 'text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 px-3.5 py-1.5'
+                                            }`}
                                         >
                                             {candidate.label}
                                         </button>
@@ -1251,7 +1352,11 @@ export default function ParishAssistant() {
                                                 data-testid={`time-chip-${slot.time.replace(':', '-')}`}
                                                 data-time={slot.time}
                                                 onClick={() => handleSelectTime(slot.time, slot.label)}
-                                                className="text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 font-medium px-3.5 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                                className={`font-medium rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                                    isLargeText
+                                                        ? 'min-h-[56px] text-base px-4 py-3 bg-white hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                        : 'text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 px-3.5 py-1.5'
+                                                }`}
                                             >
                                                 {slot.label}
                                             </button>
@@ -1275,7 +1380,11 @@ export default function ParishAssistant() {
                                             type="button"
                                             data-testid="priest-chip-any"
                                             onClick={() => void handleSelectPriest(null, 'Any available priest')}
-                                            className="text-xs bg-secondary-100 hover:bg-primary hover:text-white text-secondary-900 font-semibold px-3.5 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                            className={`font-semibold rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                                isLargeText
+                                                    ? 'min-h-[56px] text-base px-4 py-3 bg-secondary-100 hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                    : 'text-xs bg-secondary-100 hover:bg-primary hover:text-white text-secondary-900 px-3.5 py-1.5'
+                                            }`}
                                         >
                                             Any available priest
                                         </button>
@@ -1287,7 +1396,11 @@ export default function ParishAssistant() {
                                                     type="button"
                                                     data-testid={`priest-chip-${priest.priestId}`}
                                                     onClick={() => void handleSelectPriest(priest.priestId, label)}
-                                                    className="text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 font-medium px-3.5 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                                    className={`font-medium rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                                        isLargeText
+                                                            ? 'min-h-[56px] text-base px-4 py-3 bg-white hover:bg-primary hover:text-white text-secondary-900 flex items-center justify-center'
+                                                            : 'text-xs bg-white hover:bg-primary hover:text-white text-secondary-800 px-3.5 py-1.5'
+                                                    }`}
                                                 >
                                                     {label}
                                                 </button>
@@ -1307,6 +1420,7 @@ export default function ParishAssistant() {
                                 onFileRemove={handleFileRemove}
                                 onContinue={handleContinueFromDocuments}
                                 isLoading={loadingRequirements}
+                                isLargeText={isLargeText}
                             />
                         )}
 
@@ -1320,7 +1434,11 @@ export default function ParishAssistant() {
                                     type="button"
                                     data-testid="notes-chip-skip"
                                     onClick={() => handleNotesInput('')}
-                                    className="text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 font-medium px-4 py-1.5 rounded-full border border-border shadow-xs transition-all active:scale-95"
+                                    className={`font-medium rounded-full border border-border shadow-xs transition-all active:scale-95 ${
+                                        isLargeText
+                                            ? 'min-h-[56px] text-base px-5 py-3 bg-secondary-100 hover:bg-secondary-200 text-secondary-900 flex items-center justify-center'
+                                            : 'text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 px-4 py-1.5'
+                                    }`}
                                 >
                                     No notes / Skip
                                 </button>
@@ -1334,6 +1452,7 @@ export default function ParishAssistant() {
                                 requirements={serviceRequirements}
                                 attachedDocuments={attachedDocuments}
                                 isSubmitting={isBookingSubmitting}
+                                isLargeText={isLargeText}
                                 onConfirm={() => void handleConfirmBooking()}
                                 onChange={handleChangeBooking}
                                 onCancel={handleCancelBooking}
@@ -1360,13 +1479,17 @@ export default function ParishAssistant() {
                                         data-testid="view-appointment-link"
                                         data-appointment-id={bookingSuccessAppointmentId || undefined}
                                         onClick={() => {
-                                            setIsOpen(false);
+                                            handleCloseAssistant();
                                             navigate('/appointments');
                                         }}
-                                        className="inline-flex items-center gap-1.5 text-xs bg-primary hover:bg-primary-600 text-white font-medium px-3.5 py-1.5 rounded-xl shadow-xs transition-colors"
+                                        className={`inline-flex items-center gap-2 bg-primary hover:bg-primary-600 text-white font-medium rounded-xl shadow-xs transition-colors ${
+                                            isLargeText
+                                                ? 'min-h-[56px] text-base px-5 py-3'
+                                                : 'text-xs px-3.5 py-1.5'
+                                        }`}
                                     >
                                         <span>View My Appointments</span>
-                                        <ArrowRight className="w-3.5 h-3.5" />
+                                        <ArrowRight className={isLargeText ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                                     </button>
                                 </div>
                             </div>
@@ -1377,6 +1500,7 @@ export default function ParishAssistant() {
                             <TicketDraftCard
                                 draft={ticketDraft}
                                 isSubmitting={isTicketSubmitting}
+                                isLargeText={isLargeText}
                                 onUpdateDraft={(updates) =>
                                     setTicketDraft((prev) => (prev ? { ...prev, ...updates } : null))
                                 }
@@ -1403,13 +1527,17 @@ export default function ParishAssistant() {
                                         type="button"
                                         data-testid="view-ticket-link"
                                         onClick={() => {
-                                            setIsOpen(false);
+                                            handleCloseAssistant();
                                             navigate('/messages');
                                         }}
-                                        className="inline-flex items-center gap-1.5 text-xs bg-primary hover:bg-primary-600 text-white font-medium px-3.5 py-1.5 rounded-xl shadow-xs transition-colors"
+                                        className={`inline-flex items-center gap-2 bg-primary hover:bg-primary-600 text-white font-medium rounded-xl shadow-xs transition-colors ${
+                                            isLargeText
+                                                ? 'min-h-[56px] text-base px-5 py-3'
+                                                : 'text-xs px-3.5 py-1.5'
+                                        }`}
                                     >
                                         <span>View Ticket in Messages</span>
-                                        <ArrowRight className="w-3.5 h-3.5" />
+                                        <ArrowRight className={isLargeText ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
                                     </button>
                                 </div>
                             </div>
@@ -1428,14 +1556,20 @@ export default function ParishAssistant() {
 
                     {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
                     {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (
-                        <div className="px-3 pt-2 pb-1 bg-white border-t border-border/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <div className={`px-3 pt-2 pb-1 bg-white border-t border-border/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar ${
+                            isLargeText ? 'py-2.5' : ''
+                        }`}>
                             {STARTER_CHIPS.map((chip) => (
                                 <button
                                     key={chip}
                                     data-testid={`starter-chip-${chip.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                     onClick={() => void handleSendMessage(chip)}
                                     disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
-                                    className="whitespace-nowrap text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 font-medium px-3 py-1.5 rounded-full border border-border transition-all active:scale-95 disabled:opacity-50"
+                                    className={`whitespace-nowrap font-medium rounded-full border border-border transition-all active:scale-95 disabled:opacity-50 ${
+                                        isLargeText
+                                            ? 'min-h-[56px] text-base px-4 py-3 bg-secondary-100 hover:bg-secondary-200 text-secondary-900 flex items-center justify-center'
+                                            : 'text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 px-3 py-1.5'
+                                    }`}
                                 >
                                     {chip}
                                 </button>
@@ -1447,6 +1581,7 @@ export default function ParishAssistant() {
                     <ChatInput
                         onSend={(txt) => void handleSendMessage(txt)}
                         disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
+                        isLargeText={isLargeText}
                     />
                 </div>
             )}

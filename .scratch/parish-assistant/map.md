@@ -25,7 +25,7 @@ Spec: `spec.md` (decisions locked 2026-10-24). Tickets in `issues/`. Branch: `fe
 - [x] 07 Document upload cards in the chat (after 06)
 - [x] 08 AI-assisted booking (after 04, 06)
 - [x] 09 Parish Office Ticket drafting and hand-off buttons (after 04)
-- [ ] 10 Large text and read aloud (after 03)
+- [x] 10 Large text and read aloud (after 03)
 
 ## Decisions (grilling session 2026-10-24)
 1. Action scope: answers, guided Booking and ticket drafting; the AI only proposes, the browser acts on the Parishioner's Confirm tap.

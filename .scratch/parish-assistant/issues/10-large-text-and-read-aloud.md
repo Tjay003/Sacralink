@@ -1,7 +1,7 @@
 # 10: Large text and read aloud
 
 Type: task
-**Status:** ready-for-agent
+**Status:** resolved
 **Blocked by:** 03
 
 **What to build:** elderly Parishioners can read and hear the assistant comfortably.
@@ -11,6 +11,6 @@ Type: task
 - All controls are keyboard-reachable with accessible labels.
 - UI only: no Playwright test (per the test workflow).
 
-- [ ] Large text survives a reload and never causes horizontal scroll at phone width
-- [ ] Read aloud speaks the reply and can be stopped; it is hidden on a browser without speech synthesis
-- [ ] `tsc -b` and lint are clean; checked on the local dev server at phone and desktop widths
+- [x] Large text survives a reload and never causes horizontal scroll at phone width
+- [x] Read aloud speaks the reply and can be stopped; it is hidden on a browser without speech synthesis
+- [x] `tsc -b` and lint are clean; checked on the local dev server at phone and desktop widths
