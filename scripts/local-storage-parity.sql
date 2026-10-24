@@ -23,3 +23,20 @@ CREATE POLICY "Public can view parish upload buckets"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id IN ('church-images', 'appointment-documents'));
+
+-- church_chat_logs parity (existing in production foundation, needed locally)
+CREATE TABLE IF NOT EXISTS public.church_chat_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  church_id uuid REFERENCES public.churches(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  question text NOT NULL,
+  answer text NOT NULL,
+  created_at timestamp with time zone DEFAULT now()
+);
+ALTER TABLE public.church_chat_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can read all chat logs" ON public.church_chat_logs;
+CREATE POLICY "Admins can read all chat logs" ON public.church_chat_logs AS PERMISSIVE FOR SELECT TO authenticated USING ((get_current_user_role() = ANY (ARRAY['admin'::text, 'super_admin'::text, 'church_admin'::text])));
+DROP POLICY IF EXISTS "Anyone authenticated can insert chat logs" ON public.church_chat_logs;
+CREATE POLICY "Anyone authenticated can insert chat logs" ON public.church_chat_logs AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Users can read their own chat logs" ON public.church_chat_logs;
+CREATE POLICY "Users can read their own chat logs" ON public.church_chat_logs AS PERMISSIVE FOR SELECT TO authenticated USING ((user_id = auth.uid()));

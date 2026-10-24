@@ -4,6 +4,7 @@ import { Sparkles, X, ChevronDown, Church, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { getUserFavoriteChurchIds } from '../../lib/supabase/churchFavorites';
+import { askParishAssistant } from '../../lib/supabase/parishAssistant';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import chatbotIcon from '../../assets/chatbotIcon.png';
@@ -145,32 +146,23 @@ export default function ParishAssistant() {
                     content: m.content,
                 }));
 
-                const { data, error } = await supabase.functions.invoke('parish-assistant', {
-                    body: {
-                        message: trimmed,
-                        churchId: targetChurchId,
-                        conversationHistory: historyPayload,
-                    },
+                const result = await askParishAssistant({
+                    message: trimmed,
+                    churchId: targetChurchId,
+                    churchName: activeChurch?.name,
+                    conversationHistory: historyPayload,
                 });
-
-                if (error) {
-                    throw error;
-                }
-
-                const replyText =
-                    data?.reply ||
-                    "I'm sorry, I couldn't get an answer at this time. Please try again or contact the parish office.";
 
                 setMessages((prev) => [
                     ...prev,
                     {
                         id: `assistant-${Date.now()}`,
                         role: 'assistant',
-                        content: replyText,
+                        content: result.reply,
                     },
                 ]);
             } catch (err: unknown) {
-                console.error('Error invoking parish-assistant edge function:', err);
+                console.error('Error invoking parish assistant:', err);
                 setMessages((prev) => [
                     ...prev,
                     {
@@ -184,7 +176,7 @@ export default function ParishAssistant() {
                 setIsLoading(false);
             }
         },
-        [activeChurchId, churches.length, isLoading, messages]
+        [activeChurchId, activeChurch?.name, churches.length, isLoading, messages]
     );
 
     const handleSelectChurchFromChip = (church: ChurchOption) => {

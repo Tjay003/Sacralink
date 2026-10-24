@@ -30,6 +30,30 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(bodyText);
       const { contents = [], system_instruction } = body;
 
+      // Extract model name from pathname, e.g. /v1beta/models/gemini-2.5-flash:generateContent
+      const modelMatch = url.pathname.match(/\/models\/([^:]+):generateContent/);
+      const modelName = modelMatch ? modelMatch[1] : '';
+
+      const simulateQuotaHeader =
+        req.headers['x-test-simulate-quota'] === 'true' ||
+        req.headers['x-test-simulate-quota'] === '1';
+
+      if (
+        modelName === 'simulate-quota-first-model' ||
+        (simulateQuotaHeader && (modelName === 'gemini-2.5-flash' || modelName.includes('first')))
+      ) {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            error: {
+              code: 429,
+              message: 'Resource has been exhausted (e.g. check quota).',
+              status: 'RESOURCE_EXHAUSTED',
+            },
+          })
+        );
+      }
+
       // Extract church ID from system instruction if present
       const systemText = system_instruction?.parts?.[0]?.text || '';
       const matchChurch = systemText.match(/parish ID:\s*([a-f0-9-]+)/i);

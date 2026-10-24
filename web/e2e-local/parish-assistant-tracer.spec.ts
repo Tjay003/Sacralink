@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSeed, loginAs, resetMassSchedules, serviceClient, LOCAL_URL } from './support';
+import { getSeed, loginAs, resetMassSchedules, resetChurchChatLogs, serviceClient, LOCAL_URL } from './support';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 let fakeGeminiProcess: ChildProcess | null = null;
@@ -60,6 +60,10 @@ async function ensureFunctionsServing() {
 test.beforeAll(async () => {
   await ensureFakeGeminiRunning();
   await ensureFunctionsServing();
+});
+
+test.beforeEach(async () => {
+  await resetChurchChatLogs();
 });
 
 test.afterAll(async () => {

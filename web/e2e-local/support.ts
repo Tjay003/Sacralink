@@ -348,3 +348,14 @@ export function migrationsFrom062(): string {
     .map((name) => readFileSync(resolve(dir, name), 'utf8'))
     .join(';\n');
 }
+
+
+/** Resets chat audit log entries in church_chat_logs. */
+export async function resetChurchChatLogs(userId?: string) {
+  const db = serviceClient();
+  if (userId) {
+    await db.from('church_chat_logs').delete().eq('user_id', userId);
+  } else {
+    await db.from('church_chat_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  }
+}

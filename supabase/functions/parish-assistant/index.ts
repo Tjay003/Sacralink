@@ -674,11 +674,16 @@ async function executeTool(
   return { error: `Tool ${name} is not recognized` };
 }
 
-async function postToGemini(url: string, payload: any): Promise<Response> {
+async function postToGemini(
+  url: string,
+  payload: any,
+  customHeaders: Record<string, string> = {}
+): Promise<Response> {
+  const reqHeaders = { 'Content-Type': 'application/json', ...customHeaders };
   try {
     return await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: reqHeaders,
       body: JSON.stringify(payload),
     });
   } catch (err: any) {
@@ -686,7 +691,7 @@ async function postToGemini(url: string, payload: any): Promise<Response> {
       const fallbackUrl = url.replace('host.docker.internal', '127.0.0.1');
       return await fetch(fallbackUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify(payload),
       });
     }
@@ -694,7 +699,7 @@ async function postToGemini(url: string, payload: any): Promise<Response> {
       const fallbackUrl = url.replace('127.0.0.1', 'host.docker.internal');
       return await fetch(fallbackUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify(payload),
       });
     }
@@ -736,7 +741,42 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
   try {
+    const body = await req.json().catch(() => ({}));
+    const { message, churchId, conversationHistory, simulateQuota } = body;
+
+    if (!message || typeof message !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'message string is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2. Server Rate Limiter: at most 10 assistant messages per user per 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { count: recentCount, error: countErr } = await serviceClient
+      .from('church_chat_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', fiveMinutesAgo);
+
+    if (!countErr && typeof recentCount === 'number' && recentCount >= 10) {
+      return new Response(
+        JSON.stringify({
+          isRateLimited: true,
+          reply:
+            'You have reached the temporary inquiry limit. Please wait a few minutes or contact the parish office directly for immediate assistance.',
+          sourcesUsed: 0,
+          bookingProposal: null,
+          intent: null,
+          handoff: null,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || 'mock-key';
     const rawBaseUrl =
       Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
@@ -749,14 +789,12 @@ Deno.serve(async (req: Request) => {
           .filter(Boolean)
       : ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
-    const body = await req.json();
-    const { message, churchId, conversationHistory } = body;
-
-    if (!message || typeof message !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'message string is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const geminiHeaders: Record<string, string> = {};
+    const testSimulateQuota =
+      req.headers.get('x-test-simulate-quota') ||
+      (simulateQuota ? 'true' : null);
+    if (testSimulateQuota) {
+      geminiHeaders['x-test-simulate-quota'] = testSimulateQuota;
     }
 
     const systemInstruction = `You are Sacralink's AI Parish Assistant, helping parishioners with Catholic parish schedules, sacrament inquiries, requirements, and bookings.
@@ -802,7 +840,6 @@ RULES & GUIDELINES:
     let finalReply = '';
     let sourcesUsed = 0;
     const MAX_TOOL_TURNS = 5;
-    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     for (const model of GEMINI_CHAT_MODELS) {
       try {
@@ -820,7 +857,7 @@ RULES & GUIDELINES:
               temperature: 0.2,
               maxOutputTokens: 800,
             },
-          });
+          }, geminiHeaders);
 
           if (!response.ok) {
             const errText = await response.text();

@@ -8,6 +8,7 @@ import {
   resetAppointmentData,
   resetPriestAvailability,
   resetMassSchedules,
+  resetChurchChatLogs,
   addLeave,
   serviceClient,
   isoDate,
@@ -70,6 +71,10 @@ test.describe('AI Parish Assistant - Live Read Tools & Isolation', () => {
   test.beforeAll(async () => {
     await ensureFakeGeminiRunning();
     await ensureFunctionsServing();
+  });
+
+  test.beforeEach(async () => {
+    await resetChurchChatLogs();
   });
 
   test.afterAll(async () => {
