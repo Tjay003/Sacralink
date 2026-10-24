@@ -26,18 +26,181 @@ const tools = [
           required: ['church_id'],
         },
       },
+      {
+        name: 'list_parishes',
+        description: 'List all active Catholic parishes or churches in the diocese.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {},
+        },
+      },
+      {
+        name: 'find_mass_across_parishes',
+        description:
+          'Find Mass schedules across all active parishes by day of the week and optional time.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            day_of_week: {
+              type: 'STRING',
+              description: 'Day of week, e.g. Sunday, Saturday, Monday',
+            },
+            time: {
+              type: 'STRING',
+              description: 'Optional time of day, e.g. 18:00 or 6:00 PM',
+            },
+          },
+          required: ['day_of_week'],
+        },
+      },
+      {
+        name: 'get_bookable_services',
+        description:
+          'Get the list of active bookable sacramental services offered by a parish.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'The UUID of the church or parish',
+            },
+          },
+          required: ['church_id'],
+        },
+      },
+      {
+        name: 'get_sacrament_requirements',
+        description:
+          'Get the document requirements and guidelines for a sacramental service at a parish.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'The UUID of the church or parish',
+            },
+            service_name: {
+              type: 'STRING',
+              description: 'The sacrament or service name, e.g. Baptism, Wedding, Confirmation',
+            },
+          },
+          required: ['church_id', 'service_name'],
+        },
+      },
+      {
+        name: 'check_slot_availability',
+        description:
+          'Check whether a date and time slot is available for an appointment at a parish.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'The UUID of the church or parish',
+            },
+            date: {
+              type: 'STRING',
+              description: 'The date in YYYY-MM-DD format',
+            },
+            time: {
+              type: 'STRING',
+              description: 'The time in HH:MM format (24-hour)',
+            },
+          },
+          required: ['church_id', 'date', 'time'],
+        },
+      },
+      {
+        name: 'check_priest_availability',
+        description:
+          'Check whether a priest is available on a given date and optional time. Never returns or exposes private leave reasons. Returns only availability status (yes/no).',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'Optional UUID of the parish',
+            },
+            priest_name: {
+              type: 'STRING',
+              description: 'Name of the priest, e.g. Father John',
+            },
+            priest_id: {
+              type: 'STRING',
+              description: 'Optional UUID of the priest',
+            },
+            date: {
+              type: 'STRING',
+              description: 'The date in YYYY-MM-DD format or day of week',
+            },
+            time: {
+              type: 'STRING',
+              description: 'Optional time in HH:MM format',
+            },
+          },
+          required: ['date'],
+        },
+      },
+      {
+        name: 'get_my_appointments',
+        description:
+          "Get the authenticated caller's own appointments with schedule, service, status, and any rescheduling details. Protected by Row Level Security.",
+        parameters: {
+          type: 'OBJECT',
+          properties: {},
+        },
+      },
+      {
+        name: 'search_church_knowledge',
+        description:
+          'Search parish knowledge sections and announcements for general information about ministries, facilities, history, or office hours.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'The UUID of the church or parish',
+            },
+            query: {
+              type: 'STRING',
+              description: 'Free-text search query',
+            },
+          },
+          required: ['church_id', 'query'],
+        },
+      },
     ],
   },
 ];
+
+interface ToolExecutionResult {
+  schedules?: any[];
+  parishes?: any[];
+  services?: any[];
+  requirements?: any[];
+  appointments?: any[];
+  results?: any[];
+  available?: boolean;
+  slot_taken?: boolean;
+  has_eligible_priest?: boolean;
+  error?: string;
+}
 
 async function executeTool(
   name: string,
   args: any,
   userClient: any,
-  defaultChurchId?: string | null
-): Promise<{ schedules?: any[]; error?: string }> {
+  defaultChurchId?: string | null,
+  context?: {
+    geminiBaseUrl?: string;
+    geminiApiKey?: string;
+    serviceClient?: any;
+  }
+): Promise<ToolExecutionResult> {
+  const targetChurchId = args?.church_id || defaultChurchId;
+
+  // 1. get_mass_schedule
   if (name === 'get_mass_schedule') {
-    const targetChurchId = args?.church_id || defaultChurchId;
     if (!targetChurchId) {
       return { schedules: [], error: 'No church ID provided' };
     }
@@ -50,11 +213,462 @@ async function executeTool(
       .order('time');
 
     if (error) {
-      console.error('get_mass_schedule query error:', error);
+      console.error('get_mass_schedule error:', error);
       return { schedules: [], error: error.message };
     }
 
     return { schedules: data || [] };
+  }
+
+  // 2. list_parishes
+  if (name === 'list_parishes') {
+    const { data, error } = await userClient
+      .from('churches')
+      .select('id, name, address, contact_number, email')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('list_parishes error:', error);
+      return { parishes: [], error: error.message };
+    }
+
+    return { parishes: data || [] };
+  }
+
+  // 3. find_mass_across_parishes
+  if (name === 'find_mass_across_parishes') {
+    const dayOfWeek = args?.day_of_week;
+    if (!dayOfWeek) {
+      return { schedules: [], error: 'day_of_week is required' };
+    }
+
+    const { data, error } = await userClient
+      .from('mass_schedules')
+      .select(`
+        id,
+        day_of_week,
+        time,
+        language,
+        church:churches!inner(id, name, address, is_active)
+      `)
+      .eq('church.is_active', true)
+      .ilike('day_of_week', dayOfWeek.trim())
+      .order('time');
+
+    if (error) {
+      console.error('find_mass_across_parishes error:', error);
+      return { schedules: [], error: error.message };
+    }
+
+    let schedules = data || [];
+    if (args?.time) {
+      const rawTime = String(args.time).trim();
+      const match = rawTime.match(/\b(\d{1,2}:\d{2})/);
+      if (match) {
+        const prefix = match[1].padStart(5, '0');
+        const filtered = schedules.filter((s: any) => s.time?.startsWith(prefix));
+        if (filtered.length > 0) {
+          schedules = filtered;
+        }
+      }
+    }
+
+    return { schedules };
+  }
+
+  // 4. get_bookable_services
+  if (name === 'get_bookable_services') {
+    if (!targetChurchId) {
+      return { services: [], error: 'No church ID provided' };
+    }
+
+    const { data, error } = await userClient
+      .from('church_service_types')
+      .select('id, name, description, kind, display_order')
+      .eq('church_id', targetChurchId)
+      .eq('is_hidden', false)
+      .is('deleted_at', null)
+      .order('display_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('get_bookable_services error:', error);
+      return { services: [], error: error.message };
+    }
+
+    return { services: data || [] };
+  }
+
+  // 5. get_sacrament_requirements
+  if (name === 'get_sacrament_requirements') {
+    if (!targetChurchId) {
+      return { requirements: [], error: 'No church ID provided' };
+    }
+    const serviceName = (args?.service_name || '').trim();
+
+    let serviceTypeId: string | null = null;
+    if (serviceName) {
+      const { data: services } = await userClient
+        .from('church_service_types')
+        .select('id, name, kind')
+        .eq('church_id', targetChurchId)
+        .is('deleted_at', null);
+
+      const matchedService = (services || []).find(
+        (s: any) =>
+          s.name.toLowerCase() === serviceName.toLowerCase() ||
+          (s.kind && s.kind.toLowerCase() === serviceName.toLowerCase()) ||
+          s.name.toLowerCase().includes(serviceName.toLowerCase())
+      );
+      if (matchedService) {
+        serviceTypeId = matchedService.id;
+      }
+    }
+
+    let query = userClient
+      .from('sacrament_requirements')
+      .select('id, requirement_name, description, is_required, allowed_file_types, display_order')
+      .eq('church_id', targetChurchId);
+
+    if (serviceTypeId) {
+      query = query.eq('service_type_id', serviceTypeId);
+    } else if (serviceName) {
+      query = query.ilike('service_type', `%${serviceName}%`);
+    }
+
+    const { data, error } = await query.order('display_order', { ascending: true });
+    if (error) {
+      console.error('get_sacrament_requirements error:', error);
+      return { requirements: [], error: error.message };
+    }
+
+    return { requirements: data || [] };
+  }
+
+  // 6. check_slot_availability
+  if (name === 'check_slot_availability') {
+    if (!targetChurchId || !args?.date || !args?.time) {
+      return { available: false, error: 'church_id, date, and time are required' };
+    }
+
+    const cleanDate = args.date.includes('T') ? args.date.split('T')[0] : args.date.trim();
+    const cleanTime = args.time.trim();
+
+    const { data, error } = await userClient.rpc('check_parish_slot', {
+      p_church_id: targetChurchId,
+      p_date: cleanDate,
+      p_time: cleanTime,
+    });
+
+    if (error) {
+      console.error('check_parish_slot error:', error);
+      return { available: false, error: error.message };
+    }
+
+    const row = data?.[0];
+    const slotTaken = Boolean(row?.slot_taken);
+    const hasEligiblePriest = Boolean(row?.has_eligible_priest);
+    const isAvailable = !slotTaken && hasEligiblePriest;
+
+    return {
+      available: isAvailable,
+      slot_taken: slotTaken,
+      has_eligible_priest: hasEligiblePriest,
+    };
+  }
+
+  // 7. check_priest_availability
+  // MANDATORY PRIVACY RULE: Never select, inspect, or return priest leave or blackout reason.
+  // Returns { available: boolean } ONLY.
+  if (name === 'check_priest_availability') {
+    try {
+      let priestId = args?.priest_id;
+
+      if (!priestId && args?.priest_name) {
+        const cleanName = String(args.priest_name)
+          .replace(/^(fr\.|father|rev\.|rev|padre)\s+/i, '')
+          .trim();
+
+        let profileQuery = userClient
+          .from('profiles')
+          .select('id, full_name, church_id, assigned_church_id')
+          .or('is_priest.eq.true,role.eq.priest');
+
+        if (cleanName) {
+          profileQuery = profileQuery.ilike('full_name', `%${cleanName}%`);
+        }
+
+        const { data: candidates, error: pErr } = await profileQuery;
+        if (pErr) {
+          console.error('Error resolving priest profile:', pErr);
+        }
+
+        if (candidates && candidates.length > 0) {
+          const matched =
+            candidates.find(
+              (c: any) =>
+                c.church_id === targetChurchId || c.assigned_church_id === targetChurchId
+            ) || candidates[0];
+          priestId = matched.id;
+        }
+      }
+
+      if (!priestId) {
+        return { available: false };
+      }
+
+      const rawDate = (args?.date || '').trim();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      let dayOfWeek: number | null = null;
+      let calendarDate: string | null = null;
+
+      if (dayNames.includes(rawDate.toLowerCase())) {
+        dayOfWeek = dayNames.indexOf(rawDate.toLowerCase());
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+        calendarDate = rawDate.split('T')[0];
+        const [y, m, d] = calendarDate.split('-').map(Number);
+        dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      }
+
+      // CRITICAL PRIVACY BOUNDARY: We do NOT select 'reason' or 'notes' column.
+      const { data: records, error: availErr } = await userClient
+        .from('priest_availability')
+        .select('day_of_week, blackout_start, blackout_end, is_blocked, available_date')
+        .eq('priest_id', priestId);
+
+      if (availErr) {
+        console.error('Error fetching priest availability:', availErr);
+        return { available: false };
+      }
+
+      const allRecords = records || [];
+
+      // Check recurring day off
+      if (dayOfWeek !== null) {
+        const isDayOff = allRecords.some((r: any) => r.day_of_week === dayOfWeek);
+        if (isDayOff) {
+          return { available: false };
+        }
+      }
+
+      // Check blackout dates
+      if (calendarDate) {
+        const isBlackout = allRecords.some((r: any) => {
+          if (!r.blackout_start || !r.blackout_end) return false;
+          return calendarDate! >= r.blackout_start && calendarDate! <= r.blackout_end;
+        });
+        if (isBlackout) {
+          return { available: false };
+        }
+
+        const isBlocked = allRecords.some(
+          (r: any) => r.available_date === calendarDate && r.is_blocked === true
+        );
+        if (isBlocked) {
+          return { available: false };
+        }
+      }
+
+      // Check appointment clashes
+      if (calendarDate && args?.time) {
+        const cleanTime = String(args.time).trim();
+        const { data: collisions } = await userClient
+          .from('appointments')
+          .select('id, appointment_time')
+          .eq('priest_id', priestId)
+          .eq('appointment_date', calendarDate)
+          .not('status', 'in', '("cancelled","rejected")');
+
+        if (collisions && collisions.length > 0) {
+          const hasClash = collisions.some((a: any) => {
+            if (!a.appointment_time) return false;
+            return a.appointment_time.slice(0, 5) === cleanTime.slice(0, 5);
+          });
+          if (hasClash) {
+            return { available: false };
+          }
+        }
+      }
+
+      return { available: true };
+    } catch (err) {
+      console.error('Exception checking priest availability:', err);
+      return { available: false };
+    }
+  }
+
+  // 8. get_my_appointments
+  // Executed with userClient; RLS restricts results strictly to auth.uid().
+  if (name === 'get_my_appointments') {
+    const { data, error } = await userClient
+      .from('appointments')
+      .select(`
+        id,
+        service_type,
+        appointment_date,
+        appointment_time,
+        status,
+        notes,
+        rescheduled_from_date,
+        reschedule_reason,
+        church:churches(id, name)
+      `)
+      .order('appointment_date', { ascending: false })
+      .order('appointment_time', { ascending: false });
+
+    if (error) {
+      console.error('get_my_appointments error:', error);
+      return { appointments: [], error: error.message };
+    }
+
+    return { appointments: data || [] };
+  }
+
+  // 9. search_church_knowledge
+  if (name === 'search_church_knowledge') {
+    if (!targetChurchId) {
+      return { results: [], error: 'No church ID provided' };
+    }
+    const query = (args?.query || '').trim();
+    let results: any[] = [];
+
+    // Try vector search if valid Gemini API key is configured
+    if (
+      context?.geminiApiKey &&
+      context.geminiApiKey !== 'mock-key' &&
+      context?.geminiBaseUrl
+    ) {
+      try {
+        const embedRes = await fetch(
+          `${context.geminiBaseUrl}/v1beta/models/gemini-embedding-001:embedContent?key=${context.geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: { parts: [{ text: query }] },
+              outputDimensionality: 768,
+            }),
+          }
+        );
+        if (embedRes.ok) {
+          const embedData = await embedRes.json();
+          const embedding = embedData.embedding?.values;
+          if (embedding) {
+            let { data: chunks, error: rpcErr } = await userClient.rpc(
+              'match_church_knowledge',
+              {
+                query_embedding: embedding,
+                match_church_id: targetChurchId,
+                match_count: 5,
+              }
+            );
+            if (rpcErr && context.serviceClient) {
+              const { data: svcChunks } = await context.serviceClient.rpc(
+                'match_church_knowledge',
+                {
+                  query_embedding: embedding,
+                  match_church_id: targetChurchId,
+                  match_count: 5,
+                }
+              );
+              chunks = svcChunks;
+            }
+            if (chunks && chunks.length > 0) {
+              results = chunks.map((c: any) => ({
+                content: c.content,
+                similarity: c.similarity,
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Vector search exception, falling back to sections:', err);
+      }
+    }
+
+    // Fallback: search church_announcements, announcements, church details, and sections
+    if (results.length === 0) {
+      // 1. Search church_announcements
+      try {
+        const { data: churchAnnouncements } = await userClient
+          .from('church_announcements')
+          .select('title, content')
+          .eq('church_id', targetChurchId)
+          .limit(5);
+
+        if (churchAnnouncements && churchAnnouncements.length > 0) {
+          for (const ann of churchAnnouncements) {
+            results.push({ title: ann.title, content: ann.content });
+          }
+        }
+      } catch {
+        // Table might not exist or error
+      }
+
+      // 2. Search announcements
+      try {
+        const { data: generalAnnouncements } = await userClient
+          .from('announcements')
+          .select('title, body')
+          .eq('church_id', targetChurchId)
+          .eq('is_active', true)
+          .limit(5);
+
+        if (generalAnnouncements && generalAnnouncements.length > 0) {
+          for (const ann of generalAnnouncements) {
+            results.push({ title: ann.title, content: ann.body });
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 3. Search church_knowledge_sections if present
+      try {
+        const { data: sections } = await userClient
+          .from('church_knowledge_sections')
+          .select('id, title, content')
+          .eq('church_id', targetChurchId)
+          .limit(5);
+
+        if (sections && sections.length > 0) {
+          for (const sec of sections) {
+            results.push({ title: sec.title, content: sec.content });
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 4. Search church profile description & operating hours
+      if (results.length === 0) {
+        try {
+          const { data: church } = await userClient
+            .from('churches')
+            .select('name, address, description, contact_number, email, operating_hours')
+            .eq('id', targetChurchId)
+            .maybeSingle();
+
+          if (church) {
+            if (church.description) {
+              results.push({ title: 'About the Parish', content: church.description });
+            }
+            if (church.operating_hours) {
+              const hours =
+                typeof church.operating_hours === 'string'
+                  ? church.operating_hours
+                  : JSON.stringify(church.operating_hours);
+              results.push({ title: 'Operating Hours', content: hours });
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return { results };
   }
 
   return { error: `Tool ${name} is not recognized` };
@@ -145,11 +759,30 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const systemInstruction = `You are Sacralink's AI Parish Assistant, helping parishioners with Catholic parish schedules, sacrament inquiries, and bookings.
+    const systemInstruction = `You are Sacralink's AI Parish Assistant, helping parishioners with Catholic parish schedules, sacrament inquiries, requirements, and bookings.
 Current parish ID: ${churchId || 'none'}.
-Always be warm, respectful, concise, and helpful.
-When the user asks for Mass times or schedules, use the get_mass_schedule tool to retrieve live data. Never make up Mass times.
-Format Mass schedules clearly with day of week, time, and language if available.`;
+
+RULES & GUIDELINES:
+1. TOOL USE:
+   - Always prioritize live read tools for structured questions:
+     * Mass schedules: get_mass_schedule (for current parish) or find_mass_across_parishes (across diocese by day/time)
+     * Bookable services: get_bookable_services (using the parish's own custom service names)
+     * Sacrament requirements: get_sacrament_requirements
+     * Slot availability: check_slot_availability
+     * Priest availability: check_priest_availability
+     * User's own appointments: get_my_appointments
+   - Use search_church_knowledge for free-text parish information (announcements, ministries, facilities, history, office hours).
+2. PRIEST AVAILABILITY:
+   - When asked if a priest is available, answer with a clear yes or no only.
+   - NEVER disclose, speculate, or inquire about why a priest is unavailable.
+3. LANGUAGE & TONE:
+   - Detect the language of the user: English, Tagalog, or Taglish.
+   - If user writes in Tagalog or Taglish, reply in respectful Tagalog (Po/Opo).
+   - If user writes in English, reply in respectful English.
+   - Be formal, concise, and helpful. Use bulleted lists for schedules, documents, and requirements.
+4. SCOPE & HONESTY:
+   - Only answer Catholic parish-related questions.
+   - Never invent or assume details. If an answer cannot be found in the live tools or knowledge base, clearly say so and advise contacting the parish office.`;
 
     const contents: any[] = [];
     const history = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
@@ -169,6 +802,7 @@ Format Mass schedules clearly with day of week, time, and language if available.
     let finalReply = '';
     let sourcesUsed = 0;
     const MAX_TOOL_TURNS = 5;
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     for (const model of GEMINI_CHAT_MODELS) {
       try {
@@ -207,12 +841,21 @@ Format Mass schedules clearly with day of week, time, and language if available.
               fnCall.name,
               fnCall.args,
               userClient,
-              churchId
+              churchId,
+              {
+                geminiBaseUrl: GEMINI_BASE_URL,
+                geminiApiKey: GEMINI_API_KEY,
+                serviceClient,
+              }
             );
 
-            if (toolResult.schedules) {
-              sourcesUsed += toolResult.schedules.length;
-            }
+            if (toolResult.schedules) sourcesUsed += toolResult.schedules.length;
+            if (toolResult.parishes) sourcesUsed += toolResult.parishes.length;
+            if (toolResult.services) sourcesUsed += toolResult.services.length;
+            if (toolResult.requirements) sourcesUsed += toolResult.requirements.length;
+            if (toolResult.appointments) sourcesUsed += toolResult.appointments.length;
+            if (toolResult.results) sourcesUsed += toolResult.results.length;
+            if (toolResult.available !== undefined) sourcesUsed += 1;
 
             // Append model call turn
             currentContents.push({
@@ -254,12 +897,11 @@ Format Mass schedules clearly with day of week, time, and language if available.
 
     if (!finalReply) {
       finalReply =
-        "I'm sorry, I couldn't retrieve the parish schedules at this moment. Please try again shortly or contact the parish office.";
+        "I'm sorry, I couldn't retrieve the parish information at this moment. Please try again shortly or contact the parish office.";
     }
 
     // Log exchange once to church_chat_logs using service role client
     try {
-      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       await serviceClient.from('church_chat_logs').insert({
         church_id: churchId || null,
         user_id: user.id,

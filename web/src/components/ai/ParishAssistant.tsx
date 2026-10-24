@@ -114,7 +114,10 @@ export default function ParishAssistant() {
             const targetChurchId = overrideChurchId ?? activeChurchId;
 
             // If question is parish-specific and no parish is selected yet, prompt with parish chips
-            const isParishQuestion = /mass|schedule|misa|sacrament|bautismo|kumpil|wedding|kasal/i.test(trimmed);
+            const isAcrossParishes = /across\s+parishes|all\s+parishes|every\s+parish|diocesan/i.test(trimmed);
+            const isParishQuestion =
+                !isAcrossParishes &&
+                /mass|schedule|misa|sacrament|bautismo|kumpil|wedding|kasal/i.test(trimmed);
             if (!targetChurchId && isParishQuestion && churches.length > 0) {
                 setMessages((prev) => [
                     ...prev,
