@@ -153,63 +153,14 @@ export async function markAllAsRead() {
  * for church-level appointment approvals.
  */
 export async function notifyAdminsOfNewAppointment(
-    churchId: string,
-    userName: string,
-    serviceType: string,
+    _churchId: string,
+    _userName: string,
+    _serviceType: string,
     _appointmentId: string
 ) {
-    try {
-        console.log('🔔 Notifying church admins of new appointment:', { churchId, userName, serviceType });
-
-        // Step 1: Find church_admins/volunteers assigned to this church.
-        // We use two separate simple queries to avoid complex OR syntax issues.
-        const [byChurchId, byAssignedChurchId] = await Promise.all([
-            supabase
-                .from('profiles')
-                .select('id')
-                .in('role', ['church_admin', 'volunteer'])
-                .eq('church_id', churchId),
-            supabase
-                .from('profiles')
-                .select('id')
-                .in('role', ['church_admin', 'volunteer'])
-                .eq('assigned_church_id', churchId),
-        ]);
-
-        if (byChurchId.error) console.error('❌ church_id query error:', byChurchId.error);
-        if (byAssignedChurchId.error) console.error('❌ assigned_church_id query error:', byAssignedChurchId.error);
-
-        // Deduplicate by ID
-        const allAdmins = [
-            ...(byChurchId.data || []),
-            ...(byAssignedChurchId.data || []),
-        ];
-        const uniqueAdminIds = [...new Set(allAdmins.map((a: any) => a.id))];
-
-        console.log('📋 Found church admin IDs to notify:', uniqueAdminIds);
-
-        if (uniqueAdminIds.length === 0) {
-            console.warn('⚠️ No church admins found for church:', churchId);
-            return;
-        }
-
-        // Step 2: Create a notification for each admin
-        const results = await Promise.all(
-            uniqueAdminIds.map((adminId) =>
-                createNotification({
-                    userId: adminId,
-                    type: 'appointment_created',
-                    title: 'New Appointment Request',
-                    message: `${userName} requested a ${serviceType} appointment`,
-                    link: `/appointments`,
-                })
-            )
-        );
-
-        console.log('✅ Admin notification results:', results);
-    } catch (err) {
-        console.error('❌ Error notifying admins:', err);
-    }
+    void _churchId; void _userName; void _serviceType; void _appointmentId;
+    // Handled automatically by database trigger tr_notify_admins_of_new_appointment (migration 081)
+    return;
 }
 
 /**
@@ -222,6 +173,7 @@ export async function notifyUserOfStatusChange(
     status: 'approved' | 'rejected',
     _appointmentId: string
 ) {
+    void _appointmentId;
     console.log('🔔 Notifying user of status change:', { userId, serviceType, status });
 
     const title = status === 'approved'

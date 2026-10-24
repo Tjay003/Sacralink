@@ -21,7 +21,7 @@ Spec: `spec.md` (decisions locked 2026-10-24). Tickets in `issues/`. Branch: `fe
 - [x] 03 Tracer bullet: global assistant answers Mass times from live data
 - [x] 04 Live read tools, and "my appointments" shows only your own (after 03)
 - [x] 05 Reliability: server rate limit, one log per exchange, model list, fallback (after 03)
-- [ ] 06 Book by tapping chips, services without documents (after 02, 03)
+- [x] 06 Book by tapping chips, services without documents (after 02, 03)
 - [ ] 07 Document upload cards in the chat (after 06)
 - [ ] 08 AI-assisted booking (after 04, 06)
 - [ ] 09 Parish Office Ticket drafting and hand-off buttons (after 04)
