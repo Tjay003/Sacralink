@@ -59,6 +59,16 @@ const server = http.createServer(async (req, res) => {
       const matchChurch = systemText.match(/parish ID:\s*([a-f0-9-]+)/i);
       const churchId = matchChurch ? matchChurch[1] : '';
 
+      // Extract user message texts
+      const userText = contents
+        .filter((c) => c.role === 'user')
+        .flatMap((c) => c.parts || [])
+        .map((p) => p.text || '')
+        .join(' ');
+
+      const lastUserTurn = [...contents].reverse().find((c) => c.role === 'user');
+      const lastUserText = lastUserTurn?.parts?.map((p) => p.text || '').join(' ') || userText;
+
       // Check if there is a functionResponse in any turn
       let functionResponsePart = null;
       for (const turn of contents) {
@@ -80,9 +90,12 @@ const server = http.createServer(async (req, res) => {
         // 1. get_mass_schedule
         if (name === 'get_mass_schedule') {
           const schedules = response?.schedules || [];
+          const isTagalog = /po\b|opo\b|ano\b|kailan\b|simba\b/i.test(lastUserText);
           let replyText = '';
           if (schedules.length === 0) {
-            replyText = 'There are no scheduled Masses posted for this parish at the moment.';
+            replyText = isTagalog
+              ? 'Wala pa pong nakatalang iskedyul ng Misa para sa parokyang ito sa kasalukuyan.'
+              : 'There are no scheduled Masses posted for this parish at the moment.';
           } else {
             const list = schedules
               .map(
@@ -90,7 +103,9 @@ const server = http.createServer(async (req, res) => {
                   `• ${s.day_of_week} at ${s.time}${s.language ? ` (${s.language})` : ''}`
               )
               .join('\n');
-            replyText = `Here is the current Mass schedule:\n${list}`;
+            replyText = isTagalog
+              ? `Narito po ang kasalukuyang iskedyul ng Banal na Misa sa parokya:\n${list}`
+              : `Here is the current Mass schedule:\n${list}`;
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -112,13 +127,16 @@ const server = http.createServer(async (req, res) => {
         // 2. get_my_appointments
         if (name === 'get_my_appointments') {
           const appointments = response?.appointments || [];
+          const isTagalog = /po\b|opo\b|ano\b|ko\b|mga\b/i.test(lastUserText);
           let replyText = '';
           if (appointments.length === 0) {
-            replyText = 'You do not have any appointments scheduled at this moment.';
+            replyText = isTagalog
+              ? 'Wala pa po kayong anumang nakatalang appointment sa kasalukuyan.'
+              : 'You do not have any appointments scheduled at this moment.';
           } else {
             const list = appointments
               .map((a) => {
-                let details = `• ${a.service_type} at ${a.church?.name || 'the parish'} on ${a.appointment_date} at ${a.appointment_time} (Status: ${a.status})`;
+                let details = `• ${a.service_type} sa ${a.church?.name || 'parokya'} sa ${a.appointment_date} ng ${a.appointment_time} (Status: ${a.status})`;
                 if (a.notes) {
                   details += ` - Notes: ${a.notes}`;
                 }
@@ -128,7 +146,9 @@ const server = http.createServer(async (req, res) => {
                 return details;
               })
               .join('\n');
-            replyText = `Here are your scheduled appointments:\n${list}`;
+            replyText = isTagalog
+              ? `Narito po ang inyong mga nakatalang appointment:\n${list}`
+              : `Here are your scheduled appointments:\n${list}`;
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -235,17 +255,22 @@ const server = http.createServer(async (req, res) => {
         // 6. get_sacrament_requirements
         if (name === 'get_sacrament_requirements') {
           const requirements = response?.requirements || [];
+          const isTagalog = /po\b|opo\b|ano\b|kailangan\b|mga\b/i.test(lastUserText);
           let replyText = '';
           if (requirements.length === 0) {
-            replyText = 'There are no specific document requirements listed for this sacrament.';
+            replyText = isTagalog
+              ? 'Wala pong partikular na dokumentong kailangan para sa sakramentong ito.'
+              : 'There are no specific document requirements listed for this sacrament.';
           } else {
             const list = requirements
               .map(
                 (r) =>
-                  `• ${r.requirement_name}${r.is_required ? ' (Required)' : ' (Optional)'}${r.description ? `: ${r.description}` : ''}`
+                  `• ${r.requirement_name}${r.is_required ? (isTagalog ? ' (Kailangan)' : ' (Required)') : (isTagalog ? ' (Opsyonal)' : ' (Optional)')}${r.description ? `: ${r.description}` : ''}`
               )
               .join('\n');
-            replyText = `Here are the requirements:\n${list}`;
+            replyText = isTagalog
+              ? `Narito po ang mga kailangang dokumento para sa sakramento:\n${list}`
+              : `Here are the requirements:\n${list}`;
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -347,17 +372,54 @@ const server = http.createServer(async (req, res) => {
       // ----------------------------------------------------------------------
       // Step 1: Detect intent and trigger functionCall
       // ----------------------------------------------------------------------
-      const userText = contents
-        .filter((c) => c.role === 'user')
-        .flatMap((c) => c.parts || [])
-        .map((p) => p.text || '')
-        .join(' ');
-
-      const lastUserTurn = [...contents].reverse().find((c) => c.role === 'user');
-      const lastUserText = lastUserTurn?.parts?.map((p) => p.text || '').join(' ') || userText;
-
       const matchDraft = systemText.match(/Current Step:\s*([a-z]+)/i);
       const currentBookingStep = matchDraft ? matchDraft[1].toLowerCase() : null;
+
+      // 0. Language preference confirmation ("pwede po tagalog?", "can we speak tagalog?", etc.)
+      if (/(?:pwede|maaari)\s+po\s+(?:bang?\s+)?tagalog|mag[-\s]?tagalog\s+tayo|speak\s+tagalog|tagalog\s+please/i.test(lastUserText)) {
+        const replyText = "Opo, maaari po tayong mag-usap sa Tagalog! Ako po ang inyong Sacralink Parish Assistant. Ano po ang maipaglilingkod ko sa inyo tungkol sa ating mga misa, sakramento, o mga gawain sa parokya? 🙏";
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.00 Off-topic query guard (e.g. "sino po si lebron", sports, politics, weather, recipes)
+      if (
+        /(?:lebron|kobe|jordan|nba|basketball|crypto|bitcoin|weather|panahon|presidency|pulitika|recipe|luto|movie|sine|sino\s+(?:po\s+)?si\s+(?!jesus|maria|jose|san\b|santa\b|fr\b|father\b))/i.test(
+          lastUserText
+        )
+      ) {
+        const isTagalog = /po\b|opo\b|sino\b|ano\b|ba\b/i.test(lastUserText);
+        const replyText = isTagalog
+          ? "Paumanhin po, ngunit nakalaan lamang po ako para sa mga katanungan ukol sa ating parokya: mga banal na misa, sakramento, mga schedule, at mga pastoral na gawain ng simbahan. May maitutulong po ba ako sa inyo tungkol sa Our Lady of Lourdes Parish?"
+          : "I can only help with parish-related questions such as Mass schedules, sacraments, requirements, and church appointments. Is there something about our parish I can help you with?";
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
 
       // 0. Side Question Mid-Booking (e.g. "What is a Pre-Jordan seminar?")
       if (/pre-jordan/i.test(lastUserText)) {
@@ -622,9 +684,11 @@ const server = http.createServer(async (req, res) => {
 
       // A. "my appointments" inquiry
       const isAppointmentsQuery =
-        /my\s+appointments/i.test(userText) ||
-        (/appointment/i.test(userText) && /my|mine|status/i.test(userText)) ||
-        /what\s+are\s+my\s+appointments/i.test(userText);
+        /my\s+ap+ointments/i.test(lastUserText) ||
+        (/ap+ointment/i.test(lastUserText) && /my|mine|status|ko/i.test(lastUserText)) ||
+        /what\s+are\s+my\s+ap+ointments/i.test(lastUserText) ||
+        /(?:mga\s+)?ap+ointment(?:s)?\s+ko\b/i.test(lastUserText) ||
+        /(?:ano|kailan)\s+(?:po\s+)?(?:ang\s+)?(?:mga\s+)?ap+ointment/i.test(lastUserText);
 
       if (isAppointmentsQuery) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -652,22 +716,22 @@ const server = http.createServer(async (req, res) => {
 
       // B. Priest availability inquiry
       const isPriestAvailabilityQuery =
-        /(?:father|fr\.?|priest|padre)/i.test(userText) &&
-        /(?:available|availability|free|pwede)/i.test(userText);
+        /(?:father|fr\.?|priest|padre)/i.test(lastUserText) &&
+        /(?:available|availability|free|pwede)/i.test(lastUserText);
 
       if (isPriestAvailabilityQuery) {
-        const priestMatch = userText.match(
+        const priestMatch = lastUserText.match(
           /(?:father|fr\.?|padre)\s+([a-zA-Z0-9\s]+?)(?:\s+available|\s+on|\s+at|\?|$)/i
         );
         const priestName = priestMatch ? priestMatch[1].trim() : 'Father';
 
-        const dateMatch = userText.match(/\b\d{4}-\d{2}-\d{2}\b/);
-        const dayMatch = userText.match(
+        const dateMatch = lastUserText.match(/\b\d{4}-\d{2}-\d{2}\b/);
+        const dayMatch = lastUserText.match(
           /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
         );
         const date = dateMatch ? dateMatch[0] : (dayMatch ? dayMatch[0] : 'Saturday');
 
-        const timeMatch = userText.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i);
+        const timeMatch = lastUserText.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i);
         const time = timeMatch ? timeMatch[0] : undefined;
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -700,16 +764,16 @@ const server = http.createServer(async (req, res) => {
 
       // C. Mass across parishes inquiry
       const isMassAcrossParishesQuery =
-        /(?:across\s+parishes|where\s+can\s+I\s+(?:hear|attend|find)\s+mass|all\s+parishes)/i.test(
-          userText
+        /(?:across\s+parishes|where\s+can\s+I\s+(?:hear|attend|find)\s+mass|all\s+parishes|ibang\s+parokya)/i.test(
+          lastUserText
         );
 
       if (isMassAcrossParishesQuery) {
-        const dayMatch = userText.match(
+        const dayMatch = lastUserText.match(
           /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
         );
         const dayOfWeek = dayMatch ? dayMatch[0] : 'Sunday';
-        const timeMatch = userText.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i);
+        const timeMatch = lastUserText.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i);
         const time = timeMatch ? timeMatch[0] : undefined;
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -740,8 +804,8 @@ const server = http.createServer(async (req, res) => {
 
       // D. Bookable services inquiry
       const isBookableServicesQuery =
-        /(?:bookable\s+services|services\s+(?:offered|available|bookable)|what\s+services)/i.test(
-          userText
+        /(?:bookable\s+services|services\s+(?:offered|available|bookable)|what\s+services|mga\s+sakramento)/i.test(
+          lastUserText
         );
 
       if (isBookableServicesQuery) {
@@ -772,16 +836,16 @@ const server = http.createServer(async (req, res) => {
 
       // E. Sacrament requirements inquiry
       const isRequirementsQuery =
-        /(?:requirement|requirements|checklist|documents)\s+(?:for|needed)?/i.test(userText) ||
-        /(?:baptism|wedding|confirmation|kumpil|kasal|binyag)\s+(?:requirement|documents)/i.test(
-          userText
+        /(?:requirement|requirements|checklist|documents|kailangan)\s+(?:for|needed|sa|para\s+sa)?/i.test(lastUserText) ||
+        /(?:baptism|wedding|confirmation|funeral|kumpil|kasal|binyag|libing)\s+(?:requirement|documents|kailangan)/i.test(
+          lastUserText
         );
 
       if (isRequirementsQuery) {
         let serviceName = 'Baptism';
-        if (/wedding|kasal/i.test(userText)) serviceName = 'Wedding';
-        else if (/confirmation|kumpil/i.test(userText)) serviceName = 'Confirmation';
-        else if (/funeral/i.test(userText)) serviceName = 'Funeral';
+        if (/wedding|kasal/i.test(lastUserText)) serviceName = 'Wedding';
+        else if (/confirmation|kumpil/i.test(lastUserText)) serviceName = 'Confirmation';
+        else if (/funeral|libing/i.test(lastUserText)) serviceName = 'Funeral';
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(
@@ -811,8 +875,8 @@ const server = http.createServer(async (req, res) => {
 
       // F. Free-text church knowledge inquiry
       const isKnowledgeQuery =
-        /(?:ministry|ministries|history|office\s+hours|announcement|facility|facilities)/i.test(
-          userText
+        /(?:ministry|ministries|history|office\s+hours|announcement|facility|facilities|oras\s+ng\s+opisina)/i.test(
+          lastUserText
         );
 
       if (isKnowledgeQuery && churchId) {
@@ -829,7 +893,7 @@ const server = http.createServer(async (req, res) => {
                         name: 'search_church_knowledge',
                         args: {
                           church_id: churchId,
-                          query: userText,
+                          query: lastUserText,
                         },
                       },
                     },
@@ -844,10 +908,11 @@ const server = http.createServer(async (req, res) => {
 
       // G. Standard Mass times inquiry for current church
       const isMassQuery =
-        /mass/i.test(userText) ||
-        /schedule/i.test(userText) ||
-        /misa/i.test(userText) ||
-        /oras/i.test(userText);
+        /mass/i.test(lastUserText) ||
+        /schedule/i.test(lastUserText) ||
+        /misa/i.test(lastUserText) ||
+        /simba/i.test(lastUserText) ||
+        /oras/i.test(lastUserText);
 
       if (isMassQuery) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
