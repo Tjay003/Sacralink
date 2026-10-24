@@ -863,7 +863,45 @@ RULES & GUIDELINES:
          "intent": { "type": "change_step", "step": "<service|date|time|priest|notes>" }
        }
        \`\`\`
-     * When the user asks a side question mid-booking (e.g. "what's a Pre-Jordan seminar?"), answer the question clearly using tools or knowledge without resetting the booking session.`;
+     * When the user asks a side question mid-booking (e.g. "what's a Pre-Jordan seminar?"), answer the question clearly using tools or knowledge without resetting the booking session.
+6. PARISH OFFICE TICKETS & INTENTS:
+   - When the user asks to talk to the parish office (e.g. "I want to talk to the parish office", "Gusto kong makausap ang parish office", "Talk to the parish office"), or when you cannot answer an inquiry and offer to send it to the parish office:
+     Return a ticket drafting intent with category, subject, and drafted message:
+     \`\`\`json
+     {
+       "intent": {
+         "type": "draft_ticket",
+         "category": "<general|baptism|wedding|funeral|mass_intention|certificate>",
+         "subject": "<Concise subject summary>",
+         "message": "<Drafted inquiry message based on conversation>"
+       }
+     }
+     \`\`\`
+7. HAND-OFF ACTIONS:
+   - When the user asks to cancel, reschedule, or modify an existing appointment (e.g. "Cancel my wedding booking", "Reschedule my baptism"):
+     The assistant NEVER cancels, reschedules, or alters appointments directly.
+     Politely explain that cancellations or rescheduling must be performed in the appointment details or handled directly with the parish office, and provide a handoff:
+     \`\`\`json
+     {
+       "handoff": {
+         "type": "appointment",
+         "label": "View Appointment",
+         "url": "/appointments"
+       }
+     }
+     \`\`\`
+   - When the user asks to send a direct message to clergy or staff (e.g. "Message Father", "Send message to priest"):
+     The assistant NEVER sends direct messages directly.
+     Politely explain that direct messaging can be accessed via the Messages center, and provide a handoff:
+     \`\`\`json
+     {
+       "handoff": {
+         "type": "messages",
+         "label": "Go to Messages",
+         "url": "/messages"
+       }
+     }
+     \`\`\``;
 
     const contents: any[] = [];
     const history = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
@@ -1016,6 +1054,24 @@ RULES & GUIDELINES:
     // 3. Fallback intent & proposal detection if model did not produce JSON
     if (!intent) {
       if (
+        /(?:talk\s+to\s+(?:the\s+)?parish\s+office|kausapin\s+ang\s+parish\s+office|makausap\s+ang\s+parish\s+office|contact\s+(?:the\s+)?parish\s+office|talk\s+to\s+office|draft\s+(?:a\s+)?ticket)/i.test(
+          message
+        )
+      ) {
+        let category = 'general';
+        if (/baptism|binyag/i.test(message)) category = 'baptism';
+        else if (/wedding|kasal/i.test(message)) category = 'wedding';
+        else if (/funeral|libing/i.test(message)) category = 'funeral';
+        else if (/certificate|katibayan/i.test(message)) category = 'certificate';
+        else if (/intention|misa/i.test(message)) category = 'mass_intention';
+
+        intent = {
+          type: 'draft_ticket',
+          category,
+          subject: 'Inquiry regarding parish services',
+          message: 'Hello, I would like to inquire about parish services.',
+        };
+      } else if (
         /(?:i\s+want\s+to\s+book|mag[-\s]?book\s+ng|magpa-?binyag|magpa-?kasal|schedule\s+a\s+baptism|book\s+a\s+baptism|gusto\s+ko(?:ng)?\s+mag[-\s]?book|gusto\s+ko(?:ng)?\s+magpa-?binyag|mag[-\s]?book)/i.test(
           message
         )
@@ -1032,6 +1088,30 @@ RULES & GUIDELINES:
         intent = { type: 'change_step', step: 'time' };
       } else if (/(?:change\s+(?:the\s+)?service|palitan\s+ang\s+sakramento)/i.test(message)) {
         intent = { type: 'change_step', step: 'service' };
+      }
+    }
+
+    if (!handoff) {
+      if (
+        /(?:cancel|reschedule|move|postpone)\s+(?:my\s+)?(?:wedding|baptism|funeral|confirmation|blessing|appointment|booking)/i.test(
+          message
+        )
+      ) {
+        handoff = {
+          type: 'appointment',
+          label: 'View Appointment',
+          url: '/appointments',
+        };
+      } else if (
+        /(?:message|chat\s+with|send\s+message\s+to)\s+(?:father|fr\.?|priest|padre|staff)/i.test(
+          message
+        )
+      ) {
+        handoff = {
+          type: 'messages',
+          label: 'Go to Messages',
+          url: '/messages',
+        };
       }
     }
 

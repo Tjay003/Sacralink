@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { createTicket } from '../../lib/supabase/messaging';
 import { getUserFavoriteChurchIds } from '../../lib/supabase/churchFavorites';
 import { askParishAssistant } from '../../lib/supabase/parishAssistant';
 import { getBookableServiceTypes, type ServiceType } from '../../lib/supabase/serviceTypes';
@@ -25,6 +26,7 @@ import {
 } from '../../lib/bookingGuide';
 import BookingSummaryCard from './BookingSummaryCard';
 import DocumentUploadCards from './DocumentUploadCards';
+import TicketDraftCard, { type TicketDraftData } from './TicketDraftCard';
 import type { Database } from '../../types/database';
 
 type SacramentRequirement = Database['public']['Tables']['sacrament_requirements']['Row'];
@@ -36,6 +38,11 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    handoff?: {
+        type: string;
+        label: string;
+        url: string;
+    } | null;
 }
 
 interface ChurchOption {
@@ -77,6 +84,11 @@ export default function ParishAssistant() {
     const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
     const [bookingSuccessAppointmentId, setBookingSuccessAppointmentId] = useState<string | null>(null);
     const isSubmittingRef = useRef(false);
+
+    // Ticket Drafting State
+    const [ticketDraft, setTicketDraft] = useState<TicketDraftData | null>(null);
+    const [isTicketSubmitting, setIsTicketSubmitting] = useState(false);
+    const [ticketSuccessId, setTicketSuccessId] = useState<string | null>(null);
 
     // Client-side Documents State (in browser memory only)
     const [attachedDocuments, setAttachedDocuments] = useState<Map<string, File>>(new Map());
@@ -638,11 +650,96 @@ export default function ParishAssistant() {
         ]);
     }, []);
 
+    // Ticket Drafting: Confirm and Submit Ticket
+    const handleConfirmTicket = async () => {
+        if (!ticketDraft || !profile?.id) return;
+        if (isTicketSubmitting) return;
+
+        setIsTicketSubmitting(true);
+        try {
+            const { conversationId, error } = await createTicket({
+                lane: 'church',
+                churchId: ticketDraft.churchId,
+                category: ticketDraft.category,
+                subject: ticketDraft.subject.trim(),
+                message: ticketDraft.message.trim(),
+            });
+
+            if (error || !conversationId) {
+                let parishContact = 'the parish office';
+                if (ticketDraft.churchId) {
+                    try {
+                        const { data: church } = await supabase
+                            .from('churches')
+                            .select('name, contact_number, email')
+                            .eq('id', ticketDraft.churchId)
+                            .maybeSingle();
+                        if (church) {
+                            const contact = church.contact_number || church.email;
+                            parishContact = contact
+                                ? `${church.name || 'the parish'} at ${contact}`
+                                : (church.name || 'the parish office');
+                        }
+                    } catch {
+                        // ignore
+                    }
+                }
+                const rawMsg = error?.message || 'Could not submit your ticket at this time.';
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: `assistant-ticket-err-${Date.now()}`,
+                        role: 'assistant',
+                        content: `⚠️ We could not submit your ticket: ${rawMsg}. Please contact ${parishContact} directly for assistance.`,
+                    },
+                ]);
+            } else {
+                setTicketSuccessId(conversationId);
+                const savedChurchName = ticketDraft.churchName;
+                setTicketDraft(null);
+
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: `assistant-ticket-success-${Date.now()}`,
+                        role: 'assistant',
+                        content: `### Ticket Submitted!\nYour inquiry ticket has been submitted to **${savedChurchName}**.\n\nThe parish office administrators have been notified and will respond via Messages.`,
+                    },
+                ]);
+            }
+        } catch (err) {
+            console.error('Error confirming ticket:', err);
+            setMessages((prev) => [
+                ...prev,
+                {
+                    id: `assistant-ticket-err-${Date.now()}`,
+                    role: 'assistant',
+                    content: 'An unexpected error occurred while submitting your ticket. Please try again.',
+                },
+            ]);
+        } finally {
+            setIsTicketSubmitting(false);
+        }
+    };
+
+    // Ticket Drafting: Cancel
+    const handleCancelTicket = useCallback(() => {
+        setTicketDraft(null);
+        setMessages((prev) => [
+            ...prev,
+            {
+                id: `assistant-ticket-cancel-${Date.now()}`,
+                role: 'assistant',
+                content: 'Ticket draft has been cancelled. How else can I help you today?',
+            },
+        ]);
+    }, []);
+
     // Main Chat Message Handler
     const handleSendMessage = useCallback(
         async (questionText: string, overrideChurchId?: string) => {
             const trimmed = questionText.trim();
-            if (!trimmed || isLoading || isBookingSubmitting) return;
+            if (!trimmed || isLoading || isBookingSubmitting || isTicketSubmitting) return;
 
             // If user explicitly asks to cancel mid-booking
             if (bookingDraft && /^(?:cancel|stop|quit)$/i.test(trimmed)) {
@@ -717,6 +814,7 @@ export default function ParishAssistant() {
                         id: `assistant-${Date.now()}`,
                         role: 'assistant',
                         content: result.reply,
+                        handoff: result.handoff || null,
                     },
                 ]);
 
@@ -766,6 +864,19 @@ export default function ParishAssistant() {
                         }
                     } else if (result.intent.type === 'cancel_booking') {
                         handleCancelBooking();
+                    } else if (result.intent.type === 'draft_ticket') {
+                        const draftIntent = result.intent;
+                        const churchRecord = churches.find((c) => c.id === targetChurchId) || activeChurch || churches[0];
+                        const churchDisplayName = churchRecord?.name || activeChurch?.name || 'Selected Parish';
+
+                        setTicketDraft({
+                            churchId: targetChurchId || churchRecord?.id || '',
+                            churchName: churchDisplayName,
+                            category: draftIntent.category || 'general',
+                            subject: draftIntent.subject || 'Inquiry regarding parish services',
+                            message: draftIntent.message || '',
+                        });
+                        setTicketSuccessId(null);
                     }
                 }
 
@@ -859,12 +970,13 @@ export default function ParishAssistant() {
             }
         },
         [
+            activeChurch,
             activeChurchId,
-            activeChurch?.name,
             bookingDraft,
             churches,
             handleCancelBooking,
             isBookingSubmitting,
+            isTicketSubmitting,
             isLoading,
             messages,
             servicesList,
@@ -1017,6 +1129,28 @@ export default function ParishAssistant() {
                         {messages.map((m) => (
                             <div key={m.id} data-testid={m.role === 'assistant' ? 'assistant-reply' : undefined}>
                                 <ChatMessage role={m.role} content={m.content} />
+                                {m.handoff && (
+                                    <div className="mt-2 pt-1 pl-1">
+                                        <button
+                                            type="button"
+                                            data-testid="handoff-button"
+                                            data-handoff-type={m.handoff.type}
+                                            onClick={() => {
+                                                setIsOpen(false);
+                                                navigate(m.handoff!.url);
+                                            }}
+                                            className="inline-flex items-center gap-2 text-xs font-semibold bg-primary hover:bg-primary-600 text-white px-3.5 py-2 rounded-xl shadow-xs transition-colors"
+                                        >
+                                            {m.handoff.type === 'appointment' ? (
+                                                <Calendar className="w-4 h-4 text-white flex-shrink-0" />
+                                            ) : (
+                                                <MessageSquare className="w-4 h-4 text-white flex-shrink-0" />
+                                            )}
+                                            <span>{m.handoff.label}</span>
+                                            <ArrowRight className="w-3.5 h-3.5 text-white/80" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         ))}
 
@@ -1238,6 +1372,49 @@ export default function ParishAssistant() {
                             </div>
                         )}
 
+                        {/* Step 8: Ticket Draft Card */}
+                        {ticketDraft && (
+                            <TicketDraftCard
+                                draft={ticketDraft}
+                                isSubmitting={isTicketSubmitting}
+                                onUpdateDraft={(updates) =>
+                                    setTicketDraft((prev) => (prev ? { ...prev, ...updates } : null))
+                                }
+                                onConfirm={() => void handleConfirmTicket()}
+                                onCancel={handleCancelTicket}
+                            />
+                        )}
+
+                        {/* Step 9: Ticket Confirmed Success Card */}
+                        {ticketSuccessId && (
+                            <div
+                                data-testid="ticket-success-card"
+                                className="card bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-xs space-y-2.5 my-2"
+                            >
+                                <div className="flex items-center gap-2 text-emerald-800 font-semibold text-sm">
+                                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                                    <span>Ticket Submitted</span>
+                                </div>
+                                <p className="text-xs text-emerald-700 leading-relaxed">
+                                    Your inquiry ticket has been created and sent to the parish office. You can track replies in Messages.
+                                </p>
+                                <div className="pt-1">
+                                    <button
+                                        type="button"
+                                        data-testid="view-ticket-link"
+                                        onClick={() => {
+                                            setIsOpen(false);
+                                            navigate('/messages');
+                                        }}
+                                        className="inline-flex items-center gap-1.5 text-xs bg-primary hover:bg-primary-600 text-white font-medium px-3.5 py-1.5 rounded-xl shadow-xs transition-colors"
+                                    >
+                                        <span>View Ticket in Messages</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Thinking / Loading indicator */}
                         {isLoading && (
                             <div className="flex items-center gap-2 text-xs text-muted py-1 pl-2">
@@ -1249,15 +1426,15 @@ export default function ParishAssistant() {
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft) */}
-                    {(!bookingDraft || bookingDraft.step === 'confirmed') && (
+                    {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
+                    {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (
                         <div className="px-3 pt-2 pb-1 bg-white border-t border-border/60 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                             {STARTER_CHIPS.map((chip) => (
                                 <button
                                     key={chip}
                                     data-testid={`starter-chip-${chip.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                     onClick={() => void handleSendMessage(chip)}
-                                    disabled={isLoading || isBookingSubmitting}
+                                    disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
                                     className="whitespace-nowrap text-xs bg-secondary-50 hover:bg-secondary-100 text-secondary-800 font-medium px-3 py-1.5 rounded-full border border-border transition-all active:scale-95 disabled:opacity-50"
                                 >
                                     {chip}
@@ -1269,7 +1446,7 @@ export default function ParishAssistant() {
                     {/* Chat Input */}
                     <ChatInput
                         onSend={(txt) => void handleSendMessage(txt)}
-                        disabled={isLoading || isBookingSubmitting}
+                        disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
                     />
                 </div>
             )}

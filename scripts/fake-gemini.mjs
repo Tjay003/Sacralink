@@ -382,6 +382,91 @@ const server = http.createServer(async (req, res) => {
         );
       }
 
+      // 0.01 Intent: Talk to the parish office / Draft ticket
+      if (
+        /(?:talk\s+to\s+(?:the\s+)?parish\s+office|makausap\s+ang\s+parish\s+office|contact\s+(?:the\s+)?parish\s+office|kausapin\s+ang\s+(?:parish\s+)?office)/i.test(
+          lastUserText
+        )
+      ) {
+        let category = 'general';
+        if (/baptism|binyag/i.test(lastUserText)) category = 'baptism';
+        else if (/wedding|kasal/i.test(lastUserText)) category = 'wedding';
+        else if (/funeral|libing/i.test(lastUserText)) category = 'funeral';
+        else if (/certificate|katibayan/i.test(lastUserText)) category = 'certificate';
+        else if (/intention|misa/i.test(lastUserText)) category = 'mass_intention';
+
+        const replyText =
+          "I've drafted a ticket for the parish office. You can review, edit the category, subject, or message, and confirm below:";
+        const jsonBlock = `\n\`\`\`json\n{\n  "intent": {\n    "type": "draft_ticket",\n    "category": "${category}",\n    "subject": "Inquiry regarding parish services",\n    "message": "Hello, I would like to inquire about parish services."\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.02 Handoff: Cancel or reschedule appointment
+      if (
+        /(?:cancel|reschedule|move|postpone)\s+(?:my\s+)?(?:wedding|baptism|funeral|confirmation|blessing|appointment|booking)/i.test(
+          lastUserText
+        )
+      ) {
+        const replyText =
+          "To cancel or reschedule an existing appointment, please view your appointment details or reach out directly to the parish office. The assistant cannot cancel or modify bookings on your behalf.";
+        const jsonBlock = `\n\`\`\`json\n{\n  "handoff": {\n    "type": "appointment",\n    "label": "View Appointment",\n    "url": "/appointments"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.03 Handoff: Message Father / priest / staff
+      if (
+        /(?:message|chat\s+with|send\s+message\s+to)\s+(?:father|fr\.?|priest|padre|staff)/i.test(
+          lastUserText
+        )
+      ) {
+        const replyText =
+          "You can send direct messages to parish clergy and ministry leaders from the Messages center. The assistant cannot send direct messages for you.";
+        const jsonBlock = `\n\`\`\`json\n{\n  "handoff": {\n    "type": "messages",\n    "label": "Go to Messages",\n    "url": "/messages"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
       // 0.1 Intent: Change Step ("Change the date", "Palitan ang petsa", etc.)
       if (
         /(?:change\s+(?:the\s+)?(?:date|time|service|priest)|palitan\s+ang\s+(?:petsa|oras|sakramento|pari)|iba(?:ng)?\s+(?:petsa|oras))/i.test(

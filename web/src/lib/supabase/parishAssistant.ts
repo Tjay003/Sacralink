@@ -11,10 +11,19 @@ export interface BookingProposal {
   value: string;
 }
 
-export type BookingIntent =
+export type ParishAssistantIntent =
   | { type: 'start_booking'; serviceName?: string }
   | { type: 'change_step'; step: 'service' | 'date' | 'time' | 'priest' | 'notes' }
-  | { type: 'cancel_booking' };
+  | { type: 'cancel_booking' }
+  | { type: 'draft_ticket'; category: string; subject: string; message: string };
+
+export type BookingIntent = ParishAssistantIntent;
+
+export interface ParishAssistantHandoff {
+  type: 'appointment' | 'messages' | 'booking' | string;
+  label: string;
+  url: string;
+}
 
 export interface BookingDraftPayload {
   currentStep?: string;
@@ -44,8 +53,8 @@ export interface AskParishAssistantResult {
   isFallback: boolean;
   isRateLimited?: boolean;
   bookingProposal?: BookingProposal | null;
-  intent?: BookingIntent | null;
-  handoff?: Record<string, unknown> | null;
+  intent?: ParishAssistantIntent | null;
+  handoff?: ParishAssistantHandoff | null;
 }
 
 export const PARISH_ASSISTANT_TIMEOUT_MS = 12000;
@@ -124,8 +133,8 @@ export async function askParishAssistant(
       sourcesUsed?: number;
       isRateLimited?: boolean;
       bookingProposal?: BookingProposal | null;
-      intent?: BookingIntent | null;
-      handoff?: Record<string, unknown> | null;
+      intent?: ParishAssistantIntent | null;
+      handoff?: ParishAssistantHandoff | null;
     } | null;
     const fnError = result.error;
 
