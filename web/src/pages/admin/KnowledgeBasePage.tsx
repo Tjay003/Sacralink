@@ -1,8 +1,26 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp, ArrowLeft, AlertCircle, CheckCircle, XCircle, Bot, Clock } from 'lucide-react';
+import {
+    BookOpen,
+    Plus,
+    Pencil,
+    Trash2,
+    Save,
+    X,
+    ChevronDown,
+    ChevronUp,
+    ArrowLeft,
+    AlertCircle,
+    CheckCircle,
+    XCircle,
+    Bot,
+    Clock,
+    AlertTriangle,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { lintKnowledgeSection } from '../../utils/knowledgeLinter';
 
 interface KnowledgeSection {
     id: string;
@@ -30,6 +48,13 @@ export default function KnowledgeBasePage() {
     const [formContent, setFormContent] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
+
+    // Real-time SSOT discrepancy linter
+    const lintResult = useMemo(
+        () => lintKnowledgeSection(formTitle, formContent),
+        [formTitle, formContent]
+    );
 
     // Sync state
     const [isSyncing, setIsSyncing] = useState(false);
@@ -73,6 +98,7 @@ export default function KnowledgeBasePage() {
         setFormTitle('');
         setFormContent('');
         setSaveError(null);
+        setShowDiscrepancyModal(false);
         setExpandedId(null);
     };
 
@@ -81,6 +107,7 @@ export default function KnowledgeBasePage() {
         setFormTitle(section.title);
         setFormContent(section.content);
         setSaveError(null);
+        setShowDiscrepancyModal(false);
         setExpandedId(null);
     };
 
@@ -89,6 +116,7 @@ export default function KnowledgeBasePage() {
         setFormTitle('');
         setFormContent('');
         setSaveError(null);
+        setShowDiscrepancyModal(false);
     };
 
     const handleSync = async (silent = false) => {
@@ -128,6 +156,7 @@ export default function KnowledgeBasePage() {
         if (!formTitle.trim() || !formContent.trim() || !churchId || !profile) return;
         setSaving(true);
         setSaveError(null);
+        setShowDiscrepancyModal(false);
 
         try {
             if (editingId === 'new') {
@@ -164,6 +193,20 @@ export default function KnowledgeBasePage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleAttemptSave = () => {
+        if (!formTitle.trim() || !formContent.trim() || !churchId || !profile) return;
+        if (lintResult.hasWarnings) {
+            setShowDiscrepancyModal(true);
+        } else {
+            handleSave();
+        }
+    };
+
+    const handleProceedAnyway = async () => {
+        setShowDiscrepancyModal(false);
+        await handleSave();
     };
 
     const handleDelete = async (id: string, title: string) => {
@@ -310,6 +353,36 @@ export default function KnowledgeBasePage() {
                         rows={12}
                         className="input w-full resize-y min-h-[200px] pt-2 font-mono text-sm leading-relaxed"
                     />
+
+                    {/* Pre-Save Discrepancy Linter Warning Box */}
+                    {lintResult.hasWarnings && (
+                        <div
+                            data-testid="knowledge-lint-warning"
+                            className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 space-y-2 text-sm transition-all"
+                        >
+                            <div className="flex items-start gap-2.5">
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="space-y-1.5 flex-1">
+                                    <p className="font-semibold text-amber-900 text-sm leading-snug">
+                                        ⚠️ Hardcoded Mass schedule or fee detected. Mass schedules and fees are managed dynamically in the Liturgy & Services tabs so they stay synchronized with live bookings and the AI assistant.
+                                    </p>
+                                    <div className="pt-1 space-y-1">
+                                        {lintResult.issues.map((issue, idx) => (
+                                            <div key={idx} className="text-xs text-amber-800 flex items-start gap-1.5 flex-wrap">
+                                                <span className="font-mono font-medium bg-amber-100/90 border border-amber-300/70 px-1.5 py-0.5 rounded text-amber-900 shrink-0">
+                                                    "{issue.matchedText}"
+                                                </span>
+                                                <span className="text-amber-800">
+                                                    — {issue.suggestion}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                         <p className="text-xs text-muted">{charCount(formContent)}</p>
                         <div className="flex items-center gap-2">
@@ -318,7 +391,7 @@ export default function KnowledgeBasePage() {
                                 <X className="w-4 h-4" /> Cancel
                             </button>
                             <button
-                                onClick={handleSave}
+                                onClick={handleAttemptSave}
                                 disabled={saving || !formTitle.trim() || !formContent.trim()}
                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                             >
@@ -370,6 +443,36 @@ export default function KnowledgeBasePage() {
                                         rows={14}
                                         className="input w-full resize-y min-h-[250px] pt-2 font-mono text-sm leading-relaxed"
                                     />
+
+                                    {/* Pre-Save Discrepancy Linter Warning Box */}
+                                    {lintResult.hasWarnings && (
+                                        <div
+                                            data-testid="knowledge-lint-warning"
+                                            className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3.5 space-y-2 text-sm transition-all"
+                                        >
+                                            <div className="flex items-start gap-2.5">
+                                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                                <div className="space-y-1.5 flex-1">
+                                                    <p className="font-semibold text-amber-900 text-sm leading-snug">
+                                                        ⚠️ Hardcoded Mass schedule or fee detected. Mass schedules and fees are managed dynamically in the Liturgy & Services tabs so they stay synchronized with live bookings and the AI assistant.
+                                                    </p>
+                                                    <div className="pt-1 space-y-1">
+                                                        {lintResult.issues.map((issue, idx) => (
+                                                            <div key={idx} className="text-xs text-amber-800 flex items-start gap-1.5 flex-wrap">
+                                                                <span className="font-mono font-medium bg-amber-100/90 border border-amber-300/70 px-1.5 py-0.5 rounded text-amber-900 shrink-0">
+                                                                    "{issue.matchedText}"
+                                                                </span>
+                                                                <span className="text-amber-800">
+                                                                    — {issue.suggestion}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex items-center justify-between gap-3 flex-wrap">
                                         <p className="text-xs text-muted">{charCount(formContent)}</p>
                                         <div className="flex items-center gap-2">
@@ -378,7 +481,7 @@ export default function KnowledgeBasePage() {
                                                 <X className="w-4 h-4" /> Cancel
                                             </button>
                                             <button
-                                                onClick={handleSave}
+                                                onClick={handleAttemptSave}
                                                 disabled={saving || !formTitle.trim() || !formContent.trim()}
                                                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                                             >
@@ -453,6 +556,19 @@ export default function KnowledgeBasePage() {
                     After making changes, the AI syncs automatically. You can also click <strong>Sync AI Knowledge Base</strong> manually.
                 </p>
             )}
+
+            {/* Discrepancy Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showDiscrepancyModal}
+                title="Discrepancy Warning"
+                message="This section contains hardcoded schedules or fees that may become outdated when official parish schedules change. Do you want to review your changes or proceed anyway?"
+                confirmLabel="Proceed Anyway"
+                cancelLabel="Review & Edit"
+                variant="warning"
+                loading={saving}
+                onConfirm={handleProceedAnyway}
+                onCancel={() => setShowDiscrepancyModal(false)}
+            />
         </div>
     );
 }
