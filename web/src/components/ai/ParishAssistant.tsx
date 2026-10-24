@@ -19,6 +19,9 @@ import {
     getOpenTimeSlots,
     evaluateRequestedPriest,
     submitConfirmedBooking,
+    rewindBookingDraft,
+    validateProposedDate,
+    validateProposedTime,
 } from '../../lib/bookingGuide';
 import BookingSummaryCard from './BookingSummaryCard';
 import DocumentUploadCards from './DocumentUploadCards';
@@ -641,20 +644,14 @@ export default function ParishAssistant() {
             const trimmed = questionText.trim();
             if (!trimmed || isLoading || isBookingSubmitting) return;
 
-            // If in notes step of booking draft, intercept text as notes input
-            if (bookingDraft && bookingDraft.step === 'notes') {
-                handleNotesInput(trimmed);
-                return;
-            }
-
             // If user explicitly asks to cancel mid-booking
-            if (bookingDraft && /^cancel$|^stop$|^quit$/i.test(trimmed)) {
+            if (bookingDraft && /^(?:cancel|stop|quit)$/i.test(trimmed)) {
                 handleCancelBooking();
                 return;
             }
 
-            // If user taps or asks to book a sacrament, engage browser booking guide
-            if (/book\s+a?\s*sacrament|mag-book\s+ng\s*sakramento|schedule\s+appointment/i.test(trimmed)) {
+            // If user taps or asks to book a sacrament without naming one
+            if (/^(?:book\s+a?\s*sacrament|mag-book\s+ng\s*sakramento|schedule\s+appointment)$/i.test(trimmed)) {
                 startBookingGuide(overrideChurchId);
                 return;
             }
@@ -692,13 +689,28 @@ export default function ParishAssistant() {
                     content: m.content,
                 }));
 
+                const draftPayload = bookingDraft
+                    ? {
+                        currentStep: bookingDraft.step,
+                        serviceTypeId: bookingDraft.serviceTypeId,
+                        serviceTypeName: bookingDraft.serviceTypeName,
+                        appointmentDate: bookingDraft.date,
+                        appointmentTime: bookingDraft.time,
+                        requestedPriestId: bookingDraft.requestedPriestId,
+                        requestedPriestName: bookingDraft.requestedPriestName,
+                        notes: bookingDraft.notes,
+                    }
+                    : null;
+
                 const result = await askParishAssistant({
                     message: trimmed,
                     churchId: targetChurchId,
                     churchName: activeChurch?.name,
                     conversationHistory: historyPayload,
+                    bookingDraft: draftPayload,
                 });
 
+                // 1. Add assistant reply to message history
                 setMessages((prev) => [
                     ...prev,
                     {
@@ -707,6 +719,130 @@ export default function ParishAssistant() {
                         content: result.reply,
                     },
                 ]);
+
+                // 2. Handle intent if returned
+                if (result.intent) {
+                    if (result.intent.type === 'start_booking') {
+                        const requestedService = result.intent.serviceName || 'Baptism';
+                        let services = servicesList;
+                        if (services.length === 0 && targetChurchId) {
+                            try {
+                                services = await getBookableServiceTypes(targetChurchId);
+                                setServicesList(services);
+                            } catch (err) {
+                                console.warn('Could not fetch services for intent:', err);
+                            }
+                        }
+                        const matched = services.find((s) =>
+                            s.name.toLowerCase().includes(requestedService.toLowerCase())
+                        );
+
+                        const churchRecord = churches.find((c) => c.id === targetChurchId);
+                        const churchDisplayName = churchRecord?.name || activeChurch?.name || 'the parish';
+
+                        if (matched) {
+                            setAttachedDocuments(new Map());
+                            const newDraft: BookingDraft = {
+                                churchId: targetChurchId!,
+                                churchName: churchDisplayName,
+                                serviceTypeId: matched.id,
+                                serviceTypeName: matched.name,
+                                serviceKind: matched.kind,
+                                step: 'date',
+                            };
+                            setBookingDraft(newDraft);
+                            saveStoredBookingDraft(newDraft);
+                            setBookingSuccessAppointmentId(null);
+                        } else {
+                            startBookingGuide(targetChurchId || undefined);
+                        }
+                    } else if (result.intent.type === 'change_step' && bookingDraft) {
+                        const targetStep = result.intent.step as BookingStep;
+                        const rewound = rewindBookingDraft(bookingDraft, targetStep);
+                        setBookingDraft(rewound);
+                        saveStoredBookingDraft(rewound);
+                        if (targetStep === 'date' || targetStep === 'service') {
+                            setAttachedDocuments(new Map());
+                        }
+                    } else if (result.intent.type === 'cancel_booking') {
+                        handleCancelBooking();
+                    }
+                }
+
+                // 3. Handle booking proposal if returned
+                if (result.bookingProposal && bookingDraft) {
+                    const proposal = result.bookingProposal;
+                    if (proposal.field === 'date' && bookingDraft.churchId) {
+                        const validation = await validateProposedDate(bookingDraft.churchId, proposal.value);
+                        if (validation.valid) {
+                            const updated: BookingDraft = {
+                                ...bookingDraft,
+                                date: proposal.value,
+                                formattedDate: validation.formattedDate || proposal.value,
+                                step: 'time',
+                            };
+                            setBookingDraft(updated);
+                            saveStoredBookingDraft(updated);
+                        } else {
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id: `assistant-proposal-err-${Date.now()}`,
+                                    role: 'assistant',
+                                    content: `⚠️ ${validation.error || 'The proposed date is unavailable. Please select from the dates below:'}`,
+                                },
+                            ]);
+                        }
+                    } else if (proposal.field === 'time' && bookingDraft.churchId && bookingDraft.date) {
+                        const validation = await validateProposedTime(
+                            bookingDraft.churchId,
+                            bookingDraft.date,
+                            proposal.value
+                        );
+                        if (validation.valid && validation.normalizedTime) {
+                            const updated: BookingDraft = {
+                                ...bookingDraft,
+                                time: validation.normalizedTime,
+                                formattedTime: validation.formattedTime || validation.normalizedTime,
+                                step: 'priest',
+                            };
+                            setBookingDraft(updated);
+                            saveStoredBookingDraft(updated);
+                        } else {
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id: `assistant-proposal-err-${Date.now()}`,
+                                    role: 'assistant',
+                                    content: `⚠️ ${validation.error || 'The proposed time is unavailable. Please select from the available time slots below:'}`,
+                                },
+                            ]);
+                        }
+                    } else if (proposal.field === 'notes') {
+                        const updated: BookingDraft = {
+                            ...bookingDraft,
+                            notes: proposal.value.trim() || undefined,
+                            step: 'summary',
+                        };
+                        setBookingDraft(updated);
+                        saveStoredBookingDraft(updated);
+                    }
+                } else if (
+                    bookingDraft &&
+                    bookingDraft.step === 'notes' &&
+                    !result.intent &&
+                    !trimmed.includes('?') &&
+                    !/^\s*(?:what|when|where|who|how|kailan|saan|ano|bakit|pwede|can|is|are)\b/i.test(trimmed)
+                ) {
+                    // Direct notes typing when in notes step
+                    const updated: BookingDraft = {
+                        ...bookingDraft,
+                        notes: trimmed,
+                        step: 'summary',
+                    };
+                    setBookingDraft(updated);
+                    saveStoredBookingDraft(updated);
+                }
             } catch (err: unknown) {
                 console.error('Error invoking parish assistant:', err);
                 setMessages((prev) => [
@@ -726,12 +862,12 @@ export default function ParishAssistant() {
             activeChurchId,
             activeChurch?.name,
             bookingDraft,
-            churches.length,
+            churches,
             handleCancelBooking,
-            handleNotesInput,
             isBookingSubmitting,
             isLoading,
             messages,
+            servicesList,
             startBookingGuide,
         ]
     );

@@ -745,7 +745,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { message, churchId, conversationHistory, simulateQuota } = body;
+    const { message, churchId, conversationHistory, simulateQuota, bookingDraft } = body;
 
     if (!message || typeof message !== 'string') {
       return new Response(
@@ -797,9 +797,26 @@ Deno.serve(async (req: Request) => {
       geminiHeaders['x-test-simulate-quota'] = testSimulateQuota;
     }
 
+    let bookingContext = '';
+    if (bookingDraft) {
+      const currentStep = bookingDraft.currentStep || bookingDraft.step || 'none';
+      const serviceName = bookingDraft.serviceTypeName || 'none';
+      const apptDate = bookingDraft.appointmentDate || bookingDraft.date || 'none';
+      const apptTime = bookingDraft.appointmentTime || bookingDraft.time || 'none';
+      const priest = bookingDraft.requestedPriestName || 'none';
+      const notes = bookingDraft.notes || 'none';
+      bookingContext = `\nACTIVE BOOKING DRAFT IN PROGRESS:
+- Current Step: ${currentStep}
+- Selected Service: ${serviceName}
+- Date: ${apptDate}
+- Time: ${apptTime}
+- Requested Priest: ${priest}
+- Notes: ${notes}\n`;
+    }
+
     const systemInstruction = `You are Sacralink's AI Parish Assistant, helping parishioners with Catholic parish schedules, sacrament inquiries, requirements, and bookings.
 Current parish ID: ${churchId || 'none'}.
-
+${bookingContext}
 RULES & GUIDELINES:
 1. TOOL USE:
    - Always prioritize live read tools for structured questions:
@@ -820,7 +837,33 @@ RULES & GUIDELINES:
    - Be formal, concise, and helpful. Use bulleted lists for schedules, documents, and requirements.
 4. SCOPE & HONESTY:
    - Only answer Catholic parish-related questions.
-   - Never invent or assume details. If an answer cannot be found in the live tools or knowledge base, clearly say so and advise contacting the parish office.`;
+   - Never invent or assume details. If an answer cannot be found in the live tools or knowledge base, clearly say so and advise contacting the parish office.
+5. GUIDED BOOKING & INTENTS:
+   - When the user expresses intent to book or schedule a sacrament or service (e.g. "I want to book a baptism", "mag-book ng binyag", "schedule a wedding"):
+     * Identify the sacrament or service if named.
+     * Include a JSON code block with the booking intent:
+       \`\`\`json
+       {
+         "intent": { "type": "start_booking", "serviceName": "<SacramentName>" }
+       }
+       \`\`\`
+   - When an active booking draft is in progress:
+     * Current step and existing draft fields are provided in the context above.
+     * When the user types an answer for the current field (e.g. a date like "next Saturday morning", or a time like "10:00 AM", or notes):
+       Parse and propose the field value in standard format (YYYY-MM-DD for date, HH:MM for time):
+       \`\`\`json
+       {
+         "bookingProposal": { "field": "<date|time|notes>", "value": "<parsed_value>" }
+       }
+       \`\`\`
+     * When the user asks to change an earlier step ("change the date", "palitan ang petsa", "change time"):
+       Return:
+       \`\`\`json
+       {
+         "intent": { "type": "change_step", "step": "<service|date|time|priest|notes>" }
+       }
+       \`\`\`
+     * When the user asks a side question mid-booking (e.g. "what's a Pre-Jordan seminar?"), answer the question clearly using tools or knowledge without resetting the booking session.`;
 
     const contents: any[] = [];
     const history = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
@@ -937,6 +980,61 @@ RULES & GUIDELINES:
         "I'm sorry, I couldn't retrieve the parish information at this moment. Please try again shortly or contact the parish office.";
     }
 
+    let bookingProposal: any = null;
+    let intent: any = null;
+    let handoff: any = null;
+
+    // 1. Try extracting structured JSON code block from model response
+    const jsonBlockRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/;
+    const jsonMatch = finalReply.match(jsonBlockRegex);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        if (parsed.intent) intent = parsed.intent;
+        if (parsed.bookingProposal) bookingProposal = parsed.bookingProposal;
+        if (parsed.handoff) handoff = parsed.handoff;
+        finalReply = finalReply.replace(jsonMatch[0], '').trim();
+      } catch (err) {
+        console.warn('Failed to parse model JSON block:', err);
+      }
+    } else {
+      // 2. Check if entire reply is pure JSON
+      try {
+        const trimmed = finalReply.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          const parsed = JSON.parse(trimmed);
+          if (parsed.reply) finalReply = parsed.reply;
+          if (parsed.intent) intent = parsed.intent;
+          if (parsed.bookingProposal) bookingProposal = parsed.bookingProposal;
+          if (parsed.handoff) handoff = parsed.handoff;
+        }
+      } catch {
+        // Not pure JSON
+      }
+    }
+
+    // 3. Fallback intent & proposal detection if model did not produce JSON
+    if (!intent) {
+      if (
+        /(?:i\s+want\s+to\s+book|mag[-\s]?book\s+ng|magpa-?binyag|magpa-?kasal|schedule\s+a\s+baptism|book\s+a\s+baptism|gusto\s+ko(?:ng)?\s+mag[-\s]?book|gusto\s+ko(?:ng)?\s+magpa-?binyag|mag[-\s]?book)/i.test(
+          message
+        )
+      ) {
+        let serviceName = 'Baptism';
+        if (/wedding|kasal/i.test(message)) serviceName = 'Wedding';
+        else if (/confirmation|kumpil/i.test(message)) serviceName = 'Confirmation';
+        else if (/blessing|bendisyon/i.test(message)) serviceName = 'Blessing';
+        else if (/funeral|libing/i.test(message)) serviceName = 'Funeral';
+        intent = { type: 'start_booking', serviceName };
+      } else if (/(?:change\s+(?:the\s+)?date|palitan\s+ang\s+petsa)/i.test(message)) {
+        intent = { type: 'change_step', step: 'date' };
+      } else if (/(?:change\s+(?:the\s+)?time|palitan\s+ang\s+oras)/i.test(message)) {
+        intent = { type: 'change_step', step: 'time' };
+      } else if (/(?:change\s+(?:the\s+)?service|palitan\s+ang\s+sakramento)/i.test(message)) {
+        intent = { type: 'change_step', step: 'service' };
+      }
+    }
+
     // Log exchange once to church_chat_logs using service role client
     try {
       await serviceClient.from('church_chat_logs').insert({
@@ -954,9 +1052,9 @@ RULES & GUIDELINES:
       JSON.stringify({
         reply: finalReply,
         sourcesUsed,
-        bookingProposal: null,
-        intent: null,
-        handoff: null,
+        bookingProposal,
+        intent,
+        handoff,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -6,11 +6,33 @@ export interface ParishAssistantTurn {
   content: string;
 }
 
+export interface BookingProposal {
+  field: 'date' | 'time' | 'notes';
+  value: string;
+}
+
+export type BookingIntent =
+  | { type: 'start_booking'; serviceName?: string }
+  | { type: 'change_step'; step: 'service' | 'date' | 'time' | 'priest' | 'notes' }
+  | { type: 'cancel_booking' };
+
+export interface BookingDraftPayload {
+  currentStep?: string;
+  serviceTypeId?: string | null;
+  serviceTypeName?: string | null;
+  appointmentDate?: string | null;
+  appointmentTime?: string | null;
+  requestedPriestId?: string | null;
+  requestedPriestName?: string | null;
+  notes?: string | null;
+}
+
 export interface AskParishAssistantParams {
   message: string;
   churchId?: string | null;
   churchName?: string | null;
   conversationHistory?: ParishAssistantTurn[];
+  bookingDraft?: BookingDraftPayload | null;
   timeoutMs?: number;
   customHeaders?: Record<string, string>;
   simulateQuota?: boolean;
@@ -21,6 +43,9 @@ export interface AskParishAssistantResult {
   sourcesUsed: number;
   isFallback: boolean;
   isRateLimited?: boolean;
+  bookingProposal?: BookingProposal | null;
+  intent?: BookingIntent | null;
+  handoff?: Record<string, unknown> | null;
 }
 
 export const PARISH_ASSISTANT_TIMEOUT_MS = 12000;
@@ -41,6 +66,7 @@ export async function askParishAssistant(
     churchId,
     churchName,
     conversationHistory = [],
+    bookingDraft = null,
     timeoutMs = PARISH_ASSISTANT_TIMEOUT_MS,
     customHeaders = {},
     simulateQuota = false,
@@ -52,6 +78,9 @@ export async function askParishAssistant(
       reply: 'Please provide a message or inquiry.',
       sourcesUsed: 0,
       isFallback: false,
+      bookingProposal: null,
+      intent: null,
+      handoff: null,
     };
   }
 
@@ -72,6 +101,7 @@ export async function askParishAssistant(
         message: trimmedMessage,
         churchId: churchId || null,
         conversationHistory: historyPayload,
+        bookingDraft: bookingDraft || null,
         simulateQuota,
       },
     });
@@ -93,6 +123,9 @@ export async function askParishAssistant(
       reply?: string;
       sourcesUsed?: number;
       isRateLimited?: boolean;
+      bookingProposal?: BookingProposal | null;
+      intent?: BookingIntent | null;
+      handoff?: Record<string, unknown> | null;
     } | null;
     const fnError = result.error;
 
@@ -102,6 +135,9 @@ export async function askParishAssistant(
         sourcesUsed: typeof data.sourcesUsed === 'number' ? data.sourcesUsed : 0,
         isFallback: false,
         isRateLimited: Boolean(data.isRateLimited),
+        bookingProposal: data.bookingProposal || null,
+        intent: data.intent || null,
+        handoff: data.handoff || null,
       };
     }
 
@@ -131,6 +167,9 @@ export async function askParishAssistant(
         reply: fallback.reply,
         sourcesUsed: fallback.sourcesUsed,
         isFallback: true,
+        bookingProposal: null,
+        intent: null,
+        handoff: null,
       };
     }
   } catch (fallbackErr) {
@@ -162,5 +201,8 @@ export async function askParishAssistant(
     reply: `I am currently having trouble reaching the assistant service. For immediate assistance, please contact ${parishContact}.`,
     sourcesUsed: 0,
     isFallback: true,
+    bookingProposal: null,
+    intent: null,
+    handoff: null,
   };
 }

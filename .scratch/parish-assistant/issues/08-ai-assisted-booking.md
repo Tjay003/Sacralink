@@ -1,7 +1,7 @@
 # 08: AI-assisted booking
 
 Type: task
-**Status:** ready-for-agent
+**Status:** resolved
 **Blocked by:** 04, 06
 
 **What to build:** the guided Booking feels like a conversation. A Parishioner can say "I want to book a baptism", answer in their own words, ask side questions, and change their mind. The guide stays in control.
@@ -13,9 +13,9 @@ Type: task
 - "Change the date" (or any earlier field) clears that field and what depends on it, and the guide asks again.
 - If Gemini is unavailable, the guide falls back to template wording and chips (ticket 06 behaviour).
 
-- [ ] "I want to book a baptism" starts the guide at the date step with Baptism selected
-- [ ] A typed answer that the fake Gemini maps to a taken slot is rejected with alternatives; a free one is accepted
-- [ ] A side question is answered and the booking resumes at the same step
-- [ ] Changing an earlier answer re-asks it and dependent fields
-- [ ] Replies match the Parishioner's language (English, Tagalog, Taglish)
-- [ ] `tsc -b` and lint are clean
+- [x] "I want to book a baptism" starts the guide at the date step with Baptism selected
+- [x] A typed answer that the fake Gemini maps to a taken slot is rejected with alternatives; a free one is accepted
+- [x] A side question is answered and the booking resumes at the same step
+- [x] Changing an earlier answer re-asks it and dependent fields
+- [x] Replies match the Parishioner's language (English, Tagalog, Taglish)
+- [x] `tsc -b` and lint are clean

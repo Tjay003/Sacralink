@@ -353,6 +353,188 @@ const server = http.createServer(async (req, res) => {
         .map((p) => p.text || '')
         .join(' ');
 
+      const lastUserTurn = [...contents].reverse().find((c) => c.role === 'user');
+      const lastUserText = lastUserTurn?.parts?.map((p) => p.text || '').join(' ') || userText;
+
+      const matchDraft = systemText.match(/Current Step:\s*([a-z]+)/i);
+      const currentBookingStep = matchDraft ? matchDraft[1].toLowerCase() : null;
+
+      // 0. Side Question Mid-Booking (e.g. "What is a Pre-Jordan seminar?")
+      if (/pre-jordan/i.test(lastUserText)) {
+        const isTagalog = /ano\s+ang|po\b|opo\b/i.test(lastUserText);
+        const replyText = isTagalog
+          ? 'Ang Pre-Jordan seminar po ay isang catechetical formation session para sa mga magulang at ninong/ninang bago ang pagdiriwang ng Binyag.'
+          : 'The Pre-Jordan seminar is a required catechetical preparation session for parents and godparents prior to the christening.';
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.1 Intent: Change Step ("Change the date", "Palitan ang petsa", etc.)
+      if (
+        /(?:change\s+(?:the\s+)?(?:date|time|service|priest)|palitan\s+ang\s+(?:petsa|oras|sakramento|pari)|iba(?:ng)?\s+(?:petsa|oras))/i.test(
+          lastUserText
+        )
+      ) {
+        let targetStep = 'date';
+        if (/time|oras/i.test(lastUserText)) targetStep = 'time';
+        else if (/service|sakramento/i.test(lastUserText)) targetStep = 'service';
+        else if (/priest|pari/i.test(lastUserText)) targetStep = 'priest';
+
+        const isTagalog = /palitan\s+ang|po\b|opo\b|sige/i.test(lastUserText);
+        const isTaglish = /palitan.*date|change.*petsa/i.test(lastUserText);
+        let replyText = `Sure, let's change the ${targetStep}. Please choose from the options below:`;
+        if (isTagalog) {
+          replyText = `Sige po, palitan natin ang ${targetStep === 'date' ? 'petsa' : (targetStep === 'time' ? 'oras' : targetStep)}. Mamili po muli sa ibaba:`;
+        } else if (isTaglish) {
+          replyText = `Opo, palitan po natin ang ${targetStep}. Pakipili po muli sa mga options sa ibaba:`;
+        }
+
+        const jsonBlock = `\n\`\`\`json\n{\n  "intent": {\n    "type": "change_step",\n    "step": "${targetStep}"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.2 Intent: Start Booking ("I want to book a baptism", "Gusto kong magpa-binyag", etc.)
+      if (
+        /(?:i\s+want\s+to\s+book|mag[-\s]?book\s+ng|magpa-?binyag|magpa-?kasal|gusto\s+ko(?:ng)?\s+mag[-\s]?book|gusto\s+ko(?:ng)?\s+magpa-?binyag|book\s+a\s+baptism|mag[-\s]?book)/i.test(
+          lastUserText
+        )
+      ) {
+        let serviceName = 'Baptism';
+        if (/wedding|kasal/i.test(lastUserText)) serviceName = 'Wedding';
+        else if (/confirmation|kumpil/i.test(lastUserText)) serviceName = 'Confirmation';
+        else if (/blessing|bendisyon/i.test(lastUserText)) serviceName = 'Blessing';
+        else if (/funeral|libing/i.test(lastUserText)) serviceName = 'Funeral';
+
+        const isTagalog = /gusto\s+kong|magpa-?binyag|sa\s+parokya|po\b|opo\b|nais\s+ko/i.test(lastUserText);
+        const isTaglish = /gusto\s+ko\s+mag[-\s]?book|pwede\s+ba\s+mag[-\s]?book|paki|please/i.test(lastUserText);
+
+        let replyText = `Certainly! I would be pleased to assist you with booking a ${serviceName}. Please select an appointment date from the options below:`;
+        if (isTagalog) {
+          replyText = `Ikinagagalak ko po kayong tulungan sa pag-book ng ${serviceName}. Mamili po ng nais ninyong petsa sa mga opsyon sa ibaba:`;
+        } else if (isTaglish) {
+          replyText = `Opo, tutulungan ko po kayo mag-book ng ${serviceName}. Pakipili po ang petsa sa mga options sa ibaba:`;
+        }
+
+        const jsonBlock = `\n\`\`\`json\n{\n  "intent": {\n    "type": "start_booking",\n    "serviceName": "${serviceName}"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.3 Proposal: Time slot proposal (e.g. "10:00 AM", "2:00 PM", "10:00", "14:00")
+      const timeMatch = lastUserText.match(/\b(10:00|14:00|2:00|02:00|10\s*am|2\s*pm|10am|2pm|11:00|09:00|alas\s+dyes|alas\s+dos)\b/i);
+      if (currentBookingStep === 'time' || (timeMatch && currentBookingStep !== 'service' && currentBookingStep !== null)) {
+        let proposedTime = '10:00';
+        let displayTime = '10:00 AM';
+        if (/2:00|02:00|14:00|2\s*pm|2pm|alas\s+dos/i.test(lastUserText)) {
+          proposedTime = '14:00';
+          displayTime = '2:00 PM';
+        } else if (/11:00|11\s*am/i.test(lastUserText)) {
+          proposedTime = '11:00';
+          displayTime = '11:00 AM';
+        } else if (/09:00|9:00|9\s*am/i.test(lastUserText)) {
+          proposedTime = '09:00';
+          displayTime = '9:00 AM';
+        }
+
+        const replyText = `I've noted your preferred time of ${displayTime}.`;
+        const jsonBlock = `\n\`\`\`json\n{\n  "bookingProposal": {\n    "field": "time",\n    "value": "${proposedTime}"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
+      // 0.4 Proposal: Date slot proposal (e.g. "next Saturday", "tomorrow", "YYYY-MM-DD")
+      const isoDateMatch = lastUserText.match(/\b\d{4}-\d{2}-\d{2}\b/);
+      const isDateProposal = isoDateMatch || /(?:tomorrow|next\s+saturday|sabado|bukas)/i.test(lastUserText);
+      if (currentBookingStep === 'date' || (isDateProposal && currentBookingStep !== null)) {
+        let proposedDate = '';
+        const now = new Date();
+        if (isoDateMatch) {
+          proposedDate = isoDateMatch[0];
+        } else if (/tomorrow|bukas/i.test(lastUserText)) {
+          const d = new Date(now);
+          d.setDate(d.getDate() + 1);
+          proposedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } else {
+          // Next Saturday
+          const d = new Date(now);
+          const day = d.getDay();
+          const diff = (6 - day + 7) % 7 || 7;
+          d.setDate(d.getDate() + diff);
+          proposedDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        const replyText = `I've noted your preferred date of ${proposedDate}.`;
+        const jsonBlock = `\n\`\`\`json\n{\n  "bookingProposal": {\n    "field": "date",\n    "value": "${proposedDate}"\n  }\n}\n\`\`\``;
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  role: 'model',
+                  parts: [{ text: replyText + jsonBlock }],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          })
+        );
+      }
+
       // A. "my appointments" inquiry
       const isAppointmentsQuery =
         /my\s+appointments/i.test(userText) ||

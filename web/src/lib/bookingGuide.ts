@@ -243,3 +243,149 @@ export async function submitConfirmedBooking(
     appointmentId: appointment.id,
   };
 }
+
+/**
+ * Normalizes user or AI-provided time strings (e.g. "10:00 AM", "2:00 PM", "14:00") into HH:MM (24-hour).
+ */
+export function normalizeTimeString(raw: string): string {
+  const trimmed = raw.trim();
+  const match12 = trimmed.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+  if (match12) {
+    let hours = parseInt(match12[1], 10);
+    const minutes = match12[2];
+    const meridiem = match12[3].toLowerCase();
+    if (meridiem === 'pm' && hours < 12) hours += 12;
+    if (meridiem === 'am' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+  }
+  const match24 = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match24) {
+    const hours = String(parseInt(match24[1], 10)).padStart(2, '0');
+    return `${hours}:${match24[2]}`;
+  }
+  return trimmed;
+}
+
+/**
+ * Rewinds a booking draft to a specific prior step, clearing subsequent fields and choices.
+ */
+export function rewindBookingDraft(draft: BookingDraft, targetStep: BookingStep): BookingDraft {
+  const next: BookingDraft = { ...draft, step: targetStep };
+  if (targetStep === 'service') {
+    delete next.serviceTypeId;
+    delete next.serviceTypeName;
+    delete next.serviceKind;
+    delete next.date;
+    delete next.formattedDate;
+    delete next.time;
+    delete next.formattedTime;
+    delete next.requestedPriestId;
+    delete next.requestedPriestName;
+    delete next.priestWarning;
+    delete next.notes;
+    delete next.hasRequirements;
+    delete next.attachedRequirementIds;
+  } else if (targetStep === 'date') {
+    delete next.date;
+    delete next.formattedDate;
+    delete next.time;
+    delete next.formattedTime;
+    delete next.requestedPriestId;
+    delete next.requestedPriestName;
+    delete next.priestWarning;
+    delete next.notes;
+  } else if (targetStep === 'time') {
+    delete next.time;
+    delete next.formattedTime;
+    delete next.requestedPriestId;
+    delete next.requestedPriestName;
+    delete next.priestWarning;
+    delete next.notes;
+  } else if (targetStep === 'priest') {
+    delete next.requestedPriestId;
+    delete next.requestedPriestName;
+    delete next.priestWarning;
+    delete next.notes;
+  } else if (targetStep === 'documents' || targetStep === 'notes') {
+    delete next.notes;
+  }
+  return next;
+}
+
+/**
+ * Validates an AI-proposed date: must be in future and must have open slots.
+ */
+export async function validateProposedDate(
+  churchId: string,
+  dateStr: string
+): Promise<{ valid: boolean; error?: string; formattedDate?: string }> {
+  const futureCheck = validateFutureDate(dateStr);
+  if (!futureCheck.ok) {
+    return {
+      valid: false,
+      error: futureCheck.error || 'The proposed date must be in the future.',
+    };
+  }
+
+  const openSlots = await getOpenTimeSlots(churchId, dateStr);
+  if (openSlots.length === 0) {
+    return {
+      valid: false,
+      error: `No open appointment slots are available on ${formatDateDisplay(dateStr)}. Please select an alternative date.`,
+    };
+  }
+
+  return {
+    valid: true,
+    formattedDate: formatDateDisplay(dateStr),
+  };
+}
+
+/**
+ * Validates an AI-proposed time: slot must not be taken and must have an available celebrant.
+ */
+export async function validateProposedTime(
+  churchId: string,
+  dateStr: string,
+  timeStr: string
+): Promise<{ valid: boolean; error?: string; normalizedTime?: string; formattedTime?: string }> {
+  const normalized = normalizeTimeString(timeStr);
+  if (!normalized) {
+    return {
+      valid: false,
+      error: 'Invalid time format.',
+    };
+  }
+
+  try {
+    const { data: slotCheck } = await checkParishSlot(churchId, dateStr, normalized);
+    if (slotCheck?.slotTaken) {
+      return {
+        valid: false,
+        error: `The proposed time slot (${formatTimeDisplay(normalized)}) is already booked. Please choose an alternative time:`,
+        normalizedTime: normalized,
+        formattedTime: formatTimeDisplay(normalized),
+      };
+    }
+    if (slotCheck && !slotCheck.hasEligiblePriest) {
+      return {
+        valid: false,
+        error: `No celebrants are available at ${formatTimeDisplay(normalized)}. Please choose an alternative time:`,
+        normalizedTime: normalized,
+        formattedTime: formatTimeDisplay(normalized),
+      };
+    }
+    return {
+      valid: true,
+      normalizedTime: normalized,
+      formattedTime: formatTimeDisplay(normalized),
+    };
+  } catch (err) {
+    console.warn('Error validating proposed slot:', err);
+    return {
+      valid: true,
+      normalizedTime: normalized,
+      formattedTime: formatTimeDisplay(normalized),
+    };
+  }
+}
