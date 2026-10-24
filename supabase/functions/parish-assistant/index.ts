@@ -787,7 +787,7 @@ Deno.serve(async (req: Request) => {
           .split(',')
           .map((s: string) => s.trim())
           .filter(Boolean)
-      : ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      : ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
 
     const geminiHeaders: Record<string, string> = {};
     const testSimulateQuota =
@@ -984,11 +984,8 @@ RULES & GUIDELINES:
             if (toolResult.results) sourcesUsed += toolResult.results.length;
             if (toolResult.available !== undefined) sourcesUsed += 1;
 
-            // Append model call turn
-            currentContents.push({
-              role: 'model',
-              parts: [{ functionCall: fnCall }],
-            });
+            // Append model call turn verbatim (preserving thought_signature for multi-turn)
+            currentContents.push(candidate.content);
 
             // Append user tool response turn
             currentContents.push({
