@@ -962,7 +962,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                 const result = await askParishAssistant({
                     message: trimmed,
                     churchId: targetChurchId,
-                    churchName: activeChurch?.name,
+                    churchName: activeChurch?.name || churches.find((c) => c.id === targetChurchId)?.name,
                     conversationHistory: historyPayload,
                     bookingDraft: draftPayload,
                 });
@@ -1160,6 +1160,58 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
             void handleSendMessage(pendingQuestion, church.id);
         }
     };
+
+    const handleSendMessageRef = useRef(handleSendMessage);
+    useEffect(() => {
+        handleSendMessageRef.current = handleSendMessage;
+    }, [handleSendMessage]);
+
+    // External deep-linking event listener (e.g. from Parish Guide & FAQs or church profile)
+    useEffect(() => {
+        const handleOpenAssistant = (event: Event) => {
+            const customEvent = event as CustomEvent<{
+                churchId?: string;
+                churchName?: string;
+                query?: string;
+            }>;
+            const detail = customEvent.detail;
+            if (!detail) return;
+
+            setIsOpen(true);
+            try {
+                sessionStorage.setItem('sacralink:assistant-open', 'true');
+            } catch {
+                // ignore
+            }
+
+            if (detail.churchId) {
+                setActiveChurchId(detail.churchId);
+            }
+
+            if (detail.churchId && detail.churchName) {
+                setChurches((prev) => {
+                    if (!prev.some((c) => c.id === detail.churchId)) {
+                        return [...prev, { id: detail.churchId!, name: detail.churchName! }];
+                    }
+                    return prev;
+                });
+            }
+
+            if (kalRef.current) {
+                kalRef.current.setState('chat');
+                kalRef.current.relayout();
+            }
+
+            if (detail.query) {
+                void handleSendMessageRef.current(detail.query, detail.churchId);
+            }
+        };
+
+        window.addEventListener('sacralink:open-assistant', handleOpenAssistant);
+        return () => {
+            window.removeEventListener('sacralink:open-assistant', handleOpenAssistant);
+        };
+    }, []);
 
     // The assistant is strictly for Parishioners (role 'user').
     // Staff roles (church_admin, priest, volunteer, super_admin) never see it.

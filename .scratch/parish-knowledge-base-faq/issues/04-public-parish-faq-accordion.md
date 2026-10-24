@@ -1,7 +1,7 @@
 # 04: Public Parish Profile FAQ Accordion with Assistant Deep Linking
 
 Type: task  
-**Status:** ready-for-agent  
+**Status:** completed  
 **Blocked by:** 01  
 
 ---
@@ -53,14 +53,14 @@ Additionally, when a parishioner is reading a static FAQ (e.g. regarding godpare
 
 ## Acceptance Criteria
 
-- [ ] `ChurchDetailPage.tsx` features a "Parish Guide & FAQs" tab visible to all visitors.
-- [ ] Active knowledge sections for the parish are rendered in clean, expandable accordion cards.
-- [ ] Search input filters accordion items in real time by title and content.
-- [ ] Each accordion item displays a "Ask Parish Assistant ✨" button.
-- [ ] Clicking the deep-link button opens `<ParishAssistant />`, assigns the active church context, and initiates or seeds the inquiry.
-- [ ] Fully responsive on mobile (stacks neatly, touch-friendly tap targets, no horizontal scroll).
-- [ ] Adheres strictly to the Sacralink color palette and card tokens (`bg-white`, `border-border`, `text-primary`, `bg-secondary-50`).
-- [ ] `tsc -b` and ESLint checks pass cleanly.
+- [x] `ChurchDetailPage.tsx` features a "Parish Guide & FAQs" tab visible to all visitors.
+- [x] Active knowledge sections for the parish are rendered in clean, expandable accordion cards.
+- [x] Search input filters accordion items in real time by title and content.
+- [x] Each accordion item displays a "Ask Parish Assistant ✨" button.
+- [x] Clicking the deep-link button opens `<ParishAssistant />`, assigns the active church context, and initiates or seeds the inquiry.
+- [x] Fully responsive on mobile (stacks neatly, touch-friendly tap targets, no horizontal scroll).
+- [x] Adheres strictly to the Sacralink color palette and card tokens (`bg-white`, `border-border`, `text-primary`, `bg-secondary-50`).
+- [x] `tsc -b` and ESLint checks pass cleanly.
 
 ---
 
@@ -80,3 +80,23 @@ Additionally, when a parishioner is reading a static FAQ (e.g. regarding godpare
 ---
 
 ## Comments
+
+- Implemented in Ticket 04:
+  - Created `web/src/lib/supabase/churchKnowledge.ts` providing typed queries for published knowledge sections (`getChurchKnowledgeSections`) and realtime changes (`subscribeToChurchKnowledgeSections`).
+  - Created `web/src/hooks/useChurchKnowledge.ts` providing reactive knowledge sections state, loading flags, error handling, and realtime invalidation.
+  - Created `web/src/components/churches/ParishGuideTab.tsx` providing:
+    - Real-time client search filtering both titles and content.
+    - Clean accordion cards using Sacralink tokens (`bg-white border border-border rounded-2xl shadow-2xs`).
+    - Expand all / Collapse all toggle.
+    - Friendly empty states for unpopulated parish knowledge and unmatched search terms.
+    - Contextual deep-linking CTA button (`"Have questions about this? Ask Parish Assistant ✨"`) dispatching `sacralink:open-assistant`.
+  - Updated `web/src/pages/churches/ChurchDetailPage.tsx`:
+    - Added "Parish Guide & FAQs" tab to segmented control track with live section count badge.
+    - Added deep-link URL search param support (`tab=guide`, `tab=faqs`, `tab=faq`).
+    - Rendered `<ParishGuideTab />` panel.
+  - Updated `web/src/components/ai/ParishAssistant.tsx`:
+    - Added `sacralink:open-assistant` event listener.
+    - Automatically opens assistant, syncs session storage, sets target parish, perches Kalapati mascot (`kalRef.current?.setState('chat')`), and immediately submits query via `handleSendMessage`.
+  - Static validation:
+    - `cd web; npx tsc -b` exited with code 0.
+    - ESLint on modified/new files passed cleanly with 0 errors.

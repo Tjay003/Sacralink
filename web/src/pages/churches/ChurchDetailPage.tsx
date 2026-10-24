@@ -34,7 +34,8 @@ import {
     EyeOff,
     CheckCircle,
     UserMinus,
-    MoreVertical
+    MoreVertical,
+    BookOpen
 } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
@@ -62,6 +63,8 @@ import AssignStaffModal from '../../components/admin/AssignStaffModal';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import { setUserRole } from '../../lib/supabase/profiles';
 import { useToast } from '../../contexts/toastContext';
+import ParishGuideTab from '../../components/churches/ParishGuideTab';
+import { useChurchKnowledge } from '../../hooks/useChurchKnowledge';
 import DeleteChurchModal from '../../components/churches/DeleteChurchModal';
 import { demotionMessage, getRoleEditBlock } from '../../lib/roleEditing';
 import type { Profile, Database } from '../../types/database';
@@ -80,7 +83,7 @@ interface SupporterRow {
     profiles: { id: string; full_name: string | null; deleted_at: string | null } | null;
 }
 
-type TabType = 'overview' | 'liturgy' | 'media' | 'livestream' | 'announcements' | 'governance';
+type TabType = 'overview' | 'liturgy' | 'guide' | 'media' | 'livestream' | 'announcements' | 'governance';
 
 export default function ChurchDetailPage() {
     const { id } = useParams<{ id: string }>();
@@ -163,6 +166,8 @@ export default function ChurchDetailPage() {
             setCurrentTab('livestream');
         } else if (tabParam === 'liturgy') {
             setCurrentTab('liturgy');
+        } else if (tabParam === 'guide' || tabParam === 'faqs' || tabParam === 'faq') {
+            setCurrentTab('guide');
         }
     }, [deepLinkAnnouncementId, tabParam, isVolunteer]);
 
@@ -248,6 +253,10 @@ export default function ChurchDetailPage() {
 
     // Announcements Hook
     const { announcements, loading: announcementsLoading, refetch: refetchAnnouncements } = useChurchAnnouncements(id);
+
+    // Parish Knowledge & FAQs Hook
+    const { sections: guideSections, loading: guideSectionsLoading } = useChurchKnowledge(id);
+    const guideSectionsCount = guideSections.length;
 
     // Fetch dynamic live metrics & staff members
     const fetchMetricsAndStaff = useCallback(async () => {
@@ -913,6 +922,24 @@ export default function ChurchDetailPage() {
                     </button>
 
                     <button
+                        data-testid="tab-guide"
+                        onClick={() => setCurrentTab('guide')}
+                        className={`rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            currentTab === 'guide'
+                                ? 'bg-white text-foreground shadow-xs border border-border/70 font-bold'
+                                : 'text-secondary-600 hover:text-foreground'
+                        }`}
+                    >
+                        <BookOpen className="w-4 h-4 shrink-0" />
+                        <span>Parish Guide & FAQs</span>
+                        {guideSectionsCount > 0 && (
+                            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary font-bold">
+                                {guideSectionsCount}
+                            </span>
+                        )}
+                    </button>
+
+                    <button
                         onClick={() => setCurrentTab('media')}
                         className={`rounded-xl px-3.5 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                             currentTab === 'media'
@@ -1391,6 +1418,18 @@ export default function ChurchDetailPage() {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB: PARISH GUIDE & FAQS */}
+            {/* ========================================================================= */}
+            {currentTab === 'guide' && (
+                <ParishGuideTab
+                    church={church}
+                    sections={guideSections}
+                    loading={guideSectionsLoading}
+                    onNavigateTab={(tab) => setCurrentTab(tab)}
+                />
             )}
 
             {/* ========================================================================= */}
