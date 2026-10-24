@@ -405,16 +405,12 @@ const server = http.createServer(async (req, res) => {
         );
       }
 
-      // 0.00 Off-topic query guard (e.g. "sino po si lebron", sports, politics, weather, recipes)
-      if (
-        /(?:lebron|kobe|jordan|nba|basketball|crypto|bitcoin|weather|panahon|presidency|pulitika|recipe|luto|movie|sine|sino\s+(?:po\s+)?si\s+(?!jesus|maria|jose|san\b|santa\b|fr\b|father\b))/i.test(
-          lastUserText
-        )
-      ) {
-        const isTagalog = /po\b|opo\b|sino\b|ano\b|ba\b/i.test(lastUserText);
+      // 0. Side Question Mid-Booking (e.g. "What is a Pre-Jordan seminar?")
+      if (/pre-jordan/i.test(lastUserText)) {
+        const isTagalog = /ano\s+ang|po\b|opo\b/i.test(lastUserText);
         const replyText = isTagalog
-          ? "Paumanhin po, ngunit nakalaan lamang po ako para sa mga katanungan ukol sa ating parokya: mga banal na misa, sakramento, mga schedule, at mga pastoral na gawain ng simbahan. May maitutulong po ba ako sa inyo tungkol sa Our Lady of Lourdes Parish?"
-          : "I can only help with parish-related questions such as Mass schedules, sacraments, requirements, and church appointments. Is there something about our parish I can help you with?";
+          ? 'Ang Pre-Jordan seminar po ay isang catechetical formation session para sa mga magulang at ninong/ninang bago ang pagdiriwang ng Binyag.'
+          : 'The Pre-Jordan seminar is a required catechetical preparation session for parents and godparents prior to the christening.';
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(
@@ -432,12 +428,16 @@ const server = http.createServer(async (req, res) => {
         );
       }
 
-      // 0. Side Question Mid-Booking (e.g. "What is a Pre-Jordan seminar?")
-      if (/pre-jordan/i.test(lastUserText)) {
-        const isTagalog = /ano\s+ang|po\b|opo\b/i.test(lastUserText);
+      // 0.00 Off-topic query guard (e.g. "sino po si lebron", sports, politics, weather, recipes)
+      if (
+        /(?:lebron|kobe|(?<!pre-)\bjordan\b|nba|basketball|crypto|bitcoin|weather|panahon|presidency|pulitika|recipe|luto|movie|sine|sino\s+(?:po\s+)?si\s+(?!jesus|maria|jose|san\b|santa\b|fr\b|father\b))/i.test(
+          lastUserText
+        )
+      ) {
+        const isTagalog = /po\b|opo\b|sino\b|ano\b|ba\b/i.test(lastUserText);
         const replyText = isTagalog
-          ? 'Ang Pre-Jordan seminar po ay isang catechetical formation session para sa mga magulang at ninong/ninang bago ang pagdiriwang ng Binyag.'
-          : 'The Pre-Jordan seminar is a required catechetical preparation session for parents and godparents prior to the christening.';
+          ? "Paumanhin po, ngunit nakalaan lamang po ako para sa mga katanungan ukol sa ating parokya: mga banal na misa, sakramento, mga schedule, at mga pastoral na gawain ng simbahan. May maitutulong po ba ako sa inyo tungkol sa Our Lady of Lourdes Parish?"
+          : "I can only help with parish-related questions such as Mass schedules, sacraments, requirements, and church appointments. Is there something about our parish I can help you with?";
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(

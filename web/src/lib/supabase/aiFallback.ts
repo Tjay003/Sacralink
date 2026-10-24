@@ -363,7 +363,7 @@ export async function generateFallbackResponse(
   }
 
   // 2. General Knowledge when no specific parish is selected
-  if (query.includes('baptism') || query.includes('binyag')) {
+  if (query.includes('baptism') || query.includes('binyag') || query.includes('jordan') || query.includes('christening')) {
     return {
       reply:
         '**General Baptism Guidelines:**\n\n' +

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { createKalapati, type KalapatiHandle } from './mascot/kalapati-mascot';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTicket } from '../../lib/supabase/messaging';
@@ -74,6 +75,7 @@ export default function ParishAssistant() {
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isRenderingReply, setIsRenderingReply] = useState(false);
     const [activeTab, setActiveTab] = useState<'chat' | 'inspector'>('chat');
     const [isMaximized, setIsMaximized] = useState(false);
     const [churches, setChurches] = useState<ChurchOption[]>([]);
@@ -82,6 +84,8 @@ export default function ParishAssistant() {
     const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
     const [pendingBookingStart, setPendingBookingStart] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const drawerRef = useRef<HTMLDivElement>(null);
+    const kalRef = useRef<KalapatiHandle | null>(null);
 
     // Booking Guide State
     const [bookingDraft, setBookingDraft] = useState<BookingDraft | null>(null);
@@ -138,6 +142,7 @@ export default function ParishAssistant() {
         stopSpeaking();
         setSpeakingMessageId(null);
         setIsOpen(false);
+        kalRef.current?.setState('docked');
     };
 
     useEffect(() => {
@@ -172,6 +177,82 @@ export default function ParishAssistant() {
             // ignore
         }
     }, [isOpen]);
+
+    // Mount Kalapati mascot (strictly for parishioners / general users)
+    useEffect(() => {
+        if (profile?.role !== 'user') {
+            if (kalRef.current) {
+                kalRef.current.destroy();
+                kalRef.current = null;
+            }
+            return;
+        }
+
+        const kal = createKalapati({
+            getPanelRect: () => drawerRef.current?.getBoundingClientRect() ?? null,
+            onStateChange: (state) => {
+                setIsOpen(state === 'chat');
+            },
+        });
+        kalRef.current = kal;
+
+        if (isOpen) {
+            kal.setState('chat');
+        }
+
+        return () => {
+            kal.destroy();
+            kalRef.current = null;
+        };
+    }, [profile?.role]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sync open state changes to Kalapati
+    useEffect(() => {
+        if (!kalRef.current) return;
+        const currentState = kalRef.current.getState();
+        if (isOpen && currentState !== 'chat') {
+            kalRef.current.setState('chat');
+        } else if (!isOpen && currentState === 'chat') {
+            kalRef.current.setState('docked');
+        }
+    }, [isOpen]);
+
+    // Relayout Kalapati on maximize/restore transitions
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            kalRef.current?.relayout();
+        }, 320);
+        return () => clearTimeout(timer);
+    }, [isMaximized]);
+
+    // Drive Kalapati mascot mood from assistant state
+    useEffect(() => {
+        if (!kalRef.current) return;
+
+        if (bookingSuccessAppointmentId || bookingDraft?.step === 'confirmed' || ticketSuccessId) {
+            kalRef.current.setPose('happy');
+            return;
+        }
+
+        if (isLoading) {
+            kalRef.current.setPose('thinking');
+            return;
+        }
+
+        if (isRenderingReply || speakingMessageId) {
+            kalRef.current.setPose('talking');
+            return;
+        }
+
+        kalRef.current.setPose('idle');
+    }, [
+        isLoading,
+        isRenderingReply,
+        speakingMessageId,
+        bookingSuccessAppointmentId,
+        bookingDraft?.step,
+        ticketSuccessId,
+    ]);
 
     // 1. Fetch available active churches
     useEffect(() => {
@@ -820,7 +901,7 @@ export default function ParishAssistant() {
                 return;
             }
 
-            const targetChurchId = overrideChurchId ?? activeChurchId;
+            const targetChurchId = overrideChurchId ?? activeChurchId ?? bookingDraft?.churchId;
 
             // If question is parish-specific and no parish is selected yet, prompt with parish chips
             const isAcrossParishes = /across\s+parishes|all\s+parishes|every\s+parish|diocesan/i.test(trimmed);
@@ -886,6 +967,10 @@ export default function ParishAssistant() {
                     },
                 ]);
 
+                // Mascot talking pose while response is rendered
+                setIsRenderingReply(true);
+                setTimeout(() => setIsRenderingReply(false), 2000);
+
                 // 2. Handle intent if returned
                 if (result.intent) {
                     if (result.intent.type === 'start_booking') {
@@ -945,6 +1030,7 @@ export default function ParishAssistant() {
                             message: draftIntent.message || '',
                         });
                         setTicketSuccessId(null);
+                        kalRef.current?.setPose('happy');
                     }
                 }
 
@@ -1071,25 +1157,10 @@ export default function ParishAssistant() {
 
     return (
         <>
-            {/* Floating Toggle Button */}
-            {!isOpen && (
-                <button
-                    data-testid="parish-assistant-button"
-                    onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gradient-to-r from-primary via-primary-600 to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white px-5 py-3.5 rounded-full shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/35 border border-white/20 transition-all duration-300 hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-primary/20 backdrop-blur-sm"
-                    aria-label="Open AI Parish Assistant"
-                >
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-white/20 p-0.5 flex items-center justify-center ring-1 ring-white/40 shadow-xs">
-                        <img src={chatbotIcon} alt="AI" className="w-full h-full object-cover rounded-full" />
-                    </div>
-                    <span className="font-semibold text-sm tracking-tight pr-1">Parish Assistant</span>
-                    <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                </button>
-            )}
-
             {/* Assistant Dialog Window */}
             {isOpen && (
                 <div
+                    ref={drawerRef}
                     data-testid="parish-assistant-panel"
                     className={`fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
                         isMaximized
