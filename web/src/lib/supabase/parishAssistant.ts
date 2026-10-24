@@ -47,6 +47,19 @@ export interface AskParishAssistantParams {
   simulateQuota?: boolean;
 }
 
+export interface ToolCallTrace {
+  name: string;
+  args: Record<string, any>;
+  result: any;
+}
+
+export interface AssistantDebugInfo {
+  model: string;
+  isMock: boolean;
+  turns: number;
+  tools: ToolCallTrace[];
+}
+
 export interface AskParishAssistantResult {
   reply: string;
   sourcesUsed: number;
@@ -55,6 +68,7 @@ export interface AskParishAssistantResult {
   bookingProposal?: BookingProposal | null;
   intent?: ParishAssistantIntent | null;
   handoff?: ParishAssistantHandoff | null;
+  debug?: AssistantDebugInfo | null;
 }
 
 export const PARISH_ASSISTANT_TIMEOUT_MS = 12000;
@@ -135,6 +149,7 @@ export async function askParishAssistant(
       bookingProposal?: BookingProposal | null;
       intent?: ParishAssistantIntent | null;
       handoff?: ParishAssistantHandoff | null;
+      debug?: AssistantDebugInfo | null;
     } | null;
     const fnError = result.error;
 
@@ -147,6 +162,7 @@ export async function askParishAssistant(
         bookingProposal: data.bookingProposal || null,
         intent: data.intent || null,
         handoff: data.handoff || null,
+        debug: data.debug || null,
       };
     }
 
@@ -179,6 +195,12 @@ export async function askParishAssistant(
         bookingProposal: null,
         intent: null,
         handoff: null,
+        debug: {
+          model: 'keyword-fallback (offline database search)',
+          isMock: false,
+          turns: 0,
+          tools: [],
+        },
       };
     }
   } catch (fallbackErr) {

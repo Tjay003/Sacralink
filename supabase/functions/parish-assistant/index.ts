@@ -920,6 +920,9 @@ RULES & GUIDELINES:
 
     let finalReply = '';
     let sourcesUsed = 0;
+    let activeModelName = 'offline-fallback';
+    let totalTurnsCount = 0;
+    const executedTools: Array<{ name: string; args: any; result: any }> = [];
     const MAX_TOOL_TURNS = 5;
 
     for (const model of GEMINI_CHAT_MODELS) {
@@ -967,6 +970,12 @@ RULES & GUIDELINES:
               }
             );
 
+            executedTools.push({
+              name: fnCall.name,
+              args: fnCall.args,
+              result: toolResult,
+            });
+
             if (toolResult.schedules) sourcesUsed += toolResult.schedules.length;
             if (toolResult.parishes) sourcesUsed += toolResult.parishes.length;
             if (toolResult.services) sourcesUsed += toolResult.services.length;
@@ -1002,6 +1011,8 @@ RULES & GUIDELINES:
             part?.text ||
             candidate?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('\n') ||
             '';
+          activeModelName = model;
+          totalTurnsCount = toolTurns;
           break;
         }
 
@@ -1128,6 +1139,11 @@ RULES & GUIDELINES:
     }
 
     // Response contract
+    const isMock =
+      GEMINI_BASE_URL.includes('54399') ||
+      GEMINI_BASE_URL.includes('localhost') ||
+      GEMINI_BASE_URL.includes('127.0.0.1');
+
     return new Response(
       JSON.stringify({
         reply: finalReply,
@@ -1135,6 +1151,12 @@ RULES & GUIDELINES:
         bookingProposal,
         intent,
         handoff,
+        debug: {
+          model: activeModelName,
+          isMock,
+          tools: executedTools,
+          turns: totalTurnsCount,
+        },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -1149,6 +1171,12 @@ RULES & GUIDELINES:
         bookingProposal: null,
         intent: null,
         handoff: null,
+        debug: {
+          model: 'error-fallback',
+          isMock: false,
+          tools: [],
+          turns: 0,
+        },
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

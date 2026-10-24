@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall } from 'lucide-react';
+import { Sparkles, X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { createTicket } from '../../lib/supabase/messaging';
 import { getUserFavoriteChurchIds } from '../../lib/supabase/churchFavorites';
-import { askParishAssistant } from '../../lib/supabase/parishAssistant';
+import { askParishAssistant, type AssistantDebugInfo } from '../../lib/supabase/parishAssistant';
 import { getBookableServiceTypes, type ServiceType } from '../../lib/supabase/serviceTypes';
 import { getRequirementsForService } from '../../lib/supabase/requirements';
 import { getParishClergy, type ParishClergyMember } from '../../lib/supabase/priestAvailability';
@@ -39,6 +39,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    debug?: AssistantDebugInfo | null;
     handoff?: {
         type: string;
         label: string;
@@ -73,6 +74,7 @@ export default function ParishAssistant() {
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'chat' | 'inspector'>('chat');
     const [churches, setChurches] = useState<ChurchOption[]>([]);
     const [activeChurchId, setActiveChurchId] = useState<string | null>(null);
     const [showChurchPicker, setShowChurchPicker] = useState(false);
@@ -873,6 +875,7 @@ export default function ParishAssistant() {
                         role: 'assistant',
                         content: result.reply,
                         handoff: result.handoff || null,
+                        debug: result.debug || null,
                     },
                 ]);
 
@@ -1183,8 +1186,135 @@ export default function ParishAssistant() {
                         </div>
                     </div>
 
-                    {/* Chat Messages Flow */}
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 space-y-3 bg-background/50">
+                    {/* View Switcher: Chat vs AI & Tool Inspector */}
+                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border bg-secondary-50/70 text-xs">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('chat')}
+                            className={`px-3 py-1 font-semibold rounded-lg transition-all ${
+                                activeTab === 'chat'
+                                    ? 'bg-white text-primary shadow-xs border border-border'
+                                    : 'text-muted hover:text-foreground'
+                            }`}
+                        >
+                            Chat
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('inspector')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 font-semibold rounded-lg transition-all ${
+                                activeTab === 'inspector'
+                                    ? 'bg-white text-primary shadow-xs border border-border'
+                                    : 'text-muted hover:text-foreground'
+                            }`}
+                        >
+                            <Cpu className="w-3.5 h-3.5 text-primary" />
+                            <span>Tool Inspector</span>
+                            {messages.some((m) => m.debug?.tools && m.debug.tools.length > 0) && (
+                                <span className="inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] bg-blue-100 text-blue-800 rounded-full font-bold">
+                                    {messages.reduce((acc, m) => acc + (m.debug?.tools?.length || 0), 0)}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {activeTab === 'inspector' ? (
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary-900 text-secondary-100 text-xs font-mono">
+                            {/* Engine Diagnostics */}
+                            <div className="bg-secondary-950 p-3.5 rounded-xl border border-secondary-800 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Cpu className="w-4 h-4 text-primary-400" />
+                                        <span className="font-bold text-sm text-white">AI Engine Diagnostics</span>
+                                    </div>
+                                    {messages.some((m) => m.debug?.isMock) ? (
+                                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-semibold">
+                                            Local Mock (fake-gemini)
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-semibold">
+                                            Live Gemini 2.5 Flash
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-secondary-400 text-[11px] font-sans leading-relaxed">
+                                    The parish assistant uses multi-turn function calling with 9 PostgreSQL read tools (mass schedules, sacrament requirements, priest calendars, appointments, announcements).
+                                </p>
+                                <div className="text-[11px] bg-black/40 p-2.5 rounded-lg border border-secondary-800 text-secondary-300 space-y-1">
+                                    <div><span className="text-secondary-500">Active Parish:</span> {activeChurch?.name || 'All parishes'}</div>
+                                    <div><span className="text-secondary-500">Total Session Turns:</span> {messages.filter(m => m.role === 'assistant').length}</div>
+                                    <div><span className="text-secondary-500">Total Tool Executions:</span> {messages.reduce((acc, m) => acc + (m.debug?.tools?.length || 0), 0)}</div>
+                                </div>
+                            </div>
+
+                            {/* Active Booking Draft State */}
+                            {bookingDraft && (
+                                <div className="bg-secondary-950 p-3.5 rounded-xl border border-secondary-800 space-y-2">
+                                    <div className="flex items-center gap-2 text-primary-300 font-bold">
+                                        <Layers className="w-4 h-4" />
+                                        <span>Active Booking Draft in Memory</span>
+                                    </div>
+                                    <pre className="text-[10px] text-emerald-300 bg-black/50 p-2 rounded-lg border border-secondary-850 overflow-x-auto">
+                                        {JSON.stringify(bookingDraft, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+
+                            {/* Chronological Tool Executions */}
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-white font-bold">
+                                    <Terminal className="w-4 h-4 text-emerald-400" />
+                                    <span>Chronological Tool Invocations</span>
+                                </div>
+
+                                {messages.filter((m) => m.debug?.tools && m.debug.tools.length > 0).length === 0 ? (
+                                    <div className="p-4 bg-secondary-950/60 rounded-xl border border-secondary-800 text-center text-secondary-400 italic font-sans text-xs">
+                                        No database tools called yet. Ask for Mass schedules, sacrament requirements, or your appointments to observe live tool execution.
+                                    </div>
+                                ) : (
+                                    messages
+                                        .filter((m) => m.debug?.tools && m.debug.tools.length > 0)
+                                        .map((m, turnIdx) => (
+                                            <div key={m.id} className="bg-secondary-950 p-3 rounded-xl border border-secondary-800 space-y-2">
+                                                <div className="flex items-center justify-between text-[11px] pb-1 border-b border-secondary-850">
+                                                    <span className="text-secondary-400 font-semibold">Turn #{turnIdx + 1}</span>
+                                                    <span className="text-amber-400 font-bold">{m.debug?.model}</span>
+                                                </div>
+                                                {m.debug?.tools.map((t, toolIdx) => (
+                                                    <div key={toolIdx} className="space-y-1.5 pt-1">
+                                                        <div className="text-emerald-400 font-bold text-[11px] flex items-center gap-1.5">
+                                                            <span>⚙️ {t.name}</span>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] text-secondary-400 uppercase tracking-wider font-semibold">Arguments:</div>
+                                                            <pre className="text-[10px] text-secondary-200 bg-black/60 p-1.5 rounded mt-0.5 border border-secondary-850 overflow-x-auto">
+                                                                {JSON.stringify(t.args, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[10px] text-secondary-400 uppercase tracking-wider font-semibold">Returned DB Rows:</div>
+                                                            <pre className="text-[10px] text-emerald-300/90 bg-black/60 p-1.5 rounded mt-0.5 max-h-48 overflow-y-auto border border-secondary-850 overflow-x-auto">
+                                                                {JSON.stringify(t.result, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('chat')}
+                                className="w-full py-2 bg-primary hover:bg-primary-600 text-white font-sans font-semibold rounded-xl transition-colors text-center text-xs shadow-xs"
+                            >
+                                Back to Chat
+                            </button>
+                        </div>
+                    ) : (
+                        /* Chat Messages Flow */
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 space-y-3 bg-background/50">
                         {/* Welcome card if empty */}
                         {messages.length === 0 && !bookingDraft && (
                             <div className={`card bg-white border border-border rounded-2xl shadow-xs text-center space-y-2 mt-2 ${isLargeText ? 'p-5' : 'p-4'}`}>
@@ -1207,6 +1337,7 @@ export default function ParishAssistant() {
                                     role={m.role}
                                     content={m.content}
                                     isLargeText={isLargeText}
+                                    debug={m.debug}
                                     onReadAloud={
                                         m.role === 'assistant' && speechSupported
                                             ? () => handleToggleSpeech(m.id, m.content)
@@ -1553,6 +1684,7 @@ export default function ParishAssistant() {
 
                         <div ref={messagesEndRef} />
                     </div>
+                    )}
 
                     {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
                     {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (

@@ -1,6 +1,7 @@
-import React from 'react';
-import { User, Volume2, VolumeX } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Volume2, VolumeX, Cpu, ChevronDown, ChevronUp, Database } from 'lucide-react';
 import chatbotIcon from '../../assets/chatbotIcon.png';
+import type { AssistantDebugInfo } from '../../lib/supabase/parishAssistant';
 
 interface ChatMessageProps {
     role: 'user' | 'assistant';
@@ -8,6 +9,7 @@ interface ChatMessageProps {
     isLargeText?: boolean;
     onReadAloud?: () => void;
     isSpeaking?: boolean;
+    debug?: AssistantDebugInfo | null;
 }
 
 interface BulletItem {
@@ -395,8 +397,10 @@ export default function ChatMessage({
     isLargeText = false,
     onReadAloud,
     isSpeaking = false,
+    debug,
 }: ChatMessageProps) {
     const isUser = role === 'user';
+    const [showTrace, setShowTrace] = useState(false);
 
     return (
         <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -419,8 +423,8 @@ export default function ChatMessage({
                 </div>
             )}
 
-            {/* Bubble & Read Aloud Action */}
-            <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} gap-1.5 max-w-[85%]`}>
+            {/* Bubble, Tool Inspector & Read Aloud Action */}
+            <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} gap-1.5 max-w-[88%]`}>
                 <div
                     className={`px-3.5 py-2.5 rounded-2xl leading-relaxed break-words ${
                         isUser
@@ -431,6 +435,93 @@ export default function ChatMessage({
                 >
                     <FormattedMessageContent content={content} isUser={isUser} isLargeText={isLargeText} />
                 </div>
+
+                {/* AI Tool Inspector Pill & Dropdown */}
+                {!isUser && debug && (
+                    <div className="w-full">
+                        <button
+                            type="button"
+                            onClick={() => setShowTrace((v) => !v)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono text-muted hover:text-foreground bg-secondary-50 hover:bg-secondary-100 border border-border rounded-lg transition-all"
+                            title="Inspect AI model and database tool calls"
+                        >
+                            <Cpu className="w-3.5 h-3.5 text-primary" />
+                            <span>AI Trace:</span>
+                            <span className="font-semibold text-foreground">{debug.model}</span>
+                            {debug.isMock ? (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-sans font-medium">
+                                    Mock
+                                </span>
+                            ) : (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-sans font-medium">
+                                    Live
+                                </span>
+                            )}
+                            {debug.tools && debug.tools.length > 0 ? (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded font-medium">
+                                    {debug.tools.length} tool{debug.tools.length > 1 ? 's' : ''} called
+                                </span>
+                            ) : (
+                                <span className="text-[10px] px-1.5 py-0.2 bg-secondary-200 text-secondary-700 rounded font-medium">
+                                    0 tools
+                                </span>
+                            )}
+                            {showTrace ? (
+                                <ChevronUp className="w-3 h-3 text-muted ml-0.5" />
+                            ) : (
+                                <ChevronDown className="w-3 h-3 text-muted ml-0.5" />
+                            )}
+                        </button>
+
+                        {showTrace && (
+                            <div className="mt-2 p-3 bg-secondary-900 text-secondary-100 rounded-xl text-xs font-mono border border-secondary-700 shadow-md space-y-2.5 overflow-hidden max-w-full">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">
+                                    <span className="text-secondary-400">Model Engine:</span>
+                                    <span className="font-bold text-amber-400">
+                                        {debug.model} {debug.isMock ? '(Local Fake Gemini)' : '(Google Gemini API)'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">
+                                    <span className="text-secondary-400">Function Turns:</span>
+                                    <span className="text-secondary-300 font-semibold">{debug.turns} turn(s)</span>
+                                </div>
+
+                                {debug.tools && debug.tools.length > 0 ? (
+                                    <div className="space-y-2 pt-1">
+                                        <div className="text-[11px] font-semibold text-blue-400 flex items-center gap-1.5">
+                                            <Database className="w-3.5 h-3.5" />
+                                            <span>Database Tools Invoked ({debug.tools.length}):</span>
+                                        </div>
+                                        {debug.tools.map((t, idx) => (
+                                            <div key={idx} className="bg-secondary-950 p-2.5 rounded-lg border border-secondary-800 space-y-1.5">
+                                                <div className="text-emerald-400 font-bold flex items-center justify-between">
+                                                    <span>⚙️ {t.name}</span>
+                                                    <span className="text-[10px] text-secondary-500 font-normal">Step #{idx + 1}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-secondary-400 text-[10px] uppercase tracking-wider font-semibold">Parameters Sent:</span>
+                                                    <pre className="text-[10px] text-secondary-300 overflow-x-auto p-1.5 bg-black/50 rounded mt-0.5 border border-secondary-850">
+                                                        {JSON.stringify(t.args, null, 2)}
+                                                    </pre>
+                                                </div>
+                                                <div>
+                                                    <span className="text-secondary-400 text-[10px] uppercase tracking-wider font-semibold">Database Response Data:</span>
+                                                    <pre className="text-[10px] text-emerald-300/90 overflow-x-auto p-1.5 bg-black/50 rounded mt-0.5 max-h-36 overflow-y-auto border border-secondary-850">
+                                                        {JSON.stringify(t.result, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-[11px] text-secondary-400 italic pt-1">
+                                        No database tools required for this turn (direct conversational reply).
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {!isUser && onReadAloud && (
                     <button
