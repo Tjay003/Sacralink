@@ -28,7 +28,7 @@ export default function UserNextAppointmentCard({
                     No upcoming appointments
                 </h3>
                 <p className="text-sm text-muted mt-1 max-w-md mx-auto leading-relaxed">
-                    Need to schedule a baptism, wedding, mass intention, or home blessing? You can request a sacrament anytime.
+                    Need to schedule a baptism, wedding, or home blessing? You can request a sacrament anytime.
                 </p>
                 <button
                     type="button"

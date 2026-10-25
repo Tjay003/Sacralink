@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, BookOpen, Scroll, Heart, Radio } from 'lucide-react';
+import { Sparkles, BookOpen, Heart, Radio } from 'lucide-react';
 import LivestreamPlayer from './LivestreamPlayer';
 import SpiritualReactionsBar from './SpiritualReactionsBar';
 import VirtualSanctuarySidebar from './VirtualSanctuarySidebar';
@@ -17,10 +17,10 @@ interface VirtualSanctuarySectionProps {
 export default function VirtualSanctuarySection({ church, activePanoramaUrl, canManage = false }: VirtualSanctuarySectionProps) {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isStudioModalOpen, setIsStudioModalOpen] = useState<boolean>(false);
-    const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'intentions' | 'offertory'>('liturgy');
+    const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'offertory'>('liturgy');
     const [candleCount, setCandleCount] = useState<number>(church.candle_count || 0);
 
-    const handleOpenModal = (tab: 'liturgy' | 'intentions' | 'offertory') => {
+    const handleOpenModal = (tab: 'liturgy' | 'offertory') => {
         setActiveModalTab(tab);
         setIsModalOpen(true);
     };
@@ -69,20 +69,6 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl, can
 
                     <button
                         type="button"
-                        onClick={() => handleOpenModal('intentions')}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            isModalOpen && activeModalTab === 'intentions'
-                                ? 'bg-primary text-white border-primary shadow-sm shadow-blue-500/20'
-                                : 'bg-white dark:bg-card text-muted hover:text-foreground border-border hover:bg-secondary-50 dark:hover:bg-secondary-800 hover:border-primary/40 shadow-2xs'
-                        }`}
-                        title="Mass Intentions"
-                    >
-                        <Scroll className="w-3.5 h-3.5 shrink-0" />
-                        <span>Intentions</span>
-                    </button>
-
-                    <button
-                        type="button"
                         onClick={() => handleOpenModal('offertory')}
                         className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all duration-200 border cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
                             isModalOpen && activeModalTab === 'offertory'
@@ -125,7 +111,7 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl, can
                 />
             </div>
 
-            {/* Dedicated Modal for Gospel, Mass Intentions, and Digital Offertory */}
+            {/* Dedicated Modal for Gospel and Digital Offertory */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}

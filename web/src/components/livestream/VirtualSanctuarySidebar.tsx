@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import {
     BookOpen,
     Heart,
-    Scroll,
     Check,
     Copy,
     Calendar,
@@ -17,39 +16,16 @@ import {
     Download,
     FileText,
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { submitDonation, submitQuickOffering } from '../../lib/supabase/donations';
 import { getDailyReadings, ACT_OF_SPIRITUAL_COMMUNION, type LiturgicalDay } from '../../lib/liturgy';
-import { useNavigate } from 'react-router-dom';
 import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySidebarProps {
     church: Church;
-    activeTab?: 'liturgy' | 'intentions' | 'offertory';
-    onTabChange?: (tab: 'liturgy' | 'intentions' | 'offertory') => void;
+    activeTab?: 'liturgy' | 'offertory';
+    onTabChange?: (tab: 'liturgy' | 'offertory') => void;
     onClose?: () => void;
     className?: string;
-}
-
-interface MassIntentionItem {
-    id: string;
-    requested_date: string;
-    notes: string | null;
-    status: string | null;
-    category: 'thanksgiving' | 'soul' | 'healing';
-    donorName: string;
-}
-
-function categorizeIntention(notes?: string | null): 'thanksgiving' | 'soul' | 'healing' {
-    if (!notes) return 'healing';
-    const text = notes.toLowerCase();
-    if (text.includes('soul') || text.includes('memorial') || text.includes('death') || text.includes('deceased') || text.includes('requiem') || text.includes('rip') || text.includes('repose')) {
-        return 'soul';
-    }
-    if (text.includes('thanksgiving') || text.includes('birthday') || text.includes('anniversary') || text.includes('gratitude') || text.includes('salamat')) {
-        return 'thanksgiving';
-    }
-    return 'healing';
 }
 
 export default function VirtualSanctuarySidebar({
@@ -59,15 +35,14 @@ export default function VirtualSanctuarySidebar({
     onClose,
     className = '',
 }: VirtualSanctuarySidebarProps) {
-    const navigate = useNavigate();
-    const [currentTab, setCurrentTab] = useState<'liturgy' | 'intentions' | 'offertory'>(activeTab);
+    const [currentTab, setCurrentTab] = useState<'liturgy' | 'offertory'>(activeTab === 'offertory' ? 'offertory' : 'liturgy');
 
     // Sync external active tab
     useEffect(() => {
         if (activeTab) setCurrentTab(activeTab);
     }, [activeTab]);
 
-    const setTab = (t: 'liturgy' | 'intentions' | 'offertory') => {
+    const setTab = (t: 'liturgy' | 'offertory') => {
         setCurrentTab(t);
         onTabChange?.(t);
     };
@@ -76,10 +51,6 @@ export default function VirtualSanctuarySidebar({
     const readings: LiturgicalDay = getDailyReadings();
     const [copiedLiturgy, setCopiedLiturgy] = useState(false);
     const [copiedPrayer, setCopiedPrayer] = useState(false);
-
-    // Intentions state
-    const [intentions, setIntentions] = useState<MassIntentionItem[]>([]);
-    const [loadingIntentions, setLoadingIntentions] = useState(false);
 
     // Offertory state
     const isUnverified = church.status === 'unverified' || (church.status && church.status !== 'verified_active' && church.status !== 'active');
@@ -129,67 +100,6 @@ export default function VirtualSanctuarySidebar({
             window.open(activeOffertoryQr, '_blank');
         }
     };
-
-    // Fetch mass intentions for church
-    useEffect(() => {
-        if (!church.id) return;
-        const fetchIntentions = async () => {
-            setLoadingIntentions(true);
-            try {
-                const { data, error: fetchErr } = await supabase
-                    .from('appointments')
-                    .select(`
-                        id,
-                        appointment_date,
-                        notes,
-                        status,
-                        user_id,
-                        profiles:profiles!appointments_user_id_fkey (
-                            full_name
-                        )
-                    `)
-                    .eq('church_id', church.id)
-                    .eq('service_type', 'mass_intention')
-                    .order('created_at', { ascending: false })
-                    .limit(30);
-
-                if (fetchErr) {
-                    console.error('Error fetching mass intentions:', fetchErr);
-                    return;
-                }
-
-                if (data) {
-                    type RawIntention = {
-                        id: string;
-                        appointment_date?: string | null;
-                        requested_date?: string | null;
-                        notes?: string | null;
-                        status?: string | null;
-                        profiles?: { full_name?: string | null } | null;
-                    };
-                    const mapped: MassIntentionItem[] = (data as unknown as RawIntention[]).map((item) => {
-                        const rawNotes = item.notes || 'Special intention for the Holy Mass';
-                        const fullName = item.profiles?.full_name || 'Parishioner';
-                        return {
-                            id: item.id,
-                            requested_date: item.appointment_date || item.requested_date || '',
-                            notes: rawNotes,
-                            status: item.status || null,
-                            category: categorizeIntention(rawNotes),
-                            donorName: fullName,
-                        };
-                    });
-                    setIntentions(mapped);
-                }
-            } catch (err) {
-                console.error('Error fetching mass intentions:', err);
-            } finally {
-                setLoadingIntentions(false);
-            }
-        };
-
-        fetchIntentions();
-    }, [church.id]);
 
     const handleCopyReadings = async () => {
         const textToCopy = `${readings.title} (${readings.date})\n\nHoly Gospel: ${readings.gospel.citation}\n${readings.gospel.text}\n\n${ACT_OF_SPIRITUAL_COMMUNION.title} (${ACT_OF_SPIRITUAL_COMMUNION.author}):\n${ACT_OF_SPIRITUAL_COMMUNION.prayer}`;
@@ -291,10 +201,6 @@ export default function VirtualSanctuarySidebar({
         }
     };
 
-    const thanksgivingIntentions = intentions.filter((i) => i.category === 'thanksgiving');
-    const soulIntentions = intentions.filter((i) => i.category === 'soul');
-    const healingIntentions = intentions.filter((i) => i.category === 'healing');
-
     return (
         <div className={`overflow-hidden flex flex-col text-foreground bg-white dark:bg-card ${className ? className : 'card shadow-sm border border-border rounded-2xl'}`}>
             {/* Header Tabs */}
@@ -312,20 +218,6 @@ export default function VirtualSanctuarySidebar({
                     >
                         <BookOpen className="w-3.5 h-3.5 shrink-0" />
                         <span className="truncate">Gospel</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => setTab('intentions')}
-                        className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 active:scale-95 ${
-                            currentTab === 'intentions'
-                                ? 'bg-primary text-white shadow-sm shadow-blue-500/20'
-                                : 'text-muted hover:text-foreground hover:bg-secondary-100 dark:hover:bg-secondary-800/60'
-                        }`}
-                        title="Mass Intentions"
-                    >
-                        <Scroll className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">Intentions</span>
                     </button>
 
                     <button
@@ -480,111 +372,7 @@ export default function VirtualSanctuarySidebar({
                     </div>
                 )}
 
-                {/* ── TAB 2: MASS INTENTIONS ── */}
-                {currentTab === 'intentions' && (
-                    <div className="space-y-5 animate-in text-foreground">
-                        <div className="flex items-center justify-between bg-secondary-50/60 dark:bg-secondary-900/30 border border-border rounded-2xl p-4">
-                            <div>
-                                <h4 className="font-bold text-sm text-foreground">Parish Mass Intentions</h4>
-                                <p className="text-xs text-muted">Approved intentions offered in today’s Holy Sacrifice</p>
-                            </div>
-                            <button
-                                onClick={() => navigate(`/appointments/book?churchId=${church.id}&sacrament=mass_intention`)}
-                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all duration-200 shrink-0 shadow-xs hover:shadow-md hover:shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-                            >
-                                + Book Intention
-                            </button>
-                        </div>
-
-                        {loadingIntentions ? (
-                            <div className="py-12 text-center text-xs text-muted space-y-2">
-                                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                                <p>Loading sacred intentions...</p>
-                            </div>
-                        ) : intentions.length === 0 ? (
-                            <div className="text-center py-12 px-4 bg-secondary-50/40 dark:bg-secondary-900/20 rounded-2xl border border-dashed border-border space-y-3">
-                                <Scroll className="w-8 h-8 text-muted/60 mx-auto" />
-                                <p className="text-xs font-semibold text-foreground">No mass intentions booked yet for this parish</p>
-                                <p className="text-[11px] text-muted max-w-xs mx-auto">
-                                    Offer thanksgiving, prayers for deceased loved ones, or special intentions for upcoming masses.
-                                </p>
-                                <button
-                                    onClick={() => navigate(`/appointments/book?churchId=${church.id}&sacrament=mass_intention`)}
-                                    className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-700 text-white font-bold text-xs transition-all duration-200 inline-block shadow-xs hover:-translate-y-0.5 active:scale-95 cursor-pointer"
-                                >
-                                    Offer an Intention
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {/* Thanksgiving */}
-                                {thanksgivingIntentions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
-                                            <span>🕊️</span>
-                                            <span>Thanksgiving & Birthdays ({thanksgivingIntentions.length})</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {thanksgivingIntentions.map((item) => (
-                                                <div key={item.id} className="bg-white dark:bg-card border border-amber-200 dark:border-amber-800/40 hover:border-amber-400 dark:hover:border-amber-600 rounded-2xl p-3 space-y-1.5 shadow-xs hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200">
-                                                    <p className="text-xs font-medium text-foreground">{item.notes}</p>
-                                                    <div className="flex items-center justify-between text-[10px] text-muted">
-                                                        <span>Offered by: {item.donorName}</span>
-                                                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-semibold uppercase">Thanksgiving</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Memorial / Souls */}
-                                {soulIntentions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                                            <span>🕯️</span>
-                                            <span>Repose of Souls ({soulIntentions.length})</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {soulIntentions.map((item) => (
-                                                <div key={item.id} className="bg-white dark:bg-card border border-indigo-200 dark:border-indigo-800/40 hover:border-indigo-400 dark:hover:border-indigo-600 rounded-2xl p-3 space-y-1.5 shadow-xs hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200">
-                                                    <p className="text-xs font-medium text-foreground">{item.notes}</p>
-                                                    <div className="flex items-center justify-between text-[10px] text-muted">
-                                                        <span>Offered by: {item.donorName}</span>
-                                                        <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 font-semibold uppercase">Eternal Rest</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Healing / Special Petitions */}
-                                {healingIntentions.length > 0 && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                                            <span>🌿</span>
-                                            <span>Healing & Special Intentions ({healingIntentions.length})</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {healingIntentions.map((item) => (
-                                                <div key={item.id} className="bg-white dark:bg-card border border-emerald-200 dark:border-emerald-800/40 hover:border-emerald-400 dark:hover:border-emerald-600 rounded-2xl p-3 space-y-1.5 shadow-xs hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200">
-                                                    <p className="text-xs font-medium text-foreground">{item.notes}</p>
-                                                    <div className="flex items-center justify-between text-[10px] text-muted">
-                                                        <span>Offered by: {item.donorName}</span>
-                                                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold uppercase">Petition</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* ── TAB 3: DIGITAL OFFERTORY ── */}
+                {/* ── TAB 2: DIGITAL OFFERTORY ── */}
                 {currentTab === 'offertory' && (
                     <div className="space-y-5 animate-in text-foreground">
                         {isUnverified || cashlessPaused ? (
