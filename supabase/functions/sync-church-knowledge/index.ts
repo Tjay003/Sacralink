@@ -6,29 +6,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+let activeSyncKeyIndex = 0;
+
 async function getEmbedding(
   text: string,
-  apiKey: string,
-  baseUrl = 'https://generativelanguage.googleapis.com'
+  keys: string[],
+  baseUrl = 'https://generativelanguage.googleapis.com',
+  extraHeaders: Record<string, string> = {}
 ): Promise<number[]> {
   const cleanBase = baseUrl.replace(/\/+$/, '');
-  const response = await fetch(
-    `${cleanBase}/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: { parts: [{ text }] },
-        outputDimensionality: 768,
-      }),
+  const maxAttempts = Math.max(1, keys.length);
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    const currentKey = keys[activeSyncKeyIndex % keys.length];
+    const response = await fetch(
+      `${cleanBase}/v1beta/models/gemini-embedding-001:embedContent?key=${currentKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...extraHeaders },
+        body: JSON.stringify({
+          content: { parts: [{ text }] },
+          outputDimensionality: 768,
+        }),
+      }
+    );
+
+    if (response.status === 429 && keys.length > 1 && attempts < maxAttempts - 1) {
+      console.warn(
+        `Gemini embedding returned 429 with key index ${activeSyncKeyIndex % keys.length}. Rotating to next key in pool...`
+      );
+      activeSyncKeyIndex = (activeSyncKeyIndex + 1) % keys.length;
+      attempts++;
+      continue;
     }
-  );
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Embedding failed (${response.status}): ${errText}`);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Embedding failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    return data.embedding.values;
   }
-  const data = await response.json();
-  return data.embedding.values;
+
+  throw new Error('All Gemini API keys in pool exhausted (429).');
 }
 
 /**
@@ -84,7 +106,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const geminiKeys = (Deno.env.get('GEMINI_API_KEYS') || Deno.env.get('GEMINI_API_KEY') || '')
+      .split(',')
+      .map(k => k.trim())
+      .filter(Boolean);
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -92,11 +117,18 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
     const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: 'GEMINI_API_KEY is not configured.' }), {
+    if (geminiKeys.length === 0) {
+      return new Response(JSON.stringify({ error: 'GEMINI_API_KEYS or GEMINI_API_KEY is not configured.' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    const extraHeaders: Record<string, string> = {};
+    const testSimulateQuota = req.headers.get('x-test-simulate-quota');
+    if (testSimulateQuota) extraHeaders['x-test-simulate-quota'] = testSimulateQuota;
+    const testSimulateKeyQuota =
+      req.headers.get('x-test-simulate-key-quota') || req.headers.get('x-test-simulate-quota-key');
+    if (testSimulateKeyQuota) extraHeaders['x-test-simulate-key-quota'] = testSimulateKeyQuota;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -235,7 +267,7 @@ Deno.serve(async (req: Request) => {
 
     // Test embedding before wiping
     try {
-      await getEmbedding('test', GEMINI_API_KEY, GEMINI_BASE_URL);
+      await getEmbedding('test', geminiKeys, GEMINI_BASE_URL, extraHeaders);
     } catch (testErr: any) {
       return new Response(
         JSON.stringify({ error: `Gemini embedding error: ${testErr.message}` }),
@@ -249,7 +281,7 @@ Deno.serve(async (req: Request) => {
     const rows = [];
     for (const chunk of chunks) {
       try {
-        const embedding = await getEmbedding(chunk.content, GEMINI_API_KEY, GEMINI_BASE_URL);
+        const embedding = await getEmbedding(chunk.content, geminiKeys, GEMINI_BASE_URL, extraHeaders);
         rows.push({ ...chunk, embedding: `[${embedding.join(',')}]` });
         await new Promise(r => setTimeout(r, 150));
       } catch (e: any) {

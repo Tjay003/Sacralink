@@ -18,6 +18,8 @@ import {
     AlertTriangle,
     Sparkles,
     Check,
+    MessageSquare,
+    RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,6 +28,7 @@ import Modal from '../../components/ui/Modal';
 import { lintKnowledgeSection } from '../../utils/knowledgeLinter';
 import { STARTER_FAQ_TEMPLATES } from '../../config/starterFaqTemplates';
 import { polishKnowledgeContent } from '../../lib/supabase/aiScribe';
+import { useChatInsights, type InquiryInsightItem } from '../../hooks/useChatInsights';
 
 interface KnowledgeSection {
     id: string;
@@ -47,6 +50,21 @@ export default function KnowledgeBasePage() {
     const [sections, setSections] = useState<KnowledgeSection[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+
+    // Tabs state: Knowledge Sections vs Inquiry Insights
+    const [activeTab, setActiveTab] = useState<'sections' | 'insights'>('sections');
+    const [convertingInquiryId, setConvertingInquiryId] = useState<string | null>(null);
+
+    // Chat Inquiry Insights & Gaps hook
+    const {
+        totalInquiries,
+        unansweredCount,
+        recentUnanswered,
+        loading: insightsLoading,
+        refresh: refreshChatInsights,
+        markAsAddressed,
+        generateFaqDraft,
+    } = useChatInsights(churchId);
 
     // New / Edit form state
     const [editingId, setEditingId] = useState<string | 'new' | null>(null);
@@ -128,21 +146,25 @@ export default function KnowledgeBasePage() {
     }, [fetchSections]);
 
     const openNew = () => {
+        setActiveTab('sections');
         setEditingId('new');
         setFormTitle('');
         setFormContent('');
         setSaveError(null);
         setShowDiscrepancyModal(false);
         setExpandedId(null);
+        setConvertingInquiryId(null);
     };
 
     const openEdit = (section: KnowledgeSection) => {
+        setActiveTab('sections');
         setEditingId(section.id);
         setFormTitle(section.title);
         setFormContent(section.content);
         setSaveError(null);
         setShowDiscrepancyModal(false);
         setExpandedId(null);
+        setConvertingInquiryId(null);
     };
 
     const cancelEdit = () => {
@@ -151,6 +173,20 @@ export default function KnowledgeBasePage() {
         setFormContent('');
         setSaveError(null);
         setShowDiscrepancyModal(false);
+        setConvertingInquiryId(null);
+    };
+
+    const handleConvertToFaq = (inquiry: InquiryInsightItem) => {
+        const draft = generateFaqDraft(inquiry.user_question, inquiry.assistant_reply);
+        setConvertingInquiryId(inquiry.id);
+        setFormTitle(draft.title);
+        setFormContent(draft.draftContent);
+        setEditingId('new');
+        setActiveTab('sections');
+        setExpandedId(null);
+        setSaveError(null);
+        setShowDiscrepancyModal(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleSync = async (silent = false) => {
@@ -206,6 +242,12 @@ export default function KnowledgeBasePage() {
                         created_by: profile.id,
                     });
                 if (error) throw new Error(error.message);
+
+                if (convertingInquiryId) {
+                    markAsAddressed(convertingInquiryId);
+                    setConvertingInquiryId(null);
+                    await refreshChatInsights();
+                }
             } else {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const { error } = await (supabase as any)
@@ -437,8 +479,50 @@ export default function KnowledgeBasePage() {
                 </div>
             )}
 
-            {/* New Section Form */}
-            {editingId === 'new' && (
+            {/* Top Navigation Tabs */}
+            <div className="flex border-b border-secondary-200 gap-2">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('sections')}
+                    className={`flex items-center gap-2 py-2.5 px-4 border-b-2 font-medium text-sm transition-colors ${
+                        activeTab === 'sections'
+                            ? 'border-primary text-primary font-semibold'
+                            : 'border-transparent text-secondary-600 hover:text-foreground'
+                    }`}
+                >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Knowledge Sections</span>
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-700">
+                        {sections.length}
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('insights')}
+                    className={`flex items-center gap-2 py-2.5 px-4 border-b-2 font-medium text-sm transition-colors ${
+                        activeTab === 'insights'
+                            ? 'border-primary text-primary font-semibold'
+                            : 'border-transparent text-secondary-600 hover:text-foreground'
+                    }`}
+                >
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>Inquiry Insights & Gaps</span>
+                    {unansweredCount > 0 && (
+                        <span
+                            data-testid="unanswered-badge"
+                            className="ml-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                        >
+                            {unansweredCount}
+                        </span>
+                    )}
+                </button>
+            </div>
+
+            {/* Tab 1: Knowledge Sections CRUD */}
+            {activeTab === 'sections' && (
+                <div className="space-y-6">
+                    {/* New Section Form */}
+                    {editingId === 'new' && (
                 <div className="bg-white border-2 border-primary/30 rounded-xl p-5 shadow-sm space-y-4">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -770,6 +854,159 @@ export default function KnowledgeBasePage() {
                 <p className="text-xs text-muted text-center pb-2">
                     After making changes, the AI syncs automatically. You can also click <strong>Sync AI Knowledge Base</strong> manually.
                 </p>
+            )}
+                </div>
+            )}
+
+            {/* Tab 2: Inquiry Insights & Gaps Dashboard */}
+            {activeTab === 'insights' && (
+                <div className="space-y-6">
+                    {/* Metric Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Total Inquiries */}
+                        <div className="bg-white border border-border rounded-xl p-5 shadow-2xs flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Total Inquiries</p>
+                                <p className="text-2xl font-bold text-foreground mt-1">{totalInquiries}</p>
+                                <p className="text-xs text-muted mt-0.5">Past 30 days of parishioner chats</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                                <MessageSquare className="w-6 h-6 text-primary" />
+                            </div>
+                        </div>
+
+                        {/* Unanswered / Low Confidence Questions */}
+                        <div className="bg-white border border-amber-200 rounded-xl p-5 shadow-2xs flex items-center justify-between bg-amber-50/20">
+                            <div>
+                                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Unanswered Questions</p>
+                                <p className="text-2xl font-bold text-amber-950 mt-1">{unansweredCount}</p>
+                                <p className="text-xs text-amber-700 mt-0.5">Require parish FAQ documentation</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-6 h-6 text-amber-600" />
+                            </div>
+                        </div>
+
+                        {/* Documented Topics */}
+                        <div className="bg-white border border-border rounded-xl p-5 shadow-2xs flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Documented Topics</p>
+                                <p className="text-2xl font-bold text-foreground mt-1">{sections.length}</p>
+                                <p className="text-xs text-muted mt-0.5">Active knowledge base sections</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-secondary-100 flex items-center justify-center shrink-0">
+                                <BookOpen className="w-6 h-6 text-secondary-600" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section Header */}
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-amber-600" />
+                                Unanswered Questions
+                            </h2>
+                            <p className="text-xs text-muted mt-0.5">
+                                Parishioner questions where the AI assistant had low confidence or advised contacting the parish office. Convert inquiries to FAQ sections to fill knowledge gaps.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => refreshChatInsights()}
+                            disabled={insightsLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-secondary-700 hover:bg-secondary-100 border border-secondary-200 transition-colors"
+                            title="Refresh chat insights"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${insightsLoading ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
+                    </div>
+
+                    {/* Inquiries List */}
+                    {insightsLoading ? (
+                        <div className="text-center py-16">
+                            <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+                            <p className="text-sm text-muted">Analyzing chat logs and inquiries...</p>
+                        </div>
+                    ) : recentUnanswered.length === 0 ? (
+                        <div className="text-center py-16 bg-emerald-50/40 rounded-xl border border-dashed border-emerald-200 p-6 space-y-3">
+                            <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto opacity-80" />
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">No Unanswered Inquiries Found</p>
+                                <p className="text-xs text-muted max-w-md mx-auto mt-1">
+                                    All inquiries in the past 30 days were answered with confidence, or no low-confidence inquiries have been recorded yet.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {recentUnanswered.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className={`bg-white border rounded-xl p-4 shadow-2xs space-y-3 transition-colors ${
+                                        item.status === 'unanswered' ? 'border-amber-200/80 hover:border-amber-300' : 'border-border opacity-75'
+                                    }`}
+                                >
+                                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-xs text-muted font-medium">
+                                                {formatDate(item.created_at)}
+                                            </span>
+                                            {item.status === 'unanswered' ? (
+                                                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                                                    Unanswered
+                                                </span>
+                                            ) : (
+                                                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    Addressed
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleConvertToFaq(item)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 shadow-2xs transition-all"
+                                                title="Convert inquiry to knowledge base section"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                                                <span>✨ Convert to FAQ</span>
+                                            </button>
+                                            {item.status === 'unanswered' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => markAsAddressed(item.id)}
+                                                    className="px-2.5 py-1.5 text-xs font-medium text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 rounded-lg transition-colors"
+                                                    title="Mark as addressed"
+                                                >
+                                                    Dismiss
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Question */}
+                                    <div>
+                                        <p className="text-xs text-muted font-medium uppercase tracking-wider mb-0.5">Parishioner Question:</p>
+                                        <p className="text-sm font-semibold text-foreground">
+                                            "{item.user_question}"
+                                        </p>
+                                    </div>
+
+                                    {/* Assistant response snippet */}
+                                    <div className="bg-secondary-50/70 border border-secondary-200/60 rounded-lg p-3">
+                                        <p className="text-xs text-muted font-medium mb-1">Assistant Response Snippet:</p>
+                                        <p className="text-xs text-secondary-700 italic leading-relaxed">
+                                            "{item.assistant_reply}"
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Discrepancy Confirmation Modal */}

@@ -37,7 +37,7 @@ Adheres to the Sacralink Design System (`AGENTS.md`) and Issue Tracker conventio
 - [ ] **04: Public Parish Profile FAQ Accordion with Assistant Deep Linking** (`issues/04-public-parish-faq-accordion.md`)
   - Add "Parish Guide & FAQs" tab and search-filtered accordion to `ChurchDetailPage.tsx`.
   - Add window event listener in `<ParishAssistant />` for deep linking with pre-filled inquiries.
-- [ ] **05: Admin Inquiry Insights & 1-Click FAQ Generator from Chat Logs** (`issues/05-admin-chat-insights-faq-generator.md`)
+- [x] **05: Admin Inquiry Insights & 1-Click FAQ Generator from Chat Logs** (`issues/05-admin-chat-insights-faq-generator.md`)
   - Add Inquiry Insights panel in `KnowledgeBasePage.tsx` reading `church_chat_logs`.
   - Add 1-click "Convert to FAQ" action to turn common/unanswered questions into knowledge sections.
 

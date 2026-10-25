@@ -21,6 +21,26 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname.includes(':embedContent')) {
+    const keyParam = url.searchParams.get('key') || '';
+    const simulateKeyQuotaHeader =
+      req.headers['x-test-simulate-key-quota'] || req.headers['x-test-simulate-quota-key'];
+    if (
+      keyParam.includes('exhausted') ||
+      keyParam.includes('rate-limit') ||
+      (simulateKeyQuotaHeader && simulateKeyQuotaHeader === keyParam)
+    ) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      return res.end(
+        JSON.stringify({
+          error: {
+            code: 429,
+            message: 'Resource has been exhausted (e.g. check quota).',
+            status: 'RESOURCE_EXHAUSTED',
+          },
+        })
+      );
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(
       JSON.stringify({
@@ -45,13 +65,19 @@ const server = http.createServer(async (req, res) => {
       const modelMatch = url.pathname.match(/\/models\/([^:]+):generateContent/);
       const modelName = modelMatch ? modelMatch[1] : '';
 
+      const keyParam = url.searchParams.get('key') || '';
+      const simulateKeyQuotaHeader =
+        req.headers['x-test-simulate-key-quota'] || req.headers['x-test-simulate-quota-key'];
       const simulateQuotaHeader =
         req.headers['x-test-simulate-quota'] === 'true' ||
         req.headers['x-test-simulate-quota'] === '1';
 
       if (
         modelName === 'simulate-quota-first-model' ||
-        (simulateQuotaHeader && (modelName === 'gemini-2.5-flash' || modelName.includes('first')))
+        (simulateQuotaHeader && (modelName === 'gemini-2.5-flash' || modelName.includes('first'))) ||
+        keyParam.includes('exhausted') ||
+        keyParam.includes('rate-limit') ||
+        (simulateKeyQuotaHeader && simulateKeyQuotaHeader === keyParam)
       ) {
         res.writeHead(429, { 'Content-Type': 'application/json' });
         return res.end(

@@ -138,6 +138,7 @@ function AppRoutes() {
 
         {/* Knowledge Base - Church Admin & Super Admin */}
         <Route path="knowledge" element={<KnowledgeBasePage />} />
+        <Route path="admin/knowledge-base" element={<KnowledgeBasePage />} />
       </Route>
       <Route path="/privacy" element={<PrivacyPage />} />
       {/* The recovery link signs the user in, so the reset page must also exist for a signed-in session */}

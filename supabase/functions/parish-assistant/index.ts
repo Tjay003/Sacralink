@@ -674,6 +674,29 @@ async function executeTool(
   return { error: `Tool ${name} is not recognized` };
 }
 
+let activeGeminiKeyIndex = 0;
+
+function parseGeminiKeys(): string[] {
+  const keys = (Deno.env.get('GEMINI_API_KEYS') || Deno.env.get('GEMINI_API_KEY') || 'mock-key')
+    .split(',')
+    .map((k: string) => k.trim())
+    .filter(Boolean);
+  return keys.length > 0 ? keys : ['mock-key'];
+}
+
+function getActiveGeminiKey(keys: string[]): string {
+  if (keys.length === 0) return 'mock-key';
+  return keys[activeGeminiKeyIndex % keys.length];
+}
+
+function rotateGeminiKey(keys: string[]): string {
+  if (keys.length <= 1) return keys[0] || 'mock-key';
+  const prevIndex = activeGeminiKeyIndex % keys.length;
+  activeGeminiKeyIndex = (activeGeminiKeyIndex + 1) % keys.length;
+  console.warn(`Gemini API key index ${prevIndex} rate-limited (429). Rotating to key index ${activeGeminiKeyIndex}...`);
+  return keys[activeGeminiKeyIndex];
+}
+
 async function postToGemini(
   url: string,
   payload: any,
@@ -756,7 +779,7 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || 'mock-key';
+      const geminiKeys = parseGeminiKeys();
       const rawBaseUrl =
         Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
       const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
@@ -772,6 +795,12 @@ Deno.serve(async (req: Request) => {
       const testSimulateQuota = req.headers.get('x-test-simulate-quota');
       if (testSimulateQuota) {
         geminiHeaders['x-test-simulate-quota'] = testSimulateQuota;
+      }
+      const testSimulateKeyQuota =
+        req.headers.get('x-test-simulate-key-quota') ||
+        req.headers.get('x-test-simulate-quota-key');
+      if (testSimulateKeyQuota) {
+        geminiHeaders['x-test-simulate-key-quota'] = testSimulateKeyQuota;
       }
 
       const polishSystemInstruction = `You are a Catholic parish pastoral communications director in the Philippines.
@@ -808,42 +837,57 @@ Return ONLY valid JSON matching:
       let geminiSuccess = false;
 
       for (const model of GEMINI_CHAT_MODELS) {
-        try {
-          const endpoint = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-          const response = await postToGemini(endpoint, {
-            system_instruction: { parts: [{ text: polishSystemInstruction }] },
-            contents: [{ role: 'user', parts: [{ text: polishUserPrompt }] }],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 1200,
-            },
-          }, geminiHeaders);
+        let keysAttempted = 0;
+        const maxKeyAttempts = Math.max(1, geminiKeys.length);
+        while (keysAttempted < maxKeyAttempts) {
+          try {
+            const currentApiKey = getActiveGeminiKey(geminiKeys);
+            const endpoint = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${currentApiKey}`;
+            const response = await postToGemini(endpoint, {
+              system_instruction: { parts: [{ text: polishSystemInstruction }] },
+              contents: [{ role: 'user', parts: [{ text: polishUserPrompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 1200,
+              },
+            }, geminiHeaders);
 
-          if (!response.ok) {
-            continue;
-          }
+            if (response.status === 429 && geminiKeys.length > 1 && keysAttempted < maxKeyAttempts - 1) {
+              console.warn(`Model ${model} returned 429 on polish with key index ${activeGeminiKeyIndex % geminiKeys.length}. Rotating key...`);
+              rotateGeminiKey(geminiKeys);
+              keysAttempted++;
+              continue;
+            }
 
-          const respData = await response.json();
-          const candidateText = respData?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (candidateText) {
-            try {
-              const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-              const parsed = JSON.parse(cleanJson);
-              if (parsed.polishedContent) {
-                polishedTitle = parsed.polishedTitle || title || 'Parish Guidelines';
-                polishedContent = parsed.polishedContent;
+            if (!response.ok) {
+              break;
+            }
+
+            const respData = await response.json();
+            const candidateText = respData?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (candidateText) {
+              try {
+                const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+                const parsed = JSON.parse(cleanJson);
+                if (parsed.polishedContent) {
+                  polishedTitle = parsed.polishedTitle || title || 'Parish Guidelines';
+                  polishedContent = parsed.polishedContent;
+                  geminiSuccess = true;
+                  break;
+                }
+              } catch {
+                polishedContent = candidateText;
                 geminiSuccess = true;
                 break;
               }
-            } catch {
-              polishedContent = candidateText;
-              geminiSuccess = true;
-              break;
             }
+            break;
+          } catch {
+            // Model error, continue to next model
+            break;
           }
-        } catch {
-          // Model error, continue to next model
         }
+        if (geminiSuccess) break;
       }
 
       if (!geminiSuccess || !polishedContent) {
@@ -900,7 +944,7 @@ Return ONLY valid JSON matching:
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || 'mock-key';
+    const geminiKeys = parseGeminiKeys();
     const rawBaseUrl =
       Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
     const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
@@ -918,6 +962,12 @@ Return ONLY valid JSON matching:
       (simulateQuota ? 'true' : null);
     if (testSimulateQuota) {
       geminiHeaders['x-test-simulate-quota'] = testSimulateQuota;
+    }
+    const testSimulateKeyQuota =
+      req.headers.get('x-test-simulate-key-quota') ||
+      req.headers.get('x-test-simulate-quota-key');
+    if (testSimulateKeyQuota) {
+      geminiHeaders['x-test-simulate-key-quota'] = testSimulateKeyQuota;
     }
 
     let bookingContext = '';
@@ -1059,24 +1109,39 @@ RULES & GUIDELINES:
 
         while (toolTurns < MAX_TOOL_TURNS) {
           toolTurns++;
-          const endpoint = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-          const response = await postToGemini(endpoint, {
-            system_instruction: { parts: [{ text: systemInstruction }] },
-            contents: currentContents,
-            tools,
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 800,
-            },
-          }, geminiHeaders);
+          let response: Response | null = null;
+          let keysAttempted = 0;
+          const maxKeyAttempts = Math.max(1, geminiKeys.length);
 
-          if (!response.ok) {
-            const errText = await response.text();
-            if (RETRYABLE_STATUSES.has(response.status)) {
+          while (keysAttempted < maxKeyAttempts) {
+            const currentApiKey = getActiveGeminiKey(geminiKeys);
+            const endpoint = `${GEMINI_BASE_URL}/v1beta/models/${model}:generateContent?key=${currentApiKey}`;
+            response = await postToGemini(endpoint, {
+              system_instruction: { parts: [{ text: systemInstruction }] },
+              contents: currentContents,
+              tools,
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 800,
+              },
+            }, geminiHeaders);
+
+            if (response.status === 429 && geminiKeys.length > 1 && keysAttempted < maxKeyAttempts - 1) {
+              console.warn(`Model ${model} returned 429 with key index ${activeGeminiKeyIndex % geminiKeys.length}. Rotating key in pool...`);
+              rotateGeminiKey(geminiKeys);
+              keysAttempted++;
+              continue;
+            }
+            break;
+          }
+
+          if (!response || !response.ok) {
+            const errText = response ? await response.text() : 'No response';
+            if (response && RETRYABLE_STATUSES.has(response.status)) {
               console.warn(`Model ${model} returned retryable ${response.status}: ${errText}`);
               break; // Try next model
             }
-            throw new Error(`Gemini API error (${response.status}): ${errText}`);
+            throw new Error(`Gemini API error (${response?.status}): ${errText}`);
           }
 
           const data = await response.json();
@@ -1092,7 +1157,7 @@ RULES & GUIDELINES:
               churchId,
               {
                 geminiBaseUrl: GEMINI_BASE_URL,
-                geminiApiKey: GEMINI_API_KEY,
+                geminiApiKey: getActiveGeminiKey(geminiKeys),
                 serviceClient,
               }
             );

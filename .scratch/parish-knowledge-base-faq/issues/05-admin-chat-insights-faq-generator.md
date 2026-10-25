@@ -1,7 +1,7 @@
 # 05: Admin Inquiry Insights & 1-Click FAQ Generator from Chat Logs
 
 Type: task  
-**Status:** ready-for-agent  
+**Status:** completed  
 **Blocked by:** 02, 03, 04  
 
 ---
@@ -45,13 +45,13 @@ To create a truly self-learning parish knowledge loop, administrators need an **
 
 ## Acceptance Criteria
 
-- [ ] `KnowledgeBasePage.tsx` provides an "Inquiry Insights" tab accessible to Church Admins and Super Admins.
-- [ ] Fetches and displays records from `church_chat_logs` matching the active church.
-- [ ] Accurately detects and highlights unanswered / low-confidence inquiries.
-- [ ] Clicking "Convert to FAQ" opens the editor pre-populated with the question and draft pastoral response.
-- [ ] Saving the newly generated FAQ triggers vector sync and refreshes the insights list.
-- [ ] Adheres strictly to the Sacralink design system tokens: clean light mode, `border-border`, `bg-card`, responsive mobile layout.
-- [ ] TypeScript type checks (`tsc -b`) and ESLint pass without warnings.
+- [x] `KnowledgeBasePage.tsx` provides an "Inquiry Insights" tab accessible to Church Admins and Super Admins.
+- [x] Fetches and displays records from `church_chat_logs` matching the active church.
+- [x] Accurately detects and highlights unanswered / low-confidence inquiries.
+- [x] Clicking "Convert to FAQ" opens the editor pre-populated with the question and draft pastoral response.
+- [x] Saving the newly generated FAQ triggers vector sync and refreshes the insights list.
+- [x] Adheres strictly to the Sacralink design system tokens: clean light mode, `border-border`, `bg-card`, responsive mobile layout.
+- [x] TypeScript type checks (`tsc -b`) and ESLint pass without warnings.
 
 ---
 
@@ -72,3 +72,9 @@ To create a truly self-learning parish knowledge loop, administrators need an **
 ---
 
 ## Comments
+
+- Implemented `web/src/hooks/useChatInsights.ts` analyzing 30-day chat logs for low-confidence queries, returning metrics (`totalInquiries`, `unansweredCount`, `recentUnanswered`), status persistence in localStorage, and `generateFaqDraft`.
+- Integrated two-tab navigation in `web/src/pages/admin/KnowledgeBasePage.tsx`: "Knowledge Sections" and "Inquiry Insights & Gaps" with unanswered badge counter, metric cards, unanswered inquiries list, and 1-click "✨ Convert to FAQ" flow.
+- Implemented Multi-Key Gemini API Pool across `supabase/functions/parish-assistant/index.ts` and `supabase/functions/sync-church-knowledge/index.ts` supporting `GEMINI_API_KEYS` / `GEMINI_API_KEY` with automatic key rotation on HTTP 429 quota exhaustion.
+- Enhanced `scripts/fake-gemini.mjs` to simulate key quota exhaustion and support pool rotation.
+- Verified with unit tests (`web/src/hooks/__tests__/useChatInsights.test.ts`: 3/3 passed), e2e tests (`web/e2e-local/admin-chat-insights.spec.ts`: passed, `parish-assistant-reliability.spec.ts`: 4/4 passed), TypeScript (`npx tsc -b`: 0 errors), and ESLint (0 errors, 0 warnings).
