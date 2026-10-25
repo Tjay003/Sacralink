@@ -26,6 +26,7 @@
    - [4.5 Document Dossier & Client-Side Image Compression](#45-document-dossier--client-side-image-compression)
    - [4.6 360° Virtual Church Tour: Equirectangular Projections & WebGL](#46-360-virtual-church-tour-equirectangular-projections--webgl)
    - [4.7 Real-Time Synchronization & Cross-User Notifications](#47-real-time-synchronization--cross-user-notifications)
+   - [4.8 Multi-Tier Communication Architecture: Parish Office Tickets & Direct Messaging Matrix](#48-multi-tier-communication-architecture-parish-office-tickets--direct-messaging-matrix)
 5. [Top 15 Panelist "Trap Questions" & Winning Defense Answers](#5-top-15-panelist-trap-questions--winning-defense-answers)
 
 ---
@@ -228,6 +229,8 @@ The Volunteer is like a **Parish Youth Ministry Volunteer or Front-Desk Assistan
 | Review Uploaded Documents | ✅ Yes | ✅ Yes | Intake inspection |
 | Create Parish Announcements | ✅ Yes | ✅ Yes | Community communication |
 | Verify Donation Receipts | ✅ Yes | ✅ Yes | Financial intake verification |
+| Direct Message Parishioners & Volunteers | ✅ Assigned Parish | ✅ Any Parishioner & Volunteer | Enables parish assistance and community outreach (Migration 085) |
+| Triage Parish Office Tickets | ✅ Yes | ✅ Yes | Front-desk ticket triage and support |
 | View / Edit User Roles (`/users`) | ✅ Yes | ❌ **Blocked** | Volunteers cannot alter user access |
 | Access Parish Applications | ❌ No | ❌ **Blocked** | Restricted to Super Admin |
 | Modify Church Canonical Settings | ✅ Yes | ❌ **Blocked** | Volunteers cannot alter parish metadata |
@@ -522,6 +525,34 @@ When an administrator approves an appointment, the system needs to send an in-ap
 1. The admin executes an `INSERT` into the `notifications` table where `user_id = parishioner_id`.
 2. **The Pitfall:** In Supabase, appending `.select()` to an `insert()` query forces a `SELECT` operation. If the table's `SELECT` RLS policy is `auth.uid() = user_id`, PostgreSQL blocks the admin from reading the notification they just created, triggering a `403 Forbidden` error.
 3. **The Architectural Fix:** In `src/lib/supabase/notifications.ts`, cross-user notification creation uses **fire-and-forget inserts** without `.select()`. The insert succeeds via permissive insert policies, and the recipient receives the alert via Supabase Realtime WebSocket subscriptions without permissions errors.
+
+## 4.8 Multi-Tier Communication Architecture: Parish Office Tickets & Direct Messaging Matrix
+
+`<<INSERT IMAGE OF: Sacralink Messages View showing Tickets tab, Staff Channel, and 1-on-1 Direct Chats>>`
+
+### Three Architectural Tiers
+To balance pastoral confidentiality with administrative responsiveness, Sacralink enforces three distinct communication tiers:
+
+1. **Parish Office Tickets (`conversations` with `is_ticket = true`):**
+   - Formal support threads created by parishioners when reaching out to church administration or the diocesan platform.
+   - Triaged, assigned, and resolved by Church Admins and Volunteers.
+   - Supports escalation to Super Admin and private internal notes hidden from the requester.
+2. **Parish Staff Channel:**
+   - Dedicated internal room provisioned per parish for assigned clergy, church admins, and volunteers.
+3. **1-on-1 Direct Messages (`conversations` with `is_ticket = false`):**
+   - Private, confidential dialogue strictly visible only to its two participants (no admin or super admin override).
+   - Enforced cryptographically and via database Row-Level Security at the Postgres engine level.
+
+### Direct Message Matrix (Migration 085)
+
+| Initiator Role \ Target Role | `super_admin` | `church_admin` | `priest` | `volunteer` | `user` (Parishioner) |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| **`super_admin`** | ❌ *(Platform tickets)* | ✅ All Church Admins | ❌ *(Via tickets/admin)* | ❌ *(Platform tickets)* | ❌ *(Platform tickets)* |
+| **`church_admin`** | ✅ Direct | ✅ Any Church Admin | ✅ Assigned Church | ✅ Assigned Church | ✅ Assigned Church |
+| **`priest`** | ❌ *(Staff channel/ticket)* | ✅ Assigned Church | ❌ *(Staff channel)* | ❌ *(Staff channel)* | ✅ Shared Appointment Only |
+| **`volunteer`** | ❌ *(Staff channel/ticket)* | ❌ *(Staff channel/ticket)* | ❌ *(Staff channel)* | ✅ **Any Volunteer (Any Parish)** | ✅ **Any Parishioner (Any Parish)** |
+| **`user` (Parishioner)** | ❌ *(Platform ticket)* | ❌ *(Parish office ticket)* | ❌ *(Parish office ticket)* | ✅ **Any Volunteer (Any Parish)** | ✅ **Any Parishioner (Peer-to-Peer)** |
+
 
 ---
 

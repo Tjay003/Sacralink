@@ -1,6 +1,6 @@
 # 🎭 Demo Mode Configuration
 
-This project supports a **Demo Mode** feature flag system that allows you to hide incomplete or WIP features for client presentations while keeping all code intact for development.
+This project supports a **Demo Mode** feature flag system that allows you to configure feature visibility for client presentations while keeping all code intact for development.
 
 ## Quick Start
 
@@ -21,12 +21,13 @@ All flags are configured in [`web/src/config/featureFlags.ts`](file:///C:/Users/
 ### ✅ Fully Exposed & Active Across All Environments (`enabled: true`)
 - ✅ **AI Parishioner Assistant** (`parishionerChatbot`) - Floating AI chatbot on church detail pages
 - ✅ **AI Knowledge Base Sync** (`churchAiSync`) - Admin dashboard AI sync button & widget
+- ✅ **Real-Time Messages & Tickets** (`messages`) - Parish Office Tickets, Staff Channels, and 1-on-1 Direct Messages
 - ✅ **Calendar View** (`calendar`) - Visual appointments calendar widget
 - ✅ **System Announcements** (`systemAnnouncements`) - Full creation, editing, and deletion enabled
 - ✅ **Church Announcements** (`churchAnnouncements`) - Full creation, editing, and deletion enabled
 - ✅ **User Church Selector** (`userChurchSelector`) - Interactive parish selector
 - ✅ **Live Database Data** - Real Supabase stats, appointments, and counts (`useMockData: false`)
-- ✅ **Dashboard** - Role-based dashboard (Super Admin, Church Admin, Parishioner)
+- ✅ **Dashboard** - Role-based dashboard (Super Admin, Church Admin, Priest, Parishioner)
 - ✅ **Churches** (`churches`) - Full CRUD operations & 360° virtual tour
 - ✅ **Appointments** (`appointments`) - Book and manage sacrament appointments
 - ✅ **Donations** (`donations`) - Full cashless donation verification workflow
