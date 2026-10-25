@@ -10,6 +10,10 @@ import {
     Cross,
     Download,
     Calendar,
+    Clock,
+    History,
+    ArrowUp,
+    ArrowDown,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -124,6 +128,13 @@ function formatDateDisplay(dateStr: string): string {
     }
 }
 
+function toLocalDateStr(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function formatCelebrantDisplay(priest: { full_name: string | null } | null | undefined): string {
     if (!priest || !priest.full_name) return 'Not assigned';
     const trimmed = priest.full_name.trim();
@@ -163,6 +174,29 @@ export default function AppointmentsPage() {
         rejected: 0,
         cancelled: 0,
     });
+    const [timeScope, setTimeScope] = useState<'upcoming' | 'past' | 'all'>('upcoming');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [hasUserSelectedScope, setHasUserSelectedScope] = useState(false);
+    const [timeScopeCounts, setTimeScopeCounts] = useState({
+        upcoming: 0,
+        past: 0,
+        all: 0,
+    });
+
+    const handleTimeScopeChange = (scope: 'upcoming' | 'past' | 'all') => {
+        setHasUserSelectedScope(true);
+        setTimeScope(scope);
+        setCurrentPage(1);
+        if (scope === 'upcoming') {
+            setSortDirection('asc');
+        } else if (scope === 'past') {
+            setSortDirection('desc');
+        }
+    };
+
+    const toggleSortDirection = () => {
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    };
 
     // Church filter — super_admin only
     const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
@@ -260,9 +294,10 @@ export default function AppointmentsPage() {
         try {
             const startOfWeek = currentWeekDays[0].dateStr;
             const endOfWeek = currentWeekDays[6].dateStr;
+            const todayStr = toLocalDateStr(new Date());
 
-            // Fetch live status counts
-            let statusQuery = supabase.from('appointments').select('status');
+            // Fetch live status & date counts
+            let statusQuery = supabase.from('appointments').select('status, appointment_date');
             if (effectiveChurchId) {
                 statusQuery = statusQuery.eq('church_id', effectiveChurchId);
             }
@@ -271,17 +306,45 @@ export default function AppointmentsPage() {
             }
             const { data: statusData } = await statusQuery;
             if (statusData) {
-                const pending = statusData.filter((d) => d.status === 'pending').length;
-                const approved = statusData.filter((d) => d.status === 'approved').length;
-                const rejected = statusData.filter((d) => d.status === 'rejected').length;
-                const cancelled = statusData.filter((d) => d.status === 'cancelled').length;
-                setStatusCounts({
+                let upcomingTotal = 0;
+                let pastTotal = 0;
+                const statusCountsMap = {
+                    all: 0,
+                    pending: 0,
+                    approved: 0,
+                    rejected: 0,
+                    cancelled: 0,
+                };
+
+                for (const row of statusData) {
+                    const isUpcoming = (row.appointment_date || '') >= todayStr;
+                    if (isUpcoming) upcomingTotal++;
+                    else pastTotal++;
+
+                    const inScope =
+                        timeScope === 'all' ||
+                        (timeScope === 'upcoming' && isUpcoming) ||
+                        (timeScope === 'past' && !isUpcoming);
+
+                    if (inScope) {
+                        statusCountsMap.all++;
+                        if (row.status === 'pending') statusCountsMap.pending++;
+                        else if (row.status === 'approved') statusCountsMap.approved++;
+                        else if (row.status === 'rejected') statusCountsMap.rejected++;
+                        else if (row.status === 'cancelled') statusCountsMap.cancelled++;
+                    }
+                }
+
+                setTimeScopeCounts({
+                    upcoming: upcomingTotal,
+                    past: pastTotal,
                     all: statusData.length,
-                    pending,
-                    approved,
-                    rejected,
-                    cancelled,
                 });
+                setStatusCounts(statusCountsMap);
+
+                if (!hasUserSelectedScope && upcomingTotal === 0 && pastTotal > 0) {
+                    setTimeScope('all');
+                }
             }
 
             // Fetch live week day counts
@@ -312,23 +375,41 @@ export default function AppointmentsPage() {
         } catch (err) {
             console.warn('Non-fatal error loading appointments meta counts:', err);
         }
-    }, [currentWeekDays, effectiveChurchId, personalUserId]);
+    }, [currentWeekDays, effectiveChurchId, personalUserId, timeScope, hasUserSelectedScope]);
 
     const fetchAppointments = useCallback(async () => {
         try {
             setLoading(true);
+
+            const now = new Date();
+            const todayStr = toLocalDateStr(now);
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = toLocalDateStr(yesterday);
+
+            let effectiveDateFrom: string | undefined = filterDateFrom || undefined;
+            let effectiveDateTo: string | undefined = filterDateTo || undefined;
+
+            if (!filterDateFrom && !filterDateTo) {
+                if (timeScope === 'upcoming') {
+                    effectiveDateFrom = todayStr;
+                } else if (timeScope === 'past') {
+                    effectiveDateTo = yesterdayStr;
+                }
+            }
+
             const { data, count, error: fetchErr } = await getAppointments({
                 churchId: effectiveChurchId,
                 userId: personalUserId,
                 status: filterStatus !== 'all' ? (filterStatus as AppointmentStatus) : undefined,
                 serviceType: filterSacrament !== 'all' ? filterSacrament : undefined,
-                dateFrom: filterDateFrom || undefined,
-                dateTo: filterDateTo || undefined,
+                dateFrom: effectiveDateFrom,
+                dateTo: effectiveDateTo,
                 searchQuery: searchQuery.trim() || undefined,
                 page: currentPage,
                 pageSize: pageSize,
                 orderBy: 'appointment_date',
-                ascending: false,
+                ascending: sortDirection === 'asc',
             });
             if (fetchErr) throw fetchErr;
             setAppointments(data || []);
@@ -339,7 +420,19 @@ export default function AppointmentsPage() {
         } finally {
             setLoading(false);
         }
-    }, [effectiveChurchId, personalUserId, filterStatus, filterSacrament, filterDateFrom, filterDateTo, searchQuery, currentPage, pageSize]);
+    }, [
+        effectiveChurchId,
+        personalUserId,
+        filterStatus,
+        filterSacrament,
+        filterDateFrom,
+        filterDateTo,
+        searchQuery,
+        currentPage,
+        pageSize,
+        timeScope,
+        sortDirection,
+    ]);
 
     useEffect(() => {
         void fetchAppointments();
@@ -551,8 +644,148 @@ export default function AppointmentsPage() {
             </div>
 
             {/* Row 2: Segmented Filter Bar & Search */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-                {/* Left: Segmented Status Controls */}
+            <div className="flex flex-col gap-3.5">
+                {/* Top of filter bar: Time Horizon + Search/Sacrament */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    {/* Time Horizon: Upcoming vs Past vs All */}
+                    <div className="inline-flex items-center p-1 rounded-2xl bg-secondary-100/70 border border-border/70 gap-1 self-start">
+                        <button
+                            type="button"
+                            onClick={() => handleTimeScopeChange('upcoming')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                                timeScope === 'upcoming'
+                                    ? 'bg-white text-primary shadow-xs'
+                                    : 'text-secondary-600 hover:text-foreground'
+                            }`}
+                        >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Upcoming</span>
+                            <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                    timeScope === 'upcoming'
+                                        ? 'bg-blue-100 text-primary'
+                                        : 'bg-secondary-200/70 text-secondary-600'
+                                }`}
+                            >
+                                {timeScopeCounts.upcoming}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleTimeScopeChange('past')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                                timeScope === 'past'
+                                    ? 'bg-white text-primary shadow-xs'
+                                    : 'text-secondary-600 hover:text-foreground'
+                            }`}
+                        >
+                            <History className="w-3.5 h-3.5" />
+                            <span>Past History</span>
+                            <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                    timeScope === 'past'
+                                        ? 'bg-blue-100 text-primary'
+                                        : 'bg-secondary-200/70 text-secondary-600'
+                                }`}
+                            >
+                                {timeScopeCounts.past}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleTimeScopeChange('all')}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                                timeScope === 'all'
+                                    ? 'bg-white text-primary shadow-xs'
+                                    : 'text-secondary-600 hover:text-foreground'
+                            }`}
+                        >
+                            <span>All Dates</span>
+                            <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                    timeScope === 'all'
+                                        ? 'bg-blue-100 text-primary'
+                                        : 'bg-secondary-200/70 text-secondary-600'
+                                }`}
+                            >
+                                {timeScopeCounts.all}
+                            </span>
+                        </button>
+                    </div>
+
+                    {/* Right: Search + Sacrament Type Filter */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+                        {/* Search input */}
+                        <div className="relative w-full sm:w-64 lg:w-72">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder={isParishioner ? "Search appointments..." : "Search parishioner..."}
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    resetToPage1();
+                                }}
+                                className="w-full pl-9 pr-8 py-2 rounded-full border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchQuery('');
+                                        resetToPage1();
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 cursor-pointer"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Sacrament type filter & Clear Button */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative flex-1 sm:flex-initial">
+                                <select
+                                    value={filterSacrament}
+                                    onChange={(e) => {
+                                        setFilterSacrament(e.target.value);
+                                        resetToPage1();
+                                    }}
+                                    aria-label="Filter by sacrament"
+                                    className="w-full sm:w-auto appearance-none bg-white border border-border rounded-full pl-3.5 pr-8 py-2 text-xs sm:text-sm font-medium text-secondary-700 hover:bg-secondary-50 shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                >
+                                    <option value="all">All Sacraments</option>
+                                    <option value="baptism">Baptism</option>
+                                    <option value="wedding">Matrimony</option>
+                                    <option value="funeral">Funeral / Burial</option>
+                                    <option value="confirmation">Confirmation</option>
+                                    <option value="mass_intention">Mass Intention</option>
+                                    <option value="anointing">Anointing</option>
+                                    <option value="confession">Confession</option>
+                                    <option value="counseling">Counseling</option>
+                                    <option value="house_blessing">House Blessing</option>
+                                    <option value="other">Other / Custom</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
+                            </div>
+
+                            {/* Clear active filter button */}
+                            {activeFilterCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={clearAllFilters}
+                                    title="Reset filters"
+                                    className="p-2 rounded-full border border-border bg-white text-secondary-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer shrink-0"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Status Tabs (All, Pending, Approved, Rejected, Cancelled) */}
                 <div className="flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1 max-w-full flex-wrap">
                     {statusTabs.map((tab) => {
                         const isActive = filterStatus === tab.id;
@@ -585,76 +818,7 @@ export default function AppointmentsPage() {
                     })}
                 </div>
 
-                {/* Right: Search + Sacrament Type Filter */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto">
-                    {/* Search input */}
-                    <div className="relative w-full sm:w-64 lg:w-72">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
-                        <input
-                            type="text"
-                            placeholder={isParishioner ? "Search appointments..." : "Search parishioner..."}
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                resetToPage1();
-                            }}
-                            className="w-full pl-9 pr-8 py-2 rounded-full border border-border text-xs sm:text-sm bg-white placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs"
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    resetToPage1();
-                                }}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-400 hover:text-secondary-600 cursor-pointer"
-                                aria-label="Clear search"
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        )}
-                    </div>
 
-                    {/* Sacrament type filter & Clear Button */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:flex-initial">
-                            <select
-                                value={filterSacrament}
-                                onChange={(e) => {
-                                    setFilterSacrament(e.target.value);
-                                    resetToPage1();
-                                }}
-                                aria-label="Filter by sacrament"
-                                className="w-full sm:w-auto appearance-none bg-white border border-border rounded-full pl-3.5 pr-8 py-2 text-xs sm:text-sm font-medium text-secondary-700 hover:bg-secondary-50 shadow-2xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            >
-                                <option value="all">All Sacraments</option>
-                                <option value="baptism">Baptism</option>
-                                <option value="wedding">Matrimony</option>
-                                <option value="funeral">Funeral / Burial</option>
-                                <option value="confirmation">Confirmation</option>
-                                <option value="mass_intention">Mass Intention</option>
-                                <option value="anointing">Anointing</option>
-                                <option value="confession">Confession</option>
-                                <option value="counseling">Counseling</option>
-                                <option value="house_blessing">House Blessing</option>
-                                <option value="other">Other / Custom</option>
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
-                        </div>
-
-                        {/* Clear active filter button */}
-                        {activeFilterCount > 0 && (
-                            <button
-                                type="button"
-                                onClick={clearAllFilters}
-                                title="Reset filters"
-                                className="p-2 rounded-full border border-border bg-white text-secondary-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer shrink-0"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                </div>
             </div>
 
             {error && (
@@ -676,7 +840,19 @@ export default function AppointmentsPage() {
                                     Parishioner &amp; Candidate
                                 </th>
                                 <th className="w-[23%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
-                                    Schedule &amp; Celebrant
+                                    <button
+                                        type="button"
+                                        onClick={toggleSortDirection}
+                                        className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer"
+                                        title={`Sorted by date ${sortDirection === 'asc' ? '(Soonest first)' : '(Latest first)'}. Click to reverse.`}
+                                    >
+                                        <span>Schedule &amp; Celebrant</span>
+                                        {sortDirection === 'asc' ? (
+                                            <ArrowUp className="w-3 h-3 text-primary" />
+                                        ) : (
+                                            <ArrowDown className="w-3 h-3 text-primary" />
+                                        )}
+                                    </button>
                                 </th>
                                 <th className="w-[28%] text-[11px] font-bold text-secondary-400 tracking-wider uppercase px-4 xl:px-5 py-3.5 text-left">
                                     Status &amp; Actions
@@ -690,7 +866,15 @@ export default function AppointmentsPage() {
                                         <Calendar className="w-10 h-10 mx-auto mb-2.5 text-secondary-300" />
                                         <p className="font-semibold text-sm text-foreground">
                                             {canManageAppointments
-                                                ? 'No appointment requests found'
+                                                ? timeScope === 'upcoming'
+                                                    ? 'No upcoming appointments found'
+                                                    : timeScope === 'past'
+                                                    ? 'No past appointments found'
+                                                    : 'No appointment requests found'
+                                                : timeScope === 'upcoming'
+                                                ? 'You have no upcoming appointments'
+                                                : timeScope === 'past'
+                                                ? 'You have no past appointments'
                                                 : 'You have no appointment requests'}
                                         </p>
                                         <p className="text-xs text-secondary-400 mt-1">

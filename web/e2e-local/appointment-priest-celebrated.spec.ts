@@ -176,4 +176,49 @@ test.describe('Priest marks his own appointments celebrated from the dashboard',
     const { data: changes } = await db.from('appointment_changes').select('id');
     expect(changes).toHaveLength(0);
   });
+
+  test('documents visibility: the priest can view sacrament documents uploaded by the parishioner', async ({
+    page,
+  }) => {
+    const seed = await getSeed();
+    const apptId = await createApprovedAppointment({
+      daysFromToday: 0,
+      time: '14:00:00',
+      serviceType: 'Baptism',
+      celebrant: 'priest',
+    });
+
+    // Parishioner uploads a requirement document for this appointment
+    const { data: doc, error: docErr } = await db.from('appointment_documents').insert({
+      appointment_id: apptId,
+      file_url: 'http://127.0.0.1:54321/storage/v1/object/public/appointment-documents/test_baptism_cert.pdf',
+      file_name: 'baptism_birth_certificate.pdf',
+      uploaded_by: seed.ids.parishioner,
+    }).select().single();
+    expect(docErr).toBeNull();
+    expect(doc).not.toBeNull();
+
+    // 1. Database RLS test: client signed in as priest can SELECT the document
+    const priestClient = await clientAs('priest');
+    const { data: priestDocs, error: priestQueryErr } = await priestClient
+      .from('appointment_documents')
+      .select('*')
+      .eq('appointment_id', apptId);
+    expect(priestQueryErr).toBeNull();
+    expect(priestDocs).toHaveLength(1);
+    expect(priestDocs![0].file_name).toBe('baptism_birth_certificate.pdf');
+
+    // 2. UI test: Priest logs in, opens appointment details modal, and sees the uploaded certificate
+    await loginAs(page, 'priest');
+    await page.goto('/dashboard');
+
+    const celebrationRow = timeline(page).locator('div.grid').filter({ hasText: 'Baptism' });
+    await celebrationRow.getByRole('button', { name: 'Details' }).click();
+
+    // Verify modal shows the uploaded certificate with file name
+    await expect(page.getByText('Submitted Sacrament Certificates & Requirements')).toBeVisible();
+    await expect(page.getByText('baptism_birth_certificate.pdf')).toBeVisible();
+    await expect(page.getByTitle('View in new tab')).toBeVisible();
+    await expect(page.getByTitle('Download file')).toBeVisible();
+  });
 });
