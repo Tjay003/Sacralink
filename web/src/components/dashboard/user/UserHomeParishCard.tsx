@@ -153,7 +153,7 @@ export default function UserHomeParishCard({
                         className="w-full py-2.5 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-xs"
                     >
                         <ChurchIcon className="w-4 h-4" />
-                        View parish page
+                        View my church page
                     </button>
                 )}
 
