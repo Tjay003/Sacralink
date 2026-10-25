@@ -198,43 +198,81 @@ export async function generateFallbackResponse(
       const churchName = church?.name || churchNameFallback || 'the parish';
       const contact = church?.contact_number || church?.email || 'the parish office';
 
-      // A. Knowledge chunks keyword search
-      const words = query
+      // A. Knowledge chunks keyword search with stop word filtering and relevancy scoring
+      const CHURCH_STOP_WORDS = new Set([
+        'church', 'churches', 'parish', 'parishes', 'parishioner', 'parishioners',
+        'about', 'what', 'where', 'when', 'which', 'will', 'would', 'could', 'have',
+        'does', 'with', 'from', 'they', 'them', 'this', 'that', 'there', 'their',
+        'only', 'your', 'please', 'hello', 'tell', 'know', 'schedule', 'schedules',
+        'decorum', 'decorum', 'pastoral'
+      ]);
+
+      const rawWords = query
+        .toLowerCase()
         .replace(/[^\w\s]/g, '')
         .split(/\s+/)
-        .filter((w) => w.length >= 4);
+        .filter((w) => w.length >= 3);
 
-      if (words.length > 0) {
-        const orFilter = words.map((w) => `content.ilike.%${w}%`).join(',');
-        const { data: chunks } = await supabase
-          .from('church_knowledge_chunks')
-          .select('content, source_type')
-          .eq('church_id', churchId)
-          .or(orFilter)
-          .limit(3);
+      const specificWords = rawWords.filter((w) => !CHURCH_STOP_WORDS.has(w));
+      const searchWords = specificWords.length > 0 ? specificWords : rawWords.filter((w) => w.length >= 4);
 
-        if (chunks && chunks.length > 0) {
-          const combined = chunks.map((c) => c.content).join('\n\n');
-          return {
-            reply: `Here is the information from **${churchName}** records:\n\n${combined}\n\n*For further inquiries, feel free to contact the parish office at ${contact}.*`,
-            sourcesUsed: chunks.length,
-          };
-        }
-
-        // Also search church_knowledge_sections as a secondary knowledge source
-        const sectionFilter = words.map((w) => `content.ilike.%${w}%,title.ilike.%${w}%`).join(',');
+      if (searchWords.length > 0) {
+        // 1. Search church_knowledge_sections directly (title & content)
+        const sectionFilter = searchWords.map((w) => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
         const { data: sections } = await supabase
           .from('church_knowledge_sections')
           .select('title, content')
           .eq('church_id', churchId)
           .or(sectionFilter)
-          .limit(3);
+          .limit(10);
+
+        // 2. Also search church_knowledge_chunks
+        const chunkFilter = searchWords.map((w) => `content.ilike.%${w}%`).join(',');
+        const { data: chunks } = await supabase
+          .from('church_knowledge_chunks')
+          .select('content')
+          .eq('church_id', churchId)
+          .or(chunkFilter)
+          .limit(15);
+
+        // Score all candidates by keyword density & title relevance
+        const scoredCandidates = [];
 
         if (sections && sections.length > 0) {
-          const combined = sections.map((s) => `### ${s.title}\n${s.content}`).join('\n\n');
+          for (const s of sections) {
+            let score = 0;
+            const titleLower = s.title.toLowerCase();
+            const contentLower = s.content.toLowerCase();
+            for (const word of searchWords) {
+              if (titleLower.includes(word)) score += 12;
+              if (contentLower.includes(word)) score += 3;
+            }
+            if (score > 0) {
+              scoredCandidates.push({ text: `### ${s.title}\n${s.content}`, score });
+            }
+          }
+        }
+
+        if (chunks && chunks.length > 0) {
+          for (const c of chunks) {
+            let score = 0;
+            const contentLower = c.content.toLowerCase();
+            for (const word of searchWords) {
+              if (contentLower.includes(word)) score += 4;
+            }
+            if (score > 0) {
+              scoredCandidates.push({ text: c.content, score });
+            }
+          }
+        }
+
+        if (scoredCandidates.length > 0) {
+          scoredCandidates.sort((a, b) => b.score - a.score);
+          const topHits = scoredCandidates.slice(0, 2).map((c) => c.text);
+          const combined = topHits.join('\n\n');
           return {
-            reply: `Here is the information from **${churchName}** records:\n\n${combined}\n\n*For further inquiries, feel free to contact the parish office at ${contact}.*`,
-            sourcesUsed: sections.length,
+            reply: `Here is the relevant information from **${churchName}** records:\n\n${combined}\n\n*For reservations or further inquiries, feel free to contact the parish office at ${contact}.*`,
+            sourcesUsed: topHits.length,
           };
         }
       }

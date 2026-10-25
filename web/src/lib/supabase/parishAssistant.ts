@@ -71,7 +71,7 @@ export interface AskParishAssistantResult {
   debug?: AssistantDebugInfo | null;
 }
 
-export const PARISH_ASSISTANT_TIMEOUT_MS = 12000;
+export const PARISH_ASSISTANT_TIMEOUT_MS = 30000;
 
 /**
  * Invokes the `parish-assistant` Supabase Edge Function with automatic keyword
