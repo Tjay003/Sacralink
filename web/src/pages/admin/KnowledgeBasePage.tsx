@@ -299,16 +299,38 @@ export default function KnowledgeBasePage() {
 
     const handleConfirmDelete = async () => {
         if (!deletingSection) return;
+        const targetId = deletingSection.id;
         setIsDeleting(true);
         try {
+            // 1. Delete section and purge associated vector chunks immediately
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (supabase as any).from('church_knowledge_sections').delete().eq('id', deletingSection.id);
-            await fetchSections();
-            // Auto-sync so deleted content is removed from AI immediately
-            await handleSync(true);
+            const [sectionRes] = await Promise.all([
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from('church_knowledge_sections').delete().eq('id', targetId),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (supabase as any).from('church_knowledge_chunks').delete().eq('source_id', targetId),
+            ]);
+
+            if (sectionRes?.error) {
+                throw new Error(sectionRes.error.message || 'Failed to delete section from database');
+            }
+
+            // 2. Clear editing form if the deleted section was currently open in editor
+            if (editingId === targetId) {
+                cancelEdit();
+            }
+
+            // 3. Immediately dismiss modal and update local UI list
             setDeletingSection(null);
+            setSections((prev) => prev.filter((s) => s.id !== targetId));
+            await fetchSections();
+
+            // 4. Trigger vector knowledge re-sync in background without blocking modal close
+            void handleSync(true);
         } catch (err: unknown) {
             console.error('Failed to delete section:', err);
+            setDeletingSection(null);
+            setSaveError(err instanceof Error ? err.message : 'Failed to delete section');
         } finally {
             setIsDeleting(false);
         }
