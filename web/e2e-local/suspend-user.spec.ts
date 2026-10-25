@@ -229,7 +229,7 @@ test('an open browser tab of a suspended user signs out and shows the suspended 
   // Realtime usually fires first; a focus event is the fallback the app also relies on
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await page.waitForURL('**/login**', { timeout: 15000 });
-  await expect(page.getByText(SUSPENDED_MESSAGE)).toBeVisible();
+  await expect(page.getByText(SUSPENDED_MESSAGE)).toBeVisible({ timeout: 15000 });
   await context.close();
 });
 

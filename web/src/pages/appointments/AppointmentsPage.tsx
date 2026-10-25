@@ -646,7 +646,7 @@ export default function AppointmentsPage() {
             {/* Row 2: Segmented Filter Bar & Search */}
             <div className="flex flex-col gap-3.5">
                 {/* Top of filter bar: Time Horizon + Search/Sacrament */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                     {/* Time Horizon: Upcoming vs Past vs All */}
                     <div className="inline-flex items-center p-1 rounded-2xl bg-secondary-100/70 border border-border/70 gap-1 self-start">
                         <button
@@ -714,7 +714,7 @@ export default function AppointmentsPage() {
                     </div>
 
                     {/* Right: Search + Sacrament Type Filter */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto">
                         {/* Search input */}
                         <div className="relative w-full sm:w-64 lg:w-72">
                             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />

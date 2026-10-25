@@ -11,6 +11,7 @@ const WIDTHS = [375, 768, 1024, 1280, 1440];
 const SUPER_EMAIL = 'overflow-super@local.test';
 const LONG_NAME = 'Maria Magdalena Esperanza de los Santos y Fernandez-Villanueva';
 const createdUserIds: string[] = [];
+let replacedSuperAdmin: string | null = null;
 
 async function createUser(email: string, fullName: string, role: string, churchId: string | null) {
   const { data: list } = await db.auth.admin.listUsers({ perPage: 200 });
@@ -60,6 +61,13 @@ async function horizontalOverflow(page: Page) {
 
 test.beforeAll(async () => {
   const seed = await getSeed();
+  const { data: existing } = await db.from('profiles').select('id, email').eq('role', 'super_admin');
+  for (const row of existing ?? []) {
+    if (row.email !== SUPER_EMAIL) {
+      replacedSuperAdmin = row.id;
+      await db.from('profiles').update({ role: 'user' }).eq('id', row.id);
+    }
+  }
   await createUser(SUPER_EMAIL, 'Overflow Super Admin', 'super_admin', null);
   for (let i = 0; i < 4; i++) {
     await createUser(`overflow-long-address-user-${i}-with-a-very-long-local-part@some-extremely-long-domain-name.example.test`, `${LONG_NAME} ${i}`, 'user', null);
@@ -89,6 +97,7 @@ test.beforeEach(async () => {
 test.afterAll(async () => {
   await resetAppointmentData();
   for (const id of createdUserIds) await db.auth.admin.deleteUser(id);
+  if (replacedSuperAdmin) await db.from('profiles').update({ role: 'super_admin' }).eq('id', replacedSuperAdmin);
 });
 
 test.describe('No horizontal scroll', () => {
