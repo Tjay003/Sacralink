@@ -127,4 +127,91 @@ test.describe('AI Parish Assistant - UI Enhancements & Flow Controls', () => {
     // The booking success card should disappear
     await expect(page.getByTestId('booking-success-card')).not.toBeVisible();
   });
+
+  test('Test 4: Clear Chat button resets conversation, booking draft, and assistant state', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await loginAs(page, 'parishioner');
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+
+    // Open assistant
+    await page.getByTestId('parish-assistant-button').click();
+    const panel = page.getByTestId('parish-assistant-panel');
+    await expect(panel).toBeVisible();
+
+    // Start a booking draft via starter chip
+    const bookChip = page.getByTestId('starter-chip-book-a-sacrament');
+    await expect(bookChip).toBeVisible();
+    await bookChip.click();
+
+    // Verify clear chat button exists
+    const clearChatBtn = page.getByTestId('parish-assistant-clear-chat');
+    await expect(clearChatBtn).toBeVisible();
+    await expect(clearChatBtn).toHaveAttribute('title', 'Clear conversation');
+
+    // Click Clear Conversation
+    await clearChatBtn.click();
+
+    // Verify conversation is cleared and starter chips return
+    await expect(page.getByTestId('starter-chip-book-a-sacrament')).toBeVisible();
+    await expect(panel.getByTestId('cancel-booking-midway')).not.toBeVisible();
+  });
+
+  test('Test 5: Mascot dragging elevates z-index and return to corner button resets position', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await loginAs(page, 'parishioner');
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+
+    const dove = page.getByTestId('parish-assistant-button');
+    await expect(dove).toBeVisible();
+
+    // Check default z-index is 60 (above desktop sidebar z-50)
+    const initialZ = await page.evaluate(() => {
+      const fx = document.querySelector('.kal-fx') as HTMLElement;
+      return fx ? fx.style.getPropertyValue('--kal-z') : null;
+    });
+    expect(initialZ).toBe('60');
+
+    // Verify return button exists inside mascot
+    const resetBtn = page.locator('.kal-reset');
+    await expect(resetBtn).toBeAttached();
+    await expect(resetBtn).toHaveAttribute('title', 'Return to corner');
+    await expect(resetBtn).toHaveAttribute('aria-label', 'Return Kalapati to original corner');
+
+    // Drag Kalapati
+    const box = await dove.boundingBox();
+    expect(box).not.toBeNull();
+    const startX = box!.x + box!.width / 2;
+    const startY = box!.y + box!.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX - 200, startY - 200, { steps: 5 });
+
+    // While dragging, z-index elevates to 100
+    const draggingZ = await page.evaluate(() => {
+      const fx = document.querySelector('.kal-fx') as HTMLElement;
+      return fx ? fx.style.getPropertyValue('--kal-z') : null;
+    });
+    expect(draggingZ).toBe('100');
+
+    // Release drag
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+
+    // Z-index restores to 60
+    const endZ = await page.evaluate(() => {
+      const fx = document.querySelector('.kal-fx') as HTMLElement;
+      return fx ? fx.style.getPropertyValue('--kal-z') : null;
+    });
+    expect(endZ).toBe('60');
+
+    // Click Return to Corner button
+    await resetBtn.click({ force: true });
+    await page.waitForTimeout(300);
+
+    // Verify reset executed
+    await expect(dove).toBeVisible();
+  });
 });

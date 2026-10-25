@@ -3,12 +3,24 @@ import { supabase } from '../supabase';
 export interface PolishKnowledgeResult {
     polishedTitle: string;
     polishedContent: string;
+    trace?: {
+        model: string;
+        durationMs: number;
+        rawWordCount: number;
+        polishedWordCount: number;
+        analysis: string;
+        timestamp: string;
+    };
+}
+
+function countWords(text: string): number {
+    return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
 /**
  * Fallback typography and pastoral formatting for offline mode or network timeouts.
  */
-export function offlinePolishFallback(title: string, rawContent: string): PolishKnowledgeResult {
+export function offlinePolishFallback(title: string, rawContent: string, durationMs = 0): PolishKnowledgeResult {
     const cleanTitle = title.trim() || 'Parish Guidelines & Policy';
     const lines = rawContent
         .split('\n')
@@ -36,6 +48,14 @@ ${bulletsBlock}
     return {
         polishedTitle: cleanTitle,
         polishedContent,
+        trace: {
+            model: 'heuristic-formatter (offline)',
+            durationMs,
+            rawWordCount: countWords(rawContent),
+            polishedWordCount: countWords(polishedContent),
+            analysis: 'Tone: Reverent Pastoral Guidelines • Structure: Markdown AST',
+            timestamp: new Date().toISOString(),
+        },
     };
 }
 
@@ -55,6 +75,8 @@ export async function polishKnowledgeContent(
         };
     }
 
+    const startTime = Date.now();
+
     try {
         // Enforce a 15-second timeout on the request
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -71,22 +93,33 @@ export async function polishKnowledgeContent(
         });
 
         const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
+        const durationMs = Math.round(Date.now() - startTime);
 
         if (error) {
             console.warn('[aiScribe] Edge function returned error, using fallback:', error);
-            return offlinePolishFallback(title, rawContent);
+            return offlinePolishFallback(title, rawContent, durationMs);
         }
 
         if (data && data.success && data.polishedContent) {
+            const polishedText = data.polishedContent;
             return {
                 polishedTitle: data.polishedTitle || title.trim() || 'Parish Guidelines',
-                polishedContent: data.polishedContent,
+                polishedContent: polishedText,
+                trace: {
+                    model: data.model || 'gemini-3.8-flash',
+                    durationMs: typeof data.durationMs === 'number' ? data.durationMs : durationMs,
+                    rawWordCount: countWords(rawContent),
+                    polishedWordCount: countWords(polishedText),
+                    analysis: 'Tone: Reverent Pastoral Guidelines • Structure: Markdown AST',
+                    timestamp: new Date().toISOString(),
+                },
             };
         }
 
-        return offlinePolishFallback(title, rawContent);
+        return offlinePolishFallback(title, rawContent, durationMs);
     } catch (err) {
+        const durationMs = Math.round(Date.now() - startTime);
         console.warn('[aiScribe] Exception while polishing, using fallback:', err);
-        return offlinePolishFallback(title, rawContent);
+        return offlinePolishFallback(title, rawContent, durationMs);
     }
 }

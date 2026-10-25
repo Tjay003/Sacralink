@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { X, ChevronDown, Church, MessageSquare, ArrowRight, CheckCircle, Loader2, Calendar, ALargeSmall, Cpu, Terminal, Layers, Maximize2, Minimize2, Trash2 } from 'lucide-react';
 import { createKalapati, type KalapatiHandle } from './mascot/kalapati-mascot';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -147,6 +147,19 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         setSpeakingMessageId(null);
         setIsOpen(false);
         kalRef.current?.setState('docked');
+    };
+
+    const handleClearChat = () => {
+        stopSpeaking();
+        setSpeakingMessageId(null);
+        setMessages([]);
+        setBookingDraft(null);
+        clearStoredBookingDraft();
+        setBookingSuccessAppointmentId(null);
+        setPendingQuestion(null);
+        setTicketDraft(null);
+        setTicketSuccessId(null);
+        kalRef.current?.setPose('idle');
     };
 
     useEffect(() => {
@@ -1226,10 +1239,10 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                 <div
                     ref={drawerRef}
                     data-testid="parish-assistant-panel"
-                    className={`fixed bottom-2 right-2 sm:bottom-3 sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+                    className={`fixed inset-x-2 sm:inset-x-auto sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
                         isMaximized
-                            ? 'w-[calc(100vw-1rem)] sm:w-[860px] md:w-[940px] lg:w-[1040px] h-[calc(100dvh-5rem)] sm:h-[calc(100vh-5rem)] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)]'
-                            : 'w-[calc(100vw-1rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] h-[calc(100dvh-5rem)] sm:h-[680px] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)]'
+                            ? 'top-16 sm:top-24 bottom-2 sm:bottom-4 h-auto max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-6.5rem)] w-[calc(100vw-1rem)] sm:w-[min(960px,calc(100vw-2.5rem))] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)]'
+                            : 'bottom-2 sm:bottom-3 h-[calc(100dvh-5rem)] sm:h-[680px] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)] w-[calc(100vw-1rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)]'
                     }`}
                 >
                     {/* Sacred Gold & Faith Blue Top Ribbon */}
@@ -1308,8 +1321,18 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                             </div>
                         </div>
 
-                        {/* Close button */}
+                        {/* Controls */}
                         <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                data-testid="parish-assistant-clear-chat"
+                                onClick={handleClearChat}
+                                aria-label="Clear conversation"
+                                title="Clear conversation"
+                                className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-secondary-100 transition-colors flex items-center justify-center"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
                             <button
                                 type="button"
                                 data-testid="parish-assistant-large-text-toggle"

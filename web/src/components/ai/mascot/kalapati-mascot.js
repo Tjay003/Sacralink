@@ -148,7 +148,7 @@ export function createKalapati(opts) {
 
   /* ---------- styles (scoped with the kal- prefix, colours can be overridden with CSS variables) ---------- */
   var CSS = [
-    '.kal-fx{position:fixed;left:0;top:0;right:0;bottom:var(--kal-bottom,0px);overflow:hidden;pointer-events:none;z-index:var(--kal-z,50)}',
+    '.kal-fx{position:fixed;left:0;top:0;right:0;bottom:var(--kal-bottom,0px);overflow:hidden;pointer-events:none;z-index:var(--kal-z,60)}',
     '.kal-fx canvas{position:absolute;inset:0;width:100%;height:100%}',
     '.kal-shadow{position:absolute;left:0;top:0;width:70px;height:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(15,23,42,.35),rgba(15,23,42,0));will-change:transform,opacity}',
     '.kal-dove{position:absolute;left:0;top:0;pointer-events:auto;touch-action:none;cursor:grab;will-change:transform;transform-origin:0 0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;border-radius:40%}',
@@ -158,11 +158,14 @@ export function createKalapati(opts) {
     '.kal-tip.kal-r{right:auto;left:74%;border-radius:16px 16px 16px 4px;transform-origin:0 100%}',
     '.kal-tip.kal-show{opacity:1;transform:none;pointer-events:auto}',
     '.kal-tip small{display:block;font-weight:500;color:var(--kal-muted,#64748B);font-size:12.5px}',
-    '.kal-hide{position:absolute;left:4%;top:2%;width:34px;height:34px;border-radius:50%;border:1px solid var(--kal-line,#E2E8F0);background:var(--kal-surface,#fff);color:var(--kal-muted,#64748B);display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity .2s;box-shadow:0 6px 16px -8px rgba(15,23,42,.4);padding:0}',
-    '.kal-hide svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}',
-    '.kal-dove:hover .kal-hide,.kal-dove:focus-within .kal-hide{opacity:1}',
-    '@media(hover:none){.kal-hide{opacity:.85}}',
-    '.kal-dove[hidden],.kal-hide[hidden]{display:none}'
+    '.kal-hide,.kal-reset{position:absolute;width:34px;height:34px;border-radius:50%;border:1px solid var(--kal-line,#E2E8F0);background:var(--kal-surface,#fff);color:var(--kal-muted,#64748B);display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity .2s,background-color .15s,color .15s;box-shadow:0 6px 16px -8px rgba(15,23,42,.4);padding:0}',
+    '.kal-hide{left:4%;top:2%}',
+    '.kal-reset{left:calc(4% + 38px);top:2%}',
+    '.kal-hide svg,.kal-reset svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}',
+    '.kal-hide:hover,.kal-reset:hover{background:var(--kal-surface-hover,#F1F5F9);color:var(--kal-ink,#0F172A)}',
+    '.kal-dove:hover .kal-hide,.kal-dove:focus-within .kal-hide,.kal-dove:hover .kal-reset,.kal-dove:focus-within .kal-reset{opacity:1}',
+    '@media(hover:none){.kal-hide,.kal-reset{opacity:.85}}',
+    '.kal-dove[hidden],.kal-hide[hidden],.kal-reset[hidden]{display:none}'
   ].join('\n');
   if (!doc.getElementById('kal-style')) { var st = doc.createElement('style'); st.id = 'kal-style'; st.textContent = CSS; doc.head.appendChild(st); }
 
@@ -178,15 +181,18 @@ export function createKalapati(opts) {
     bottomInset: opts.bottomInset || 0,
     getPanelRect: opts.getPanelRect, onStateChange: opts.onStateChange
   };
+  var defaultZ = String(opts.zIndex != null ? opts.zIndex : 60);
   var fx = doc.createElement('div'); fx.className = 'kal-fx'; fx.style.setProperty('--kal-bottom', o.bottomInset + 'px');
-  fx.style.setProperty('--kal-z', String(opts.zIndex != null ? opts.zIndex : 50));
+  fx.style.setProperty('--kal-z', defaultZ);
   fx.innerHTML = '<canvas aria-hidden="true"></canvas><div class="kal-shadow" aria-hidden="true"></div>' +
     '<div class="kal-dove" data-testid="parish-assistant-button" role="button" tabindex="0" aria-label="' + o.label.replace(/"/g, '&quot;') + '"><div class="kal-svg" style="width:100%;height:100%"></div>' +
     '<button class="kal-hide" type="button" aria-label="Minimize Kalapati to the edge" title="Send to the edge"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>' +
+    '<button class="kal-reset" type="button" aria-label="Return Kalapati to original corner" title="Return to corner"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>' +
     '<div class="kal-tip" role="button" tabindex="-1">' + o.tipTitle + '<small>' + o.tipText + '</small></div></div>';
   o.container.appendChild(fx);
   var cv = fx.querySelector('canvas'), ctx = cv.getContext('2d'), shadow = fx.querySelector('.kal-shadow'),
-      dove = fx.querySelector('.kal-dove'), tip = fx.querySelector('.kal-tip'), hideBtn = fx.querySelector('.kal-hide');
+      dove = fx.querySelector('.kal-dove'), tip = fx.querySelector('.kal-tip'), hideBtn = fx.querySelector('.kal-hide'),
+      resetBtn = fx.querySelector('.kal-reset');
   var inst = Kalapati.mount(fx.querySelector('.kal-svg'));
   var reduce = Kalapati.reduce;
   var timers = [], alive = true, raf = 0;
@@ -219,12 +225,16 @@ export function createKalapati(opts) {
   function retarget(snap) {
     var z = dockSz();
     if (S.state === 'chat') {
-      var pr = panelRect(), vis = S.psz; S.tsc = vis / z;
+      var pr = panelRect(), vis = S.psz;
+      if (pr.t < vis * 0.85) {
+        vis = Math.max(S.m ? 65 : 80, pr.t * 0.85);
+      }
+      S.tsc = vis / z;
       var targetX = S.m
         ? Math.min(pr.w - vis - 52, Math.max(130, pr.w * 0.40))
         : Math.min(260, pr.w * 0.45);
       S.tx = Math.max(4, Math.min(S.W - vis - 4, pr.l + targetX));
-      S.ty = Math.max(4, Math.round(pr.t - vis * 0.82));
+      S.ty = Math.max(2, Math.round(pr.t - vis * 0.82));
     } else if (S.state === 'min') {
       S.tsc = .8; var v = z * .8; S.tx = S.W - v - 20; S.ty = S.H - v * .5 - (S.hover ? 14 : 0);
     } else { S.tsc = 1; S.tx = S.home.x; S.ty = S.home.y; }
@@ -233,7 +243,9 @@ export function createKalapati(opts) {
   function setState(st, fromUser) {
     if (S.state === st) return;
     var prev = S.state; S.state = st;
-    hideBtn.hidden = st !== 'docked'; tip.classList.remove('kal-show');
+    hideBtn.hidden = st !== 'docked';
+    resetBtn.hidden = st !== 'docked';
+    tip.classList.remove('kal-show');
     if (st === 'chat') {
       dove.style.pointerEvents = 'none';
       S.base = 'waving';
@@ -333,7 +345,7 @@ export function createKalapati(opts) {
 
   /* ---------- pointer: tap to chat, drag to fly ---------- */
   dove.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('.kal-hide') || e.target.closest('.kal-tip')) return;
+    if (e.target.closest('.kal-hide') || e.target.closest('.kal-reset') || e.target.closest('.kal-tip')) return;
     if (S.state === 'chat') {
       inst.setPose('waving');
       later(function () { if (S.base === 'waving' && S.state === 'chat') S.base = 'idle'; }, 1800);
@@ -347,7 +359,8 @@ export function createKalapati(opts) {
     if (!S.down || e.pointerId !== S.down.id) return;
     if (!S.moved && Math.hypot(e.clientX - S.down.sx, e.clientY - S.down.sy) > 6) {
       S.moved = true; S.dragging = true; dove.classList.add('kal-drag'); tip.classList.remove('kal-show');
-      if (S.state === 'min') { S.state = 'docked'; hideBtn.hidden = false; S.tsc = 1; if (o.onStateChange) o.onStateChange('docked', true); }
+      fx.style.setProperty('--kal-z', '100');
+      if (S.state === 'min') { S.state = 'docked'; hideBtn.hidden = false; resetBtn.hidden = false; S.tsc = 1; if (o.onStateChange) o.onStateChange('docked', true); }
       burst(6, 0); S.air = true;
     }
     if (S.dragging) {
@@ -359,6 +372,7 @@ export function createKalapati(opts) {
   function up(e) {
     if (!S.down || e.pointerId !== S.down.id) return;
     var wasDrag = S.dragging; S.down = null; S.dragging = false; dove.classList.remove('kal-drag');
+    fx.style.setProperty('--kal-z', defaultZ);
     try { dove.releasePointerCapture(e.pointerId); } catch (x) {}
     if (!wasDrag) setState(S.state === 'min' ? 'docked' : 'chat', true); else retarget(false);
   }
@@ -367,13 +381,21 @@ export function createKalapati(opts) {
   dove.addEventListener('pointerleave', function () { S.hover = false; retarget(false); });
   dove.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setState(S.state === 'min' ? 'docked' : 'chat', true); } });
   dove.addEventListener('click', function (e) {
-    if (e.target.closest('.kal-hide') || e.target.closest('.kal-tip')) return;
+    if (e.target.closest('.kal-hide') || e.target.closest('.kal-reset') || e.target.closest('.kal-tip')) return;
     if (S.state !== 'chat' && !S.moved) {
       setState(S.state === 'min' ? 'docked' : 'chat', true);
     }
   });
   hideBtn.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
   hideBtn.addEventListener('click', function (e) { e.stopPropagation(); setState('min', true); });
+  resetBtn.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  resetBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    S.home = null;
+    size();
+    retarget(false);
+    burst(8, 0.4);
+  });
   tip.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
   tip.addEventListener('click', function (e) { e.stopPropagation(); setState('chat', true); });
 
@@ -382,7 +404,7 @@ export function createKalapati(opts) {
   win.addEventListener('resize', onResize);
   var ro = win.ResizeObserver ? new ResizeObserver(onResize) : null;
   if (ro) ro.observe(o.container);
-  size(); hideBtn.hidden = false;
+  size(); hideBtn.hidden = false; resetBtn.hidden = false;
   raf = requestAnimationFrame(frame);
 
   return {

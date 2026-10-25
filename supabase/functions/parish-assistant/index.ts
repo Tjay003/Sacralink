@@ -771,6 +771,7 @@ Deno.serve(async (req: Request) => {
 
     // AI Scribe Action for Knowledge Base Polishing
     if (body.action === 'polish_knowledge') {
+      const startTime = Date.now();
       const { title = '', content = '', churchName = '' } = body;
       if (!content || typeof content !== 'string') {
         return new Response(
@@ -835,6 +836,7 @@ Return ONLY valid JSON matching:
       let polishedTitle = title ? title.trim() : 'Parish Guidelines';
       let polishedContent = '';
       let geminiSuccess = false;
+      let activeModelName = '';
 
       for (const model of GEMINI_CHAT_MODELS) {
         let keysAttempted = 0;
@@ -873,11 +875,13 @@ Return ONLY valid JSON matching:
                   polishedTitle = parsed.polishedTitle || title || 'Parish Guidelines';
                   polishedContent = parsed.polishedContent;
                   geminiSuccess = true;
+                  activeModelName = model;
                   break;
                 }
               } catch {
                 polishedContent = candidateText;
                 geminiSuccess = true;
+                activeModelName = model;
                 break;
               }
             }
@@ -907,6 +911,8 @@ Return ONLY valid JSON matching:
           success: true,
           polishedTitle,
           polishedContent,
+          model: activeModelName || 'gemini-3.8-flash',
+          durationMs: Math.round(Date.now() - startTime),
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

@@ -101,6 +101,8 @@ test.describe('Ticket 03: AI Scribe & Starter Templates E2E Flow', () => {
             success: true,
             polishedTitle: title,
             polishedContent: `### Liturgical Decorum & Parish Policy\n\nTo preserve the sanctity of our church and foster a prayerful environment for all worshippers, our parish kindly requests your faithful cooperation with the following guidelines:\n\n${bullets}\n\n*We thank you for your understanding and reverence in the House of God.*`,
+            model: 'gemini-3.8-flash',
+            durationMs: 420,
           }),
         });
       }
@@ -173,6 +175,12 @@ test.describe('Ticket 03: AI Scribe & Starter Templates E2E Flow', () => {
     await expect(page.getByText('Original Draft')).toBeVisible();
     await expect(page.getByText('Polished Pastoral Version')).toBeVisible();
     await expect(page.getByText(/Liturgical Decorum & Parish Policy/i)).toBeVisible();
+
+    // Assert AI trace panel is displayed with model, duration, and word count
+    const tracePanel = page.getByTestId('ai-scribe-trace-panel');
+    await expect(tracePanel).toBeVisible();
+    await expect(tracePanel).toContainText('AI Trace: gemini-3.8-flash');
+    await expect(tracePanel).toContainText('420ms');
 
     // 4. Click "Apply Polished Version"
     const applyBtn = page.getByRole('button', { name: /Apply Polished Version/i });
