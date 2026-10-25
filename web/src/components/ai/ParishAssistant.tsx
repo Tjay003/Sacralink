@@ -146,6 +146,8 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         stopSpeaking();
         setSpeakingMessageId(null);
         setIsOpen(false);
+        setIsMaximized(false);
+        kalRef.current?.setVisible(!isSidebarOpen);
         kalRef.current?.setState('docked');
     };
 
@@ -213,7 +215,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         });
         kalRef.current = kal;
 
-        if (isSidebarOpen) {
+        if (isSidebarOpen || isMaximized) {
             kal.setVisible(false);
         } else if (isOpen) {
             kal.setState('chat');
@@ -225,11 +227,11 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         };
     }, [profile?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Hide Kalapati if the mobile sidebar is open so he doesn't overlap navigation
+    // Hide Kalapati if the mobile sidebar is open or assistant is maximized so he doesn't overlap navigation
     useEffect(() => {
         if (!kalRef.current) return;
-        kalRef.current.setVisible(!isSidebarOpen);
-    }, [isSidebarOpen]);
+        kalRef.current.setVisible(!isSidebarOpen && !isMaximized);
+    }, [isSidebarOpen, isMaximized]);
 
     // Sync open state changes to Kalapati
     useEffect(() => {
@@ -244,11 +246,17 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
 
     // Relayout Kalapati on maximize/restore transitions
     useEffect(() => {
-        const timer = setTimeout(() => {
-            kalRef.current?.relayout();
-        }, 320);
-        return () => clearTimeout(timer);
-    }, [isMaximized]);
+        if (!isMaximized && isOpen) {
+            kalRef.current?.setVisible(!isSidebarOpen);
+            kalRef.current?.setState('chat');
+            const timer = setTimeout(() => {
+                kalRef.current?.relayout();
+            }, 320);
+            return () => clearTimeout(timer);
+        } else if (isMaximized) {
+            kalRef.current?.setVisible(false);
+        }
+    }, [isMaximized, isOpen, isSidebarOpen]);
 
     // Drive Kalapati mascot mood from assistant state
     useEffect(() => {
@@ -1239,10 +1247,10 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                 <div
                     ref={drawerRef}
                     data-testid="parish-assistant-panel"
-                    className={`fixed inset-x-2 sm:inset-x-auto sm:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
+                    className={`fixed inset-x-2 sm:inset-x-auto sm:right-5 lg:right-6 z-50 flex flex-col bg-white border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-4 ${
                         isMaximized
-                            ? 'top-16 sm:top-24 bottom-2 sm:bottom-4 h-auto max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-6.5rem)] w-[calc(100vw-1rem)] sm:w-[min(960px,calc(100vw-2.5rem))] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)]'
-                            : 'bottom-2 sm:bottom-3 h-[calc(100dvh-5rem)] sm:h-[680px] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-5rem)] w-[calc(100vw-1rem)] sm:w-[500px] md:w-[540px] lg:w-[560px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)]'
+                            ? 'top-14 sm:top-18 lg:top-20 bottom-2.5 sm:bottom-4 lg:bottom-4 h-[calc(100dvh-4.5rem)] sm:h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-6rem)] max-h-[calc(100dvh-4.5rem)] sm:max-h-[calc(100vh-5.5rem)] lg:max-h-[calc(100vh-6rem)] w-[calc(100vw-1rem)] sm:w-[min(880px,calc(100vw-2.5rem))] lg:w-[min(940px,calc(100vw-18.5rem))] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)] lg:max-w-[calc(100vw-18.5rem)]'
+                            : 'bottom-2.5 sm:bottom-4 h-[calc(100dvh-5rem)] sm:h-[640px] max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100vh-6rem)] w-[calc(100vw-1rem)] sm:w-[500px] md:w-[520px] lg:w-[540px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-2.5rem)] lg:max-w-[calc(100vw-18.5rem)]'
                     }`}
                 >
                     {/* Sacred Gold & Faith Blue Top Ribbon */}
@@ -1370,7 +1378,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                     </div>
 
                     {/* View Switcher: Chat vs AI & Tool Inspector */}
-                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border bg-secondary-50/70 text-xs">
+                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border bg-secondary-50/70 text-xs shrink-0">
                         <button
                             type="button"
                             onClick={() => setActiveTab('chat')}
@@ -1402,7 +1410,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                     </div>
 
                     {activeTab === 'inspector' ? (
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-secondary-900 text-secondary-100 text-xs font-mono">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-secondary-900 text-secondary-100 text-xs font-mono">
                             {/* Engine Diagnostics */}
                             <div className="bg-secondary-950 p-3.5 rounded-xl border border-secondary-800 space-y-2">
                                 <div className="flex items-center justify-between">
@@ -1497,7 +1505,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                         </div>
                     ) : (
                         /* Chat Messages Flow */
-                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 space-y-3 bg-background/50">
+                        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3.5 space-y-3 bg-background/50">
                         {/* Welcome card if empty */}
                         {messages.length === 0 && !bookingDraft && (
                             <div className={`card bg-white border border-border rounded-2xl shadow-xs text-center space-y-2 mt-2 ${isLargeText ? 'p-5' : 'p-4'}`}>
@@ -1928,7 +1936,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
 
                     {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
                     {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (
-                        <div className={`px-3.5 pt-2.5 pb-1.5 bg-white border-t border-border/60 flex items-center gap-2 overflow-x-auto no-scrollbar ${
+                        <div className={`px-3.5 pt-2.5 pb-1.5 bg-white border-t border-border/60 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${
                             isLargeText ? 'py-3' : ''
                         }`}>
                             {STARTER_CHIPS.map((chip) => (

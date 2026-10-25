@@ -74,7 +74,8 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const rawKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GEMINI_API_KEYS');
+    const GEMINI_API_KEY = rawKey?.split(',')[0]?.trim();
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;

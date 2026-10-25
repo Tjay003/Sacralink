@@ -25,7 +25,7 @@ export default function ChatInput({ onSend, disabled, isLargeText = false }: Cha
     };
 
     return (
-        <div className={`flex items-end gap-2.5 bg-white/95 backdrop-blur-md border-t border-border/80 ${isLargeText ? 'p-4' : 'p-3.5'}`}>
+        <div className={`flex items-end gap-2.5 bg-white/95 backdrop-blur-md border-t border-border/80 shrink-0 ${isLargeText ? 'p-4' : 'p-3.5'}`}>
             <textarea
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
