@@ -230,8 +230,9 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
     // Hide Kalapati if the mobile sidebar is open or assistant is maximized so he doesn't overlap navigation
     useEffect(() => {
         if (!kalRef.current) return;
-        kalRef.current.setVisible(!isSidebarOpen && !isMaximized);
-    }, [isSidebarOpen, isMaximized]);
+        const isMessages = location.pathname.startsWith('/messages');
+        kalRef.current.setVisible(!isSidebarOpen && !isMaximized && !isMessages);
+    }, [isSidebarOpen, isMaximized, location.pathname]);
 
     // Sync open state changes to Kalapati
     useEffect(() => {
