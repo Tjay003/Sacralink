@@ -100,6 +100,37 @@ function chunkText(text: string, maxChars = 500, overlap = 100): string[] {
   return chunks.filter(c => c.length > 10);
 }
 
+function formatOperatingHours(rawHours: any): string {
+  if (!rawHours) return '';
+  if (typeof rawHours === 'string') {
+    try {
+      const parsed = JSON.parse(rawHours);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return formatOperatingHours(parsed);
+      }
+    } catch {
+      const trimmed = rawHours.trim();
+      return trimmed === '{}' || trimmed === 'null' ? '' : trimmed;
+    }
+  }
+  if (typeof rawHours === 'object' && rawHours !== null) {
+    const entries = Object.entries(rawHours);
+    if (entries.length === 0) return '';
+    const lines = entries.map(([day, val]: [string, any]) => {
+      const dayCap = day.charAt(0).toUpperCase() + day.slice(1);
+      if (typeof val === 'object' && val !== null && val.open && val.close) {
+        return `${dayCap}: ${val.open} - ${val.close}`;
+      }
+      if (typeof val === 'string' && val.trim() && val !== '{}') {
+        return `${dayCap}: ${val.trim()}`;
+      }
+      return null;
+    }).filter(Boolean);
+    return lines.join(', ');
+  }
+  return '';
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -174,18 +205,51 @@ Deno.serve(async (req: Request) => {
     // 1. Church basic info
     const { data: church } = await supabase
       .from('churches')
-      .select('id, name, address, contact_number, email, description, operating_hours')
+      .select('id, name, address, contact_number, email, description, operating_hours, facebook_url, livestream_url, gcash_number, maya_number')
       .eq('id', churchId)
       .single();
 
     if (church) {
       let info = `Church Name: ${church.name}\n`;
-      if (church.address) info += `Address: ${church.address}\n`;
-      if (church.contact_number) info += `Contact Number: ${church.contact_number}\n`;
-      if (church.email) info += `Email: ${church.email}\n`;
-      if (church.description) info += `Description: ${church.description}\n`;
-      if (church.operating_hours) info += `Operating Hours: ${church.operating_hours}\n`;
+      if (church.address && church.address.trim()) info += `Address: ${church.address.trim()}\n`;
+      if (church.contact_number && church.contact_number.trim()) info += `Contact Number: ${church.contact_number.trim()}\n`;
+      if (church.email && church.email.trim()) info += `Email: ${church.email.trim()}\n`;
+      if (church.facebook_url && church.facebook_url.trim()) info += `Official Facebook Page: ${church.facebook_url.trim()}\n`;
+      if (church.livestream_url && church.livestream_url.trim()) info += `Mass Livestream Link: ${church.livestream_url.trim()}\n`;
+      if (church.description && church.description.trim()) info += `About the Parish: ${church.description.trim()}\n`;
+      const formattedHours = formatOperatingHours(church.operating_hours);
+      if (formattedHours) info += `Office Hours: ${formattedHours}\n`;
+      const donationChannels = [];
+      if (church.gcash_number && church.gcash_number.trim()) donationChannels.push(`GCash: ${church.gcash_number.trim()}`);
+      if (church.maya_number && church.maya_number.trim()) donationChannels.push(`Maya: ${church.maya_number.trim()}`);
+      if (donationChannels.length > 0) {
+        info += `Donation & Mass Offering Channels: ${donationChannels.join(', ')}\n`;
+      }
       chunks.push({ church_id: churchId, content: info.trim(), source_type: 'church_info', source_id: church.id });
+    }
+
+    // 1b. Parish Clergy & Leadership Team
+    const { data: teamMembers } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, is_priest')
+      .or(`church_id.eq.${churchId},assigned_church_id.eq.${churchId}`)
+      .order('is_priest', { ascending: false });
+
+    if (teamMembers && teamMembers.length > 0) {
+      const priests = teamMembers.filter((m) => m.is_priest || m.role === 'priest');
+      const staff = teamMembers.filter((m) => !m.is_priest && m.role !== 'priest');
+      const teamLines = [`Parish Clergy and Leadership Team for ${church?.name || 'this parish'}:`];
+      if (priests.length > 0) {
+        teamLines.push(`Priests / Clergy: ${priests.map((p) => p.full_name).join(', ')}`);
+      }
+      if (staff.length > 0) {
+        teamLines.push(`Parish Staff & Administration: ${staff.map((s) => `${s.full_name} (${s.role || 'Staff'})`).join(', ')}`);
+      }
+      chunks.push({
+        church_id: churchId,
+        content: teamLines.join('\n').trim(),
+        source_type: 'parish_team',
+      });
     }
 
     // 2. Sacrament requirements

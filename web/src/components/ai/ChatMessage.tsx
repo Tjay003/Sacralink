@@ -446,15 +446,15 @@ export default function ChatMessage({
                             title="Inspect AI model and database tool calls"
                         >
                             <Cpu className="w-3.5 h-3.5 text-primary" />
-                            <span>AI Trace:</span>
-                            <span className="font-semibold text-foreground">{debug.model}</span>
+                            <span>Neural Trace:</span>
+                            <span className="font-semibold text-foreground">{debug.model || 'Sacralink Neural v2.5'}</span>
                             {debug.isMock ? (
                                 <span className="text-[10px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-sans font-medium">
-                                    Mock
+                                    Standby Core
                                 </span>
                             ) : (
                                 <span className="text-[10px] px-1.5 py-0.2 bg-emerald-100 text-emerald-800 rounded font-sans font-medium">
-                                    Live
+                                    Neural Core
                                 </span>
                             )}
                             {debug.tools && debug.tools.length > 0 ? (
@@ -478,7 +478,7 @@ export default function ChatMessage({
                                 <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">
                                     <span className="text-secondary-400">Model Engine:</span>
                                     <span className="font-bold text-amber-400">
-                                        {debug.model} {debug.isMock ? '(Local Fake Gemini)' : '(Google Gemini API)'}
+                                        {debug.model || 'Sacralink Neural v2.5'} {debug.isMock ? '(Sacralink Standby Core)' : '(Sacralink Neural Pipeline)'}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">

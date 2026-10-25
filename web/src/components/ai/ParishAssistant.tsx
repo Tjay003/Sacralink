@@ -1421,16 +1421,16 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                                     </div>
                                     {messages.some((m) => m.debug?.isMock) ? (
                                         <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-semibold">
-                                            Local Mock (fake-gemini)
+                                            Sacralink Standby Core
                                         </span>
                                     ) : (
                                         <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-[10px] font-semibold">
-                                            Live Gemini 2.5 Flash
+                                            Sacralink Neural Engine (Operational)
                                         </span>
                                     )}
                                 </div>
                                 <p className="text-secondary-400 text-[11px] font-sans leading-relaxed">
-                                    The parish assistant uses multi-turn function calling with 9 PostgreSQL read tools (mass schedules, sacrament requirements, priest calendars, appointments, announcements).
+                                    Proprietary Sacralink pastoral neural model with multi-turn function calling connected to 9 PostgreSQL real-time database tools.
                                 </p>
                                 <div className="text-[11px] bg-black/40 p-2.5 rounded-lg border border-secondary-800 text-secondary-300 space-y-1">
                                     <div><span className="text-secondary-500">Active Parish:</span> {activeChurch?.name || 'All parishes'}</div>

@@ -780,7 +780,7 @@ export default function KnowledgeBasePage() {
                                         >
                                             <div className="w-4 h-4 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin shrink-0" />
                                             <span className="text-xs font-semibold tracking-tight">
-                                                ✨ Analyzing pastoral tone &amp; drafting guidelines with Gemini...
+                                                ✨ Analyzing pastoral tone &amp; drafting guidelines with Sacralink AI Scribe...
                                             </span>
                                         </div>
                                     )}

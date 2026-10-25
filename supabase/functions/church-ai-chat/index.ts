@@ -138,10 +138,15 @@ Deno.serve(async (req: Request) => {
 
     // Step 3: Church info
     const { data: churchData } = await supabase
-      .from('churches').select('name, contact_number, email').eq('id', churchId).single();
+      .from('churches').select('name, contact_number, email, facebook_url').eq('id', churchId).single();
 
     const churchName = churchData?.name || 'the parish';
-    const churchContact = churchData?.contact_number || churchData?.email || 'the church office';
+    const contactParts = [
+      churchData?.contact_number && `Tel: ${churchData.contact_number}`,
+      churchData?.email && `Email: ${churchData.email}`,
+      churchData?.facebook_url && `Facebook: ${churchData.facebook_url}`
+    ].filter(Boolean);
+    const churchContact = contactParts.length > 0 ? contactParts.join(' | ') : 'the church office';
     const contextChunks = (chunks || []).map((c: any) => c.content).join('\n\n');
     const sourcesUsed = (chunks || []).length;
 

@@ -29,9 +29,9 @@ export interface AskParishAIResponse {
 
 export const AI_CHAT_RATE_LIMIT_STORAGE_KEY = 'sacralink_ai_chat_timestamps';
 export const AI_CHAT_RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 minutes (300,000 ms)
-export const AI_CHAT_RATE_LIMIT_MAX_QUERIES = 10;
+export const AI_CHAT_RATE_LIMIT_MAX_QUERIES = 50;
 export const AI_CHAT_RATE_LIMIT_NOTICE =
-  'You have reached the temporary inquiry limit. Please wait a few minutes or contact the parish office directly for immediate assistance.';
+  'Parish database cloud gateway throughput limit reached. Please wait a moment or contact the parish office directly for immediate assistance.';
 
 export interface RateLimitCheckResult {
   allowed: boolean;

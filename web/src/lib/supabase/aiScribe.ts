@@ -106,7 +106,7 @@ export async function polishKnowledgeContent(
                 polishedTitle: data.polishedTitle || title.trim() || 'Parish Guidelines',
                 polishedContent: polishedText,
                 trace: {
-                    model: data.model || 'gemini-3.8-flash',
+                    model: data.model || 'sacralink-scribe-v2.5',
                     durationMs: typeof data.durationMs === 'number' ? data.durationMs : durationMs,
                     rawWordCount: countWords(rawContent),
                     polishedWordCount: countWords(polishedText),

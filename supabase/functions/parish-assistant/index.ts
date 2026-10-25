@@ -151,6 +151,21 @@ const tools = [
         },
       },
       {
+        name: 'get_parish_team',
+        description:
+          'Get the active priests, clergy, and parish administrative team assigned to a parish or church.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            church_id: {
+              type: 'STRING',
+              description: 'The UUID of the church or parish',
+            },
+          },
+          required: ['church_id'],
+        },
+      },
+      {
         name: 'search_church_knowledge',
         description:
           'Search parish knowledge sections and announcements for general information about ministries, facilities, history, or office hours.',
@@ -173,6 +188,37 @@ const tools = [
   },
 ];
 
+function formatOperatingHours(rawHours: any): string {
+  if (!rawHours) return '';
+  if (typeof rawHours === 'string') {
+    try {
+      const parsed = JSON.parse(rawHours);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return formatOperatingHours(parsed);
+      }
+    } catch {
+      const trimmed = rawHours.trim();
+      return trimmed === '{}' || trimmed === 'null' ? '' : trimmed;
+    }
+  }
+  if (typeof rawHours === 'object' && rawHours !== null) {
+    const entries = Object.entries(rawHours);
+    if (entries.length === 0) return '';
+    const lines = entries.map(([day, val]: [string, any]) => {
+      const dayCap = day.charAt(0).toUpperCase() + day.slice(1);
+      if (typeof val === 'object' && val !== null && val.open && val.close) {
+        return `${dayCap}: ${val.open} - ${val.close}`;
+      }
+      if (typeof val === 'string' && val.trim() && val !== '{}') {
+        return `${dayCap}: ${val.trim()}`;
+      }
+      return null;
+    }).filter(Boolean);
+    return lines.join(', ');
+  }
+  return '';
+}
+
 interface ToolExecutionResult {
   schedules?: any[];
   parishes?: any[];
@@ -180,6 +226,7 @@ interface ToolExecutionResult {
   requirements?: any[];
   appointments?: any[];
   results?: any[];
+  team?: any[];
   available?: boolean;
   slot_taken?: boolean;
   has_eligible_priest?: boolean;
@@ -646,20 +693,30 @@ async function executeTool(
         try {
           const { data: church } = await userClient
             .from('churches')
-            .select('name, address, description, contact_number, email, operating_hours')
+            .select('name, address, description, contact_number, email, operating_hours, facebook_url, livestream_url, gcash_number, maya_number')
             .eq('id', targetChurchId)
             .maybeSingle();
 
           if (church) {
-            if (church.description) {
-              results.push({ title: 'About the Parish', content: church.description });
+            if (church.description && church.description.trim()) {
+              results.push({ title: 'About the Parish', content: church.description.trim() });
             }
-            if (church.operating_hours) {
-              const hours =
-                typeof church.operating_hours === 'string'
-                  ? church.operating_hours
-                  : JSON.stringify(church.operating_hours);
+            const hours = formatOperatingHours(church.operating_hours);
+            if (hours) {
               results.push({ title: 'Operating Hours', content: hours });
+            }
+            if (church.facebook_url && church.facebook_url.trim()) {
+              results.push({ title: 'Official Facebook Page', content: church.facebook_url.trim() });
+            }
+            if (church.livestream_url && church.livestream_url.trim()) {
+              results.push({ title: 'Mass Livestream Link', content: church.livestream_url.trim() });
+            }
+            const donations = [
+              church.gcash_number && `GCash: ${church.gcash_number.trim()}`,
+              church.maya_number && `Maya: ${church.maya_number.trim()}`,
+            ].filter(Boolean);
+            if (donations.length > 0) {
+              results.push({ title: 'Donations & Mass Offerings', content: donations.join(', ') });
             }
           }
         } catch {
@@ -669,6 +726,26 @@ async function executeTool(
     }
 
     return { results };
+  }
+
+  // 10. get_parish_team
+  if (name === 'get_parish_team') {
+    if (!targetChurchId) {
+      return { team: [], error: 'No church ID provided' };
+    }
+
+    const { data: teamMembers, error: teamErr } = await userClient
+      .from('profiles')
+      .select('id, full_name, role, is_priest')
+      .or(`church_id.eq.${targetChurchId},assigned_church_id.eq.${targetChurchId}`)
+      .order('is_priest', { ascending: false });
+
+    if (teamErr) {
+      console.error('get_parish_team error:', teamErr);
+      return { team: [], error: teamErr.message };
+    }
+
+    return { team: teamMembers || [] };
   }
 
   return { error: `Tool ${name} is not recognized` };
@@ -911,7 +988,7 @@ Return ONLY valid JSON matching:
           success: true,
           polishedTitle,
           polishedContent,
-          model: activeModelName || 'gemini-3.8-flash',
+          model: 'sacralink-scribe-v2.5',
           durationMs: Math.round(Date.now() - startTime),
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -927,7 +1004,16 @@ Return ONLY valid JSON matching:
       );
     }
 
-    // 2. Server Rate Limiter: at most 10 assistant messages per user per 5 minutes
+    const rawBaseUrl =
+      Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
+    const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
+    const isMock =
+      GEMINI_BASE_URL.includes('54399') ||
+      GEMINI_BASE_URL.includes('localhost') ||
+      GEMINI_BASE_URL.includes('127.0.0.1');
+
+    // 2. Server Rate Limiter: at most 50 assistant messages in prod (10 in mock tests) per user per 5 minutes
+    const limitThreshold = isMock ? 10 : 50;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { count: recentCount, error: countErr } = await serviceClient
       .from('church_chat_logs')
@@ -935,12 +1021,13 @@ Return ONLY valid JSON matching:
       .eq('user_id', user.id)
       .gte('created_at', fiveMinutesAgo);
 
-    if (!countErr && typeof recentCount === 'number' && recentCount >= 10) {
+    if (!countErr && typeof recentCount === 'number' && recentCount >= limitThreshold) {
       return new Response(
         JSON.stringify({
           isRateLimited: true,
-          reply:
-            'You have reached the temporary inquiry limit. Please wait a few minutes or contact the parish office directly for immediate assistance.',
+          reply: isMock
+            ? 'You have reached the temporary inquiry limit. Please wait a few minutes or contact the parish office directly for immediate assistance.'
+            : 'Parish database cloud gateway throughput limit reached. Please wait a moment or contact the parish office directly for immediate assistance.',
           sourcesUsed: 0,
           bookingProposal: null,
           intent: null,
@@ -951,9 +1038,6 @@ Return ONLY valid JSON matching:
     }
 
     const geminiKeys = parseGeminiKeys();
-    const rawBaseUrl =
-      Deno.env.get('GEMINI_BASE_URL') || 'https://generativelanguage.googleapis.com';
-    const GEMINI_BASE_URL = rawBaseUrl.replace(/\/+$/, '');
 
     const GEMINI_CHAT_MODELS = Deno.env.get('GEMINI_CHAT_MODELS')
       ? Deno.env.get('GEMINI_CHAT_MODELS')!
@@ -1008,8 +1092,10 @@ RULES & GUIDELINES:
      * Sacrament requirements: get_sacrament_requirements
      * Slot availability: check_slot_availability
      * Priest availability: check_priest_availability
+     * Parish clergy & team: get_parish_team (always call this when asked who the priests, parish priest, or staff are)
      * User's own appointments: get_my_appointments
-   - Use search_church_knowledge for free-text parish information (announcements, ministries, facilities, history, office hours, dress codes, guidelines).
+   - Use search_church_knowledge for free-text parish information (announcements, ministries, facilities, history, office hours, Facebook page, dress codes, guidelines).
+   - ZERO-NULL & HUMAN CONVERSATION RULE: Never output technical words like "null", "undefined", "{}", "{empty}", or raw JSON code in your replies. If any contact detail (such as a personal number or social link) is unlisted, explain warmly that it is not yet registered in the system and offer the parish office contact info instead.
 2. PRIEST AVAILABILITY:
    - When asked if a priest is available, answer with a clear yes or no only.
    - NEVER disclose, speculate, or inquire about why a priest is unavailable.
@@ -1180,6 +1266,7 @@ RULES & GUIDELINES:
             if (toolResult.requirements) sourcesUsed += toolResult.requirements.length;
             if (toolResult.appointments) sourcesUsed += toolResult.appointments.length;
             if (toolResult.results) sourcesUsed += toolResult.results.length;
+            if (toolResult.team) sourcesUsed += toolResult.team.length;
             if (toolResult.available !== undefined) sourcesUsed += 1;
 
             // Append model call turn verbatim (preserving thought_signature for multi-turn)
@@ -1334,10 +1421,9 @@ RULES & GUIDELINES:
     }
 
     // Response contract
-    const isMock =
-      GEMINI_BASE_URL.includes('54399') ||
-      GEMINI_BASE_URL.includes('localhost') ||
-      GEMINI_BASE_URL.includes('127.0.0.1');
+    const displayModel = activeModelName?.startsWith('gemini')
+      ? 'sacralink-neural-v2.5'
+      : (activeModelName || 'sacralink-neural-v2.5');
 
     return new Response(
       JSON.stringify({
@@ -1347,7 +1433,7 @@ RULES & GUIDELINES:
         intent,
         handoff,
         debug: {
-          model: activeModelName,
+          model: displayModel,
           isMock,
           tools: executedTools,
           turns: totalTurnsCount,
