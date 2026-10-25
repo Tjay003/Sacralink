@@ -1183,7 +1183,7 @@ export async function markConversationAsRead(
 /**
  * Fetch the people the signed-in user may start a Direct chat with. The database decides (list_direct_contacts uses the
  * same may_start_direct predicate that start_direct_conversation enforces, migrations 065 and 072), so nobody is offered
- * a person the database would reject. Parishioners and Volunteers get an empty list.
+ * a person the database would reject. Parishioners and Volunteers can message other parishioners and volunteers.
  */
 export async function fetchAvailableContacts(): Promise<{
     data: ContactProfile[] | null;

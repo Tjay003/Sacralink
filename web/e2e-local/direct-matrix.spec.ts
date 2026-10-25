@@ -77,7 +77,7 @@ function allowed(from: Who, to: Who): boolean {
   switch (a.kind) {
     case 'user':
     case 'volunteer':
-      return false;
+      return b.kind === 'user' || b.kind === 'volunteer';
     case 'priest':
       if (b.kind === 'user') return from === 'priestA' && to === 'parA'; // the only seeded appointment
       return b.kind === 'church_admin' && a.church === b.church;
@@ -275,7 +275,7 @@ test.describe('legacy Direct chats', () => {
     expect((await reply('parA2', unknownStarter, 'hello')).error).toBeNull();
 
     // An unknown starter that the matrix fails in both directions is legacy
-    const bothWays = await seedChat(null, ['parA2', 'volA']);
+    const bothWays = await seedChat(null, ['parA2', 'super']);
     expect((await db.rpc('direct_is_legacy', { _conversation_id: bothWays })).data).toBe(true);
   });
 });

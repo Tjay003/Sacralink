@@ -883,11 +883,6 @@ export default function MessagingPage() {
         setModalError(null);
         setShowNewChatModal(true);
         if (!user) return;
-        // Parishioners and Volunteers start no Direct chat: they are offered New Ticket (and the staff channel)
-        if (profile?.role === 'user' || isVolunteer) {
-            setContacts([]);
-            return;
-        }
         setLoadingContacts(true);
         try {
             const { data, error } = await fetchAvailableContacts();
@@ -1084,8 +1079,7 @@ export default function MessagingPage() {
     const offerReviewRequest = Boolean(
         activeConversation && shouldOfferReviewRequest(activeConversation, viewer, messages)
     );
-    // Parishioners and Volunteers cannot start a Direct chat: the New Message dialog offers New Ticket instead
-    const noDirectContacts = profile?.role === 'user' || isVolunteer;
+    const noDirectContacts = false;
     const visibleStubs = useMemo(() => {
         if (activeTab !== 'tickets' || ticketStatusFilter !== 'all') return [];
         const q = searchQuery.trim().toLowerCase();
@@ -2257,10 +2251,8 @@ export default function MessagingPage() {
                 onClose={() => setShowNewChatModal(false)}
                 title="New Direct Conversation"
                 description={
-                    profile?.role === 'user'
-                        ? 'Messages to the parish office are sent as tickets'
-                        : isVolunteer
-                        ? 'Reach your parish team in the staff channel, or open a ticket'
+                    profile?.role === 'user' || isVolunteer
+                        ? 'Search parishioners and volunteers to start a direct message'
                         : 'Search the people you can start a conversation with'
                 }
                 size="lg"
@@ -2300,6 +2292,22 @@ export default function MessagingPage() {
                     </div>
                 ) : (
                 <div className="space-y-4">
+                    {(profile?.role === 'user' || isVolunteer) && (
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-secondary-50 border border-border text-xs text-secondary-600">
+                            <span>Need to reach parish administration?</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowNewChatModal(false);
+                                    setShowTicketModal(true);
+                                }}
+                                className="text-primary hover:underline font-semibold cursor-pointer inline-flex items-center gap-1"
+                            >
+                                <Mail className="w-3.5 h-3.5" />
+                                <span>Open a ticket</span>
+                            </button>
+                        </div>
+                    )}
                     {modalError && (
                         <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs text-destructive flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -2351,6 +2359,10 @@ export default function MessagingPage() {
                                 { id: 'user', label: 'Parishioners' },
                             ] : profile?.role === 'super_admin' ? [
                                 { id: 'all', label: 'All Church Admins' },
+                            ] : profile?.role === 'user' || isVolunteer ? [
+                                { id: 'all', label: 'All Contacts' },
+                                { id: 'volunteer', label: 'Volunteers' },
+                                { id: 'user', label: 'Parishioners' },
                             ] : [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'super_admin', label: 'Super Admin' },
