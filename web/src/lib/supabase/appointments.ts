@@ -146,6 +146,44 @@ export function formatAppointmentTime(time: string | null | undefined): string {
 }
 
 /**
+ * Matches service types against standard sacrament keys case-insensitively.
+ */
+export function matchesSacramentFilter(serviceType: string | null | undefined, filterType: string): boolean {
+    if (!filterType || filterType === 'all') return true;
+    const type = (serviceType || '').toLowerCase();
+    const filterKey = filterType.trim().toLowerCase();
+    switch (filterKey) {
+        case 'baptism':
+            return type.includes('bapt');
+        case 'wedding':
+        case 'matrimony':
+        case 'marriage':
+            return type.includes('wed') || type.includes('marri') || type.includes('matrim');
+        case 'funeral':
+        case 'burial':
+            return type.includes('fun') || type.includes('burial');
+        case 'confirmation':
+            return type.includes('confir');
+        case 'mass':
+        case 'mass_intention':
+            return type.includes('mass') || type.includes('intent');
+        case 'anointing':
+            return type.includes('anoint') || type.includes('sick');
+        case 'confession':
+            return type.includes('confess') || type.includes('reconcil');
+        case 'counseling':
+            return type.includes('counsel') || type.includes('spiritual');
+        case 'house_blessing':
+        case 'blessing':
+            return type.includes('bless');
+        case 'other':
+            return type.includes('other') || type.includes('custom');
+        default:
+            return type.includes(filterKey);
+    }
+}
+
+/**
  * Fetch appointments with standardized joined entities (church name & parishioner profile).
  */
 export async function getAppointments(
@@ -190,9 +228,49 @@ export async function getAppointments(
             query = query.neq('status', 'rejected');
         }
 
-        // Sacrament / Service Type filter
+        // Sacrament / Service Type filter (matches liturgical names & database service type values case-insensitively)
         if (filter.serviceType && filter.serviceType !== 'all') {
-            query = query.eq('service_type', filter.serviceType);
+            const raw = filter.serviceType.trim().toLowerCase();
+            switch (raw) {
+                case 'baptism':
+                    query = query.ilike('service_type', '%bapt%');
+                    break;
+                case 'wedding':
+                case 'matrimony':
+                case 'marriage':
+                    query = query.or('service_type.ilike.%wed%,service_type.ilike.%marri%,service_type.ilike.%matrim%');
+                    break;
+                case 'funeral':
+                case 'burial':
+                    query = query.or('service_type.ilike.%fun%,service_type.ilike.%burial%');
+                    break;
+                case 'confirmation':
+                    query = query.ilike('service_type', '%confir%');
+                    break;
+                case 'mass':
+                case 'mass_intention':
+                    query = query.or('service_type.ilike.%mass%,service_type.ilike.%intent%');
+                    break;
+                case 'anointing':
+                    query = query.or('service_type.ilike.%anoint%,service_type.ilike.%sick%');
+                    break;
+                case 'confession':
+                    query = query.or('service_type.ilike.%confess%,service_type.ilike.%reconcil%');
+                    break;
+                case 'counseling':
+                    query = query.or('service_type.ilike.%counsel%,service_type.ilike.%spiritual%');
+                    break;
+                case 'house_blessing':
+                case 'blessing':
+                    query = query.ilike('service_type', '%bless%');
+                    break;
+                case 'other':
+                    query = query.or('service_type.ilike.%other%,service_type.ilike.%custom%');
+                    break;
+                default:
+                    query = query.ilike('service_type', `%${raw}%`);
+                    break;
+            }
         }
 
         // Date range filters
@@ -262,14 +340,20 @@ export async function getAppointments(
             requested_priest: row.requested_priest ? { id: row.requested_priest.id, full_name: row.requested_priest.full_name, deleted_at: row.requested_priest.deleted_at ?? null } : null,
         }));
 
-        // Search query filter (by parishioner name or service type)
+        // In-memory verification for service type filter (ensures accuracy for custom variations)
+        if (filter.serviceType && filter.serviceType !== 'all') {
+            results = results.filter((item) => matchesSacramentFilter(item.service_type, filter.serviceType!));
+        }
+
+        // Search query filter (by parishioner name, service type, notes, or church name)
         if (filter.searchQuery && filter.searchQuery.trim() !== '') {
             const term = filter.searchQuery.toLowerCase().trim();
-            results = results.filter(item => {
+            results = results.filter((item) => {
                 const name = item.profile?.full_name?.toLowerCase() || '';
                 const service = item.service_type?.toLowerCase() || '';
                 const church = item.church?.name?.toLowerCase() || '';
-                return name.includes(term) || service.includes(term) || church.includes(term);
+                const notes = item.notes?.toLowerCase() || '';
+                return name.includes(term) || service.includes(term) || church.includes(term) || notes.includes(term);
             });
         }
 

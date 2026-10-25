@@ -165,15 +165,16 @@ export default function AppointmentsPage() {
     });
 
     // Church filter — super_admin only
-    const isAdminRole = profile?.role === 'super_admin';
+    const isAdminRole = profile?.role === 'super_admin' || profile?.role === 'admin';
     const isChurchStaff = profile?.role === 'church_admin' || profile?.role === 'priest';
     const { churches } = useChurches();
     const [selectedChurchId, setSelectedChurchId] = useState<string>('all');
 
     const userChurchId = profile?.assigned_church_id || profile?.church_id || null;
-    // Volunteers book and view appointments like a parishioner: only their own bookings
+    // Volunteers and parishioners book and view appointments like personal users: only their own bookings
+    const isParishioner = profile?.role === 'user' || profile?.role === 'volunteer';
     const isVolunteer = profile?.role === 'volunteer';
-    const personalUserId = isVolunteer ? profile?.id : undefined;
+    const personalUserId = isParishioner ? profile?.id : undefined;
 
     // Effective church for display badge and scoping
     const effectiveChurchId = isChurchStaff
@@ -248,14 +249,12 @@ export default function AppointmentsPage() {
     };
 
     const canManageAppointments =
-        !isVolunteer &&
-        (profile?.role === 'super_admin' ||
-            profile?.role === 'church_admin' ||
-            profile?.role === 'priest');
+        !isParishioner &&
+        (isAdminRole || isChurchStaff);
 
-    // Only the parish office may edit an approved appointment (priests and volunteers cannot)
+    // Only the parish office may edit an approved appointment (priests and parishioners cannot)
     const canEditAppointments =
-        profile?.role === 'super_admin' || profile?.role === 'church_admin';
+        isAdminRole || profile?.role === 'church_admin';
 
     const fetchMetaCounts = useCallback(async () => {
         try {
@@ -441,7 +440,7 @@ export default function AppointmentsPage() {
                         Appointments
                     </h1>
                     <p className="text-xs sm:text-sm text-secondary-500 font-medium mt-1">
-                        {isVolunteer
+                        {isParishioner
                             ? `Your sacrament appointments · ${totalCount} in total`
                             : effectiveChurchId && activeChurchName !== 'All Churches'
                             ? `Sacramental requests from ${activeChurchName} · ${totalCount} in total`
@@ -483,15 +482,15 @@ export default function AppointmentsPage() {
                         </div>
                     )}
 
-                    {/* Volunteers apply for sacraments like a parishioner */}
-                    {isVolunteer && (
+                    {/* Parishioners & volunteers apply for sacraments */}
+                    {isParishioner && (
                         <button
                             type="button"
                             onClick={() => navigate(userChurchId ? `/churches/${userChurchId}/book` : '/churches')}
                             className="bg-primary hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
                         >
                             <Calendar className="w-4 h-4" />
-                            <span>Book Appointment</span>
+                            <span>Book appointment</span>
                         </button>
                     )}
 
@@ -593,7 +592,7 @@ export default function AppointmentsPage() {
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                         <input
                             type="text"
-                            placeholder="Search parishioner..."
+                            placeholder={isParishioner ? "Search appointments..." : "Search parishioner..."}
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
@@ -638,6 +637,7 @@ export default function AppointmentsPage() {
                                 <option value="confession">Confession</option>
                                 <option value="counseling">Counseling</option>
                                 <option value="house_blessing">House Blessing</option>
+                                <option value="other">Other / Custom</option>
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary-500 pointer-events-none" />
                         </div>
@@ -837,7 +837,7 @@ export default function AppointmentsPage() {
                                                         </span>
                                                     )}
 
-                                                    {isVolunteer ? (
+                                                    {isParishioner ? (
                                                         <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-secondary-100/70 text-secondary-500 border border-secondary-200/60">
                                                             Read-only
                                                         </span>
@@ -1090,7 +1090,7 @@ export default function AppointmentsPage() {
                                     </div>
 
                                     {/* Bottom action buttons row */}
-                                    {!isVolunteer && (
+                                    {!isParishioner && (
                                         <div className="pt-2 border-t border-border/50 flex items-center gap-2">
                                         {canEditAppointments && appointment.status === 'pending' ? (
                                             <>

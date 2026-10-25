@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Calendar, Megaphone, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
+import { Shield, Megaphone, CheckCircle2, ChevronRight, Loader2 } from 'lucide-react';
 import { getParishApplications } from '../../lib/supabase/parishApplications';
-import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 import { getSystemAnnouncements } from '../../lib/supabase/announcements';
 
 interface AttentionData {
     pendingApplicationsCount: number;
     applicationSampleNames: string[];
-    pendingAppointmentsCount: number;
     activeAnnouncementsCount: number;
     latestAnnouncementTitle: string | null;
 }
@@ -18,7 +16,6 @@ export default function NeedsYourAttentionWidget() {
     const [data, setData] = useState<AttentionData>({
         pendingApplicationsCount: 0,
         applicationSampleNames: [],
-        pendingAppointmentsCount: 0,
         activeAnnouncementsCount: 0,
         latestAnnouncementTitle: null,
     });
@@ -34,18 +31,14 @@ export default function NeedsYourAttentionWidget() {
                 pageSize: 5,
             });
 
-            // Fetch pending appointments count across all churches
-            const appointmentsPromise = getDashboardAppointmentCounts();
-
             // Fetch active system announcements
             const announcementsPromise = getSystemAnnouncements({
                 limit: 3,
                 includeInactive: false,
             });
 
-            const [appsRes, apptsRes, annRes] = await Promise.all([
+            const [appsRes, annRes] = await Promise.all([
                 applicationsPromise,
-                appointmentsPromise,
                 announcementsPromise,
             ]);
 
@@ -55,15 +48,12 @@ export default function NeedsYourAttentionWidget() {
                 .filter(Boolean)
                 .slice(0, 2);
 
-            const pendingAppts = apptsRes.pendingCount || 0;
-
             const activeAnnCount = annRes.count || (annRes.data ? annRes.data.length : 0);
             const latestAnnTitle = annRes.data && annRes.data.length > 0 ? annRes.data[0].title : null;
 
             setData({
                 pendingApplicationsCount: appsCount,
                 applicationSampleNames: sampleNames,
-                pendingAppointmentsCount: pendingAppts,
                 activeAnnouncementsCount: activeAnnCount,
                 latestAnnouncementTitle: latestAnnTitle,
             });
@@ -80,7 +70,6 @@ export default function NeedsYourAttentionWidget() {
 
     const totalOpenCount =
         data.pendingApplicationsCount +
-        data.pendingAppointmentsCount +
         data.activeAnnouncementsCount;
 
     return (
@@ -140,34 +129,7 @@ export default function NeedsYourAttentionWidget() {
                     </button>
                 </div>
 
-                {/* Row 2: Pending Appointments */}
-                <div className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-secondary-50/50 transition-colors">
-                    <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-100/90 text-amber-700 flex items-center justify-center flex-shrink-0 shadow-2xs">
-                            <Calendar className="w-5 h-5 sm:w-5.5 sm:h-5.5" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                                {data.pendingAppointmentsCount > 0
-                                    ? `${data.pendingAppointmentsCount} ${data.pendingAppointmentsCount === 1 ? 'appointment is' : 'appointments are'} pending approval`
-                                    : 'All sacrament requests attended'}
-                            </p>
-                            <p className="text-[11px] sm:text-xs text-secondary-500 font-medium truncate mt-0.5">
-                                Sacrament booking requests awaiting celebrant assignment
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/appointments')}
-                        className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border bg-white hover:bg-secondary-50 text-xs font-semibold text-foreground shadow-2xs transition-colors cursor-pointer"
-                    >
-                        <span>Open queue</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-secondary-400" />
-                    </button>
-                </div>
-
-                {/* Row 3: Active System Announcements */}
+                {/* Row 2: Active System Announcements */}
                 <div className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-secondary-50/50 transition-colors">
                     <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
                         <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-secondary-100 text-secondary-700 flex items-center justify-center flex-shrink-0 shadow-2xs">
