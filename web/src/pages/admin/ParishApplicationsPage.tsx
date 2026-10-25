@@ -35,6 +35,8 @@ import {
 } from '../../lib/supabase/parishApplications';
 import { UserName } from '../../components/ui/UserName';
 import ApplicantReviewPanel from '../../components/admin/ApplicantReviewPanel';
+import { useAuth } from '../../contexts/AuthContext';
+import { AccessDeniedView } from '../../components/auth/RoleRoute';
 
 function formatSubmissionDate(dateStr?: string | null): string {
   if (!dateStr) return 'Recently submitted';
@@ -743,6 +745,12 @@ function ParishApplicationDrawer({
 }
 
 export default function ParishApplicationsPage() {
+  const { profile } = useAuth();
+
+  if (profile && profile.role !== 'super_admin') {
+    return <AccessDeniedView />;
+  }
+
 
   const [applications, setApplications] = useState<ParishApplicationWithRelations[]>([]);
   const [loading, setLoading] = useState(true);

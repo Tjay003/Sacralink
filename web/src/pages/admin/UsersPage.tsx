@@ -14,6 +14,7 @@ import RowActionsMenu, { type RowAction } from '../../components/common/RowActio
 import { useToast } from '../../contexts/toastContext';
 import TransferOwnershipModal from '../../components/admin/TransferOwnershipModal';
 import Pagination from '../../components/common/Pagination';
+import { AccessDeniedView } from '../../components/auth/RoleRoute';
 import { 
     Building2, 
     Layers, 
@@ -104,6 +105,8 @@ export default function UsersPage() {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [collapsedChurchIds, setCollapsedChurchIds] = useState<Set<string>>(new Set());
 
+    const isAuthorized = currentUser?.role === 'super_admin' || currentUser?.role === 'church_admin';
+
     // When currentUser loads or changes, ensure church_admin defaults properly
     useEffect(() => {
         if (currentUser?.role === 'church_admin') {
@@ -115,6 +118,11 @@ export default function UsersPage() {
     }, [currentUser]);
 
     const fetchData = useCallback(async () => {
+        if (!currentUser) return;
+        if (!isAuthorized) {
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             const token = session?.access_token || '';
@@ -519,6 +527,10 @@ export default function UsersPage() {
         setSortField('role');
         setSortOrder('asc');
     };
+
+    if (currentUser && !isAuthorized) {
+        return <AccessDeniedView />;
+    }
 
     if (loading) {
         return (

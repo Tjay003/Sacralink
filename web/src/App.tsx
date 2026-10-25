@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ToastProvider from './components/common/ToastProvider';
 import { featureFlags } from './config/featureFlags';
+import RoleRoute from './components/auth/RoleRoute.tsx';
 
 // Pages
 import LoginPage from './pages/auth/LoginPage.tsx';
@@ -102,9 +103,16 @@ function AppRoutes() {
         <Route path="calendar" element={<LiturgicalCalendarPage />} />
         <Route path="profile" element={<ProfilePage />} />
 
-        {/* Admin-only routes */}
+        {/* Admin-only routes: Super Admin and Church Admin */}
         {featureFlags.admin.enabled && (
-          <Route path="users" element={<UsersPage />} />
+          <Route
+            path="users"
+            element={
+              <RoleRoute allowedRoles={['super_admin', 'church_admin']}>
+                <UsersPage />
+              </RoleRoute>
+            }
+          />
         )}
 
         {/* Church routes - always enabled */}
@@ -118,7 +126,14 @@ function AppRoutes() {
         </Route>
 
         {/* Parish Applications - Super Admin only */}
-        <Route path="admin/applications" element={<ParishApplicationsPage />} />
+        <Route
+          path="admin/applications"
+          element={
+            <RoleRoute allowedRoles={['super_admin']}>
+              <ParishApplicationsPage />
+            </RoleRoute>
+          }
+        />
 
         {/* Appointments - always enabled */}
         <Route path="appointments" element={<AppointmentsPage />} />
@@ -126,19 +141,47 @@ function AppRoutes() {
         {/* Real-Time Messaging - Ticket 05 */}
         <Route path="messages" element={<MessagingPage />} />
 
-        {/* Donations - feature flagged */}
+        {/* Donations - Church Admin only */}
         {featureFlags.donations.enabled && (
-          <Route path="donations" element={<DonationsPage />} />
+          <Route
+            path="donations"
+            element={
+              <RoleRoute allowedRoles={['church_admin']}>
+                <DonationsPage />
+              </RoleRoute>
+            }
+          />
         )}
 
-        {/* System Announcements - Admin only */}
+        {/* System Announcements - Super Admin only */}
         {featureFlags.admin.enabled && (
-          <Route path="admin/system-announcements" element={<SystemAnnouncementsPage />} />
+          <Route
+            path="admin/system-announcements"
+            element={
+              <RoleRoute allowedRoles={['super_admin']}>
+                <SystemAnnouncementsPage />
+              </RoleRoute>
+            }
+          />
         )}
 
         {/* Knowledge Base - Church Admin & Super Admin */}
-        <Route path="knowledge" element={<KnowledgeBasePage />} />
-        <Route path="admin/knowledge-base" element={<KnowledgeBasePage />} />
+        <Route
+          path="knowledge"
+          element={
+            <RoleRoute allowedRoles={['super_admin', 'church_admin']}>
+              <KnowledgeBasePage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="admin/knowledge-base"
+          element={
+            <RoleRoute allowedRoles={['super_admin', 'church_admin']}>
+              <KnowledgeBasePage />
+            </RoleRoute>
+          }
+        />
       </Route>
       <Route path="/privacy" element={<PrivacyPage />} />
       {/* The recovery link signs the user in, so the reset page must also exist for a signed-in session */}
