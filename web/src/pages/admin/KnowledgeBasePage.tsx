@@ -523,7 +523,7 @@ export default function KnowledgeBasePage() {
                 <div className="space-y-6">
                     {/* New Section Form */}
                     {editingId === 'new' && (
-                <div className="bg-white border-2 border-primary/30 rounded-xl p-5 shadow-sm space-y-4">
+                <div className="bg-white border-2 border-primary/30 rounded-2xl p-5 shadow-xs space-y-4">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                         <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
                             <Plus className="w-4 h-4 text-primary" />
@@ -648,7 +648,7 @@ export default function KnowledgeBasePage() {
                     <p className="text-sm text-muted">Loading knowledge base...</p>
                 </div>
             ) : sections.length === 0 && editingId !== 'new' ? (
-                <div className="text-center py-16 bg-secondary-50 rounded-xl border border-dashed border-secondary-200 p-6 space-y-4">
+                <div className="text-center py-16 bg-secondary-50 rounded-2xl border border-dashed border-border p-6 space-y-4">
                     <BookOpen className="w-10 h-10 text-muted mx-auto mb-1 opacity-50" />
                     <div>
                         <p className="text-sm font-medium text-foreground mb-1">No knowledge sections yet</p>
@@ -673,7 +673,7 @@ export default function KnowledgeBasePage() {
             ) : (
                 <div className="space-y-3">
                     {sections.map((section) => (
-                        <div key={section.id} className="bg-white border rounded-xl overflow-hidden shadow-sm hover:border-primary/30 transition-colors">
+                        <div key={section.id} className="bg-white border border-border rounded-2xl overflow-hidden shadow-2xs hover:border-primary/30 transition-colors">
                             {editingId === section.id ? (
                                 /* Edit Mode */
                                 <div className="p-5 space-y-4">
@@ -864,7 +864,7 @@ export default function KnowledgeBasePage() {
                     {/* Metric Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Total Inquiries */}
-                        <div className="bg-white border border-border rounded-xl p-5 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white border border-border rounded-2xl p-5 shadow-2xs flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Total Inquiries</p>
                                 <p className="text-2xl font-bold text-foreground mt-1">{totalInquiries}</p>
@@ -876,7 +876,7 @@ export default function KnowledgeBasePage() {
                         </div>
 
                         {/* Unanswered / Low Confidence Questions */}
-                        <div className="bg-white border border-amber-200 rounded-xl p-5 shadow-2xs flex items-center justify-between bg-amber-50/20">
+                        <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-2xs flex items-center justify-between bg-amber-50/20">
                             <div>
                                 <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider">Unanswered Questions</p>
                                 <p className="text-2xl font-bold text-amber-950 mt-1">{unansweredCount}</p>
@@ -888,7 +888,7 @@ export default function KnowledgeBasePage() {
                         </div>
 
                         {/* Documented Topics */}
-                        <div className="bg-white border border-border rounded-xl p-5 shadow-2xs flex items-center justify-between">
+                        <div className="bg-white border border-border rounded-2xl p-5 shadow-2xs flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Documented Topics</p>
                                 <p className="text-2xl font-bold text-foreground mt-1">{sections.length}</p>
@@ -930,7 +930,7 @@ export default function KnowledgeBasePage() {
                             <p className="text-sm text-muted">Analyzing chat logs and inquiries...</p>
                         </div>
                     ) : recentUnanswered.length === 0 ? (
-                        <div className="text-center py-16 bg-emerald-50/40 rounded-xl border border-dashed border-emerald-200 p-6 space-y-3">
+                        <div className="text-center py-16 bg-emerald-50/40 rounded-2xl border border-dashed border-emerald-200 p-6 space-y-3">
                             <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto opacity-80" />
                             <div>
                                 <p className="text-sm font-semibold text-foreground">No Unanswered Inquiries Found</p>
@@ -944,7 +944,7 @@ export default function KnowledgeBasePage() {
                             {recentUnanswered.map((item) => (
                                 <div
                                     key={item.id}
-                                    className={`bg-white border rounded-xl p-4 shadow-2xs space-y-3 transition-colors ${
+                                    className={`bg-white border rounded-2xl p-4 shadow-2xs space-y-3 transition-colors ${
                                         item.status === 'unanswered' ? 'border-amber-200/80 hover:border-amber-300' : 'border-border opacity-75'
                                     }`}
                                 >
@@ -1068,8 +1068,8 @@ export default function KnowledgeBasePage() {
                 {polishedCandidate && (
                     <div className="p-1 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                         {/* Original Draft */}
-                        <div className="flex flex-col border border-secondary-200 rounded-xl overflow-hidden bg-secondary-50/40">
-                            <div className="px-4 py-2.5 bg-secondary-100/70 border-b border-secondary-200 flex items-center justify-between">
+                        <div className="flex flex-col border border-border rounded-2xl overflow-hidden bg-secondary-50/40">
+                            <div className="px-4 py-2.5 bg-secondary-100/70 border-b border-border flex items-center justify-between">
                                 <span className="text-xs font-semibold text-secondary-700 uppercase tracking-wider">Original Draft</span>
                                 <span className="text-[11px] text-muted">{formContent.length} chars</span>
                             </div>
@@ -1082,7 +1082,7 @@ export default function KnowledgeBasePage() {
                         </div>
 
                         {/* Polished Pastoral Version */}
-                        <div className="flex flex-col border-2 border-amber-300 rounded-xl overflow-hidden bg-amber-50/20 shadow-xs">
+                        <div className="flex flex-col border-2 border-amber-300 rounded-2xl overflow-hidden bg-amber-50/20 shadow-xs">
                             <div className="px-4 py-2.5 bg-amber-100/60 border-b border-amber-200 flex items-center justify-between">
                                 <span className="text-xs font-semibold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
@@ -1182,8 +1182,8 @@ export default function KnowledgeBasePage() {
                             return (
                                 <div
                                     key={tmpl.id}
-                                    className={`border rounded-xl p-4 transition-all ${
-                                        isSelected ? 'border-primary/40 bg-primary/[0.02]' : 'border-secondary-200 bg-white'
+                                    className={`border rounded-2xl p-4 transition-all shadow-2xs ${
+                                        isSelected ? 'border-primary/40 bg-primary/[0.02]' : 'border-border bg-white'
                                     }`}
                                 >
                                     <div className="flex items-start justify-between gap-3">

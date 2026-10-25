@@ -33,24 +33,40 @@ test.describe('Ticket 05: useChatInsights (Unit Tests)', () => {
         }
     });
 
-    test('generateFaqDraft creates clean titles and structured pastoral markdown', () => {
+    test('correctly identifies unanswered query when sources_used or metadata.sourcesUsed is 0', () => {
+        expect(isUnansweredQuery('Mass is celebrated every Sunday', { sources_used: 0 })).toBe(true);
+        expect(isUnansweredQuery('Mass is celebrated every Sunday', { metadata: { sourcesUsed: 0 } })).toBe(true);
+        expect(isUnansweredQuery({ answer: 'Mass is celebrated every Sunday', sources_used: 0 })).toBe(true);
+        expect(isUnansweredQuery({ answer: 'Mass is celebrated every Sunday', metadata: { sourcesUsed: 0 } })).toBe(true);
+        expect(isUnansweredQuery({ answer: 'Mass is celebrated every Sunday', sources_used: 3 })).toBe(false);
+    });
+
+    test('generateFaqDraft creates clean titles preserving user question and structured pastoral markdown', () => {
         const draft1 = generateFaqDraft(
             'Can we rent the parish hall for receptions?',
             'I do not have information about parish hall rentals. Please contact the parish office.'
         );
         expect(draft1.title).toContain('Parish Hall Rentals');
+        expect(draft1.title).toContain('Can we rent the parish hall for receptions?');
         expect(draft1.draftContent).toContain('Frequently Asked Question');
         expect(draft1.draftContent).toContain('Can we rent the parish hall for receptions?');
         expect(draft1.draftContent).toContain('Pastoral Guidance & Parish Policy');
 
         const draft2 = generateFaqDraft('How much is the crypt niche or columbarium?');
         expect(draft2.title).toContain('Columbarium');
+        expect(draft2.title).toContain('How much is the crypt niche or columbarium?');
         expect(draft2.draftContent).toContain('Frequently Asked Question');
 
         const draft3 = generateFaqDraft('Can non-parishioners get married in this church?');
         expect(draft3.title).toContain('Wedding Requirements');
+        expect(draft3.title).toContain('Can non-parishioners get married in this church?');
 
         const draft4 = generateFaqDraft('May binyag ba tuwing Sabado?');
         expect(draft4.title).toContain('Baptism Requirements');
+        expect(draft4.title).toContain('May binyag ba tuwing Sabado?');
+
+        // Uncategorized general question preserves question text
+        const draft5 = generateFaqDraft('is there reserved parking for senior citizens?');
+        expect(draft5.title).toBe('Is there reserved parking for senior citizens?');
     });
 });

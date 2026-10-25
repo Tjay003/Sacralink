@@ -110,6 +110,31 @@ The Eucharistic celebration is the highest and most efficacious form of Christia
 - **Certificates (Baptismal, Confirmation, Marriage):** Standard document processing turnaround is three to five (3–5) working days upon verification of parish registers.
 - **Rush Requests:** Handled on a case-by-case basis subject to archive availability and verification by the parish secretary.`,
     },
+    {
+        id: 'ministries-volunteers',
+        title: 'Parish Ministries & Volunteer Opportunities',
+        category: 'Community & Ministries',
+        content: `### Parish Ministries & Volunteer Participation
+
+Our parish warmly welcomes all parishioners who feel called by the Holy Spirit to share their time, talents, and dedication in service of the Church and community. Active participation in parish ministries fosters spiritual growth and enriches the liturgical life of our parish family.
+
+#### Liturgical & Pastoral Ministries
+- **Extraordinary Ministers of Holy Communion (EMHC):** Assist priests in reverently distributing the Holy Eucharist during Mass and bringing Holy Communion to the sick, elderly, and homebound.
+- **Lectors & Commentators:** Proclaim the Word of God during liturgical celebrations, read general intercessions, and guide the congregation through the rites.
+- **Altar Servers (Knights of the Altar):** Young parishioners reverently trained to assist the clergy at the altar during Sunday Masses, solemnities, and sacramental rites.
+- **Parish Music Ministry & Choirs:** Lift the hearts of worshippers to God through sacred liturgical music, hymns, and choral accompaniment.
+- **Catechists & Faith Formators:** Teach Catholic doctrine, scripture, and sacramental preparation to children, youth, and catechumens.
+- **Youth Ministry & Parish Outreach:** Empower young Catholics through fellowship, spiritual formation, mission work, and community service.
+
+#### Requirements for Ministry Service
+- **Practicing Catholic:** Must be a practicing Catholic in full communion with the Church who regularly attends Sunday Mass and receives the Sacraments.
+- **Pastor Recommendation:** Endorsement or recommendation from the parish priest, spiritual director, or village BEC leader.
+- **Formation Seminars & Renewal Recollections:** Mandatory attendance at liturgical ministry orientation, spiritual recollections, and annual renewal seminars.
+
+#### How to Register & Get Involved
+- **Parish Office Registration:** Visit the parish formation desk or parish office during regular office hours to complete the Volunteer Ministry Registration Form.
+- **Ministry Coordinators:** You may also approach any ministry coordinator or parish pastoral council officer after Sunday Eucharistic celebrations.`,
+    },
 ];
 
 export function getStarterFaqTemplates(): StarterFaqTemplate[] {

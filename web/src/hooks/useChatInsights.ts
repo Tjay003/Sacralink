@@ -7,6 +7,20 @@ export interface InquiryInsightItem {
     user_question: string;
     assistant_reply: string;
     status: 'unanswered' | 'addressed';
+    sources_used?: number | null;
+    metadata?: {
+        sourcesUsed?: number | null;
+        [key: string]: unknown;
+    } | null;
+}
+
+export interface ChatLogInquiryLike {
+    answer?: string | null;
+    sources_used?: number | null;
+    metadata?: {
+        sourcesUsed?: number | null;
+        [key: string]: unknown;
+    } | null;
 }
 
 export interface ChatInsightsData {
@@ -39,16 +53,36 @@ export const UNANSWERED_KEYWORDS: readonly string[] = [
 
 /**
  * Checks whether an assistant's response indicated low confidence, missing knowledge,
- * or instructed the parishioner to contact the office.
+ * zero sources retrieved, or instructed the parishioner to contact the office.
  */
-export function isUnansweredQuery(answer: string | null | undefined): boolean {
-    if (!answer) return true;
-    const lower = answer.toLowerCase();
+export function isUnansweredQuery(
+    logOrAnswer?: string | null | ChatLogInquiryLike,
+    options?: {
+        sources_used?: number | null;
+        metadata?: { sourcesUsed?: number | null; [key: string]: unknown } | null;
+    }
+): boolean {
+    if (logOrAnswer === null || logOrAnswer === undefined) return true;
+
+    if (typeof logOrAnswer === 'object') {
+        if (logOrAnswer.sources_used === 0) return true;
+        if (logOrAnswer.metadata?.sourcesUsed === 0) return true;
+        if (!logOrAnswer.answer) return true;
+        const lower = logOrAnswer.answer.toLowerCase();
+        return UNANSWERED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
+    }
+
+    if (options?.sources_used === 0) return true;
+    if (options?.metadata?.sourcesUsed === 0) return true;
+
+    if (!logOrAnswer) return true;
+    const lower = logOrAnswer.toLowerCase();
     return UNANSWERED_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()));
 }
 
 /**
- * Generates a dignified FAQ title and structured markdown draft from a parishioner inquiry.
+ * Generates a dignified FAQ title and structured markdown draft from a parishioner inquiry,
+ * preserving and polishing the parishioner's actual inquiry as the primary FAQ topic.
  */
 export function generateFaqDraft(
     question: string,
@@ -56,29 +90,31 @@ export function generateFaqDraft(
 ): { title: string; draftContent: string } {
     const cleanQuestion = question.trim().replace(/^["']|["']$/g, '');
     const baseQuestion = cleanQuestion.replace(/[?!.]+$/, '').trim();
-
-    let title = baseQuestion;
+    const formattedQuestion = baseQuestion.charAt(0).toUpperCase() + baseQuestion.slice(1);
     const lower = baseQuestion.toLowerCase();
 
+    let categoryPrefix = '';
     if (/hall|rent|reception|pasilidad|facility/i.test(lower)) {
-        title = 'Parish Hall Rentals & Reception Guidelines';
+        categoryPrefix = 'Parish Hall Rentals';
     } else if (/crypt|columbarium|niche|libingan|burial|funeral/i.test(lower)) {
-        title = 'Columbarium, Crypt & Funeral Inquiries';
+        categoryPrefix = 'Columbarium & Crypt';
     } else if (/wedding|kasal|marriage|marry|married|matrimony/i.test(lower)) {
-        title = 'Wedding Requirements & Guidelines';
+        categoryPrefix = 'Wedding Requirements';
     } else if (/baptism|binyag|godparent|ninong|ninang/i.test(lower)) {
-        title = 'Baptism Requirements & Godparent Policies';
+        categoryPrefix = 'Baptism Requirements';
     } else if (/mass|misa|schedule/i.test(lower)) {
-        title = 'Mass Schedules & Liturgical Guidelines';
+        categoryPrefix = 'Mass Schedules';
     } else if (/confession|kumpisal/i.test(lower)) {
-        title = 'Confession Schedules & Sacramental Preparation';
+        categoryPrefix = 'Confession Schedules';
     } else if (/office|hours|schedule|operating/i.test(lower)) {
-        title = 'Parish Office Hours & General Inquiries';
+        categoryPrefix = 'Parish Office Hours';
     } else if (/certificate|record|katunayan/i.test(lower)) {
-        title = 'Sacramental Certificates & Records Requests';
-    } else {
-        title = baseQuestion.charAt(0).toUpperCase() + baseQuestion.slice(1);
+        categoryPrefix = 'Sacramental Records';
     }
+
+    const title = categoryPrefix
+        ? `${categoryPrefix}: ${formattedQuestion}?`
+        : (cleanQuestion.endsWith('?') ? `${formattedQuestion}?` : formattedQuestion);
 
     const contextSnippet = replySnippet
         ? `\n> *Assistant Note:* "${replySnippet.slice(0, 140)}..."\n`
@@ -190,11 +226,20 @@ export function useChatInsights(churchId: string | null): ChatInsightsData {
             user_question: log.question,
             assistant_reply: log.answer,
             status: addressedIds.has(log.id) ? 'addressed' : 'unanswered',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            sources_used: (log as any).sources_used,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            metadata: (log as any).metadata,
         }));
     }, [rawLogs, addressedIds]);
 
     const recentUnanswered: InquiryInsightItem[] = useMemo(() => {
-        return allInquiries.filter((item) => isUnansweredQuery(item.assistant_reply));
+        return allInquiries.filter((item) =>
+            isUnansweredQuery(item.assistant_reply, {
+                sources_used: item.sources_used,
+                metadata: item.metadata,
+            })
+        );
     }, [allInquiries]);
 
     const unansweredCount = useMemo(() => {

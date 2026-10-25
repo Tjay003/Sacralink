@@ -4,9 +4,9 @@ import { offlinePolishFallback } from '../src/lib/supabase/aiScribe';
 import { getSeed, loginAs, serviceClient } from './support';
 
 test.describe('Ticket 03: Starter FAQ Templates & Offline Polish Utility', () => {
-  test('starter FAQ templates contain exactly 5 canonical Catholic parish policies', () => {
+  test('starter FAQ templates contain canonical Catholic parish policies', () => {
     const templates = getStarterFaqTemplates();
-    expect(templates).toHaveLength(5);
+    expect(templates).toHaveLength(6);
 
     const requiredIds = [
       'dress-code-decorum',
@@ -14,6 +14,7 @@ test.describe('Ticket 03: Starter FAQ Templates & Offline Polish Utility', () =>
       'wedding-timeline',
       'funeral-blessing',
       'mass-intentions-turnaround',
+      'ministries-volunteers',
     ];
 
     for (const id of requiredIds) {
@@ -124,12 +125,12 @@ test.describe('Ticket 03: AI Scribe & Starter Templates E2E Flow', () => {
 
     // Deselect all, then select only "Church Dress Code & Liturgical Decorum"
     await page.getByRole('button', { name: 'Deselect All' }).click();
-    await expect(page.getByText('0 of 5 templates selected')).toBeVisible();
+    await expect(page.getByText(`0 of ${STARTER_FAQ_TEMPLATES.length} templates selected`)).toBeVisible();
 
     // Select the first template checkbox
     const firstCheckbox = page.locator('input[type="checkbox"]').first();
     await firstCheckbox.check();
-    await expect(page.getByText('1 of 5 templates selected')).toBeVisible();
+    await expect(page.getByText(`1 of ${STARTER_FAQ_TEMPLATES.length} templates selected`)).toBeVisible();
 
     // Click "Create Selected Sections (1)"
     const createSelectedBtn = page.getByRole('button', { name: /Create Selected Sections \(1\)/i });

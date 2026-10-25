@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     BookOpen,
     Search,
@@ -12,6 +12,276 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import type { Church } from '../../hooks/useChurches';
 import type { ChurchKnowledgeSection } from '../../lib/supabase/churchKnowledge';
+
+interface BulletItem {
+    text: string;
+    indented: boolean;
+}
+
+type GuideBlock =
+    | { type: 'heading'; level: number; text: string }
+    | { type: 'paragraph'; lines: string[] }
+    | { type: 'bullet-list'; items: BulletItem[] }
+    | { type: 'quote'; lines: string[] }
+    | { type: 'divider' };
+
+/**
+ * Lightweight inline markdown parser for bold, italics, code, and inline formatting.
+ */
+function parseGuideInline(text: string): React.ReactNode[] {
+    if (!text) return [];
+    const regex = /(`[^`]+`|\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|(?<=\s|^)_[^_]+_(?=\s|$|[.,!?;]))/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.substring(lastIndex, match.index));
+        }
+
+        const token = match[0];
+        const key = `${match.index}-${token}`;
+
+        if (token.startsWith('`') && token.endsWith('`')) {
+            parts.push(
+                <code key={key} className="px-1.5 py-0.5 rounded font-mono text-xs bg-secondary-100 text-secondary-900 border border-border">
+                    {token.slice(1, -1)}
+                </code>
+            );
+        } else if ((token.startsWith('***') && token.endsWith('***'))) {
+            parts.push(
+                <strong key={key} className="font-semibold text-foreground">
+                    <em className="italic text-secondary-700">
+                        {parseGuideInline(token.slice(3, -3))}
+                    </em>
+                </strong>
+            );
+        } else if ((token.startsWith('**') && token.endsWith('**')) || (token.startsWith('__') && token.endsWith('__'))) {
+            parts.push(
+                <strong key={key} className="font-semibold text-foreground">
+                    {parseGuideInline(token.slice(2, -2))}
+                </strong>
+            );
+        } else if (token.startsWith('*') && token.endsWith('*')) {
+            parts.push(
+                <em key={key} className="italic text-secondary-700">
+                    {token.slice(1, -1)}
+                </em>
+            );
+        } else {
+            parts.push(token);
+        }
+
+        lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+    }
+
+    return parts;
+}
+
+/**
+ * Splits plain text response into structured blocks (headings, paragraphs, bullet lists, quotes).
+ */
+function parseGuideBlocks(content: string): GuideBlock[] {
+    const rawLines = content.split(/\r?\n/);
+    const blocks: GuideBlock[] = [];
+
+    let currentParagraph: string[] = [];
+    let currentBulletList: BulletItem[] = [];
+    let currentQuote: string[] = [];
+
+    const flushParagraph = () => {
+        if (currentParagraph.length > 0) {
+            blocks.push({ type: 'paragraph', lines: [...currentParagraph] });
+            currentParagraph = [];
+        }
+    };
+
+    const flushBulletList = () => {
+        if (currentBulletList.length > 0) {
+            blocks.push({ type: 'bullet-list', items: [...currentBulletList] });
+            currentBulletList = [];
+        }
+    };
+
+    const flushQuote = () => {
+        if (currentQuote.length > 0) {
+            blocks.push({ type: 'quote', lines: [...currentQuote] });
+            currentQuote = [];
+        }
+    };
+
+    const flushAll = () => {
+        flushParagraph();
+        flushBulletList();
+        flushQuote();
+    };
+
+    for (let i = 0; i < rawLines.length; i++) {
+        const line = rawLines[i];
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+            flushAll();
+            continue;
+        }
+
+        // Horizontal divider: --- or *** or ___
+        if (/^(\*{3,}|-{3,}|_{3,})$/.test(trimmed)) {
+            flushAll();
+            blocks.push({ type: 'divider' });
+            continue;
+        }
+
+        // Headings: #, ##, ###, ####
+        const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+        if (headingMatch) {
+            flushAll();
+            blocks.push({
+                type: 'heading',
+                level: headingMatch[1].length,
+                text: headingMatch[2],
+            });
+            continue;
+        }
+
+        // Blockquote: > text
+        const quoteMatch = trimmed.match(/^>\s*(.*)$/);
+        if (quoteMatch) {
+            flushParagraph();
+            flushBulletList();
+            currentQuote.push(quoteMatch[1]);
+            continue;
+        } else {
+            flushQuote();
+        }
+
+        // Bullet list item: * text, - text, • text, + text
+        const bulletMatch = line.match(/^(\s*)([-*•+])\s+(.+)$/);
+        if (bulletMatch) {
+            flushParagraph();
+            currentBulletList.push({
+                indented: bulletMatch[1].length >= 2,
+                text: bulletMatch[3],
+            });
+            continue;
+        }
+
+        // Indented list continuations
+        if (currentBulletList.length > 0 && /^\s{2,}\S/.test(line)) {
+            currentBulletList[currentBulletList.length - 1].text += ' ' + trimmed;
+            continue;
+        }
+
+        // Regular paragraph line
+        flushBulletList();
+        currentParagraph.push(line);
+    }
+
+    flushAll();
+    return blocks;
+}
+
+/**
+ * Clean, lightweight markdown renderer for pastoral guides and church FAQs.
+ */
+export function ParishGuideMarkdown({ content }: { content: string }) {
+    const blocks = parseGuideBlocks(content);
+
+    return (
+        <div className="space-y-3 font-sans" data-testid="parish-guide-markdown">
+            {blocks.map((block, idx) => {
+                switch (block.type) {
+                    case 'heading': {
+                        if (block.level <= 2) {
+                            return (
+                                <h3
+                                    key={idx}
+                                    className="text-base sm:text-lg font-bold text-foreground mt-4 mb-1.5 first:mt-0 tracking-tight"
+                                >
+                                    {parseGuideInline(block.text)}
+                                </h3>
+                            );
+                        }
+                        if (block.level === 3) {
+                            return (
+                                <h4
+                                    key={idx}
+                                    className="text-sm sm:text-base font-bold text-foreground mt-3.5 mb-1 first:mt-0"
+                                >
+                                    {parseGuideInline(block.text)}
+                                </h4>
+                            );
+                        }
+                        return (
+                            <h5
+                                key={idx}
+                                className="text-xs sm:text-sm font-semibold text-foreground/90 mt-2.5 mb-1 first:mt-0"
+                            >
+                                {parseGuideInline(block.text)}
+                            </h5>
+                        );
+                    }
+                    case 'paragraph':
+                        return (
+                            <p
+                                key={idx}
+                                className="text-xs sm:text-sm text-foreground/80 leading-relaxed"
+                            >
+                                {block.lines.map((line, lIdx) => (
+                                    <React.Fragment key={lIdx}>
+                                        {lIdx > 0 && <br />}
+                                        {parseGuideInline(line)}
+                                    </React.Fragment>
+                                ))}
+                            </p>
+                        );
+                    case 'bullet-list':
+                        return (
+                            <ul key={idx} className="space-y-1.5 my-2 pl-0.5">
+                                {block.items.map((item, iIdx) => (
+                                    <li
+                                        key={iIdx}
+                                        className={`flex items-start gap-2.5 ${item.indented ? 'ml-4' : ''} text-xs sm:text-sm text-foreground/85 leading-relaxed`}
+                                    >
+                                        <span
+                                            className="inline-block w-1.5 h-1.5 rounded-full mt-2 bg-amber-500 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        <span className="flex-1">
+                                            {parseGuideInline(item.text)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        );
+                    case 'quote':
+                        return (
+                            <blockquote
+                                key={idx}
+                                className="pl-3.5 border-l-2 border-amber-400 bg-amber-50/40 py-1.5 rounded-r my-2 text-xs sm:text-sm italic text-secondary-800"
+                            >
+                                {block.lines.map((line, lIdx) => (
+                                    <React.Fragment key={lIdx}>
+                                        {lIdx > 0 && <br />}
+                                        {parseGuideInline(line)}
+                                    </React.Fragment>
+                                ))}
+                            </blockquote>
+                        );
+                    case 'divider':
+                        return <hr key={idx} className="my-3 border-border/70" />;
+                    default:
+                        return null;
+                }
+            })}
+        </div>
+    );
+}
 
 interface ParishGuideTabProps {
     church: Church;
@@ -320,9 +590,7 @@ export default function ParishGuideTab({
                                         className="border-t border-border/60 bg-secondary-50/30 p-4 sm:p-6 space-y-5 animate-in fade-in duration-200"
                                     >
                                         {/* Guide Content Text */}
-                                        <div className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed font-sans">
-                                            {section.content}
-                                        </div>
+                                        <ParishGuideMarkdown content={section.content} />
 
                                         {/* Contextual Assistant Deep-Linking Footer */}
                                         <div className="pt-4 border-t border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
