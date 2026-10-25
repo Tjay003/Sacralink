@@ -74,6 +74,10 @@ export default function KnowledgeBasePage() {
     const [saveError, setSaveError] = useState<string | null>(null);
     const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
 
+    // Delete confirmation state
+    const [deletingSection, setDeletingSection] = useState<{ id: string; title: string } | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // AI Scribe & Polish state
     const [isPolishing, setIsPolishing] = useState(false);
     const [showPolishReviewModal, setShowPolishReviewModal] = useState(false);
@@ -289,13 +293,25 @@ export default function KnowledgeBasePage() {
         await handleSave();
     };
 
-    const handleDelete = async (id: string, title: string) => {
-        if (!confirm(`Delete section "${title}"? This cannot be undone.`)) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).from('church_knowledge_sections').delete().eq('id', id);
-        await fetchSections();
-        // Auto-sync so deleted content is removed from AI immediately
-        await handleSync(true);
+    const handleDeleteClick = (id: string, title: string) => {
+        setDeletingSection({ id, title });
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deletingSection) return;
+        setIsDeleting(true);
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any).from('church_knowledge_sections').delete().eq('id', deletingSection.id);
+            await fetchSections();
+            // Auto-sync so deleted content is removed from AI immediately
+            await handleSync(true);
+            setDeletingSection(null);
+        } catch (err: unknown) {
+            console.error('Failed to delete section:', err);
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     // Polish with AI
@@ -837,8 +853,8 @@ export default function KnowledgeBasePage() {
                                                         <Pencil className="w-3.5 h-3.5" />
                                                     </button>
                                                     <button
-                                                        onClick={e => { e.stopPropagation(); handleDelete(section.id, section.title); }}
-                                                        className="p-1.5 text-secondary-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        onClick={e => { e.stopPropagation(); handleDeleteClick(section.id, section.title); }}
+                                                        className="p-1.5 text-secondary-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                                         title="Delete section"
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
@@ -1038,6 +1054,19 @@ export default function KnowledgeBasePage() {
                 loading={saving}
                 onConfirm={handleProceedAnyway}
                 onCancel={() => setShowDiscrepancyModal(false)}
+            />
+
+            {/* Delete Section Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={!!deletingSection}
+                title="Delete Section"
+                message={`Are you sure you want to delete "${deletingSection?.title}"? This cannot be undone.`}
+                confirmLabel="Delete Section"
+                cancelLabel="Cancel"
+                variant="danger"
+                loading={isDeleting}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setDeletingSection(null)}
             />
 
             {/* Review & Apply AI Polish Modal */}

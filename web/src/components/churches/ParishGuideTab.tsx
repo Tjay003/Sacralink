@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
     BookOpen,
     Search,
@@ -12,6 +13,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import type { Church } from '../../hooks/useChurches';
 import type { ChurchKnowledgeSection } from '../../lib/supabase/churchKnowledge';
+import { useAuth, useCanManageChurch } from '../../contexts/AuthContext';
 
 interface BulletItem {
     text: string;
@@ -296,6 +298,10 @@ export default function ParishGuideTab({
     loading = false,
     onNavigateTab,
 }: ParishGuideTabProps) {
+    const { profile } = useAuth();
+    const isParishioner = profile?.role === 'user';
+    const canManage = useCanManageChurch(church.id);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -372,6 +378,15 @@ export default function ParishGuideTab({
 
                     {sections.length > 0 && (
                         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                            {canManage && (
+                                <Link
+                                    to="/knowledge"
+                                    className="text-xs font-semibold text-secondary-700 hover:text-foreground bg-secondary-100 hover:bg-secondary-200 px-3 py-1.5 rounded-xl border border-border transition-colors cursor-pointer flex items-center gap-1.5"
+                                >
+                                    <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                    <span>Manage Knowledge</span>
+                                </Link>
+                            )}
                             <button
                                 type="button"
                                 onClick={handleExpandAll}
@@ -462,24 +477,36 @@ export default function ParishGuideTab({
                     </div>
 
                     <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                window.dispatchEvent(
-                                    new CustomEvent('sacralink:open-assistant', {
-                                        detail: {
-                                            churchId: church.id,
-                                            churchName: church.name,
-                                            query: 'What are the general guidelines and services offered at this parish?',
-                                        },
-                                    })
-                                );
-                            }}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-600 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
-                        >
-                            <Sparkles className="w-4 h-4 text-amber-300" />
-                            <span>Ask Parish Assistant ✨</span>
-                        </button>
+                        {isParishioner && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    window.dispatchEvent(
+                                        new CustomEvent('sacralink:open-assistant', {
+                                            detail: {
+                                                churchId: church.id,
+                                                churchName: church.name,
+                                                query: 'What are the general guidelines and services offered at this parish?',
+                                            },
+                                        })
+                                    );
+                                }}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-600 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+                            >
+                                <Sparkles className="w-4 h-4 text-amber-300" />
+                                <span>Ask Parish Assistant ✨</span>
+                            </button>
+                        )}
+
+                        {canManage && (
+                            <Link
+                                to="/knowledge"
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-600 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+                            >
+                                <BookOpen className="w-4 h-4" />
+                                <span>Manage Knowledge Base</span>
+                            </Link>
+                        )}
 
                         {onNavigateTab && (
                             <button
@@ -592,26 +619,28 @@ export default function ParishGuideTab({
                                         {/* Guide Content Text */}
                                         <ParishGuideMarkdown content={section.content} />
 
-                                        {/* Contextual Assistant Deep-Linking Footer */}
-                                        <div className="pt-4 border-t border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                                            <div className="flex items-center gap-1.5 text-xs text-muted">
-                                                <Info className="w-3.5 h-3.5 text-primary shrink-0" />
-                                                <span>
-                                                    Need specific clarifications or ready to book? Ask below:
-                                                </span>
-                                            </div>
+                                        {/* Contextual Assistant Deep-Linking Footer (Strictly for Parishioners) */}
+                                        {isParishioner && (
+                                            <div className="pt-4 border-t border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-1.5 text-xs text-muted">
+                                                    <Info className="w-3.5 h-3.5 text-primary shrink-0" />
+                                                    <span>
+                                                        Need specific clarifications or ready to book? Ask below:
+                                                    </span>
+                                                </div>
 
-                                            <button
-                                                type="button"
-                                                data-testid={`ask-assistant-${section.id}`}
-                                                onClick={() => handleAskAssistant(section)}
-                                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-600 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
-                                                title="Open AI Parish Assistant with this guide topic"
-                                            >
-                                                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-                                                <span>Have questions about this? Ask Parish Assistant ✨</span>
-                                            </button>
-                                        </div>
+                                                <button
+                                                    type="button"
+                                                    data-testid={`ask-assistant-${section.id}`}
+                                                    onClick={() => handleAskAssistant(section)}
+                                                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary hover:bg-primary-600 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+                                                    title="Open AI Parish Assistant with this guide topic"
+                                                >
+                                                    <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                                                    <span>Have questions about this? Ask Parish Assistant ✨</span>
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
