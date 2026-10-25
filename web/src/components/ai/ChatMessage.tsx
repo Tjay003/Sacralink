@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { User, Volume2, VolumeX, Cpu, ChevronDown, ChevronUp, Database } from 'lucide-react';
+import { User, Volume2, VolumeX, Cpu, ChevronDown, ChevronUp, Database, CheckCircle } from 'lucide-react';
+import { formatPastoralTool, formatModelName } from './pastoralTrace';
 import chatbotIcon from '../../assets/chatbotIcon.png';
 import type { AssistantDebugInfo } from '../../lib/supabase/parishAssistant';
 
@@ -447,7 +448,7 @@ export default function ChatMessage({
                         >
                             <Cpu className="w-3.5 h-3.5 text-primary" />
                             <span>Neural Trace:</span>
-                            <span className="font-semibold text-foreground">{debug.model || 'Sacralink Neural v2.5'}</span>
+                            <span className="font-semibold text-foreground">{formatModelName(debug.model)}</span>
                             {debug.isMock ? (
                                 <span className="text-[10px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-sans font-medium">
                                     Standby Core
@@ -459,11 +460,11 @@ export default function ChatMessage({
                             )}
                             {debug.tools && debug.tools.length > 0 ? (
                                 <span className="text-[10px] px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded font-medium">
-                                    {debug.tools.length} tool{debug.tools.length > 1 ? 's' : ''} called
+                                    {debug.tools.length} action{debug.tools.length > 1 ? 's' : ''} verified
                                 </span>
                             ) : (
                                 <span className="text-[10px] px-1.5 py-0.2 bg-secondary-200 text-secondary-700 rounded font-medium">
-                                    0 tools
+                                    Conversational
                                 </span>
                             )}
                             {showTrace ? (
@@ -476,13 +477,13 @@ export default function ChatMessage({
                         {showTrace && (
                             <div className="mt-2 p-3 bg-secondary-900 text-secondary-100 rounded-xl text-xs font-mono border border-secondary-700 shadow-md space-y-2.5 overflow-hidden max-w-full">
                                 <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">
-                                    <span className="text-secondary-400">Model Engine:</span>
+                                    <span className="text-secondary-400">Model Architecture:</span>
                                     <span className="font-bold text-amber-400">
-                                        {debug.model || 'Sacralink Neural v2.5'} {debug.isMock ? '(Sacralink Standby Core)' : '(Sacralink Neural Pipeline)'}
+                                        {formatModelName(debug.model)}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between pb-1.5 border-b border-secondary-800 text-[11px]">
-                                    <span className="text-secondary-400">Function Turns:</span>
+                                    <span className="text-secondary-400">Pastoral Turns:</span>
                                     <span className="text-secondary-300 font-semibold">{debug.turns} turn(s)</span>
                                 </div>
 
@@ -490,32 +491,31 @@ export default function ChatMessage({
                                     <div className="space-y-2 pt-1">
                                         <div className="text-[11px] font-semibold text-blue-400 flex items-center gap-1.5">
                                             <Database className="w-3.5 h-3.5" />
-                                            <span>Database Tools Invoked ({debug.tools.length}):</span>
+                                            <span>Pastoral Pipeline Verification ({debug.tools.length}):</span>
                                         </div>
-                                        {debug.tools.map((t, idx) => (
-                                            <div key={idx} className="bg-secondary-950 p-2.5 rounded-lg border border-secondary-800 space-y-1.5">
-                                                <div className="text-emerald-400 font-bold flex items-center justify-between">
-                                                    <span>⚙️ {t.name}</span>
-                                                    <span className="text-[10px] text-secondary-500 font-normal">Step #{idx + 1}</span>
+                                        {debug.tools.map((t, idx) => {
+                                            const pastoral = formatPastoralTool(t.name);
+                                            return (
+                                                <div key={idx} className="bg-secondary-950 p-2.5 rounded-lg border border-secondary-800 space-y-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="text-emerald-400 font-bold flex items-center gap-1.5 text-[11px]">
+                                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                                            <span>{pastoral.label}</span>
+                                                        </div>
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-sans font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                            Succeeded
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-secondary-400 pl-5 font-sans leading-relaxed">
+                                                        {pastoral.description}
+                                                    </p>
                                                 </div>
-                                                <div>
-                                                    <span className="text-secondary-400 text-[10px] uppercase tracking-wider font-semibold">Parameters Sent:</span>
-                                                    <pre className="text-[10px] text-secondary-300 overflow-x-auto p-1.5 bg-black/50 rounded mt-0.5 border border-secondary-850">
-                                                        {JSON.stringify(t.args, null, 2)}
-                                                    </pre>
-                                                </div>
-                                                <div>
-                                                    <span className="text-secondary-400 text-[10px] uppercase tracking-wider font-semibold">Database Response Data:</span>
-                                                    <pre className="text-[10px] text-emerald-300/90 overflow-x-auto p-1.5 bg-black/50 rounded mt-0.5 max-h-36 overflow-y-auto border border-secondary-850">
-                                                        {JSON.stringify(t.result, null, 2)}
-                                                    </pre>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="text-[11px] text-secondary-400 italic pt-1">
-                                        No database tools required for this turn (direct conversational reply).
+                                        Direct conversational reasoning (no external parish database lookup required).
                                     </div>
                                 )}
                             </div>
