@@ -323,26 +323,24 @@ test.describe('Who sees a ticket', () => {
 });
 
 test.describe('New Message picker', () => {
-  test('a Parishioner and a Volunteer get New Ticket (and the staff channel) instead of contacts', async ({ page }) => {
+  test('a Parishioner and a Volunteer get direct contacts and an open ticket shortcut', async ({ page }) => {
     await loginAsAccount(page, parishioner);
     await page.goto('/messages');
     await page.getByRole('button', { name: 'New message' }).first().click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByText('Messages to the parish office are tickets so the office can track and answer them.')).toBeVisible();
-    await expect(dialog.getByText('Local Church Admin')).toHaveCount(0);
-    await expect(dialog.getByRole('button', { name: 'Open staff channel' })).toHaveCount(0);
-    await dialog.getByRole('button', { name: 'New Ticket' }).click();
+    await expect(dialog.getByRole('button', { name: 'Open a ticket' })).toBeVisible();
+    await expect(dialog.getByText('Local Church Admin', { exact: true })).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Open a ticket' }).click();
     await expect(page.locator('h2', { hasText: 'Contact Parish Office' })).toBeVisible();
 
     const volunteerView = await freshPage(page, unassignedVolunteer);
     await volunteerView.page.goto('/messages');
     await volunteerView.page.getByRole('button', { name: 'New message' }).first().click();
     const volunteerDialog = volunteerView.page.getByRole('dialog');
-    await expect(volunteerDialog.getByRole('button', { name: 'New Ticket' })).toBeVisible();
-    await expect(volunteerDialog.getByRole('button', { name: 'Open staff channel' })).toBeVisible();
-    await expect(volunteerDialog.getByText('Local Church Admin')).toHaveCount(0);
-    await volunteerDialog.getByRole('button', { name: 'Open staff channel' }).click();
-    await expect(volunteerView.page.locator('h2', { hasText: /Staff Channel/ })).toBeVisible();
+    await expect(volunteerDialog.getByRole('button', { name: 'Open a ticket' })).toBeVisible();
+    await expect(volunteerDialog.getByText('Local Church Admin', { exact: true })).toHaveCount(0);
+    await volunteerDialog.getByRole('button', { name: 'Open a ticket' }).click();
+    await expect(volunteerView.page.locator('h2', { hasText: 'Contact Parish Office' })).toBeVisible();
     await volunteerView.close();
   });
 
