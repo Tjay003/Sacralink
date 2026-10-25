@@ -18,7 +18,7 @@ export interface ApplicationChecklist {
 
 export const APPLICANT_BUCKET = 'applicant-verification';
 export const APPLICANT_MAX_ATTEMPTS = 3;
-export const APPLICANT_POSITIONS = ['Parish Priest', 'Parochial Administrator', 'Parish Secretary', 'Other'] as const;
+export const APPLICANT_POSITIONS = ['Church Admin', 'Priest'] as const;
 
 export interface ApplicantVerificationInput {
   legal_name: string;

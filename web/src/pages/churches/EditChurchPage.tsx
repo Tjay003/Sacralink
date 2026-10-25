@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Navigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useChurch } from '../../hooks/useChurches';
+import { extractPatronSaint } from '../../utils/churchUtils';
 import {
     ArrowLeft,
     X,
@@ -102,7 +103,7 @@ export default function EditChurchPage() {
         if (church) {
             setFormData({
                 name: church.name || '',
-                patron_saint: (church as { patron_saint?: string | null }).patron_saint || church.name || '',
+                patron_saint: (church as { patron_saint?: string | null }).patron_saint || extractPatronSaint(church.name),
                 address: church.address || '',
                 contact_number: church.contact_number || '',
                 email: church.email || '',

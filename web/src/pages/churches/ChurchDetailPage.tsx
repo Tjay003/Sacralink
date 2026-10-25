@@ -38,6 +38,7 @@ import {
     BookOpen
 } from 'lucide-react';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
+import { extractPatronSaint } from '../../utils/churchUtils';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
@@ -1017,7 +1018,7 @@ export default function ChurchDetailPage() {
                                 <h2 className="text-xl font-bold text-foreground">About this parish</h2>
                                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
                                     <Sparkles className="w-3 h-3 text-amber-500" />
-                                    Patron: {church.name.split('Parish')[0] || 'Holy Patron'}
+                                    Patron: {extractPatronSaint(church.name)}
                                 </span>
                             </div>
 
@@ -1245,7 +1246,7 @@ export default function ChurchDetailPage() {
                             <div className="space-y-2.5 text-xs">
                                 <div className="flex justify-between py-1 border-b border-border/60">
                                     <span className="text-muted">Patron</span>
-                                    <span className="font-semibold text-foreground text-right">{church.name.split('Parish')[0] || 'Parish Patron'}</span>
+                                    <span className="font-semibold text-foreground text-right">{extractPatronSaint(church.name)}</span>
                                 </div>
                                 {priestName && (
                                     <div className="flex justify-between py-1 border-b border-border/60">

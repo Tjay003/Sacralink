@@ -31,6 +31,7 @@ export default function ChurchesPage() {
     };
 
     const canAddChurch = profile?.role === 'super_admin';
+    const canOnboardChurch = profile?.role !== 'church_admin';
     const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     // Filter churches by search query and status
@@ -81,14 +82,16 @@ export default function ChurchesPage() {
                     <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Churches</h1>
                 </div>
                 <div className="flex items-center gap-2.5">
-                    <button
-                        type="button"
-                        onClick={() => navigate('/churches/apply')}
-                        className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
-                    >
-                        <ShieldCheck className="w-4 h-4 text-secondary-500" />
-                        <span>Onboard church</span>
-                    </button>
+                    {canOnboardChurch && (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/churches/apply')}
+                            className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-2xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer"
+                        >
+                            <ShieldCheck className="w-4 h-4 text-secondary-500" />
+                            <span>Onboard church</span>
+                        </button>
+                    )}
                     {canAddChurch && (
                         <button
                             type="button"
