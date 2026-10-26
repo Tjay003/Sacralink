@@ -343,7 +343,7 @@ export default function MessagingPage() {
             if (!silent) setLoadingConversations(true);
             const { data, error } = await fetchUserConversations(user.id);
             if (error) throw error;
-            const convs = data || [];
+            const convs = (data || []).filter((c) => !(c.type === 'channel' && !c.church_id));
             setConversations(convs);
             // A Church Admin also sees one content-free stub line per ticket they escalated
             setTicketStubs(profile?.role === 'church_admin' ? await listEscalatedTicketStubs() : []);
@@ -582,7 +582,8 @@ export default function MessagingPage() {
     // Helper to get conversation display name
     const getDisplayName = useCallback((conv: ConversationWithDetails) => {
         if (conv.type === 'channel') {
-            return conv.title || (conv.church?.name ? `${conv.church.name} Staff Channel` : 'Parish Staff Channel');
+            const rawTitle = conv.title || (conv.church?.name ? `${conv.church.name} Staff Channel` : 'Parish Staff Channel');
+            return rawTitle.replace(/( Staff Channel)+$/i, ' Staff Channel');
         }
         if (conv.type === 'group' && conv.title) {
             return conv.title;
