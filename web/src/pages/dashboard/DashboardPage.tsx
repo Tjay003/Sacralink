@@ -59,7 +59,7 @@ export default function DashboardPage() {
         // Fetch real data from Supabase
         const { count } = await supabase
             .from('profiles')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true }).is('deleted_at', null);
 
         setUserCount(count || 0);
     };

@@ -62,7 +62,7 @@ export default function DashboardLayout() {
             try {
                 const [parishesRes, membersRes] = await Promise.all([
                     supabase.from('churches').select('*', { count: 'exact', head: true }).eq('is_active', true),
-                    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+                    supabase.from('profiles').select('*', { count: 'exact', head: true }).is('deleted_at', null),
                 ]);
                 if (cancelled || parishesRes.error || membersRes.error) return;
                 setDioceseSummary({ parishes: parishesRes.count ?? 0, members: membersRes.count ?? 0 });

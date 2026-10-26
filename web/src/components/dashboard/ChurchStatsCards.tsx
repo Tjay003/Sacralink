@@ -45,12 +45,12 @@ export default function ChurchStatsCards({ churchId }: ChurchStatsCardsProps) {
                 supabase
                     .from('profiles')
                     .select('*', { count: 'exact', head: true })
-                    .eq('assigned_church_id', churchId),
+                    .eq('assigned_church_id', churchId).is('deleted_at', null),
                 supabase
                     .from('profiles')
                     .select('*', { count: 'exact', head: true })
                     .eq('assigned_church_id', churchId)
-                    .gte('created_at', thirtyDaysAgo.toISOString()),
+                    .gte('created_at', thirtyDaysAgo.toISOString()).is('deleted_at', null),
             ]);
 
             // 2 & 3. Pending & Upcoming Appointments

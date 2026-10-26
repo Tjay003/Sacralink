@@ -83,7 +83,7 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                     const memberCountPromise = supabase
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
-                        .eq('assigned_church_id', church.id);
+                        .eq('assigned_church_id', church.id).is('deleted_at', null);
 
                     // Count approved future appointments/events via appointments domain module
                     const appointmentCountPromise = getDashboardAppointmentCounts(church.id);

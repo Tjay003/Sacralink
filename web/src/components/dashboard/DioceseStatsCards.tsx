@@ -41,7 +41,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
             // 2. Total Members — filtered by church if one is selected
             let membersQuery = supabase
                 .from('profiles')
-                .select('*', { count: 'exact', head: true });
+                .select('*', { count: 'exact', head: true }).is('deleted_at', null);
 
             if (selectedChurchId) {
                 membersQuery = membersQuery.eq('assigned_church_id', selectedChurchId);
@@ -50,7 +50,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
                 // Remove the .not filter so we include all registered users
                 membersQuery = supabase
                     .from('profiles')
-                    .select('*', { count: 'exact', head: true });
+                    .select('*', { count: 'exact', head: true }).is('deleted_at', null);
             }
 
             const { count: totalMembers, error: membersError } = await membersQuery;
@@ -63,7 +63,7 @@ export default function DioceseStatsCards({ selectedChurchId = null }: Props) {
             let newMembersQuery = supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
-                .gte('created_at', thirtyDaysAgo.toISOString());
+                .gte('created_at', thirtyDaysAgo.toISOString()).is('deleted_at', null);
 
             if (selectedChurchId) {
                 newMembersQuery = newMembersQuery.eq('assigned_church_id', selectedChurchId);
