@@ -337,7 +337,57 @@ export async function fetchUserConversations(userId: string): Promise<{
         let conversations: any[] | null = null;
         let convError: any = null;
 
-        if (isStaffOrClergy && staffChurchId) {
+        if (myProfile?.role === 'super_admin') {
+            const queryPromises: Promise<any>[] = [];
+
+            // Query A: Conversations where Super Admin is an explicit participant (direct chats, joined channels)
+            if (conversationIds.length > 0) {
+                queryPromises.push(
+                    Promise.resolve(
+                        supabase
+                            .from('conversations')
+                            .select(CONVERSATION_LIST_SELECT)
+                            .in('id', conversationIds)
+                    )
+                );
+            }
+
+            // Query B: All church-wide staff channels across all churches so they appear in Super Admin's Staff tab
+            queryPromises.push(
+                Promise.resolve(
+                    supabase
+                        .from('conversations')
+                        .select(CONVERSATION_LIST_SELECT)
+                        .eq('type', 'channel')
+                        .is('ticket_number', null)
+                )
+            );
+
+            // Query C: Super Admin platform tickets and escalated church tickets
+            queryPromises.push(
+                Promise.resolve(
+                    supabase
+                        .from('conversations')
+                        .select(CONVERSATION_LIST_SELECT)
+                        .or('ticket_lane.eq.platform,not.escalated_at.is.null')
+                        .not('ticket_number', 'is', null)
+                )
+            );
+
+            const results = await Promise.all(queryPromises);
+            const combinedMap = new Map<string, any>();
+
+            results.forEach((res) => {
+                if (res.error) {
+                    convError = res.error;
+                }
+                (res.data || []).forEach((c: any) => {
+                    combinedMap.set(c.id, c);
+                });
+            });
+
+            conversations = Array.from(combinedMap.values());
+        } else if (isStaffOrClergy && staffChurchId) {
             const queryPromises: Promise<any>[] = [];
 
             // Query A: Conversations where user is an explicit participant
@@ -824,6 +874,22 @@ export async function getOrCreateChurchStaffChannel(
     error: Error | null;
 }> {
     try {
+        // Prefer the database-enforced SECURITY DEFINER RPC so any staff or super_admin
+        // can reliably provision/sync the staff channel without client-side RLS errors
+        try {
+            const { data: rpcConvId, error: rpcError } = await supabase.rpc('ensure_church_staff_channel', {
+                p_church_id: churchId,
+            });
+            if (!rpcError && rpcConvId) {
+                return { conversationId: rpcConvId, error: null };
+            }
+            if (rpcError) {
+                console.warn('⚠️ [Messaging] ensure_church_staff_channel RPC returned error, using fallback:', rpcError);
+            }
+        } catch (rpcErr) {
+            console.warn('⚠️ [Messaging] Failed calling ensure_church_staff_channel RPC, using fallback:', rpcErr);
+        }
+
         // 1. Look for existing channel conversation for this church
         const { data: existingConvs, error: findError } = await supabase
             .from('conversations')

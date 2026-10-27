@@ -886,9 +886,19 @@ export default function MessagingPage() {
         if (!user) return;
         setLoadingContacts(true);
         try {
-            const { data, error } = await fetchAvailableContacts();
-            if (error) throw error;
-            setContacts(data || []);
+            const [contactsRes, churchesRes] = await Promise.allSettled([
+                fetchAvailableContacts(),
+                directFetchChurches(),
+            ]);
+            if (contactsRes.status === 'fulfilled') {
+                if (contactsRes.value.error) throw contactsRes.value.error;
+                setContacts(contactsRes.value.data || []);
+            } else {
+                console.error('Error fetching contacts in modal:', contactsRes.reason);
+            }
+            if (churchesRes.status === 'fulfilled' && churchesRes.value) {
+                setAllChurches(churchesRes.value);
+            }
         } catch (err) {
             console.error('Error fetching contacts in modal:', err);
         } finally {
@@ -937,6 +947,12 @@ export default function MessagingPage() {
             if (targetChurchId) {
                 churchId = targetChurchId;
             } else {
+                try {
+                    const churches = await directFetchChurches();
+                    if (churches) setAllChurches(churches);
+                } catch (err) {
+                    console.error('Error refreshing churches for parish picker:', err);
+                }
                 setShowParishPickerModal(true);
                 return;
             }
@@ -2357,9 +2373,14 @@ export default function MessagingPage() {
                             {(profile?.role === 'priest' ? [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'priest', label: 'Priests' },
+                                { id: 'volunteer', label: 'Volunteers' },
                                 { id: 'user', label: 'Parishioners' },
                             ] : profile?.role === 'super_admin' ? [
-                                { id: 'all', label: 'All Church Admins' },
+                                { id: 'all', label: 'All Staff' },
+                                { id: 'church_admin', label: 'Church Admins' },
+                                { id: 'priest', label: 'Priests' },
+                                { id: 'volunteer', label: 'Volunteers' },
                             ] : profile?.role === 'user' || isVolunteer ? [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'volunteer', label: 'Volunteers' },

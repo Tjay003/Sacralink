@@ -2,7 +2,7 @@
 
 Type: task
 **Blocked by:** None (can start immediately)
-**Status:** ready-for-agent
+**Status:** completed
 
 **What to build:** Fix all root causes preventing newly created churches and their staff (`church_admin`, `priest`, `volunteer`) from showing up in `/messages` (both in the **Staff** tab and in the **New Direct Conversation** modal):
 
@@ -23,7 +23,7 @@ Type: task
    - In `MessagingPage.tsx`, re-fetch `allChurches` (`directFetchChurches()`) whenever the `"New Direct Conversation"` modal or `"Parish Staff Channel"` picker modal opens so newly added churches appear immediately without a full page reload.
 
 ## Acceptance Criteria
-- [ ] Creating a new church and assigning a `church_admin`, `priest`, or `volunteer` automatically creates the church's Staff Channel (`type = 'channel'`) and enrolls its staff.
-- [ ] Logging in as a `priest`, `volunteer`, `church_admin`, or `super_admin` shows the new church's Staff Channel under the **Staff** tab on `/messages`, and clicking `"Staff channel"` opens it without RLS errors.
-- [ ] Opening `"New Direct Conversation"` on `/messages` shows the newly created church in the parish dropdown and lists its assigned staff (`church_admin`, `priest`, `volunteer`).
-- [ ] Verified against local Docker Supabase (`web/e2e-local`), and `tsc -b` + `vite build` pass cleanly.
+- [x] Creating a new church and assigning a `church_admin`, `priest`, or `volunteer` automatically creates the church's Staff Channel (`type = 'channel'`) and enrolls its staff.
+- [x] Logging in as a `priest`, `volunteer`, `church_admin`, or `super_admin` shows the new church's Staff Channel under the **Staff** tab on `/messages`, and clicking `"Staff channel"` opens it without RLS errors.
+- [x] Opening `"New Direct Conversation"` on `/messages` shows the newly created church in the parish dropdown and lists its assigned staff (`church_admin`, `priest`, `volunteer`).
+- [x] Verified against local Docker Supabase (`web/e2e-local`), and `tsc -b` + `vite build` pass cleanly.

@@ -1673,6 +1673,10 @@ export type Database = {
         Args: { _initiator: string; _target: string }
         Returns: boolean
       }
+      ensure_church_staff_channel: {
+        Args: { p_church_id: string }
+        Returns: string
+      }
       start_direct_conversation: {
         Args: { p_target: string }
         Returns: string
