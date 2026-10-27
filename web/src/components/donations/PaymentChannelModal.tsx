@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { supabase } from '../../lib/supabase';
+import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 
 export interface PaymentChannelModalProps {
     isOpen: boolean;
@@ -147,18 +148,28 @@ export default function PaymentChannelModal({
         setError(null);
 
         try {
-            const trimmedNumber = number.trim() || null;
+            const trimmedNumber = number.trim();
+
+            if (trimmedNumber && !isValidPhilippineMobile(trimmedNumber)) {
+                setError(
+                    `Please enter a valid Philippine mobile number (11 digits starting with 09, or +639XXXXXXXXX).`
+                );
+                setSaving(false);
+                return;
+            }
+
+            const finalNumber = trimmedNumber || null;
             const finalQr = qrUrl.trim() || null;
 
             const updatePayload = isGcash
                 ? {
-                    gcash_number: trimmedNumber,
+                    gcash_number: finalNumber,
                     ...(finalQr
                         ? { gcash_qr_url: finalQr, donation_qr_url: finalQr }
                         : { gcash_qr_url: null, donation_qr_url: null }),
                   }
                 : {
-                    maya_number: trimmedNumber,
+                    maya_number: finalNumber,
                     ...(finalQr
                         ? { maya_qr_url: finalQr }
                         : { maya_qr_url: null }),
@@ -224,20 +235,22 @@ export default function PaymentChannelModal({
                 {/* Account / Mobile Number Input */}
                 <div>
                     <label className="block text-xs font-bold text-foreground mb-1.5 uppercase tracking-wide">
-                        {isGcash ? 'GCash Mobile Number' : 'Maya Account / Mobile Number'}
+                        {isGcash ? 'GCash Mobile Number' : 'Maya Mobile Number'}
                     </label>
                     <input
-                        type="text"
+                        type="tel"
+                        inputMode="tel"
                         value={number}
-                        onChange={(e) => setNumber(e.target.value)}
-                        placeholder={isGcash ? '0917 123 4567' : '0918 123 4567 or Merchant ID'}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm font-medium text-foreground bg-white placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        onChange={(e) => setNumber(sanitizePhilippineMobileInput(e.target.value))}
+                        placeholder={isGcash ? '09171234567 or +639171234567' : '09181234567 or +639181234567'}
+                        maxLength={number.startsWith('+') ? 13 : 11}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm font-medium font-mono text-foreground bg-white placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         disabled={saving}
                     />
                     <p className="text-xs text-muted mt-1.5 leading-relaxed">
                         {isGcash
-                            ? 'Enter the 11-digit mobile number registered to your parish GCash account.'
-                            : 'Enter the Maya registered mobile number or merchant ID for your parish offertory.'}
+                            ? 'Enter the 11-digit mobile number (09XXXXXXXXX) or +639XXXXXXXXX registered to your parish GCash account.'
+                            : 'Enter the 11-digit mobile number (09XXXXXXXXX) or +639XXXXXXXXX registered to your parish Maya account.'}
                     </p>
                 </div>
 

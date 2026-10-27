@@ -5,6 +5,7 @@ import { seedDefaultRequirements } from '../../lib/supabase/requirements';
 import { Building2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 
 /**
  * AddChurchPage - Form to create a new church
@@ -108,7 +109,7 @@ export default function AddChurchPage() {
 
         // Validate PH contact number if provided
         const contact = formData.contact_number.trim();
-        if (contact && !/^(\+639|09)\d{9}$/.test(contact.replace(/\s/g, ''))) {
+        if (contact && !isValidPhilippineMobile(contact)) {
             setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
             setLoading(false);
             return;
@@ -277,18 +278,16 @@ export default function AddChurchPage() {
                             type="tel"
                             value={formData.contact_number}
                             onChange={(e) => {
-                                let raw = e.target.value.replace(/[^0-9+]/g, '');
-                                if (raw.startsWith('09')) raw = '+63' + raw.slice(1);
-                                if (raw.length > 13) raw = raw.slice(0, 13);
-                                setFormData({ ...formData, contact_number: raw });
+                                const sanitized = sanitizePhilippineMobileInput(e.target.value);
+                                setFormData({ ...formData, contact_number: sanitized });
                             }}
                             disabled={loading}
-                            className="input w-full"
+                            className="input w-full font-mono"
                             placeholder="09171234567 or +639171234567"
-                            maxLength={13}
+                            maxLength={formData.contact_number.startsWith('+') ? 13 : 11}
                             inputMode="tel"
                         />
-                        <p className="text-xs text-muted mt-1">Philippine mobile number — 11 digits starting with 09, or +639XXXXXXXXXX</p>
+                        <p className="text-xs text-muted mt-1">Philippine mobile number — 11 digits starting with 09, or +639XXXXXXXXX</p>
                     </div>
 
                     {/* Email */}

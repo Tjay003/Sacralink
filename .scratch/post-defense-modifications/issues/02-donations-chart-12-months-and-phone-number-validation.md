@@ -2,7 +2,7 @@
 
 Type: task
 **Blocked by:** None (can start immediately)
-**Status:** ready-for-agent
+**Status:** completed
 
 **What to build:** Fix the hardcoded 6-month donation statistics chart and enforce strict Philippine mobile number limits/validation on church contact and payment channel forms:
 
@@ -18,7 +18,7 @@ Type: task
    - Leave the `Latitude` and `Longitude` coordinate fine-tuning inputs in `ChurchLocationPicker.tsx` untouched.
 
 ## Acceptance Criteria
-- [ ] `DonationsPage.tsx` defaults to showing **12 months** of giving statistics with a **6M / 12M** toggle, and in `"Real data"` mode every month's bar reflects actual verified donation sums from the database rather than static placeholder values.
-- [ ] `AddChurchPage.tsx`, `EditChurchPage.tsx`, and `PaymentChannelModal.tsx` restrict phone/GCash/Maya number inputs to valid Philippine mobile number length and reject invalid/incomplete phone numbers on save.
-- [ ] `ChurchLocationPicker.tsx` coordinate number inputs are not modified by this ticket.
-- [ ] `tsc -b` and `vite build` pass cleanly.
+- [x] `DonationsPage.tsx` defaults to showing **12 months** of giving statistics with a **6M / 12M** toggle, and in `"Real data"` mode every month's bar reflects actual verified donation sums from the database rather than static placeholder values.
+- [x] `AddChurchPage.tsx`, `EditChurchPage.tsx`, and `PaymentChannelModal.tsx` restrict phone/GCash/Maya number inputs to valid Philippine mobile number length and reject invalid/incomplete phone numbers on save.
+- [x] `ChurchLocationPicker.tsx` coordinate number inputs are not modified by this ticket.
+- [x] `tsc -b` and `vite build` pass cleanly.

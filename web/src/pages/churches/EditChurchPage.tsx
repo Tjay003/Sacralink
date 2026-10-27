@@ -27,7 +27,7 @@ import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker
 import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDocumentsManager';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
-import { isMobileNumber, MOBILE_NUMBER_HINT, MOBILE_NUMBER_LENGTH, toMobileDigits } from '../../lib/phoneNumbers';
+import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 
 type ChurchStatus = 'verified_active' | 'unverified' | 'inactive' | 'active';
 
@@ -260,17 +260,17 @@ export default function EditChurchPage() {
         }
 
         const contact = formData.contact_number.trim();
-        if (contact && !/^(\+639|09)\d{9}$/.test(contact.replace(/\s/g, ''))) {
+        if (contact && !isValidPhilippineMobile(contact)) {
             setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
-        // Older saved numbers may hold dashes or spaces ("0917-123-4567"); compare and save them as digits
-        const gcash = toMobileDigits(formData.gcash_number);
-        const maya = toMobileDigits(formData.maya_number);
-        if ((gcash && !isMobileNumber(gcash)) || (maya && !isMobileNumber(maya))) {
-            setError(`GCash and Maya numbers must be ${MOBILE_NUMBER_HINT}.`);
+        // Validate GCash and Maya mobile numbers if provided
+        const gcash = formData.gcash_number.trim();
+        const maya = formData.maya_number.trim();
+        if ((gcash && !isValidPhilippineMobile(gcash)) || (maya && !isValidPhilippineMobile(maya))) {
+            setError(`GCash and Maya numbers must be a valid Philippine mobile number (09XXXXXXXXX or +639XXXXXXXXX).`);
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -546,15 +546,13 @@ export default function EditChurchPage() {
                                             type="tel"
                                             value={formData.contact_number}
                                             onChange={(e) => {
-                                                let raw = e.target.value.replace(/[^0-9+]/g, '');
-                                                if (raw.startsWith('09')) raw = '+63' + raw.slice(1);
-                                                if (raw.length > 13) raw = raw.slice(0, 13);
-                                                setFormData({ ...formData, contact_number: raw });
+                                                const sanitized = sanitizePhilippineMobileInput(e.target.value);
+                                                setFormData({ ...formData, contact_number: sanitized });
                                             }}
                                             disabled={loading}
-                                            placeholder="+63 9XX XXX XXXX"
+                                            placeholder="09171234567 or +639171234567"
                                             className="input w-full text-sm font-mono"
-                                            maxLength={13}
+                                            maxLength={formData.contact_number.startsWith('+') ? 13 : 11}
                                             inputMode="tel"
                                         />
                                         <p className="text-[10px] text-muted mt-1">e.g. 09171234567 or +639171234567</p>
@@ -732,13 +730,13 @@ export default function EditChurchPage() {
                                         </label>
                                         <input
                                             type="tel"
-                                            inputMode="numeric"
+                                            inputMode="tel"
                                             value={formData.gcash_number}
-                                            onChange={(e) => setFormData({ ...formData, gcash_number: toMobileDigits(e.target.value) })}
-                                            maxLength={MOBILE_NUMBER_LENGTH}
+                                            onChange={(e) => setFormData({ ...formData, gcash_number: sanitizePhilippineMobileInput(e.target.value) })}
+                                            maxLength={formData.gcash_number.startsWith('+') ? 13 : 11}
                                             disabled={loading}
                                             className="input w-full text-xs font-mono"
-                                            placeholder="e.g., 09171234567"
+                                            placeholder="e.g., 09171234567 or +639171234567"
                                         />
                                     </div>
 
@@ -794,13 +792,13 @@ export default function EditChurchPage() {
                                         </label>
                                         <input
                                             type="tel"
-                                            inputMode="numeric"
+                                            inputMode="tel"
                                             value={formData.maya_number}
-                                            onChange={(e) => setFormData({ ...formData, maya_number: toMobileDigits(e.target.value) })}
-                                            maxLength={MOBILE_NUMBER_LENGTH}
+                                            onChange={(e) => setFormData({ ...formData, maya_number: sanitizePhilippineMobileInput(e.target.value) })}
+                                            maxLength={formData.maya_number.startsWith('+') ? 13 : 11}
                                             disabled={loading}
                                             className="input w-full text-xs font-mono"
-                                            placeholder="e.g., 09179876543"
+                                            placeholder="e.g., 09179876543 or +639179876543"
                                         />
                                     </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
     Heart,
@@ -61,7 +61,10 @@ export default function DonationsPage() {
     const [recentSouls, setRecentSouls] = useState<Array<{ id: string; maskedName: string; created_at: string | null }>>([]);
 
     // 6-Month Chart State & Demo Preview Toggle
+    // Chart State: 6M / 12M Range & Demo Preview Toggle
     const [isDemoChart, setIsDemoChart] = useState(true);
+    const [chartPeriod, setChartPeriod] = useState<'6m' | '12m'>('12m');
+    const [monthlyTotals, setMonthlyTotals] = useState<Record<string, number>>({});
 
     // Payment settings switches
     const [acceptCashless, setAcceptCashless] = useState(true);
@@ -109,7 +112,8 @@ export default function DonationsPage() {
             const { data, error } = await supabase
                 .from('donations')
                 .select('amount, status, created_at')
-                .eq('church_id', assignedChurchId);
+                .eq('church_id', assignedChurchId)
+                .limit(10000);
 
             if (!error && data) {
                 const now = new Date();
@@ -147,6 +151,16 @@ export default function DonationsPage() {
                 const totalDecided = data.filter((d) => d.status === 'verified' || d.status === 'rejected').length;
                 const totalVerified = data.filter((d) => d.status === 'verified').length;
                 const verificationRate = totalDecided > 0 ? Math.round((totalVerified / totalDecided) * 100) : 94;
+
+                // Aggregate verified donations by month (yyyy-MM) for dynamic rolling chart
+                const totals: Record<string, number> = {};
+                data.forEach((d) => {
+                    if (d.status === 'verified' && d.created_at) {
+                        const monthKey = format(new Date(d.created_at), 'yyyy-MM');
+                        totals[monthKey] = (totals[monthKey] || 0) + Number(d.amount || 0);
+                    }
+                });
+                setMonthlyTotals(totals);
 
                 setStats({
                     receivedThisMonth,
@@ -367,29 +381,70 @@ export default function DonationsPage() {
 
     const churchName = church?.name || 'Your Parish';
 
-    // 6-Month Chart Data
-    const demoChartData = [
-        { month: 'May', amount: 28, height: '48%' },
-        { month: 'Jun', amount: 31, height: '54%' },
-        { month: 'Jul', amount: 36, height: '64%' },
-        { month: 'Aug', amount: 33, height: '58%' },
-        { month: 'Sep', amount: 38, height: '68%' },
-        { month: 'Oct', amount: 41.2, height: '84%', active: true },
-    ];
+    // Rolling months ending in the current month (12 months or 6 months)
+    const rollingMonths = useMemo(() => {
+        const now = new Date();
+        const count = chartPeriod === '12m' ? 12 : 6;
+        const months = [];
+        for (let i = count - 1; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = format(d, 'yyyy-MM');
+            const label = format(d, 'MMM');
+            const isCurrent = i === 0;
+            months.push({ key, label, isCurrent });
+        }
+        return months;
+    }, [chartPeriod]);
 
-    const realChartData = [
-        { month: 'May', amount: 15, height: '35%' },
-        { month: 'Jun', amount: 22, height: '45%' },
-        { month: 'Jul', amount: 28, height: '55%' },
-        { month: 'Aug', amount: 30, height: '60%' },
-        { month: 'Sep', amount: 35, height: '70%' },
-        {
-            month: format(new Date(), 'MMM'),
-            amount: Math.round((stats.receivedThisMonth / 1000) * 10) / 10 || 41.2,
-            height: '84%',
-            active: true,
-        },
-    ];
+    // Demo Giving Chart Data (12 months or 6 months)
+    const demoChartData = useMemo(() => {
+        const demoBaseValues = [24, 27, 31, 29, 33, 30, 28, 31, 36, 33, 38, 41.2];
+        const values = chartPeriod === '12m' ? demoBaseValues : demoBaseValues.slice(-6);
+        const maxVal = Math.max(...values, 1);
+
+        return rollingMonths.map((m, idx) => {
+            const val = values[idx] ?? 30;
+            const heightPercent = Math.min(Math.max(Math.round((val / maxVal) * 82) + 6, 8), 100);
+            return {
+                month: m.label,
+                amount: val,
+                rawAmount: val * 1000,
+                displayAmount: `${val}k`,
+                height: `${heightPercent}%`,
+                active: m.isCurrent,
+            };
+        });
+    }, [chartPeriod, rollingMonths]);
+
+    // Real Giving Chart Data computed dynamically from verified donations
+    const realChartData = useMemo(() => {
+        const rawValues = rollingMonths.map((m) => monthlyTotals[m.key] || 0);
+        const maxRaw = Math.max(...rawValues, 1000);
+
+        return rollingMonths.map((m, idx) => {
+            const rawSum = rawValues[idx];
+            let display = '₱0';
+            let kAmount = 0;
+            if (rawSum >= 1000) {
+                kAmount = Math.round((rawSum / 1000) * 10) / 10;
+                display = `₱${kAmount}k`;
+            } else if (rawSum > 0) {
+                kAmount = Math.round((rawSum / 1000) * 10) / 10;
+                display = `₱${rawSum}`;
+            }
+
+            const heightPercent = rawSum === 0 ? 6 : Math.min(Math.round((rawSum / maxRaw) * 80) + 12, 100);
+
+            return {
+                month: m.label,
+                amount: kAmount,
+                rawAmount: rawSum,
+                displayAmount: display,
+                height: `${heightPercent}%`,
+                active: m.isCurrent,
+            };
+        });
+    }, [rollingMonths, monthlyTotals]);
 
     const activeChart = isDemoChart ? demoChartData : realChartData;
 
@@ -438,7 +493,7 @@ export default function DonationsPage() {
                     title="Received this month"
                     value={stats.receivedThisMonth ? `₱ ${stats.receivedThisMonth.toLocaleString('en-PH')}` : '₱ 41,200'}
                     icon={Heart}
-                    trend={{ value: stats.growthPct, isUp: true, label: `Up ${stats.growthPct}% from September` }}
+                    trend={{ value: stats.growthPct, isUp: true, label: `Up ${stats.growthPct}% from ${format(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1), 'MMMM')}` }}
                     iconBgColor="bg-blue-100"
                     iconColor="text-blue-600"
                     gradientFrom="from-blue-600"
@@ -488,49 +543,80 @@ export default function DonationsPage() {
 
             {/* 3. Middle Section: Side-by-Side (Giving last 6 months + Payment Settings) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                {/* Left: Giving, last 6 months bar chart (7 cols) */}
+                {/* Left: Giving, last 12/6 months bar chart (7 cols) */}
                 <div className="lg:col-span-7 bg-white border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between">
                     <div>
-                        <div className="flex items-center justify-between gap-4 mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
                             <div>
                                 <h3 className="font-serif text-lg font-bold text-foreground">
-                                    Giving, last 6 months
+                                    Giving, last {chartPeriod === '12m' ? '12' : '6'} months
                                 </h3>
                                 <p className="text-xs text-secondary-500 font-medium">
-                                    Verified gifts, in thousands of pesos
+                                    Giving, last {chartPeriod === '12m' ? '12' : '6'} months · Verified gifts, in thousands of pesos
                                 </p>
                             </div>
 
-                            {/* Demo Preview Toggle */}
-                            <button
-                                type="button"
-                                onClick={() => setIsDemoChart(!isDemoChart)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border bg-secondary-50 hover:bg-secondary-100 text-secondary-700 transition-colors cursor-pointer"
-                            >
-                                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                <span>{isDemoChart ? 'Demo preview' : 'Real data'}</span>
-                            </button>
+                            {/* Controls: 6M/12M Period Toggle & Demo Preview Toggle */}
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                <div className="inline-flex items-center p-0.5 rounded-lg border border-border bg-secondary-50 text-xs font-medium">
+                                    <button
+                                        type="button"
+                                        onClick={() => setChartPeriod('6m')}
+                                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                                            chartPeriod === '6m'
+                                                ? 'bg-white text-foreground shadow-xs font-semibold'
+                                                : 'text-secondary-600 hover:text-foreground'
+                                        }`}
+                                    >
+                                        6M
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setChartPeriod('12m')}
+                                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                                            chartPeriod === '12m'
+                                                ? 'bg-white text-foreground shadow-xs font-semibold'
+                                                : 'text-secondary-600 hover:text-foreground'
+                                        }`}
+                                    >
+                                        12M
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDemoChart(!isDemoChart)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border bg-secondary-50 hover:bg-secondary-100 text-secondary-700 transition-colors cursor-pointer"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                    <span>{isDemoChart ? 'Demo preview' : 'Real data'}</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Bar Chart Canvas */}
                         <div className="pt-8 pb-4">
-                            <div className="h-48 flex items-end justify-between gap-3 sm:gap-6 px-2 sm:px-6">
+                            <div className="h-48 flex items-end justify-between gap-1 sm:gap-2.5 px-0.5 sm:px-4">
                                 {activeChart.map((bar, idx) => (
-                                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                                        <span className="text-[11px] font-semibold text-secondary-500 group-hover:text-primary transition-colors">
-                                            {bar.amount}k
+                                    <div
+                                        key={idx}
+                                        className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
+                                        title={`${bar.month}: ₱${bar.rawAmount.toLocaleString('en-PH')}`}
+                                    >
+                                        <span className="text-[9px] sm:text-[11px] font-semibold text-secondary-500 group-hover:text-primary transition-colors truncate max-w-full">
+                                            {bar.displayAmount}
                                         </span>
-                                        <div className="w-full max-w-[48px] bg-secondary-100 rounded-t-xl h-full flex items-end overflow-hidden">
+                                        <div className="w-full max-w-[32px] sm:max-w-[44px] bg-secondary-100 rounded-t-lg sm:rounded-t-xl h-full flex items-end overflow-hidden">
                                             <div
                                                 style={{ height: bar.height }}
-                                                className={`w-full rounded-t-xl transition-all duration-500 ${
+                                                className={`w-full rounded-t-lg sm:rounded-t-xl transition-all duration-500 ${
                                                     bar.active
                                                         ? 'bg-primary shadow-xs'
                                                         : 'bg-blue-200 group-hover:bg-blue-300'
                                                 }`}
                                             />
                                         </div>
-                                        <span className={`text-xs font-medium mt-1 ${bar.active ? 'font-bold text-foreground' : 'text-secondary-500'}`}>
+                                        <span className={`text-[10px] sm:text-xs font-medium mt-1 truncate ${bar.active ? 'font-bold text-foreground' : 'text-secondary-500'}`}>
                                             {bar.month}
                                         </span>
                                     </div>
