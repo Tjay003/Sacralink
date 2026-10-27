@@ -2,7 +2,7 @@
 
 Type: task
 **Blocked by:** None (can start immediately)
-**Status:** ready-for-agent
+**Status:** closed
 
 **What to build:** Apply a built-in Leaflet + OpenStreetMap Nominatim geo-fence to `web/src/components/churches/ChurchLocationPicker.tsx` (and the GPS helper on `EditChurchPage.tsx` / `AddChurchPage.tsx`) so the map only operates within the **City of San Jose del Monte, Bulacan (CSJDM)** with zero new external APIs:
 
@@ -19,8 +19,8 @@ Type: task
    - In `"Use My Current Location"` (`ChurchLocationPicker.tsx`) and `"Use current GPS"` (`EditChurchPage.tsx`), check `isWithinSjdmBounds(lat, lng)` when browser GPS returns coordinates. If the user's device is outside San Jose del Monte, Bulacan, do not move the pin outside SJDM and show a clear message (`"Your current GPS location is outside San Jose del Monte, Bulacan"`).
 
 ## Acceptance Criteria
-- [ ] The Leaflet map in `ChurchLocationPicker.tsx` has `maxBounds`, `maxBoundsViscosity: 1.0`, and `minZoom: 12` locked to San Jose del Monte, Bulacan (`14.750°–14.900°N`, `120.980°–121.160°E`).
-- [ ] Clicking or dragging the pin outside SJDM is rejected with a clear message keeping the pin inside SJDM.
-- [ ] Searching in the map search bar uses `viewbox` + `bounded=1` and returns only locations inside San Jose del Monte, Bulacan.
-- [ ] Clicking GPS when outside SJDM displays a helpful notice and keeps the map centered in SJDM.
-- [ ] `tsc -b` and `vite build` pass cleanly.
+- [x] The Leaflet map in `ChurchLocationPicker.tsx` has `maxBounds`, `maxBoundsViscosity: 1.0`, and `minZoom: 12` locked to San Jose del Monte, Bulacan (`14.750°–14.900°N`, `120.980°–121.160°E`).
+- [x] Clicking or dragging the pin outside SJDM is rejected with a clear message keeping the pin inside SJDM.
+- [x] Searching in the map search bar uses `viewbox` + `bounded=1` and returns only locations inside San Jose del Monte, Bulacan.
+- [x] Clicking GPS when outside SJDM displays a helpful notice and keeps the map centered in SJDM.
+- [x] `tsc -b` and `vite build` pass cleanly.

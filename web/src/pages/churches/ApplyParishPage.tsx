@@ -15,7 +15,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
 import ApplicantVerificationFields from '../../components/churches/ApplicantVerificationFields';
 import {
   isMobileNumber,
@@ -182,6 +182,11 @@ export default function ApplyParishPage() {
     }
     if (mayaNumber && !isMobileNumber(mayaNumber)) {
       setError(`Maya number must be ${MOBILE_NUMBER_HINT}`);
+      return;
+    }
+
+    if (latitude !== null && longitude !== null && !isWithinSjdmBounds(latitude, longitude)) {
+      setError('Church location coordinates must be within the City of San Jose del Monte, Bulacan.');
       return;
     }
 

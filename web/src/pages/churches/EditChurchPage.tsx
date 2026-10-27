@@ -23,7 +23,7 @@ import {
     Loader2
 } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
-import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
 import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDocumentsManager';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
@@ -231,10 +231,17 @@ export default function EditChurchPage() {
         }
         navigator.geolocation.getCurrentPosition(
             (pos) => {
+                const lat = Number(pos.coords.latitude.toFixed(6));
+                const lng = Number(pos.coords.longitude.toFixed(6));
+                if (!isWithinSjdmBounds(lat, lng)) {
+                    setError('Your current GPS location is outside San Jose del Monte, Bulacan.');
+                    return;
+                }
+                setError('');
                 setFormData(prev => ({
                     ...prev,
-                    latitude: Number(pos.coords.latitude.toFixed(6)),
-                    longitude: Number(pos.coords.longitude.toFixed(6)),
+                    latitude: lat,
+                    longitude: lng,
                 }));
             },
             (err) => {
@@ -249,6 +256,12 @@ export default function EditChurchPage() {
 
         if (!formData.name.trim()) {
             setError('Church name is required');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        if (formData.latitude !== null && formData.longitude !== null && !isWithinSjdmBounds(formData.latitude, formData.longitude)) {
+            setError('Church location coordinates must be within the City of San Jose del Monte, Bulacan.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }

@@ -12,11 +12,39 @@ export interface ChurchLocationPickerProps {
   onAddressSelect?: (address: string) => void;
 }
 
+/**
+ * Official Geographic Bounding Box for the City of San Jose del Monte (CSJDM), Bulacan, Philippines
+ * South: 14.7500° N
+ * North: 14.9000° N
+ * West:  120.9800° E
+ * East:  121.1600° E
+ */
+export const SJDM_BOUNDS = {
+  south: 14.7500,
+  north: 14.9000,
+  west: 120.9800,
+  east: 121.1600,
+} as const;
+
 // Default center: City of San Jose del Monte (CSJDM), Bulacan, Philippines
 export const DEFAULT_CSJDM_LAT = 14.8135;
 export const DEFAULT_CSJDM_LNG = 121.0453;
+export const MIN_SJDM_ZOOM = 12;
+export const MAX_SJDM_ZOOM = 19;
 const DEFAULT_ZOOM = 13;
 const FOCUSED_ZOOM = 16;
+
+/**
+ * Validates whether the given WGS84 coordinates fall strictly within the City of San Jose del Monte, Bulacan.
+ */
+export function isWithinSjdmBounds(lat: number, lng: number): boolean {
+  return (
+    lat >= SJDM_BOUNDS.south &&
+    lat <= SJDM_BOUNDS.north &&
+    lng >= SJDM_BOUNDS.west &&
+    lng <= SJDM_BOUNDS.east
+  );
+}
 
 interface NominatimSearchResult {
   place_id: number;
@@ -85,6 +113,16 @@ export default function ChurchLocationPicker({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
+  // Track the most recent valid coordinate within SJDM bounds to snap back upon invalid drag/input
+  const lastValidPosRef = useRef<{ lat: number; lng: number }>({
+    lat: latitude !== null && longitude !== null && isWithinSjdmBounds(latitude, longitude)
+      ? latitude
+      : DEFAULT_CSJDM_LAT,
+    lng: latitude !== null && longitude !== null && isWithinSjdmBounds(latitude, longitude)
+      ? longitude
+      : DEFAULT_CSJDM_LNG,
+  });
+
   // Search state
   const [searchQuery, setSearchQuery] = useState(initialAddress);
   const [searchResults, setSearchResults] = useState<NominatimSearchResult[]>([]);
@@ -96,26 +134,28 @@ export default function ChurchLocationPicker({
   const [isLocating, setIsLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
+  // Boundary alert state
+  const [boundaryWarning, setBoundaryWarning] = useState<string | null>(() => {
+    if (latitude !== null && longitude !== null && !isWithinSjdmBounds(latitude, longitude)) {
+      return 'Location must be within the City of San Jose del Monte, Bulacan.';
+    }
+    return null;
+  });
+
   // Manual fine-tune coordinates state
   const [inputLat, setInputLat] = useState<string>(
-    latitude !== null ? latitude.toString() : DEFAULT_CSJDM_LAT.toString()
+    latitude !== null && longitude !== null && isWithinSjdmBounds(latitude, longitude)
+      ? latitude.toFixed(6)
+      : DEFAULT_CSJDM_LAT.toFixed(6)
   );
   const [inputLng, setInputLng] = useState<string>(
-    longitude !== null ? longitude.toString() : DEFAULT_CSJDM_LNG.toString()
+    latitude !== null && longitude !== null && isWithinSjdmBounds(latitude, longitude)
+      ? longitude.toFixed(6)
+      : DEFAULT_CSJDM_LNG.toFixed(6)
   );
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [coordError, setCoordError] = useState<string | null>(null);
-
-  // Update input text when props change
-  useEffect(() => {
-    if (latitude !== null) {
-      setInputLat(latitude.toFixed(6));
-    }
-    if (longitude !== null) {
-      setInputLng(longitude.toFixed(6));
-    }
-  }, [latitude, longitude]);
 
   // Reverse geocoding helper
   const performReverseGeocode = useCallback(
@@ -148,12 +188,49 @@ export default function ChurchLocationPicker({
     []
   );
 
-  // Update marker position on map
+  // Handle marker dragend: snap back if outside SJDM
+  const handleMarkerDragEnd = useCallback(
+    async (marker: L.Marker) => {
+      const pos = marker.getLatLng();
+      if (!isWithinSjdmBounds(pos.lat, pos.lng)) {
+        const fallback = lastValidPosRef.current;
+        marker.setLatLng([fallback.lat, fallback.lng]);
+        setInputLat(fallback.lat.toFixed(6));
+        setInputLng(fallback.lng.toFixed(6));
+        setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+        return;
+      }
+
+      setBoundaryWarning(null);
+      setCoordError(null);
+      lastValidPosRef.current = { lat: pos.lat, lng: pos.lng };
+      setInputLat(pos.lat.toFixed(6));
+      setInputLng(pos.lng.toFixed(6));
+      const address = await performReverseGeocode(pos.lat, pos.lng);
+      onChange({ latitude: pos.lat, longitude: pos.lng, address });
+    },
+    [onChange, performReverseGeocode]
+  );
+
+  // Update marker position on map (with SJDM boundary enforcement)
   const setPinPosition = useCallback(
     (lat: number, lng: number, fly = true, reverseLookup = false) => {
       const map = mapInstanceRef.current;
       if (!map) return;
 
+      if (!isWithinSjdmBounds(lat, lng)) {
+        setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+        if (markerRef.current) {
+          markerRef.current.setLatLng([lastValidPosRef.current.lat, lastValidPosRef.current.lng]);
+          setInputLat(lastValidPosRef.current.lat.toFixed(6));
+          setInputLng(lastValidPosRef.current.lng.toFixed(6));
+        }
+        return;
+      }
+
+      setBoundaryWarning(null);
+      setCoordError(null);
+      lastValidPosRef.current = { lat, lng };
       const newLatLng = L.latLng(lat, lng);
 
       if (!markerRef.current) {
@@ -162,13 +239,8 @@ export default function ChurchLocationPicker({
           draggable: !disabled,
         });
 
-        marker.on('dragend', async (e) => {
-          const target = e.target as L.Marker;
-          const pos = target.getLatLng();
-          setInputLat(pos.lat.toFixed(6));
-          setInputLng(pos.lng.toFixed(6));
-          const address = await performReverseGeocode(pos.lat, pos.lng);
-          onChange({ latitude: pos.lat, longitude: pos.lng, address });
+        marker.on('dragend', (e) => {
+          void handleMarkerDragEnd(e.target as L.Marker);
         });
 
         marker.addTo(map);
@@ -199,55 +271,85 @@ export default function ChurchLocationPicker({
         onChange({ latitude: lat, longitude: lng });
       }
     },
-    [disabled, onChange, performReverseGeocode]
+    [disabled, handleMarkerDragEnd, onChange, performReverseGeocode]
   );
+
+  // Update input text and internal state when external props change
+  useEffect(() => {
+    if (latitude !== null && longitude !== null) {
+      if (isWithinSjdmBounds(latitude, longitude)) {
+        setInputLat(latitude.toFixed(6));
+        setInputLng(longitude.toFixed(6));
+        lastValidPosRef.current = { lat: latitude, lng: longitude };
+        setBoundaryWarning(null);
+      } else {
+        setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+      }
+    }
+  }, [latitude, longitude]);
 
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    const initialLat = latitude ?? DEFAULT_CSJDM_LAT;
-    const initialLng = longitude ?? DEFAULT_CSJDM_LNG;
-    const initialZoom = latitude !== null && longitude !== null ? FOCUSED_ZOOM : DEFAULT_ZOOM;
+    const hasValidInitial =
+      latitude !== null &&
+      longitude !== null &&
+      isWithinSjdmBounds(latitude, longitude);
+
+    const initialLat = hasValidInitial ? latitude : DEFAULT_CSJDM_LAT;
+    const initialLng = hasValidInitial ? longitude : DEFAULT_CSJDM_LNG;
+    const initialZoom = hasValidInitial ? FOCUSED_ZOOM : DEFAULT_ZOOM;
+
+    const sjdmBounds = L.latLngBounds(
+      [SJDM_BOUNDS.south, SJDM_BOUNDS.west],
+      [SJDM_BOUNDS.north, SJDM_BOUNDS.east]
+    );
 
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLng],
       zoom: initialZoom,
+      minZoom: MIN_SJDM_ZOOM,
+      maxBounds: sjdmBounds,
+      maxBoundsViscosity: 1.0,
       zoomControl: true,
       scrollWheelZoom: 'center',
     });
 
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
+      maxZoom: MAX_SJDM_ZOOM,
       attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
     }).addTo(map);
 
-    // Initial marker if coordinates exist
-    if (latitude !== null && longitude !== null) {
-      const marker = L.marker([latitude, longitude], {
+    // Initial marker if valid coordinates exist within SJDM
+    if (hasValidInitial) {
+      lastValidPosRef.current = { lat: initialLat, lng: initialLng };
+      const marker = L.marker([initialLat, initialLng], {
         icon: createChurchIcon(),
         draggable: !disabled,
       });
 
-      marker.on('dragend', async (e) => {
-        const target = e.target as L.Marker;
-        const pos = target.getLatLng();
-        setInputLat(pos.lat.toFixed(6));
-        setInputLng(pos.lng.toFixed(6));
-        const address = await performReverseGeocode(pos.lat, pos.lng);
-        onChange({ latitude: pos.lat, longitude: pos.lng, address });
+      marker.on('dragend', (e) => {
+        void handleMarkerDragEnd(e.target as L.Marker);
       });
 
       marker.addTo(map);
       markerRef.current = marker;
+    } else if (latitude !== null && longitude !== null && !isWithinSjdmBounds(latitude, longitude)) {
+      setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
     }
 
-    // Map click handler to drop/move pin
+    // Map click handler to drop/move pin (guarded by SJDM bounds)
     map.on('click', async (e: L.LeafletMouseEvent) => {
       if (disabled) return;
       const { lat, lng } = e.latlng;
+      if (!isWithinSjdmBounds(lat, lng)) {
+        setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+        return;
+      }
+      setBoundaryWarning(null);
       setPinPosition(lat, lng, false, true);
     });
 
@@ -269,21 +371,22 @@ export default function ChurchLocationPicker({
   // Synchronize marker when external lat/lng change
   useEffect(() => {
     if (latitude !== null && longitude !== null && mapInstanceRef.current) {
+      if (!isWithinSjdmBounds(latitude, longitude)) {
+        setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+        return;
+      }
+      setBoundaryWarning(null);
       const currentPos = markerRef.current?.getLatLng();
       if (!currentPos || currentPos.lat !== latitude || currentPos.lng !== longitude) {
+        lastValidPosRef.current = { lat: latitude, lng: longitude };
         if (!markerRef.current) {
           const marker = L.marker([latitude, longitude], {
             icon: createChurchIcon(),
             draggable: !disabled,
           });
 
-          marker.on('dragend', async (e) => {
-            const target = e.target as L.Marker;
-            const pos = target.getLatLng();
-            setInputLat(pos.lat.toFixed(6));
-            setInputLng(pos.lng.toFixed(6));
-            const address = await performReverseGeocode(pos.lat, pos.lng);
-            onChange({ latitude: pos.lat, longitude: pos.lng, address });
+          marker.on('dragend', (e) => {
+            void handleMarkerDragEnd(e.target as L.Marker);
           });
 
           marker.addTo(mapInstanceRef.current);
@@ -293,9 +396,9 @@ export default function ChurchLocationPicker({
         }
       }
     }
-  }, [latitude, longitude, disabled, onChange, performReverseGeocode]);
+  }, [latitude, longitude, disabled, handleMarkerDragEnd]);
 
-  // Geocode address search using OpenStreetMap Nominatim
+  // Geocode address search strictly bounded to City of San Jose del Monte, Bulacan
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = searchQuery.trim();
@@ -306,34 +409,32 @@ export default function ChurchLocationPicker({
     setShowDropdown(true);
 
     try {
-      // Prioritize Philippines search
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&countrycodes=ph`;
-      let response = await fetch(url, {
+      // Nominatim search strictly bounded to SJDM bounding box
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query
+      )}&limit=10&countrycodes=ph&viewbox=${SJDM_BOUNDS.west},${SJDM_BOUNDS.north},${SJDM_BOUNDS.east},${SJDM_BOUNDS.south}&bounded=1`;
+
+      const response = await fetch(url, {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'SacraLink-ParishSuite/1.0',
         },
       });
 
-      let data: NominatimSearchResult[] = await response.json();
+      const data: NominatimSearchResult[] = await response.json();
 
-      // If no results with country filter, fall back to global search
-      if (!data || data.length === 0) {
-        url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6`;
-        response = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'SacraLink-ParishSuite/1.0',
-          },
-        });
-        data = await response.json();
-      }
+      // Enforce SJDM bounding box filter on returned results
+      const sjdmResults = (data || []).filter((item) => {
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lon);
+        return !isNaN(lat) && !isNaN(lng) && isWithinSjdmBounds(lat, lng);
+      });
 
-      if (data && data.length > 0) {
-        setSearchResults(data);
+      if (sjdmResults.length > 0) {
+        setSearchResults(sjdmResults);
       } else {
         setSearchResults([]);
-        setSearchError('No matching locations found. Try adding city or province details.');
+        setSearchError('No locations found within San Jose del Monte, Bulacan. Please refine your search.');
       }
     } catch (err) {
       console.error('Geocoding search failed:', err);
@@ -348,6 +449,14 @@ export default function ChurchLocationPicker({
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
 
+    if (!isWithinSjdmBounds(lat, lng)) {
+      setSearchError('Selected location is outside San Jose del Monte, Bulacan.');
+      setBoundaryWarning('Location must be within the City of San Jose del Monte, Bulacan.');
+      return;
+    }
+
+    setBoundaryWarning(null);
+    setSearchError(null);
     setResolvedAddress(result.display_name);
     setShowDropdown(false);
     setPinPosition(lat, lng, true, false);
@@ -358,7 +467,7 @@ export default function ChurchLocationPicker({
     onChange({ latitude: lat, longitude: lng, address: result.display_name });
   };
 
-  // Use Browser Geolocation (GPS)
+  // Use Browser Geolocation (GPS) with SJDM geo-fence validation
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       setGeoError('Geolocation is not supported by your browser.');
@@ -372,6 +481,16 @@ export default function ChurchLocationPicker({
       async (position) => {
         const { latitude: userLat, longitude: userLng } = position.coords;
         setIsLocating(false);
+
+        if (!isWithinSjdmBounds(userLat, userLng)) {
+          const outOfBoundsMsg = 'Your current GPS location is outside San Jose del Monte, Bulacan.';
+          setGeoError(outOfBoundsMsg);
+          setBoundaryWarning(outOfBoundsMsg);
+          return;
+        }
+
+        setGeoError(null);
+        setBoundaryWarning(null);
         setPinPosition(userLat, userLng, true, true);
       },
       (error) => {
@@ -397,10 +516,14 @@ export default function ChurchLocationPicker({
 
   // Reset to CSJDM Center
   const handleResetToDefault = () => {
+    setBoundaryWarning(null);
+    setCoordError(null);
+    setGeoError(null);
+    setSearchError(null);
     setPinPosition(DEFAULT_CSJDM_LAT, DEFAULT_CSJDM_LNG, true, true);
   };
 
-  // Apply manual fine-tune inputs
+  // Apply manual fine-tune inputs (with SJDM boundary enforcement)
   const handleApplyCoordinates = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setCoordError(null);
@@ -416,10 +539,22 @@ export default function ChurchLocationPicker({
       return;
     }
 
+    if (!isWithinSjdmBounds(lat, lng)) {
+      const msg = 'Location must be within the City of San Jose del Monte, Bulacan.';
+      setCoordError(msg);
+      setBoundaryWarning(msg);
+      return;
+    }
+
+    setBoundaryWarning(null);
+    setCoordError(null);
     setPinPosition(lat, lng, true, true);
   };
 
-  const hasCoordinates = latitude !== null && longitude !== null;
+  const hasCoordinates =
+    latitude !== null &&
+    longitude !== null &&
+    isWithinSjdmBounds(latitude, longitude);
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -505,9 +640,9 @@ export default function ChurchLocationPicker({
 
         {/* Search Results Dropdown */}
         {showDropdown && searchResults.length > 0 && (
-          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-border rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-border/60">
-            <div className="p-2 bg-secondary-50 dark:bg-slate-800 text-[11px] font-semibold text-muted flex items-center justify-between">
-              <span>Matching Places ({searchResults.length})</span>
+          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-border rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto divide-y divide-border/60">
+            <div className="p-2 bg-secondary-50 text-[11px] font-semibold text-muted flex items-center justify-between">
+              <span>Matching Places in CSJDM ({searchResults.length})</span>
               <button
                 type="button"
                 onClick={() => setShowDropdown(false)}
@@ -521,7 +656,7 @@ export default function ChurchLocationPicker({
                 key={result.place_id}
                 type="button"
                 onClick={() => handleSelectResult(result)}
-                className="w-full text-left p-3 hover:bg-primary-50/70 dark:hover:bg-slate-800 transition-colors flex items-start gap-2.5 cursor-pointer"
+                className="w-full text-left p-3 hover:bg-primary-50/70 transition-colors flex items-start gap-2.5 cursor-pointer"
               >
                 <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
@@ -539,7 +674,7 @@ export default function ChurchLocationPicker({
 
         {/* Search Error Alert */}
         {searchError && (
-          <div className="mt-2 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+          <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-xs text-amber-800">
             <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
             <span>{searchError}</span>
           </div>
@@ -547,9 +682,27 @@ export default function ChurchLocationPicker({
 
         {/* Geolocation Error Alert */}
         {geoError && (
-          <div className="mt-2 p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+          <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{geoError}</span>
+          </div>
+        )}
+
+        {/* Geo-fence Boundary Warning Alert */}
+        {boundaryWarning && (
+          <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-2 text-xs text-amber-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span className="font-medium">{boundaryWarning}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBoundaryWarning(null)}
+              className="text-amber-700 hover:text-amber-900 text-xs px-1 cursor-pointer font-bold shrink-0"
+              title="Dismiss warning"
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>
@@ -563,9 +716,9 @@ export default function ChurchLocationPicker({
         />
 
         {/* Map Overlay Helper Badge */}
-        <div className="absolute bottom-3 left-3 z-20 pointer-events-none bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border/80 text-[11px] font-medium text-foreground shadow-sm flex items-center gap-1.5">
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-none bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border text-[11px] font-medium text-foreground shadow-sm flex items-center gap-1.5">
           <Compass className="w-3.5 h-3.5 text-primary" />
-          <span>Click anywhere to place pin or drag marker to reposition</span>
+          <span>Geo-fenced to San Jose del Monte, Bulacan (Min Zoom 12)</span>
         </div>
 
         {/* Coordinate Status Badge */}
@@ -586,12 +739,12 @@ export default function ChurchLocationPicker({
 
       {/* Reverse Geocode Address Notification Banner */}
       {resolvedAddress && (
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex items-start justify-between gap-3 text-xs">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start justify-between gap-3 text-xs">
           <div className="flex items-start gap-2 min-w-0">
             <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-primary-900 dark:text-blue-200">Pin Location Address:</p>
-              <p className="text-primary-800 dark:text-blue-300 mt-0.5 line-clamp-2">{resolvedAddress}</p>
+              <p className="font-semibold text-primary-900">Pin Location Address:</p>
+              <p className="text-primary-800 mt-0.5 line-clamp-2">{resolvedAddress}</p>
             </div>
           </div>
           {onAddressSelect && (
@@ -607,7 +760,7 @@ export default function ChurchLocationPicker({
       )}
 
       {/* Coordinate Fine-Tuning Inputs */}
-      <div className="p-4 bg-secondary-50 dark:bg-slate-800/60 rounded-xl border border-border space-y-3">
+      <div className="p-4 bg-secondary-50 rounded-xl border border-border space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
             Coordinates Fine-Tuning (WGS84)
@@ -663,7 +816,7 @@ export default function ChurchLocationPicker({
         </div>
 
         {coordError && (
-          <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+          <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-xs text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{coordError}</span>
           </div>
@@ -672,14 +825,14 @@ export default function ChurchLocationPicker({
         <div className="flex items-center justify-between pt-1">
           <p className="text-[11px] text-muted">
             {hasCoordinates
-              ? `Stored: ${latitude?.toFixed(6)}°, ${longitude?.toFixed(6)}°`
+              ? `Stored: ${latitude?.toFixed(6)}°, ${longitude?.toFixed(6)}° (SJDM)`
               : 'Default center: CSJDM, Bulacan (14.813500, 121.045300)'}
           </p>
           <button
             type="button"
             onClick={() => handleApplyCoordinates()}
             disabled={disabled}
-            className="px-3 py-1.5 bg-secondary-200 hover:bg-secondary-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-secondary-900 dark:text-slate-100 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-secondary-200 hover:bg-secondary-300 text-secondary-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
           >
             Apply Coordinates
           </button>

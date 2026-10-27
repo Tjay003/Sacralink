@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { seedDefaultRequirements } from '../../lib/supabase/requirements';
 import { Building2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import ChurchLocationPicker from '../../components/churches/ChurchLocationPicker';
+import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
 import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 
 /**
@@ -111,6 +111,13 @@ export default function AddChurchPage() {
         const contact = formData.contact_number.trim();
         if (contact && !isValidPhilippineMobile(contact)) {
             setError('Please enter a valid Philippine mobile number (e.g., 09171234567 or +639171234567).');
+            setLoading(false);
+            return;
+        }
+
+        // Validate coordinates strictly within San Jose del Monte, Bulacan if set
+        if (formData.latitude !== null && formData.longitude !== null && !isWithinSjdmBounds(formData.latitude, formData.longitude)) {
+            setError('Church location coordinates must be within the City of San Jose del Monte, Bulacan.');
             setLoading(false);
             return;
         }
