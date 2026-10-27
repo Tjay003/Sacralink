@@ -129,12 +129,14 @@ test('deleting a church makes its people parishioners and removes the church in 
   expect(error).toBeNull();
   expect(impact).toMatchObject({ church_admins: 1, priests: 1, volunteers: 1, appointments: 1, donations: 1, mass_schedules: 1, announcements: 1, conversations_kept: 1 });
 
-  // The church and what cascades from it are gone
-  expect((await db.from('churches').select('id').eq('id', churchId)).data).toHaveLength(0);
-  expect(await count('appointments', 'church_id', churchId)).toBe(0);
-  expect(await count('donations', 'church_id', churchId)).toBe(0);
-  expect(await count('mass_schedules', 'church_id', churchId)).toBe(0);
-  expect(await count('church_announcements', 'church_id', churchId)).toBe(0);
+  // Migration 088: The church is archived (not deleted) and its historical records survive!
+  const { data: churchRow } = await db.from('churches').select('status, is_active, archived_at, archived_admin_id').eq('id', churchId).single();
+  expect(churchRow).toMatchObject({ status: 'archived', is_active: false, archived_admin_id: admin.id });
+  expect(churchRow?.archived_at).not.toBeNull();
+  expect(await count('appointments', 'church_id', churchId)).toBe(1);
+  expect(await count('donations', 'church_id', churchId)).toBe(1);
+  expect(await count('mass_schedules', 'church_id', churchId)).toBe(1);
+  expect(await count('church_announcements', 'church_id', churchId)).toBe(1);
 
   // Everyone became a parishioner with no church; the last Church Admin guard did not block it
   for (const person of [admin, priest, volunteer]) {
@@ -146,17 +148,22 @@ test('deleting a church makes its people parishioners and removes the church in 
   expect(await profileOf(otherAdmin.id)).toMatchObject({ role: 'church_admin', assigned_church_id: otherChurchId });
   expect((await db.from('churches').select('id').eq('id', otherChurchId)).data).toHaveLength(1);
 
-  // The channel is removed; the inquiry stays for its participants without a church
-  expect((await db.from('conversations').select('id').eq('id', channel!.id)).data).toHaveLength(0);
-  const { data: keptGroup } = await db.from('conversations').select('id, church_id').eq('id', group!.id).single();
-  expect(keptGroup?.church_id).toBeNull();
+  // The audit trail records the archive action
+  const { data: archiveLog } = await db.from('activity_logs').select('user_id, metadata').eq('action', 'archive_church').eq('entity_id', churchId);
+  expect(archiveLog).toHaveLength(1);
+  expect(archiveLog![0].user_id).toBe(superAdmin.id);
 
-  // The audit trail keeps its rows (church link cleared) and records the deletion
-  const { data: oldLog } = await db.from('activity_logs').select('church_id').eq('action', 'test_audit_row').eq('entity_id', churchId);
-  expect(oldLog).toHaveLength(1);
-  expect(oldLog![0].church_id).toBeNull();
-  const { data: deleteLog } = await db.from('activity_logs').select('user_id, metadata').eq('action', 'delete_church').eq('entity_id', churchId);
-  expect(deleteLog).toHaveLength(1);
-  expect(deleteLog![0].user_id).toBe(superAdmin.id);
-  expect(deleteLog![0].metadata).toMatchObject({ donations: 1 });
+  // Verify restore: former admin is free (role=user, no church), so auto-restore is available
+  const { data: restoreStatus } = await superAdmin.client.rpc('church_restore_status', { p_church_id: churchId });
+  expect(restoreStatus).toMatchObject({ can_auto_restore: true });
+
+  // Restore the church
+  const { data: restoreResult, error: restoreError } = await superAdmin.client.rpc('restore_church', { p_church_id: churchId });
+  expect(restoreError).toBeNull();
+  expect(restoreResult).toMatchObject({ success: true });
+
+  // Former admin is auto-restored as church_admin
+  expect(await profileOf(admin.id)).toMatchObject({ role: 'church_admin', assigned_church_id: churchId });
+  const { data: restoredChurch } = await db.from('churches').select('status, is_active, archived_at, archived_admin_id').eq('id', churchId).single();
+  expect(restoredChurch).toMatchObject({ status: 'active', is_active: true, archived_at: null, archived_admin_id: null });
 });

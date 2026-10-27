@@ -5,7 +5,7 @@ import {
   DEFAULT_CSJDM_LNG,
   MIN_SJDM_ZOOM,
   isWithinSjdmBounds,
-} from '../ChurchLocationPicker';
+} from '../../../lib/geo';
 
 test.describe('Ticket 03: ChurchLocationPicker SJDM Geo-Fence Unit Tests', () => {
   test('SJDM_BOUNDS and default center are accurately defined', () => {

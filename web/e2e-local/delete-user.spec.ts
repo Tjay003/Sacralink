@@ -137,16 +137,16 @@ test('the Super Admin deletes a user through the UI: history is kept, the profil
   const { data: appts } = await db.from('appointments').select('id,status,user_id,cancellation_reason').eq('user_id', victim.id);
   const byId = new Map((appts ?? []).map((a) => [a.id, a]));
   expect(byId.get(approvedId)?.status).toBe('approved');
-  expect(byId.get(pendingId)).toMatchObject({ status: 'cancelled', cancellation_reason: 'Account deleted' });
+  expect(byId.get(pendingId)).toMatchObject({ status: 'cancelled', cancellation_reason: 'Account archived' });
   expect((await db.from('donations').select('user_id').eq('id', donation.id).single()).data?.user_id).toBe(victim.id);
   expect((await db.from('messages').select('sender_id').eq('id', message.id).single()).data?.sender_id).toBe(victim.id);
 
-  // Profile anonymized, login banned with an unusable email
+  // Profile archived (preserved name & email), login banned during 7-day archive window
   const { data: profile } = await db.from('profiles').select('*').eq('id', victim.id).single();
-  expect(profile).toMatchObject({ full_name: 'Deleted User', email: null, phone_number: null, avatar_url: null, role: 'user', church_id: null, assigned_church_id: null });
-  expect(profile?.deleted_at).not.toBeNull();
+  expect(profile).toMatchObject({ full_name: 'Temp victim', email: victim.email, role: 'user', church_id: null, assigned_church_id: null });
+  expect(profile?.archived_at).not.toBeNull();
+  expect(profile?.deleted_at).toBeNull();
   const { data: authUser } = await db.auth.admin.getUserById(victim.id);
-  expect(authUser.user?.email).toBe(`deleted+${victim.id}@deleted.invalid`);
   expect(authUser.user?.banned_until).not.toBeNull();
 
   // The open ticket was closed with a system note; closed ones are untouched
@@ -155,12 +155,29 @@ test('the Super Admin deletes a user through the UI: history is kept, the profil
   expect(tickets![0].status).toBe('closed');
   const { data: notes } = await db.from('messages').select('message_type,metadata,sender_id').eq('conversation_id', tickets![0].id).eq('message_type', 'system');
   expect(notes).toHaveLength(1);
-  expect(notes![0]).toMatchObject({ sender_id: victim.id, metadata: { event: 'ticket_closed_account_deleted' } });
+  expect(notes![0]).toMatchObject({ sender_id: victim.id, metadata: { event: 'ticket_closed_account_archived' } });
 
   // The audit row exists
-  const { data: log } = await db.from('activity_logs').select('user_id').eq('action', 'user_deleted').eq('entity_id', victim.id);
+  const { data: log } = await db.from('activity_logs').select('user_id').eq('action', 'user_archived').eq('entity_id', victim.id);
   expect(log).toHaveLength(1);
   expect(log![0].user_id).toBe(superAdmin.id);
+
+  // Restore user account works
+  await superAdmin.client.rpc('restore_user_account', { p_user_id: victim.id });
+  const { data: restoredProfile } = await db.from('profiles').select('archived_at, role').eq('id', victim.id).single();
+  expect(restoredProfile?.archived_at).toBeNull();
+  expect(restoredProfile?.role).toBe('user');
+
+  // Re-archive and test 7-day auto-purge
+  await superAdmin.client.rpc('delete_user_account', { p_user_id: victim.id });
+  await db.from('profiles').update({ archived_at: new Date(Date.now() - 8 * 86400 * 1000).toISOString() }).eq('id', victim.id);
+  const { data: purgedCount } = await superAdmin.client.rpc('purge_expired_archived_users');
+  expect(purgedCount).toBeGreaterThanOrEqual(1);
+
+  // Now permanent deletion and anonymization has taken place
+  const { data: purgedProfile } = await db.from('profiles').select('*').eq('id', victim.id).single();
+  expect(purgedProfile).toMatchObject({ full_name: 'Deleted User', email: null, role: 'user' });
+  expect(purgedProfile?.deleted_at).not.toBeNull();
 
   // A fresh login fails
   const fresh = createClient(LOCAL_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -222,8 +239,8 @@ test('a deleted user with a still-valid access token is rejected on the next req
   const listing = await victim.client.storage.from('appointment-documents').list('');
   expect(listing.error !== null || (listing.data ?? []).length === 0).toBe(true);
   // The profile row stays readable so the app can see deleted_at and sign out
-  const own = await victim.client.from('profiles').select('deleted_at').eq('id', victim.id).single();
-  expect(own.data?.deleted_at).not.toBeNull();
+  const own = await victim.client.from('profiles').select('archived_at').eq('id', victim.id).single();
+  expect(own.data?.archived_at).not.toBeNull();
 
   // Blast radius: the Super Admin and an unrelated parishioner keep working
   const mine = await bystander.client.from('appointments').select('id').eq('user_id', bystander.id);
@@ -251,7 +268,7 @@ test('nobody can message a Direct chat whose other person was deleted, and the h
   expect(flag.data).toBe(true);
 });
 
-test('deleting a volunteer removes them from the staff channel, and deleting the last Church Admin of a church is allowed', async () => {
+test('deleting a volunteer removes them from the staff channel, and deleting the sole Church Admin is guarded', async () => {
   const { data: church, error } = await db
     .from('churches')
     .insert({ name: `${TAG} church ${Date.now()}`, address: '3 Test Street', status: 'verified_active', is_active: true })
@@ -273,8 +290,14 @@ test('deleting a volunteer removes them from the staff channel, and deleting the
   const { data: members } = await db.from('conversation_participants').select('user_id').eq('conversation_id', channel.id);
   expect((members ?? []).map((m) => m.user_id)).toEqual([soleAdmin.id]);
 
+  // Last Church Admin guard blocks deleting the only admin of an active church
+  const guardedErr = (await superAdmin.client.rpc('delete_user_account', { p_user_id: soleAdmin.id })).error;
+  expect(guardedErr?.message).toContain('Cannot delete the only Church Admin');
+
+  // Once a second Church Admin is assigned, deletion succeeds
+  await makeUser('second-admin', 'church_admin', church.id);
   expect((await superAdmin.client.rpc('delete_user_account', { p_user_id: soleAdmin.id })).error).toBeNull();
-  const { data: left } = await db.from('profiles').select('role,assigned_church_id,deleted_at').eq('id', soleAdmin.id).single();
+  const { data: left } = await db.from('profiles').select('role,assigned_church_id,archived_at').eq('id', soleAdmin.id).single();
   expect(left).toMatchObject({ role: 'user', assigned_church_id: null });
-  expect(left?.deleted_at).not.toBeNull();
+  expect(left?.archived_at).not.toBeNull();
 });

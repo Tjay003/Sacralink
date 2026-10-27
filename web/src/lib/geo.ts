@@ -79,3 +79,37 @@ export function formatDistance(distanceKm: number): string {
 
   return `${distanceKm.toFixed(1)} km away`;
 }
+
+/**
+ * Official Geographic Bounding Box for the City of San Jose del Monte (CSJDM), Bulacan, Philippines
+ * South: 14.7500° N
+ * North: 14.9000° N
+ * West:  120.9800° E
+ * East:  121.1600° E
+ */
+export const SJDM_BOUNDS = {
+  south: 14.7500,
+  north: 14.9000,
+  west: 120.9800,
+  east: 121.1600,
+} as const;
+
+// Default center: City of San Jose del Monte (CSJDM), Bulacan, Philippines
+export const DEFAULT_CSJDM_LAT = 14.8135;
+export const DEFAULT_CSJDM_LNG = 121.0453;
+export const MIN_SJDM_ZOOM = 12;
+export const MAX_SJDM_ZOOM = 19;
+export const DEFAULT_ZOOM = 13;
+export const FOCUSED_ZOOM = 16;
+
+/**
+ * Validates whether the given WGS84 coordinates fall strictly within the City of San Jose del Monte, Bulacan.
+ */
+export function isWithinSjdmBounds(lat: number, lng: number): boolean {
+  return (
+    lat >= SJDM_BOUNDS.south &&
+    lat <= SJDM_BOUNDS.north &&
+    lng >= SJDM_BOUNDS.west &&
+    lng <= SJDM_BOUNDS.east
+  );
+}

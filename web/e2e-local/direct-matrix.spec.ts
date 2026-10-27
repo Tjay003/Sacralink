@@ -76,16 +76,19 @@ function allowed(from: Who, to: Who): boolean {
   if (from === to) return false;
   switch (a.kind) {
     case 'user':
-    case 'volunteer':
       return b.kind === 'user' || b.kind === 'volunteer';
+    case 'volunteer':
+      // Migration 085 & 087: Volunteers can message peers AND their own church staff
+      if (b.kind === 'user' || b.kind === 'volunteer') return true;
+      return (b.kind === 'church_admin' || b.kind === 'priest') && a.church === b.church;
     case 'priest':
       if (b.kind === 'user') return from === 'priestA' && to === 'parA'; // the only seeded appointment
-      return b.kind === 'church_admin' && a.church === b.church;
+      return (b.kind === 'church_admin' || b.kind === 'volunteer') && a.church === b.church;
     case 'church_admin':
       if (b.kind === 'super_admin' || b.kind === 'church_admin') return true;
       return a.church === b.church;
     case 'super_admin':
-      return b.kind === 'church_admin';
+      return b.kind === 'church_admin' || b.kind === 'priest' || b.kind === 'volunteer';
   }
 }
 
@@ -183,12 +186,12 @@ test.describe('start_direct_conversation follows the matrix', () => {
   test('rejections name the route to use, and a Priest needs a shared appointment', async () => {
     const msg = async (from: Who, to: Who) => (await users[from].client.rpc('start_direct_conversation', { p_target: users[to].id })).error?.message ?? '';
     expect(await msg('parA2', 'adminA')).toContain('Raise a ticket instead');
-    expect(await msg('volA', 'adminA')).toContain('church staff channel');
+    expect(await msg('volA', 'adminB')).toContain('church staff channel');
     expect(await msg('priestA', 'super')).toContain('Raise a platform ticket');
-    expect(await msg('priestA', 'volA')).toContain('church staff channel');
+    expect(await msg('priestA', 'volB')).toContain('own church');
     expect(await msg('priestA', 'parA2')).toContain('appointment');
     expect(await msg('adminA', 'parB')).toContain('own church');
-    expect(await msg('super', 'parA')).toContain('Church Admins');
+    expect(await msg('super', 'parA')).toContain('church staff');
   });
 
   test('asking again, from either side, returns the same chat instead of a second one', async () => {
@@ -227,8 +230,8 @@ test.describe('REST cannot bypass the function', () => {
 test.describe('legacy Direct chats', () => {
   test('a chat a Parishioner or Volunteer started with the office is read-only for them but still readable', async () => {
     const parChat = await seedChat('parA', ['parA', 'adminA'], [['parA', 'hello office'], ['adminA', 'hello back']]);
-    const volChat = await seedChat('volA', ['volA', 'adminA'], [['volA', 'volunteer hello']]);
-    const priestVolChat = await seedChat('priestA', ['priestA', 'volA'], [['priestA', 'priest to volunteer']]);
+    const volChat = await seedChat('volA', ['volA', 'adminB'], [['volA', 'volunteer hello']]);
+    const priestVolChat = await seedChat('priestB', ['priestB', 'volA'], [['priestB', 'priest to volunteer']]);
 
     for (const id of [parChat, volChat, priestVolChat]) {
       const flag = await db.rpc('direct_is_legacy', { _conversation_id: id });
@@ -248,8 +251,8 @@ test.describe('legacy Direct chats', () => {
 
     // Church Admin and Priest can still finish them
     expect((await reply('adminA', parChat, 'closing this out')).error).toBeNull();
-    expect((await reply('adminA', volChat, 'closing this out')).error).toBeNull();
-    expect((await reply('priestA', priestVolChat, 'still here')).error).toBeNull();
+    expect((await reply('adminB', volChat, 'closing this out')).error).toBeNull();
+    expect((await reply('priestB', priestVolChat, 'still here')).error).toBeNull();
     const total = await db.from('messages').select('id', { count: 'exact', head: true }).eq('conversation_id', parChat);
     expect(total.count).toBe(3);
   });
