@@ -88,20 +88,25 @@ test('Ticket 01: EditRoleModal does not expose Platform Ownership Transfer', asy
   await expect(page.getByRole('button', { name: /Transfer Ownership/i })).toHaveCount(0);
 });
 
-test('Ticket 02: Donations chart defaults to 12 months with a working 6M / 12M toggle', async ({ page }) => {
+test('Ticket 02: Donations chart defaults to 12 months with responsive period filters', async ({ page }) => {
   await loginClean(page, churchAdmin);
   await page.goto('/donations');
 
   // Heading defaults to 12 months
   await expect(page.getByRole('heading', { name: 'Giving, last 12 months' })).toBeVisible();
 
-  // Toggle to 6M
-  const toggle6M = page.getByRole('button', { name: '6M', exact: true });
-  await expect(toggle6M).toBeVisible();
-  await toggle6M.click();
+  // Switch to Weekly
+  const toggleWeekly = page.getByRole('button', { name: 'Weekly', exact: true });
+  await expect(toggleWeekly).toBeVisible();
+  await toggleWeekly.click();
 
-  // Heading updates to 6 months
-  await expect(page.getByRole('heading', { name: 'Giving, last 6 months' })).toBeVisible();
+  // Heading updates to 8 weeks
+  await expect(page.getByRole('heading', { name: 'Giving, last 8 weeks' })).toBeVisible();
+
+  // Switch back to Monthly
+  const toggleMonthly = page.getByRole('button', { name: 'Monthly', exact: true });
+  await toggleMonthly.click();
+  await expect(page.getByRole('heading', { name: 'Giving, last 12 months' })).toBeVisible();
 });
 
 test('Ticket 04: ensure_church_staff_channel provisions staff channel for a new church', async () => {

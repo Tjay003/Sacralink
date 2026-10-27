@@ -604,3 +604,180 @@ $$;
 
 REVOKE ALL ON FUNCTION public.restore_user_account(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.restore_user_account(uuid) TO authenticated;
+
+-- 8. Suspension & Ticket Request Guards for Archived Users -------------------
+
+CREATE OR REPLACE FUNCTION public.suspend_user(p_user_id uuid, p_reason text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_caller_id uuid := auth.uid();
+    v_target public.profiles%ROWTYPE;
+    v_reason text := btrim(COALESCE(p_reason, ''));
+BEGIN
+    PERFORM public.assert_account_active();
+    IF v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Not signed in' USING ERRCODE = '28000';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = v_caller_id AND role::text = 'super_admin') THEN
+        RAISE EXCEPTION 'Only the Super Admin can suspend a user' USING ERRCODE = '42501';
+    END IF;
+    IF p_user_id = v_caller_id THEN
+        RAISE EXCEPTION 'You cannot suspend your own account' USING ERRCODE = '42501';
+    END IF;
+    SELECT * INTO v_target FROM public.profiles WHERE id = p_user_id FOR UPDATE;
+    IF v_target.id IS NULL THEN
+        RAISE EXCEPTION 'User not found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_target.role::text = 'super_admin' THEN
+        RAISE EXCEPTION 'The Super Admin cannot be suspended' USING ERRCODE = '42501';
+    END IF;
+    IF v_target.deleted_at IS NOT NULL OR v_target.archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'A deleted user cannot be suspended' USING ERRCODE = '42501';
+    END IF;
+    IF v_target.suspended_at IS NOT NULL THEN
+        RAISE EXCEPTION 'This user is already suspended' USING ERRCODE = '42501';
+    END IF;
+    IF char_length(v_reason) < 10 THEN
+        RAISE EXCEPTION 'Give a reason of at least 10 characters' USING ERRCODE = '22023';
+    END IF;
+
+    PERFORM set_config('app.suspension_ok', '1', true);
+    UPDATE public.profiles
+    SET suspended_at = NOW(), suspended_by = v_caller_id, suspension_reason = v_reason, updated_at = NOW()
+    WHERE id = p_user_id;
+    PERFORM set_config('app.suspension_ok', '', true);
+
+    -- Ban the login and end every session so the next refresh fails.
+    UPDATE auth.users SET banned_until = NOW() + interval '100 years', updated_at = NOW() WHERE id = p_user_id;
+    DELETE FROM auth.refresh_tokens WHERE user_id = p_user_id::text;
+    DELETE FROM auth.sessions WHERE user_id = p_user_id;
+
+    INSERT INTO public.activity_logs (user_id, church_id, action, entity_type, entity_id, metadata)
+    VALUES (v_caller_id, COALESCE(v_target.assigned_church_id, v_target.church_id), 'user_suspended', 'profiles', p_user_id,
+            jsonb_build_object('reason', v_reason));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.reactivate_user(p_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_caller_id uuid := auth.uid();
+    v_target public.profiles%ROWTYPE;
+BEGIN
+    PERFORM public.assert_account_active();
+    IF v_caller_id IS NULL THEN
+        RAISE EXCEPTION 'Not signed in' USING ERRCODE = '28000';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = v_caller_id AND role::text = 'super_admin') THEN
+        RAISE EXCEPTION 'Only the Super Admin can reactivate a user' USING ERRCODE = '42501';
+    END IF;
+    SELECT * INTO v_target FROM public.profiles WHERE id = p_user_id FOR UPDATE;
+    IF v_target.id IS NULL THEN
+        RAISE EXCEPTION 'User not found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_target.deleted_at IS NOT NULL OR v_target.archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'A deleted user cannot be reactivated' USING ERRCODE = '42501';
+    END IF;
+    IF v_target.suspended_at IS NULL THEN
+        RAISE EXCEPTION 'This user is not suspended' USING ERRCODE = '42501';
+    END IF;
+
+    PERFORM set_config('app.suspension_ok', '1', true);
+    UPDATE public.profiles
+    SET suspended_at = NULL, suspended_by = NULL, suspension_reason = NULL, updated_at = NOW()
+    WHERE id = p_user_id;
+    PERFORM set_config('app.suspension_ok', '', true);
+
+    UPDATE auth.users SET banned_until = NULL, updated_at = NOW() WHERE id = p_user_id;
+
+    INSERT INTO public.activity_logs (user_id, church_id, action, entity_type, entity_id, metadata)
+    VALUES (v_caller_id, COALESCE(v_target.assigned_church_id, v_target.church_id), 'user_reactivated', 'profiles', p_user_id,
+            jsonb_build_object('reactivated_by', v_caller_id));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ticket_request_delete(p_ticket_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_ctx record;
+    v_subject public.profiles%ROWTYPE;
+    v_subject_name text;
+BEGIN
+    SELECT * INTO v_ctx FROM public._deletion_request_for_decision(p_ticket_id);
+
+    SELECT * INTO v_subject FROM public.profiles WHERE id = v_ctx.subject_id;
+    IF v_subject.id IS NULL THEN
+        RAISE EXCEPTION 'User not found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_subject.deleted_at IS NOT NULL OR v_subject.archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'This account is already deleted. Decline the request to close it' USING ERRCODE = '42501';
+    END IF;
+    IF v_subject.role::text = 'super_admin' THEN
+        RAISE EXCEPTION 'The Super Admin cannot be deleted' USING ERRCODE = '42501';
+    END IF;
+    IF v_subject.id = auth.uid() THEN
+        RAISE EXCEPTION 'You cannot delete your own account here' USING ERRCODE = '42501';
+    END IF;
+
+    v_subject_name := COALESCE(NULLIF(btrim(v_subject.full_name), ''), 'the user');
+    PERFORM public.anonymize_user(v_subject.id, auth.uid());
+    PERFORM public._deletion_request_record(
+        p_ticket_id, v_ctx.status, 'resolved',
+        v_ctx.caller_name || ' deleted the account of ' || v_subject_name,
+        jsonb_build_object('decision', 'deleted'));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ticket_request_suspend(p_ticket_id uuid, p_reason text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_ctx record;
+    v_subject public.profiles%ROWTYPE;
+    v_subject_name text;
+BEGIN
+    SELECT * INTO v_ctx FROM public._deletion_request_for_decision(p_ticket_id);
+
+    SELECT * INTO v_subject FROM public.profiles WHERE id = v_ctx.subject_id;
+    IF v_subject.id IS NULL THEN
+        RAISE EXCEPTION 'User not found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_subject.deleted_at IS NOT NULL OR v_subject.archived_at IS NOT NULL THEN
+        RAISE EXCEPTION 'This account is already deleted. Decline the request to close it' USING ERRCODE = '42501';
+    END IF;
+    IF v_subject.suspended_at IS NOT NULL THEN
+        RAISE EXCEPTION 'This account is already suspended. Delete it or decline the request' USING ERRCODE = '42501';
+    END IF;
+
+    v_subject_name := COALESCE(NULLIF(btrim(v_subject.full_name), ''), 'the user');
+    PERFORM public.suspend_user(v_subject.id, p_reason);
+    PERFORM public._deletion_request_record(
+        p_ticket_id, v_ctx.status, 'in_progress',
+        v_ctx.caller_name || ' suspended ' || v_subject_name || ' pending review',
+        jsonb_build_object('decision', 'suspended'));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.suspend_user(uuid, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.reactivate_user(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.ticket_request_delete(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.ticket_request_suspend(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.suspend_user(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reactivate_user(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ticket_request_delete(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.ticket_request_suspend(uuid, text) TO authenticated;

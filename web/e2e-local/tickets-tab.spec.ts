@@ -338,7 +338,7 @@ test.describe('New Message picker', () => {
     await volunteerView.page.getByRole('button', { name: 'New message' }).first().click();
     const volunteerDialog = volunteerView.page.getByRole('dialog');
     await expect(volunteerDialog.getByRole('button', { name: 'Open a ticket' })).toBeVisible();
-    await expect(volunteerDialog.getByText('Local Church Admin', { exact: true })).toHaveCount(0);
+    await expect(volunteerDialog.getByText('Other Parish Admin')).toHaveCount(0);
     await volunteerDialog.getByRole('button', { name: 'Open a ticket' }).click();
     await expect(volunteerView.page.locator('h2', { hasText: 'Contact Parish Office' })).toBeVisible();
     await volunteerView.close();

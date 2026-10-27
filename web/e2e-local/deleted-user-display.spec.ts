@@ -63,6 +63,8 @@ test.beforeAll(async () => {
 
   const deleted = await superAdmin.client.rpc('delete_user_account', { p_user_id: victim.id });
   if (deleted.error) throw deleted.error;
+  await db.from('profiles').update({ archived_at: new Date(Date.now() - 8 * 86400 * 1000).toISOString() }).eq('id', victim.id);
+  await superAdmin.client.rpc('purge_expired_archived_users');
 });
 
 test.afterAll(async () => {

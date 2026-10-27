@@ -164,7 +164,7 @@ test.describe('Ticket lifecycle on /messages', () => {
 });
 
 test.describe('Volunteer messaging scope', () => {
-  test('the New Message dialog offers a volunteer direct contacts for parishioners and volunteers, never admins or priests', async ({ page }) => {
+  test('the New Message dialog offers a volunteer direct contacts for parishioners, volunteers, and own-church staff', async ({ page }) => {
     await volunteerPage(page);
     await page.goto('/messages');
     await page.getByRole('button', { name: 'New message' }).first().click();
@@ -174,20 +174,20 @@ test.describe('Volunteer messaging scope', () => {
     await expect(dialog.getByRole('button', { name: 'Parishioners' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Volunteers' })).toBeVisible();
     await expect(dialog.getByText('Local Parishioner')).toBeVisible();
-    await expect(dialog.getByText('Local Church Admin', { exact: true })).toHaveCount(0);
-    await expect(dialog.getByText('Fr. Local Priest')).toHaveCount(0);
+    await expect(dialog.getByText('Local Church Admin', { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Fr. Local Priest')).toBeVisible();
     await expect(dialog.getByText('Other Parish Admin')).toHaveCount(0);
   });
 
-  test('the database refuses volunteer-started DMs to priests and admins, but allows messaging parishioners', async () => {
-    for (const targetId of [seed.ids.priest, seed.ids.other_admin, seed.ids.church_admin]) {
-      const started = await volunteerClient.rpc('start_direct_conversation', { p_target: targetId });
-      expect(started.error).not.toBeNull();
-    }
+  test('the database refuses volunteer-started DMs to admins of other churches, but allows fellow staff and parishioners', async () => {
+    const refused = await volunteerClient.rpc('start_direct_conversation', { p_target: seed.ids.other_admin });
+    expect(refused.error).not.toBeNull();
 
-    const allowed = await volunteerClient.rpc('start_direct_conversation', { p_target: seed.ids.parishioner });
-    expect(allowed.error).toBeNull();
-    expect(allowed.data).toBeTruthy();
+    for (const allowedTarget of [seed.ids.church_admin, seed.ids.priest, seed.ids.parishioner]) {
+      const allowed = await volunteerClient.rpc('start_direct_conversation', { p_target: allowedTarget });
+      expect(allowed.error).toBeNull();
+      expect(allowed.data).toBeTruthy();
+    }
 
     const created = await volunteerClient
       .from('conversations')
