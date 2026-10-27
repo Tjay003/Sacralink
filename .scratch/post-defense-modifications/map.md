@@ -19,7 +19,7 @@ Spec: `spec.md`
 - **San Jose del Monte, Bulacan Map Geo-Fence (Q10)**: Lock `ChurchLocationPicker.tsx` (existing Leaflet + Nominatim setup, zero new APIs) to the SJDM bounding box (`Lat: 14.750°–14.900°N`, `Lng: 120.980°–121.160°E`) across camera `maxBounds`/`minZoom`, pin placement/dragging, bounded address search, and GPS location checks.
 
 ## Tasks
-- [ ] 01 Remove Bible Verse on staff/admin dashboards, hide Transfer of Ownership, hide Super Admin livestream controls, and hide Chatbot Neural Pipeline UI. Blocked by: none
+- [x] 01 Remove Bible Verse on staff/admin dashboards, hide Transfer of Ownership, hide Super Admin livestream controls, and hide Chatbot Neural Pipeline UI. Blocked by: none
 - [ ] 02 Upgrade Donation statistics chart to 12 months with real database aggregation and enforce strict phone/payment number validation. Blocked by: none
 - [ ] 03 Geo-fence ChurchLocationPicker map and address search strictly to City of San Jose del Monte, Bulacan. Blocked by: none
 - [ ] 04 Auto-provision church Staff Channels and fix new church visibility in Messages for staff and Super Admin. Blocked by: none

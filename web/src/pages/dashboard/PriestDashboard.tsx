@@ -6,7 +6,6 @@ import Modal from '../../components/ui/Modal';
 import CelebrantAttentionWidget from '../../components/dashboard/CelebrantAttentionWidget';
 import ChurchAnnouncementsWidget from '../../components/dashboard/ChurchAnnouncementsWidget';
 import PriestAvailabilityModal from '../../components/dashboard/PriestAvailabilityModal';
-import DailyVerse from '../../components/dashboard/DailyVerse';
 import {
     getAppointments,
     subscribeToAppointments,
@@ -73,18 +72,6 @@ interface DocumentItem {
 }
 
 type SacramentFilter = SacramentKey | 'all';
-
-const MINISTRY_NOTES: Record<SacramentKey, string> = {
-    funeral: 'Before the funeral Mass, ask for a heart that consoles the grieving.',
-    anointing: 'Before visiting the sick, ask for the gentleness of Christ the physician.',
-    marriage: "Before the wedding, pray that the couple's love may mirror Christ's love for the Church.",
-    baptism: 'Before the baptism, give thanks for the new life God is welcoming into His family.',
-    confirmation: 'Before the confirmation, pray that the Spirit stirs up His gifts in those you anoint.',
-    mass: 'Before Mass, carry the intentions of your parishioners to the altar.',
-    counseling: 'Before you listen, ask for patience and the wisdom to speak only what heals.',
-    other: 'Offer each blessing today as a sign of God drawing near to His people.',
-};
-const QUIET_DAY_NOTE = 'With a lighter schedule today, offer your hidden work for the parish as a prayer.';
 
 const SEASON_DOTS: Record<LiturgicalSeasonInfo['liturgicalColor'], string> = {
     green: 'bg-emerald-500',
@@ -427,11 +414,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
     );
     const celebratedTodayCount = todayCelebrations.filter((a) => a.status === 'completed').length;
     const remainingTodayCount = todayCelebrations.filter((a) => a.status === 'approved').length;
-
-    const ministryNote = useMemo(() => {
-        const focus = nextCelebration || todayCelebrations.find((a) => a.status === 'approved') || todayCelebrations[0];
-        return focus ? MINISTRY_NOTES[getSacramentMeta(focus.service_type).key] : QUIET_DAY_NOTE;
-    }, [nextCelebration, todayCelebrations]);
 
     // ---- Stats -----------------------------------------------------------------
     const weekEnd = useMemo(() => {
@@ -820,15 +802,6 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                             Update availability and leave
                         </button>
                     </section>
-
-                    {/* Daily Scripture Verse (wrapped so its h-full doesn't stretch to the column height) */}
-                    <div>
-                        <DailyVerse
-                            variant="parchment"
-                            reflectionLabel="For your ministry today"
-                            reflectionText={ministryNote}
-                        />
-                    </div>
 
                     {/* Parish Bulletin */}
                     <ChurchAnnouncementsWidget

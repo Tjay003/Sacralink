@@ -8,7 +8,6 @@ import ChurchPerformanceGrid from '../../components/dashboard/ChurchPerformanceG
 import RecentActivityWidget from '../../components/dashboard/RecentActivityWidget';
 import ChurchAdminDashboard from './ChurchAdminDashboard';
 import NeedsYourAttentionWidget from '../../components/dashboard/NeedsYourAttentionWidget';
-import DailyVerse from '../../components/dashboard/DailyVerse';
 import { useAuth } from '../../contexts/AuthContext';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { getDailyReadings } from '../../lib/liturgy';
@@ -188,14 +187,9 @@ export default function SuperAdminDashboard() {
             {/* All-Churches Stats (Includes Total Services Completed, strictly no Giving) */}
             <DioceseStatsCards selectedChurchId={selectedChurchId} />
 
-            {/* Needs Your Attention & Daily Verse Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <NeedsYourAttentionWidget />
-                </div>
-                <div>
-                    <DailyVerse variant="parchment" />
-                </div>
+            {/* Needs Your Attention Row */}
+            <div>
+                <NeedsYourAttentionWidget />
             </div>
 
             {/* Parish Performance Grid (Members & Active Events, strictly no Giving) */}

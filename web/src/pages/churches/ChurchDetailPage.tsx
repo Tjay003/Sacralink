@@ -1534,7 +1534,7 @@ export default function ChurchDetailPage() {
                     <VirtualSanctuarySection
                         church={church}
                         activePanoramaUrl={activePanoramaUrl}
-                        canManage={canManage()}
+                        canManage={profile?.role === 'church_admin' && profile?.assigned_church_id === church.id}
                     />
                 </div>
             )}

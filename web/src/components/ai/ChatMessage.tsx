@@ -402,6 +402,7 @@ export default function ChatMessage({
 }: ChatMessageProps) {
     const isUser = role === 'user';
     const [showTrace, setShowTrace] = useState(false);
+    const SHOW_AI_TRACE: boolean = false;
 
     return (
         <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -437,8 +438,8 @@ export default function ChatMessage({
                     <FormattedMessageContent content={content} isUser={isUser} isLargeText={isLargeText} />
                 </div>
 
-                {/* AI Tool Inspector Pill & Dropdown */}
-                {!isUser && debug && (
+                {/* AI Tool Inspector Pill & Dropdown (Hidden per client request) */}
+                {!isUser && debug && SHOW_AI_TRACE && (
                     <div className="w-full">
                         <button
                             type="button"

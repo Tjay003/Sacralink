@@ -6,7 +6,7 @@ import DemoteConfirmModal from './DemoteConfirmModal';
 import { useAuth, useIsSuperAdmin, useIsChurchAdmin } from '../../contexts/AuthContext';
 import { useChurches } from '../../hooks/useChurches';
 import type { Profile, UserRole } from '../../types/database';
-import { ShieldAlert, Lock, AlertCircle, Crown, ArrowRightLeft, Cross } from 'lucide-react';
+import { ShieldAlert, Lock, AlertCircle, Cross } from 'lucide-react';
 
 interface EditRoleModalProps {
     user: Profile;
@@ -26,7 +26,7 @@ interface EditRoleModalProps {
  * - Dual-role Priest-Administrators (church_admin who are ordained priests) can be toggled as is_priest.
  * - Dedicated priests (role = 'priest') are automatically is_priest = true.
  */
-export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransferModal }: EditRoleModalProps) {
+export default function EditRoleModal({ user, onClose, onSuccess }: EditRoleModalProps) {
     const { profile: currentProfile } = useAuth();
     const isSuperAdmin = useIsSuperAdmin();
     const isChurchAdmin = useIsChurchAdmin();
@@ -41,14 +41,10 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
 
     // Check if user being edited is currently a super_admin
     const isEditingSuperAdmin = user.role === 'super_admin';
-    const isSelf = user.id === currentProfile?.id;
     // The reason this person's role cannot be edited by the current user (null when editing is allowed)
     const editBlock = getRoleEditBlock(currentProfile, user);
     const canEditThisUser = editBlock === null;
     const canDemote = canEditThisUser && isStaffRole(user.role);
-
-    // Platform ownership transfer is available if current user is Super Admin, target is not super admin, and target is not self
-    const canTransferOwnership = isSuperAdmin && !isEditingSuperAdmin && !isSelf && !!onOpenTransferModal;
 
     // Available roles: the same four for a Super Admin and a Church Admin; super_admin and admin are never offered
     const availableRoles = ASSIGNABLE_ROLES;
@@ -74,18 +70,11 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
         return churches.find(c => c.id === id)?.name || 'Unknown Church';
     };
 
-    const handleTransferClick = () => {
-        onClose();
-        if (onOpenTransferModal) {
-            onOpenTransferModal(user);
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (isEditingSuperAdmin) {
-            setError('Super Admin role cannot be modified via standard role editing. Use Transfer Ownership.');
+            setError('Super Admin role cannot be modified.');
             return;
         }
 
@@ -130,7 +119,7 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                         <span>Platform Owner (Sole Super Admin)</span>
                     </div>
                     <p className="text-xs text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
-                        This user holds the sole Super Admin role. Super Admin privileges cannot be modified or reassigned through standard role editing. To assign a new Super Admin, use the dedicated <strong>Transfer Ownership</strong> action.
+                        This user holds the sole Super Admin role. Super Admin privileges cannot be modified or reassigned.
                     </p>
                 </div>
             )}
@@ -263,33 +252,6 @@ export default function EditRoleModal({ user, onClose, onSuccess, onOpenTransfer
                     )}
                 </div>
 
-                {/* Platform Ownership Transfer Card */}
-                {canTransferOwnership && (
-                    <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 space-y-3">
-                        <div className="flex items-start gap-2.5">
-                            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
-                                <Crown className="w-4 h-4" />
-                            </div>
-                            <div className="space-y-1 min-w-0">
-                                <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
-                                    Platform Ownership Transfer
-                                </h4>
-                                <p className="text-xs text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
-                                    The Super Admin role is unique and cannot be selected from the role dropdown above. However, platform ownership can be transferred to this user.
-                                </p>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleTransferClick}
-                            className="w-full py-2 px-3.5 rounded-lg border border-amber-300 dark:border-amber-700/80 bg-white dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 hover:bg-amber-100/80 dark:hover:bg-amber-900/80 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow"
-                        >
-                            <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                            <span>Transfer Ownership to this User</span>
-                        </button>
-                    </div>
-                )}
 
                 {error && (
                     <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-2">

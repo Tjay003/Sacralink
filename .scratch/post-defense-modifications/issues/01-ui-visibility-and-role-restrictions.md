@@ -2,7 +2,7 @@
 
 Type: task
 **Blocked by:** None (can start immediately)
-**Status:** ready-for-agent
+**Status:** done
 
 **What to build:** Implement four role-visibility and UI cleanup adjustments requested by the client (hiding controls in the UI rather than deleting underlying components/RPCs so they can be restored easily if ever needed):
 
@@ -23,8 +23,8 @@ Type: task
    - In `web/src/components/ai/ChatMessage.tsx`, hide the expandable `"Neural Core · X action(s) verified"` debug trace pill and terminal dropdown beneath assistant replies.
 
 ## Acceptance Criteria
-- [ ] `SuperAdminDashboard`, `PriestDashboard`, and `ChurchAdminDashboard` do not render `<DailyVerse />`; `UserDashboard` and `VolunteerDashboard` still render `<DailyVerse />`.
-- [ ] Opening `EditRoleModal` as `super_admin` does not show the `"Platform Ownership Transfer"` section or button.
-- [ ] `super_admin` can view livestreams on `/churches/:id` but never sees `<LiveBroadcastManager />`, the `"Studio Controls"` button, or the Livestream configuration card on Add/Edit Church pages; `church_admin` retains full livestream studio and edit access for their assigned church.
-- [ ] Opening the AI Chatbot (`ParishAssistant`) shows only the clean chat interface with no `"Neural Pipeline"` switcher tab and no `"Neural Core"` debug trace under bot messages.
-- [ ] `tsc -b` and `vite build` pass cleanly.
+- [x] `SuperAdminDashboard`, `PriestDashboard`, and `ChurchAdminDashboard` do not render `<DailyVerse />`; `UserDashboard` and `VolunteerDashboard` still render `<DailyVerse />`.
+- [x] Opening `EditRoleModal` as `super_admin` does not show the `"Platform Ownership Transfer"` section or button.
+- [x] `super_admin` can view livestreams on `/churches/:id` but never sees `<LiveBroadcastManager />`, the `"Studio Controls"` button, or the Livestream configuration card on Add/Edit Church pages; `church_admin` retains full livestream studio and edit access for their assigned church.
+- [x] Opening the AI Chatbot (`ParishAssistant`) shows only the clean chat interface with no `"Neural Pipeline"` switcher tab and no `"Neural Core"` debug trace under bot messages.
+- [x] `tsc -b` and `vite build` pass cleanly.

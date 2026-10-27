@@ -462,7 +462,7 @@ export default function UsersPage() {
                 <button
                     type="button"
                     disabled
-                    title="Platform Owner role cannot be modified via standard role editing. Use Transfer Ownership."
+                    title="Platform Owner role cannot be modified."
                     className={`${fullWidth ? 'w-full py-2' : 'py-1.5'} px-3 rounded-lg border border-border bg-secondary-100 text-muted text-xs font-semibold opacity-60 cursor-not-allowed`}
                 >
                     Owner Locked

@@ -1385,37 +1385,39 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                         </div>
                     </div>
 
-                    {/* View Switcher: Chat vs AI & Tool Inspector */}
-                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border bg-secondary-50/70 text-xs shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('chat')}
-                            className={`px-3 py-1 font-semibold rounded-lg transition-all ${
-                                activeTab === 'chat'
-                                    ? 'bg-white text-primary shadow-xs border border-border'
-                                    : 'text-muted hover:text-foreground'
-                            }`}
-                        >
-                            Chat
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('inspector')}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 font-semibold rounded-lg transition-all ${
-                                activeTab === 'inspector'
-                                    ? 'bg-white text-primary shadow-xs border border-border'
-                                    : 'text-muted hover:text-foreground'
-                            }`}
-                        >
-                            <Cpu className="w-3.5 h-3.5 text-primary" />
-                            <span>Neural Pipeline</span>
-                            {messages.some((m) => m.debug?.tools && m.debug.tools.length > 0) && (
-                                <span className="inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] bg-blue-100 text-blue-800 rounded-full font-bold">
-                                    {messages.reduce((acc, m) => acc + (m.debug?.tools?.length || 0), 0)}
-                                </span>
-                            )}
-                        </button>
-                    </div>
+                    {/* View Switcher: Chat vs AI & Tool Inspector (Hidden per client request) */}
+                    {false && (
+                        <div className="flex items-center gap-1.5 px-3.5 py-1.5 border-b border-border bg-secondary-50/70 text-xs shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('chat')}
+                                className={`px-3 py-1 font-semibold rounded-lg transition-all ${
+                                    activeTab === 'chat'
+                                        ? 'bg-white text-primary shadow-xs border border-border'
+                                        : 'text-muted hover:text-foreground'
+                                }`}
+                            >
+                                Chat
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('inspector')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 font-semibold rounded-lg transition-all ${
+                                    activeTab === 'inspector'
+                                        ? 'bg-white text-primary shadow-xs border border-border'
+                                        : 'text-muted hover:text-foreground'
+                                }`}
+                            >
+                                <Cpu className="w-3.5 h-3.5 text-primary" />
+                                <span>Neural Pipeline</span>
+                                {messages.some((m) => m.debug?.tools && m.debug.tools.length > 0) && (
+                                    <span className="inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] bg-blue-100 text-blue-800 rounded-full font-bold">
+                                        {messages.reduce((acc, m) => acc + (m.debug?.tools?.length || 0), 0)}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
 
                     {activeTab === 'inspector' ? (
                         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 bg-secondary-900 text-secondary-100 text-xs font-mono">

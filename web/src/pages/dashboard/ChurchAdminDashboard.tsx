@@ -11,7 +11,6 @@ import ChurchAnnouncementsManagement from '../../components/dashboard/ChurchAnno
 import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManager';
 import RecentAppointmentsWidget from '../../components/dashboard/RecentAppointmentsWidget';
 import RecentActivityWidget from '../../components/dashboard/RecentActivityWidget';
-import DailyVerse from '../../components/dashboard/DailyVerse';
 import AnnouncementForm from '../../components/announcements/AnnouncementForm';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { supabase } from '../../lib/supabase';
@@ -153,25 +152,22 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                             />
                             <ChurchStatsCards churchId={churchId} />
 
-                            {/* Top Row: Parish Attention & Daily Verse Bento Box */}
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                                <div className="lg:col-span-7 flex flex-col">
-                                    <ParishAttentionWidget churchId={churchId} />
-                                </div>
-                                <div className="lg:col-span-5 flex flex-col">
-                                    <DailyVerse variant="parchment" />
-                                </div>
+                            {/* Top Row: Parish Attention */}
+                            <div>
+                                <ParishAttentionWidget churchId={churchId} />
                             </div>
 
                             {/* Row 2: Live Broadcast & AI Knowledge / Donations */}
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                                {/* Left Column: 7 cols */}
-                                <div className="lg:col-span-7 space-y-6">
-                                    <LiveBroadcastManager churchId={churchId} />
-                                </div>
+                                {/* Left Column: 7 cols (Church Admin only) */}
+                                {isChurchAdmin && (
+                                    <div className="lg:col-span-7 space-y-6">
+                                        <LiveBroadcastManager churchId={churchId} />
+                                    </div>
+                                )}
 
-                                {/* Right Column: 5 cols */}
-                                <div className="lg:col-span-5 space-y-6">
+                                {/* Right Column: 5 cols if church admin, full width if super admin */}
+                                <div className={`${isChurchAdmin ? 'lg:col-span-5' : 'lg:col-span-12'} space-y-6`}>
                                     {/* 1. AI Parish Assistant */}
                                     {isFeatureEnabled('churchAiSync') && (
                                         <div className="bg-white border border-border rounded-2xl p-6 shadow-xs space-y-4">

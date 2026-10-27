@@ -595,87 +595,89 @@ export default function EditChurchPage() {
                             </div>
                         </div>
 
-                        {/* 4. Livestream Card */}
-                        <div className="card p-6 bg-white border border-border rounded-2xl shadow-xs space-y-5">
-                            <div>
-                                <h2 className="text-lg font-semibold text-foreground tracking-tight">Livestream</h2>
-                                <p className="text-xs text-muted mt-0.5">Broadcast Masses on the parish page</p>
-                            </div>
+                        {/* 4. Livestream Card (hidden for super_admin) */}
+                        {!isSuperAdmin && (
+                            <div className="card p-6 bg-white border border-border rounded-2xl shadow-xs space-y-5">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-foreground tracking-tight">Livestream</h2>
+                                    <p className="text-xs text-muted mt-0.5">Broadcast Masses on the parish page</p>
+                                </div>
 
-                            <div className="p-4 rounded-xl border border-secondary-200 bg-secondary-50/50 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.is_live ? 'bg-red-100 text-red-600' : 'bg-secondary-100 text-secondary-600'}`}>
-                                            <Radio className="w-4 h-4" />
+                                <div className="p-4 rounded-xl border border-secondary-200 bg-secondary-50/50 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.is_live ? 'bg-red-100 text-red-600' : 'bg-secondary-100 text-secondary-600'}`}>
+                                                <Radio className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold text-foreground">
+                                                    Enable livestream
+                                                </p>
+                                                <p className="text-[11px] text-muted">
+                                                    Broadcast YouTube or Facebook Live Mass to homebound parishioners
+                                                </p>
+                                            </div>
                                         </div>
+
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.is_live}
+                                                onChange={(e) => setFormData({ ...formData, is_live: e.target.checked })}
+                                                disabled={loading}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                                        </label>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/60">
                                         <div>
-                                            <p className="text-xs font-bold text-foreground">
-                                                Enable livestream
-                                            </p>
-                                            <p className="text-[11px] text-muted">
-                                                Broadcast YouTube or Facebook Live Mass to homebound parishioners
-                                            </p>
+                                            <label className="block text-xs font-semibold text-foreground mb-1">
+                                                Stream platform
+                                            </label>
+                                            <select
+                                                value={formData.livestream_platform}
+                                                onChange={(e) => setFormData({ ...formData, livestream_platform: e.target.value })}
+                                                disabled={loading}
+                                                className="input w-full text-xs font-medium"
+                                            >
+                                                <option value="youtube">YouTube Live</option>
+                                                <option value="facebook">Facebook Live</option>
+                                            </select>
                                         </div>
-                                    </div>
 
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.is_live}
-                                            onChange={(e) => setFormData({ ...formData, is_live: e.target.checked })}
-                                            disabled={loading}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                                    </label>
-                                </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-foreground mb-1">
+                                                Stream / broadcast title
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.livestream_title}
+                                                onChange={(e) => setFormData({ ...formData, livestream_title: e.target.value })}
+                                                disabled={loading}
+                                                placeholder="e.g., Sunday 8:00 AM Solemn Mass"
+                                                className="input w-full text-xs"
+                                            />
+                                        </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/60">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-foreground mb-1">
-                                            Stream platform
-                                        </label>
-                                        <select
-                                            value={formData.livestream_platform}
-                                            onChange={(e) => setFormData({ ...formData, livestream_platform: e.target.value })}
-                                            disabled={loading}
-                                            className="input w-full text-xs font-medium"
-                                        >
-                                            <option value="youtube">YouTube Live</option>
-                                            <option value="facebook">Facebook Live</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-foreground mb-1">
-                                            Stream / broadcast title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.livestream_title}
-                                            onChange={(e) => setFormData({ ...formData, livestream_title: e.target.value })}
-                                            disabled={loading}
-                                            placeholder="e.g., Sunday 8:00 AM Solemn Mass"
-                                            className="input w-full text-xs"
-                                        />
-                                    </div>
-
-                                    <div className="sm:col-span-2">
-                                        <label className="block text-xs font-semibold text-foreground mb-1">
-                                            Livestream video URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            value={formData.livestream_url}
-                                            onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
-                                            disabled={loading}
-                                            placeholder="e.g., https://youtube.com/watch?v=... or https://facebook.com/..."
-                                            className="input w-full text-xs font-mono"
-                                        />
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-semibold text-foreground mb-1">
+                                                Livestream video URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={formData.livestream_url}
+                                                onChange={(e) => setFormData({ ...formData, livestream_url: e.target.value })}
+                                                disabled={loading}
+                                                placeholder="e.g., https://youtube.com/watch?v=... or https://facebook.com/..."
+                                                className="input w-full text-xs font-mono"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* 5. Donation Channels Card (Preserving all GCash/Maya & Fraud Checks) */}
                         <div className="card p-6 bg-white border border-border rounded-2xl shadow-xs space-y-5">
