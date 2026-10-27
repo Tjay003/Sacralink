@@ -551,38 +551,38 @@ export default function ChurchLocationPicker({
   return (
     <div className={`space-y-3 ${className}`}>
       {/* Header with Title & Action Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
-          <MapPin className="w-5 h-5 text-primary" />
+          <MapPin className="w-5 h-5 text-primary shrink-0" />
           <span className="font-semibold text-sm text-foreground">Parish Map Location & Coordinates</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleUseCurrentLocation}
             disabled={disabled || isLocating}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg transition-colors border border-primary-200 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg transition-colors border border-primary-200 disabled:opacity-50 cursor-pointer"
             title="Use current GPS location"
           >
             {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
-            {isLocating ? 'Locating...' : 'Use Current GPS'}
+            <span>{isLocating ? 'Locating...' : 'Use Current GPS'}</span>
           </button>
           <button
             type="button"
             onClick={handleResetToDefault}
             disabled={disabled}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-secondary-100 hover:bg-secondary-200 text-secondary-800 rounded-lg transition-colors border border-secondary-200 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium bg-secondary-100 hover:bg-secondary-200 text-secondary-800 rounded-lg transition-colors border border-secondary-200 disabled:opacity-50 cursor-pointer"
             title="Center on City of San Jose del Monte (Bulacan)"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Center CSJDM
+            <span>Center CSJDM</span>
           </button>
         </div>
       </div>
 
       {/* Address Geocoding Search Box */}
       <div className="relative">
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
             <input
@@ -623,7 +623,7 @@ export default function ChurchLocationPicker({
             type="button"
             onClick={() => void handleSearch()}
             disabled={disabled || isSearching || !searchQuery.trim()}
-            className="btn-primary h-11 px-5 py-2.5 text-xs font-semibold rounded-xl flex items-center gap-2 shrink-0 cursor-pointer shadow-xs"
+            className="btn-primary h-11 px-5 py-2.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-xs w-full sm:w-auto"
           >
             {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             <span>{isSearching ? 'Searching...' : 'Search Location'}</span>
@@ -708,21 +708,21 @@ export default function ChurchLocationPicker({
         />
 
         {/* Map Overlay Helper Badge */}
-        <div className="absolute bottom-3 left-3 z-20 pointer-events-none bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border text-[11px] font-medium text-foreground shadow-sm flex items-center gap-1.5">
-          <Compass className="w-3.5 h-3.5 text-primary" />
-          <span>Geo-fenced to San Jose del Monte, Bulacan (Min Zoom 12)</span>
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-none bg-white/95 backdrop-blur-md px-2.5 py-1.5 sm:px-3 rounded-lg border border-border text-[10px] sm:text-[11px] font-medium text-foreground shadow-sm flex items-center gap-1.5 max-w-[calc(100%-1.5rem)]">
+          <Compass className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="truncate">Geo-fenced to CSJDM<span className="hidden sm:inline">, Bulacan (Min Zoom 12)</span></span>
         </div>
 
         {/* Coordinate Status Badge */}
-        <div className="absolute top-3 right-3 z-20 pointer-events-none">
+        <div className="absolute top-3 right-3 z-20 pointer-events-none max-w-[calc(100%-4.5rem)]">
           {hasCoordinates ? (
-            <div className="bg-emerald-600 text-white px-3 py-1 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>PIN SET: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}</span>
+            <div className="bg-emerald-600 text-white px-2.5 py-1 sm:px-3 rounded-full text-[10px] sm:text-[11px] font-bold shadow-md flex items-center gap-1 truncate">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">PIN SET: {latitude?.toFixed(4)}, {longitude?.toFixed(4)}</span>
             </div>
           ) : (
-            <div className="bg-amber-500 text-white px-3 py-1 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
+            <div className="bg-amber-500 text-white px-2.5 py-1 sm:px-3 rounded-full text-[10px] sm:text-[11px] font-bold shadow-md flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>NO PIN SET</span>
             </div>
           )}
@@ -731,10 +731,10 @@ export default function ChurchLocationPicker({
 
       {/* Reverse Geocode Address Notification Banner */}
       {resolvedAddress && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start justify-between gap-3 text-xs">
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs">
           <div className="flex items-start gap-2 min-w-0">
             <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-primary-900">Pin Location Address:</p>
               <p className="text-primary-800 mt-0.5 line-clamp-2">{resolvedAddress}</p>
             </div>
@@ -743,7 +743,7 @@ export default function ChurchLocationPicker({
             <button
               type="button"
               onClick={() => onAddressSelect(resolvedAddress)}
-              className="px-2.5 py-1 bg-primary text-white font-medium rounded-lg text-xs hover:bg-primary-700 transition-colors shrink-0 shadow-sm cursor-pointer"
+              className="w-full sm:w-auto px-2.5 py-1.5 bg-primary text-white font-medium rounded-lg text-xs hover:bg-primary-700 transition-colors shrink-0 shadow-sm cursor-pointer text-center"
             >
               Use as Address
             </button>
@@ -753,13 +753,13 @@ export default function ChurchLocationPicker({
 
       {/* Coordinate Fine-Tuning Inputs */}
       <div className="p-4 bg-secondary-50 rounded-xl border border-border space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
           <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
             Coordinates Fine-Tuning (WGS84)
           </span>
           {isReverseGeocoding && (
             <span className="text-[11px] text-primary flex items-center gap-1 font-medium">
-              <Loader2 className="w-3 h-3 animate-spin" /> Resolving address...
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" /> Resolving address...
             </span>
           )}
         </div>
@@ -814,8 +814,8 @@ export default function ChurchLocationPicker({
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-1">
-          <p className="text-[11px] text-muted">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+          <p className="text-[11px] text-muted break-words">
             {hasCoordinates
               ? `Stored: ${latitude?.toFixed(6)}°, ${longitude?.toFixed(6)}° (SJDM)`
               : 'Default center: CSJDM, Bulacan (14.813500, 121.045300)'}
@@ -824,7 +824,7 @@ export default function ChurchLocationPicker({
             type="button"
             onClick={() => handleApplyCoordinates()}
             disabled={disabled}
-            className="px-3 py-1.5 bg-secondary-200 hover:bg-secondary-300 text-secondary-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+            className="w-full sm:w-auto px-3 py-1.5 bg-secondary-200 hover:bg-secondary-300 text-secondary-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center"
           >
             Apply Coordinates
           </button>

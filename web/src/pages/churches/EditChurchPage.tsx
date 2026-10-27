@@ -376,30 +376,57 @@ export default function EditChurchPage() {
     const isUnverified = formData.status === 'unverified';
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl mx-auto pb-16">
+        <form onSubmit={handleSubmit} className="space-y-6 max-w-7xl mx-auto pb-32">
             <div className="space-y-6">
 
                 {/* ── Breadcrumb & Page Header ───────────────────────── */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                     <nav className="flex items-center gap-1.5 text-xs text-muted">
                         <Link to="/churches" className="hover:text-primary transition-colors">
                             Parishes
                         </Link>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                        <Link to={`/churches/${id}`} className="hover:text-primary transition-colors max-w-[200px] sm:max-w-xs truncate">
+                        <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                        <Link to={`/churches/${id}`} className="hover:text-primary transition-colors max-w-[180px] sm:max-w-xs truncate">
                             {formData.name || 'Parish'}
                         </Link>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                        <span className="text-foreground font-medium">Edit details</span>
+                        <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-foreground font-medium truncate">Edit details</span>
                     </nav>
 
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-serif">
-                            Edit parish details
-                        </h1>
-                        <p className="text-xs sm:text-sm text-muted mt-1">
-                            Changes appear on the parish page and are saved in the audit trail.
-                        </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-serif">
+                                Edit parish details
+                            </h1>
+                            <p className="text-xs sm:text-sm text-muted mt-1">
+                                Changes appear on the parish page and are saved in the audit trail.
+                            </p>
+                        </div>
+
+                        {/* Top action buttons for quick access */}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => navigate(`/churches/${id}`)}
+                                disabled={loading}
+                                className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="btn-primary px-5 py-2 text-xs font-semibold rounded-xl shadow-xs cursor-pointer flex items-center gap-2"
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving changes...
+                                    </>
+                                ) : (
+                                    'Save changes'
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -491,14 +518,14 @@ export default function EditChurchPage() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                                         <label className="block text-xs font-semibold text-foreground">
                                             Address <span className="text-red-500">*</span>
                                         </label>
                                         <button
                                             type="button"
                                             onClick={handleBrowserGps}
-                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg transition-colors border border-primary-200 cursor-pointer"
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg transition-colors border border-primary-200 cursor-pointer shrink-0"
                                             title="Use your device's GPS"
                                         >
                                             <Navigation className="w-3.5 h-3.5 text-primary" />
@@ -757,7 +784,7 @@ export default function EditChurchPage() {
                                         <label className="block text-[11px] font-semibold text-blue-900 mb-1">
                                             GCash QR Code
                                         </label>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
                                             <div className="w-16 h-16 rounded-xl border-2 border-dashed border-blue-200 flex items-center justify-center overflow-hidden bg-white shrink-0 shadow-xs">
                                                 {formData.gcash_qr_url ? (
                                                     <img src={formData.gcash_qr_url} alt="GCash QR" className="w-full h-full object-contain" />
@@ -765,10 +792,10 @@ export default function EditChurchPage() {
                                                     <QrCode className="w-6 h-6 text-blue-300" />
                                                 )}
                                             </div>
-                                            <div className="space-y-1 min-w-0">
-                                                <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors">
-                                                    <QrCode className="w-3.5 h-3.5" />
-                                                    <span>{uploadingQr ? 'Uploading...' : formData.gcash_qr_url ? 'Replace QR' : 'Upload QR'}</span>
+                                            <div className="space-y-1.5 min-w-0 flex-1">
+                                                <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors max-w-full">
+                                                    <QrCode className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="truncate">{uploadingQr ? 'Uploading...' : formData.gcash_qr_url ? 'Replace QR' : 'Upload QR'}</span>
                                                     <input
                                                         type="file"
                                                         accept="image/png,image/jpeg,image/webp"
@@ -777,7 +804,7 @@ export default function EditChurchPage() {
                                                         className="hidden"
                                                     />
                                                 </label>
-                                                <p className="text-[10px] text-muted">PNG, JPG, WebP up to 5MB</p>
+                                                <p className="text-[10px] text-muted truncate">PNG, JPG, WebP up to 5MB</p>
                                                 {formData.gcash_qr_url && (
                                                     <button
                                                         type="button"
@@ -819,7 +846,7 @@ export default function EditChurchPage() {
                                         <label className="block text-[11px] font-semibold text-emerald-900 mb-1">
                                             Maya QR Code
                                         </label>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
                                             <div className="w-16 h-16 rounded-xl border-2 border-dashed border-emerald-200 flex items-center justify-center overflow-hidden bg-white shrink-0 shadow-xs">
                                                 {formData.maya_qr_url ? (
                                                     <img src={formData.maya_qr_url} alt="Maya QR" className="w-full h-full object-contain" />
@@ -827,10 +854,10 @@ export default function EditChurchPage() {
                                                     <QrCode className="w-6 h-6 text-emerald-300" />
                                                 )}
                                             </div>
-                                            <div className="space-y-1 min-w-0">
-                                                <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors">
-                                                    <QrCode className="w-3.5 h-3.5" />
-                                                    <span>{uploadingQr ? 'Uploading...' : formData.maya_qr_url ? 'Replace QR' : 'Upload QR'}</span>
+                                            <div className="space-y-1.5 min-w-0 flex-1">
+                                                <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors max-w-full">
+                                                    <QrCode className="w-3.5 h-3.5 shrink-0" />
+                                                    <span className="truncate">{uploadingQr ? 'Uploading...' : formData.maya_qr_url ? 'Replace QR' : 'Upload QR'}</span>
                                                     <input
                                                         type="file"
                                                         accept="image/png,image/jpeg,image/webp"
@@ -839,7 +866,7 @@ export default function EditChurchPage() {
                                                         className="hidden"
                                                     />
                                                 </label>
-                                                <p className="text-[10px] text-muted">PNG, JPG, WebP up to 5MB</p>
+                                                <p className="text-[10px] text-muted truncate">PNG, JPG, WebP up to 5MB</p>
                                                 {formData.maya_qr_url && (
                                                     <button
                                                         type="button"
@@ -995,16 +1022,16 @@ export default function EditChurchPage() {
 
                         {/* 1. Verification Card */}
                         <div className="card p-6 bg-white border border-border rounded-2xl shadow-xs space-y-4">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <h2 className="text-base font-semibold text-foreground tracking-tight">
                                     Verification
                                 </h2>
                                 {isSuperAdmin ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary-50 px-2.5 py-0.5 rounded-full border border-primary-200">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary-50 px-2.5 py-0.5 rounded-full border border-primary-200 shrink-0">
                                         Super Admin Edit
                                     </span>
                                 ) : (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary-600 bg-secondary-100 px-2.5 py-0.5 rounded-full border border-secondary-200">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary-600 bg-secondary-100 px-2.5 py-0.5 rounded-full border border-secondary-200 shrink-0">
                                         Read-only
                                     </span>
                                 )}
@@ -1202,11 +1229,11 @@ export default function EditChurchPage() {
                 </div>
             </div>
 
-            {/* ── Bottom Floating Action Bar (Island Dock) ────────────────────────────── */}
-            <div className="sticky bottom-5 z-40 max-w-4xl mx-auto rounded-2xl border border-border/90 bg-white/90 dark:bg-card/90 backdrop-blur-md shadow-2xl px-6 py-3.5 mt-8">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs text-muted">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            {/* ── Bottom Fixed Action Dock Bar ────────────────────────────── */}
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-card/95 backdrop-blur-md border-t border-border px-4 py-3 sm:px-8 shadow-lg">
+                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="hidden sm:flex items-center gap-2 text-xs text-muted">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                         <span>Changes are saved to the audit trail</span>
                     </div>
 
@@ -1215,19 +1242,19 @@ export default function EditChurchPage() {
                             type="button"
                             onClick={() => navigate(`/churches/${id}`)}
                             disabled={loading}
-                            className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors shadow-xs w-full sm:w-auto cursor-pointer"
+                            className="px-4 py-2 text-xs font-semibold rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors shadow-xs flex-1 sm:flex-initial cursor-pointer disabled:opacity-50 text-center"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="btn-primary px-5 py-2 text-xs font-semibold rounded-xl shadow-xs w-full sm:w-auto cursor-pointer"
+                            className="btn-primary px-5 py-2 text-xs font-semibold rounded-xl shadow-xs flex-1 sm:flex-initial cursor-pointer flex items-center justify-center gap-2 text-center"
                         >
                             {loading ? (
-                                <span className="flex items-center gap-2">
+                                <>
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving changes...
-                                </span>
+                                </>
                             ) : (
                                 'Save changes'
                             )}

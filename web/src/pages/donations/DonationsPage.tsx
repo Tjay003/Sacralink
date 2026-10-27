@@ -14,6 +14,7 @@ import {
     CheckCircle2,
     BarChart3,
     Sparkles,
+    Calendar,
 } from 'lucide-react';
 import {
     getChurchDonations,
@@ -24,15 +25,36 @@ import {
 } from '../../lib/supabase/donations';
 import DonationDetailModal from '../../components/donations/DonationDetailModal';
 import PaymentChannelModal from '../../components/donations/PaymentChannelModal';
+import DonationCustomRangeModal from '../../components/donations/DonationCustomRangeModal';
 import Pagination from '../../components/common/Pagination';
 import StatCard from '../../components/dashboard/StatCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
-import { format } from 'date-fns';
+import {
+    format,
+    subDays,
+    subWeeks,
+    subMonths,
+    subYears,
+    startOfWeek,
+    endOfWeek,
+    startOfMonth,
+    endOfMonth,
+    startOfYear,
+    endOfYear,
+    startOfDay,
+    endOfDay,
+    differenceInDays,
+    addDays,
+    addWeeks,
+    addMonths,
+    addYears,
+} from 'date-fns';
 import { UserName } from '../../components/ui/UserName';
 
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
+export type ChartFilterMode = 'weekly' | 'monthly' | 'yearly' | 'all_time' | 'custom';
 
 export default function DonationsPage() {
     const { profile } = useAuth();
@@ -60,11 +82,15 @@ export default function DonationsPage() {
     // Recent generous souls
     const [recentSouls, setRecentSouls] = useState<Array<{ id: string; maskedName: string; created_at: string | null }>>([]);
 
-    // 6-Month Chart State & Demo Preview Toggle
-    // Chart State: 6M / 12M Range & Demo Preview Toggle
+    // Chart State & Demo Preview Toggle
     const [isDemoChart, setIsDemoChart] = useState(true);
-    const [chartPeriod, setChartPeriod] = useState<'6m' | '12m'>('12m');
-    const [monthlyTotals, setMonthlyTotals] = useState<Record<string, number>>({});
+    const [chartMode, setChartMode] = useState<ChartFilterMode>('monthly');
+    const [customRange, setCustomRange] = useState<{ start: Date; end: Date }>({
+        start: subDays(new Date(), 29),
+        end: new Date(),
+    });
+    const [customModalOpen, setCustomModalOpen] = useState(false);
+    const [verifiedDonations, setVerifiedDonations] = useState<Array<{ amount: number; created_at: string }>>([]);
 
     // Payment settings switches
     const [acceptCashless, setAcceptCashless] = useState(true);
@@ -152,15 +178,14 @@ export default function DonationsPage() {
                 const totalVerified = data.filter((d) => d.status === 'verified').length;
                 const verificationRate = totalDecided > 0 ? Math.round((totalVerified / totalDecided) * 100) : 94;
 
-                // Aggregate verified donations by month (yyyy-MM) for dynamic rolling chart
-                const totals: Record<string, number> = {};
-                data.forEach((d) => {
-                    if (d.status === 'verified' && d.created_at) {
-                        const monthKey = format(new Date(d.created_at), 'yyyy-MM');
-                        totals[monthKey] = (totals[monthKey] || 0) + Number(d.amount || 0);
-                    }
-                });
-                setMonthlyTotals(totals);
+                // Store verified donations for dynamic rolling charts
+                const verifiedList = data
+                    .filter((d) => d.status === 'verified' && d.created_at)
+                    .map((d) => ({
+                        amount: Number(d.amount || 0),
+                        created_at: d.created_at!,
+                    }));
+                setVerifiedDonations(verifiedList);
 
                 setStats({
                     receivedThisMonth,
@@ -381,70 +406,284 @@ export default function DonationsPage() {
 
     const churchName = church?.name || 'Your Parish';
 
-    // Rolling months ending in the current month (12 months or 6 months)
-    const rollingMonths = useMemo(() => {
+    // Dynamically generate chart buckets based on selected filter mode
+    const chartBuckets = useMemo(() => {
         const now = new Date();
-        const count = chartPeriod === '12m' ? 12 : 6;
-        const months = [];
-        for (let i = count - 1; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const key = format(d, 'yyyy-MM');
-            const label = format(d, 'MMM');
-            const isCurrent = i === 0;
-            months.push({ key, label, isCurrent });
+        const buckets: Array<{
+            label: string;
+            fullLabel: string;
+            startDate: Date;
+            endDate: Date;
+            active: boolean;
+        }> = [];
+
+        if (chartMode === 'weekly') {
+            // Rolling last 8 weeks ending with current week
+            for (let i = 7; i >= 0; i--) {
+                const ref = subWeeks(now, i);
+                const s = startOfDay(startOfWeek(ref, { weekStartsOn: 0 }));
+                const e = endOfDay(endOfWeek(ref, { weekStartsOn: 0 }));
+                buckets.push({
+                    label: format(s, 'MMM d'),
+                    fullLabel: `Week of ${format(s, 'MMM d')} – ${format(e, 'MMM d, yyyy')}`,
+                    startDate: s,
+                    endDate: e,
+                    active: i === 0,
+                });
+            }
+        } else if (chartMode === 'monthly') {
+            // Rolling last 12 months ending with current month
+            for (let i = 11; i >= 0; i--) {
+                const ref = subMonths(now, i);
+                const s = startOfDay(startOfMonth(ref));
+                const e = endOfDay(endOfMonth(ref));
+                buckets.push({
+                    label: format(s, 'MMM'),
+                    fullLabel: format(s, 'MMMM yyyy'),
+                    startDate: s,
+                    endDate: e,
+                    active: i === 0,
+                });
+            }
+        } else if (chartMode === 'yearly') {
+            // Rolling last 5 years ending with current year
+            for (let i = 4; i >= 0; i--) {
+                const ref = subYears(now, i);
+                const s = startOfDay(startOfYear(ref));
+                const e = endOfDay(endOfYear(ref));
+                buckets.push({
+                    label: format(s, 'yyyy'),
+                    fullLabel: `Year ${format(s, 'yyyy')}`,
+                    startDate: s,
+                    endDate: e,
+                    active: i === 0,
+                });
+            }
+        } else if (chartMode === 'all_time') {
+            // Across recorded years (or fallback to last 5 years if no historical data)
+            let minYear = now.getFullYear() - 4;
+            if (verifiedDonations.length > 0) {
+                const years = verifiedDonations
+                    .map((d) => new Date(d.created_at).getFullYear())
+                    .filter((y) => !isNaN(y));
+                if (years.length > 0) {
+                    minYear = Math.min(...years, now.getFullYear() - 3);
+                }
+            }
+            const currentYear = now.getFullYear();
+            for (let y = minYear; y <= currentYear; y++) {
+                const s = startOfDay(new Date(y, 0, 1));
+                const e = endOfDay(new Date(y, 11, 31));
+                buckets.push({
+                    label: String(y),
+                    fullLabel: `Year ${y}`,
+                    startDate: s,
+                    endDate: e,
+                    active: y === currentYear,
+                });
+            }
+        } else if (chartMode === 'custom') {
+            const spanDays = differenceInDays(customRange.end, customRange.start) + 1;
+            if (spanDays <= 14) {
+                // Daily bars
+                let cur = startOfDay(customRange.start);
+                const endLimit = startOfDay(customRange.end);
+                while (cur <= endLimit) {
+                    const s = startOfDay(cur);
+                    const e = endOfDay(cur);
+                    buckets.push({
+                        label: format(s, 'MMM d'),
+                        fullLabel: format(s, 'MMMM d, yyyy'),
+                        startDate: s,
+                        endDate: e,
+                        active: format(s, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'),
+                    });
+                    cur = addDays(cur, 1);
+                }
+            } else if (spanDays <= 90) {
+                // Weekly bars
+                let cur = startOfWeek(customRange.start, { weekStartsOn: 0 });
+                const endLimit = customRange.end;
+                while (cur <= endLimit) {
+                    const s = startOfDay(cur);
+                    const e = endOfDay(endOfWeek(cur, { weekStartsOn: 0 }));
+                    buckets.push({
+                        label: format(s, 'MMM d'),
+                        fullLabel: `${format(s, 'MMM d')} – ${format(e, 'MMM d, yyyy')}`,
+                        startDate: s,
+                        endDate: e,
+                        active: now >= s && now <= e,
+                    });
+                    cur = addWeeks(cur, 1);
+                }
+            } else {
+                // Monthly or yearly if span > 730 days (2 years)
+                if (spanDays > 730) {
+                    let cur = startOfYear(customRange.start);
+                    const endLimit = customRange.end;
+                    while (cur <= endLimit) {
+                        const s = startOfDay(cur);
+                        const e = endOfDay(endOfYear(cur));
+                        buckets.push({
+                            label: format(s, 'yyyy'),
+                            fullLabel: `Year ${format(s, 'yyyy')}`,
+                            startDate: s,
+                            endDate: e,
+                            active: now >= s && now <= e,
+                        });
+                        cur = addYears(cur, 1);
+                    }
+                } else {
+                    let cur = startOfMonth(customRange.start);
+                    const endLimit = customRange.end;
+                    while (cur <= endLimit) {
+                        const s = startOfDay(cur);
+                        const e = endOfDay(endOfMonth(cur));
+                        buckets.push({
+                            label: format(s, 'MMM yy'),
+                            fullLabel: format(s, 'MMMM yyyy'),
+                            startDate: s,
+                            endDate: e,
+                            active: now >= s && now <= e,
+                        });
+                        cur = addMonths(cur, 1);
+                    }
+                }
+            }
         }
-        return months;
-    }, [chartPeriod]);
 
-    // Demo Giving Chart Data (12 months or 6 months)
+        // Cap to max 14 bars so chart never overflows or looks crowded
+        if (buckets.length > 14) {
+            return buckets.slice(-14);
+        }
+        return buckets;
+    }, [chartMode, customRange, verifiedDonations]);
+
+    // Dynamic Chart Title and Subtitle based on active filter mode
+    const { chartTitle, chartSubtitle } = useMemo(() => {
+        switch (chartMode) {
+            case 'weekly':
+                return {
+                    chartTitle: 'Giving, last 8 weeks',
+                    chartSubtitle: 'Giving, last 8 weeks · Verified gifts, in thousands of pesos',
+                };
+            case 'monthly':
+                return {
+                    chartTitle: 'Giving, last 12 months',
+                    chartSubtitle: 'Giving, last 12 months · Verified gifts, in thousands of pesos',
+                };
+            case 'yearly':
+                return {
+                    chartTitle: 'Giving, last 5 years',
+                    chartSubtitle: 'Giving, last 5 years · Verified gifts, in thousands of pesos',
+                };
+            case 'all_time':
+                return {
+                    chartTitle: 'Giving, all time',
+                    chartSubtitle: 'Lifetime giving across recorded years · Verified gifts, in thousands of pesos',
+                };
+            case 'custom':
+                return {
+                    chartTitle: 'Giving, custom range',
+                    chartSubtitle: `Giving, custom range (${format(customRange.start, 'MMM d, yyyy')} – ${format(customRange.end, 'MMM d, yyyy')}) · Verified gifts`,
+                };
+        }
+    }, [chartMode, customRange]);
+
+    // Demo Giving Chart Data generated realistically for every mode
     const demoChartData = useMemo(() => {
-        const demoBaseValues = [24, 27, 31, 29, 33, 30, 28, 31, 36, 33, 38, 41.2];
-        const values = chartPeriod === '12m' ? demoBaseValues : demoBaseValues.slice(-6);
-        const maxVal = Math.max(...values, 1);
+        const buckets = chartBuckets;
+        const n = buckets.length;
+        if (n === 0) return [];
 
-        return rollingMonths.map((m, idx) => {
-            const val = values[idx] ?? 30;
+        let demoValues: number[] = [];
+
+        if (chartMode === 'weekly') {
+            demoValues = [8.4, 9.2, 7.8, 11.5, 9.8, 12.3, 10.6, 14.1];
+        } else if (chartMode === 'monthly') {
+            demoValues = [24, 27, 31, 29, 33, 30, 28, 31, 36, 33, 38, 41.2];
+        } else if (chartMode === 'yearly') {
+            demoValues = [210, 265, 320, 395, 452];
+        } else if (chartMode === 'all_time') {
+            demoValues = [180, 210, 265, 320, 395, 452];
+        } else {
+            const span = differenceInDays(customRange.end, customRange.start) + 1;
+            const base = span <= 14 ? 2.5 : span <= 90 ? 10.5 : 32;
+            demoValues = buckets.map((_, i) => {
+                const variance = ((i * 7 + 11) % 9) - 4;
+                const trend = (i / Math.max(n - 1, 1)) * (base * 0.4);
+                return Math.max(Math.round((base + variance * (base * 0.08) + trend) * 10) / 10, 1);
+            });
+        }
+
+        const alignedValues = buckets.map((_, idx) => {
+            if (idx < demoValues.length) return demoValues[idx];
+            return demoValues[demoValues.length - 1] ?? 25;
+        });
+
+        const maxVal = Math.max(...alignedValues, 1);
+
+        return buckets.map((b, idx) => {
+            const val = alignedValues[idx] ?? 30;
             const heightPercent = Math.min(Math.max(Math.round((val / maxVal) * 82) + 6, 8), 100);
+            const rawAmount = val * 1000;
             return {
-                month: m.label,
+                month: b.label,
+                fullLabel: b.fullLabel,
                 amount: val,
-                rawAmount: val * 1000,
+                rawAmount,
                 displayAmount: `${val}k`,
                 height: `${heightPercent}%`,
-                active: m.isCurrent,
+                active: b.active,
+                isZero: false,
             };
         });
-    }, [chartPeriod, rollingMonths]);
+    }, [chartBuckets, chartMode, customRange]);
 
     // Real Giving Chart Data computed dynamically from verified donations
     const realChartData = useMemo(() => {
-        const rawValues = rollingMonths.map((m) => monthlyTotals[m.key] || 0);
-        const maxRaw = Math.max(...rawValues, 1000);
+        const buckets = chartBuckets;
+        if (buckets.length === 0) return [];
 
-        return rollingMonths.map((m, idx) => {
-            const rawSum = rawValues[idx];
+        const rawSums = buckets.map((b) => {
+            return verifiedDonations
+                .filter((d) => {
+                    const dDate = new Date(d.created_at);
+                    return dDate >= b.startDate && dDate <= b.endDate;
+                })
+                .reduce((sum, d) => sum + d.amount, 0);
+        });
+
+        const maxRaw = Math.max(...rawSums, 1000);
+
+        return buckets.map((b, idx) => {
+            const rawSum = rawSums[idx];
+            const isZero = rawSum === 0;
             let display = '₱0';
             let kAmount = 0;
+
             if (rawSum >= 1000) {
                 kAmount = Math.round((rawSum / 1000) * 10) / 10;
                 display = `₱${kAmount}k`;
             } else if (rawSum > 0) {
                 kAmount = Math.round((rawSum / 1000) * 10) / 10;
-                display = `₱${rawSum}`;
+                display = `₱${rawSum.toLocaleString('en-PH')}`;
             }
 
-            const heightPercent = rawSum === 0 ? 6 : Math.min(Math.round((rawSum / maxRaw) * 80) + 12, 100);
+            const heightPercent = isZero ? 5 : Math.min(Math.round((rawSum / maxRaw) * 80) + 12, 100);
 
             return {
-                month: m.label,
+                month: b.label,
+                fullLabel: b.fullLabel,
                 amount: kAmount,
                 rawAmount: rawSum,
                 displayAmount: display,
-                height: `${heightPercent}%`,
-                active: m.isCurrent,
+                height: isZero ? '4px' : `${heightPercent}%`,
+                active: b.active,
+                isZero,
             };
         });
-    }, [rollingMonths, monthlyTotals]);
+    }, [chartBuckets, verifiedDonations]);
 
     const activeChart = isDemoChart ? demoChartData : realChartData;
 
@@ -543,53 +782,94 @@ export default function DonationsPage() {
 
             {/* 3. Middle Section: Side-by-Side (Giving last 6 months + Payment Settings) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                {/* Left: Giving, last 12/6 months bar chart (7 cols) */}
-                <div className="lg:col-span-7 bg-white border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+                {/* Left: Giving chart (7 cols) */}
+                <div className="lg:col-span-7 bg-white border border-border rounded-2xl p-4 sm:p-6 shadow-xs flex flex-col justify-between">
                     <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-                            <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+                            <div className="min-w-0">
                                 <h3 className="font-serif text-lg font-bold text-foreground">
-                                    Giving, last {chartPeriod === '12m' ? '12' : '6'} months
+                                    {chartTitle}
                                 </h3>
                                 <p className="text-xs text-secondary-500 font-medium">
-                                    Giving, last {chartPeriod === '12m' ? '12' : '6'} months · Verified gifts, in thousands of pesos
+                                    {chartSubtitle}
                                 </p>
                             </div>
 
-                            {/* Controls: 6M/12M Period Toggle & Demo Preview Toggle */}
-                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                                <div className="inline-flex items-center p-0.5 rounded-lg border border-border bg-secondary-50 text-xs font-medium">
+                            {/* Controls: Segmented Pills & Demo Preview Toggle */}
+                            <div className="flex items-center gap-2 max-w-full overflow-hidden">
+                                {/* Dedicated horizontal scroll container for segmented pills */}
+                                <div className="overflow-x-auto scrollbar-none flex items-center gap-1 p-1 bg-secondary-50 border border-border rounded-xl no-scrollbar max-w-full shrink min-w-0">
                                     <button
                                         type="button"
-                                        onClick={() => setChartPeriod('6m')}
-                                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                                            chartPeriod === '6m'
-                                                ? 'bg-white text-foreground shadow-xs font-semibold'
-                                                : 'text-secondary-600 hover:text-foreground'
+                                        onClick={() => setChartMode('weekly')}
+                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            chartMode === 'weekly'
+                                                ? 'bg-primary text-white shadow-xs'
+                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
                                         }`}
                                     >
-                                        6M
+                                        Weekly
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setChartPeriod('12m')}
-                                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                                            chartPeriod === '12m'
-                                                ? 'bg-white text-foreground shadow-xs font-semibold'
-                                                : 'text-secondary-600 hover:text-foreground'
+                                        onClick={() => setChartMode('monthly')}
+                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            chartMode === 'monthly'
+                                                ? 'bg-primary text-white shadow-xs'
+                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
                                         }`}
                                     >
-                                        12M
+                                        Monthly
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setChartMode('yearly')}
+                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            chartMode === 'yearly'
+                                                ? 'bg-primary text-white shadow-xs'
+                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
+                                        }`}
+                                    >
+                                        Yearly
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setChartMode('all_time')}
+                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            chartMode === 'all_time'
+                                                ? 'bg-primary text-white shadow-xs'
+                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
+                                        }`}
+                                    >
+                                        All Time
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCustomModalOpen(true)}
+                                        className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                            chartMode === 'custom'
+                                                ? 'bg-primary text-white shadow-xs'
+                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
+                                        }`}
+                                    >
+                                        <Calendar className={`w-3.5 h-3.5 ${chartMode === 'custom' ? 'text-white' : 'text-secondary-500'}`} />
+                                        <span>
+                                            {chartMode === 'custom'
+                                                ? `${format(customRange.start, 'MMM d')} – ${format(customRange.end, 'MMM d')}`
+                                                : 'Custom'}
+                                        </span>
                                     </button>
                                 </div>
 
+                                {/* Demo Preview Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => setIsDemoChart(!isDemoChart)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold border border-border bg-secondary-50 hover:bg-secondary-100 text-secondary-700 transition-colors cursor-pointer"
+                                    className="shrink-0 inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-border bg-secondary-50 hover:bg-secondary-100 text-secondary-700 transition-colors cursor-pointer"
                                 >
                                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                    <span>{isDemoChart ? 'Demo preview' : 'Real data'}</span>
+                                    <span className="hidden sm:inline">{isDemoChart ? 'Demo preview' : 'Real data'}</span>
+                                    <span className="sm:hidden">{isDemoChart ? 'Demo' : 'Real'}</span>
                                 </button>
                             </div>
                         </div>
@@ -601,7 +881,7 @@ export default function DonationsPage() {
                                     <div
                                         key={idx}
                                         className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group min-w-0"
-                                        title={`${bar.month}: ₱${bar.rawAmount.toLocaleString('en-PH')}`}
+                                        title={`${bar.fullLabel || bar.month}: ₱${Math.round(bar.rawAmount).toLocaleString('en-PH')}`}
                                     >
                                         <span className="text-[9px] sm:text-[11px] font-semibold text-secondary-500 group-hover:text-primary transition-colors truncate max-w-full">
                                             {bar.displayAmount}
@@ -610,13 +890,15 @@ export default function DonationsPage() {
                                             <div
                                                 style={{ height: bar.height }}
                                                 className={`w-full rounded-t-lg sm:rounded-t-xl transition-all duration-500 ${
-                                                    bar.active
-                                                        ? 'bg-primary shadow-xs'
-                                                        : 'bg-blue-200 group-hover:bg-blue-300'
+                                                    bar.isZero
+                                                        ? 'bg-secondary-300/40'
+                                                        : bar.active
+                                                            ? 'bg-primary shadow-xs'
+                                                            : 'bg-blue-200 group-hover:bg-blue-300'
                                                 }`}
                                             />
                                         </div>
-                                        <span className={`text-[10px] sm:text-xs font-medium mt-1 truncate ${bar.active ? 'font-bold text-foreground' : 'text-secondary-500'}`}>
+                                        <span className={`text-[10px] sm:text-xs font-medium mt-1 truncate max-w-full text-center ${bar.active ? 'font-bold text-foreground' : 'text-secondary-500'}`}>
                                             {bar.month}
                                         </span>
                                     </div>
@@ -1082,6 +1364,17 @@ export default function DonationsPage() {
                     }}
                 />
             )}
+
+            {/* Custom Date Range Picker Modal */}
+            <DonationCustomRangeModal
+                isOpen={customModalOpen}
+                onClose={() => setCustomModalOpen(false)}
+                currentRange={customRange}
+                onApply={(start, end) => {
+                    setCustomRange({ start, end });
+                    setChartMode('custom');
+                }}
+            />
         </div>
     );
 }
