@@ -14,7 +14,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
-import { BLOCKED_ACCOUNT_PARAM } from '../lib/blockedAccountNotice';
+import {
+    BLOCKED_ACCOUNT_PARAM,
+    BLOCKED_ACCOUNT_NOTICE_KEY,
+    SUSPENDED_ACCOUNT_MESSAGE,
+    DELETED_ACCOUNT_MESSAGE,
+} from '../lib/blockedAccountNotice';
 import { clearLocalMessagingCache, setLocalMessagingOwner } from '../lib/supabase/messaging';
 import type { Profile } from '../types/database';
 
@@ -202,6 +207,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * endBlockedSession - Signs out a deleted or suspended account and sends it to the login page with a message.
      */
     const endBlockedSession = async (reason: 'deleted' | 'suspended' = 'deleted') => {
+        try {
+            sessionStorage.setItem(
+                BLOCKED_ACCOUNT_NOTICE_KEY,
+                reason === 'suspended' ? SUSPENDED_ACCOUNT_MESSAGE : DELETED_ACCOUNT_MESSAGE
+            );
+        } catch {}
         try {
             await supabase.auth.signOut({ scope: 'local' });
         } catch (e) {

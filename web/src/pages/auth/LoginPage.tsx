@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -37,6 +37,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { signIn } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,8 @@ export default function LoginPage() {
 
     // A deleted or suspended account that was signed out of an open tab sees why
     useEffect(() => {
-        const blocked = new URLSearchParams(window.location.search).get(BLOCKED_ACCOUNT_PARAM);
+        const blocked = new URLSearchParams(location.search).get(BLOCKED_ACCOUNT_PARAM) ||
+                        new URLSearchParams(window.location.search).get(BLOCKED_ACCOUNT_PARAM);
         if (blocked === 'suspended') setError(SUSPENDED_ACCOUNT_MESSAGE);
         else if (blocked === 'deleted') setError(DELETED_ACCOUNT_MESSAGE);
         try {
@@ -58,7 +60,7 @@ export default function LoginPage() {
         } catch {
             // sessionStorage can be unavailable
         }
-    }, []);
+    }, [location.search]);
 
     const {
         register,

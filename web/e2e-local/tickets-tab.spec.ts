@@ -353,11 +353,12 @@ test.describe('New Message picker', () => {
       return dialog;
     };
 
-    // Priest: the Church Admin of their church; a parishioner only with a shared appointment (none here)
+    // Priest: Church Admin and fellow staff of their church; a parishioner only with a shared appointment (none here)
     const priestView = await freshPage(page, otherPriest);
     const priestDialog = await names(priestView.page);
     await expect(priestDialog.getByText('Local Church Admin', { exact: true })).toBeVisible();
-    for (const hidden of ['Other Parish Admin', 'Temp unassigned', 'Temp assigned-priest', 'Temp par-church']) {
+    await expect(priestDialog.getByText('Temp unassigned', { exact: true })).toBeVisible();
+    for (const hidden of ['Other Parish Admin', 'Temp par-church']) {
       await expect(priestDialog.getByText(hidden, { exact: true })).toHaveCount(0);
     }
     await priestView.close();
