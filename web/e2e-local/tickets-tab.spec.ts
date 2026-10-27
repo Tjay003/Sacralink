@@ -372,12 +372,14 @@ test.describe('New Message picker', () => {
     await expect(adminDialog.getByText('Temp par', { exact: true })).toHaveCount(0);
     await expect(adminDialog.getByText('Local Church Admin', { exact: true })).toHaveCount(0);
 
-    // Super Admin: Church Admins only
+    // Super Admin: church staff across all churches (Church Admins, Priests, Volunteers)
     const superView = await freshPage(page, superAdmin);
     const superDialog = await names(superView.page);
     await expect(superDialog.getByText('Local Church Admin', { exact: true })).toBeVisible();
     await expect(superDialog.getByText('Other Parish Admin', { exact: true })).toBeVisible();
-    for (const hidden of ['Temp unassigned', 'Temp other-priest', 'Temp par-church']) {
+    await expect(superDialog.getByText('Temp unassigned', { exact: true })).toBeVisible();
+    await expect(superDialog.getByText('Temp other-priest', { exact: true })).toBeVisible();
+    for (const hidden of ['Temp par', 'Temp par-church']) {
       await expect(superDialog.getByText(hidden, { exact: true })).toHaveCount(0);
     }
     await superView.close();
