@@ -603,7 +603,7 @@ export default function ChurchLocationPicker({
               }}
               disabled={disabled || isSearching}
               placeholder="Search church address, landmark, or barangay in CSJDM..."
-              className="input w-full pl-10 pr-9 text-sm h-11 rounded-xl"
+              className="input w-full !pl-10 !pr-9 text-sm h-11 rounded-xl"
             />
             {searchQuery && (
               <button
