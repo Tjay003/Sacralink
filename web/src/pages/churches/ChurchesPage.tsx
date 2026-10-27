@@ -1,26 +1,45 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Search, MapPin, Phone, Mail, ChevronDown, ChevronUp, LayoutGrid, List, ShieldCheck, Clock } from 'lucide-react';
-import { useChurches } from '../../hooks/useChurches';
+import { 
+    Building2, 
+    Plus, 
+    Search, 
+    MapPin, 
+    Phone, 
+    Mail, 
+    ChevronDown, 
+    ChevronUp, 
+    LayoutGrid, 
+    List, 
+    ShieldCheck, 
+    Clock, 
+    Archive, 
+    RotateCcw 
+} from 'lucide-react';
+import { useChurches, type Church } from '../../hooks/useChurches';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/toastContext';
 import ChurchCover from '../../components/churches/ChurchCover';
+import RestoreChurchModal from '../../components/churches/RestoreChurchModal';
 
 /**
- * ChurchesPage - List all churches
- * 
- * Features:
- * - Display all churches in a table
- * - Search churches by name
- * - Navigate to add/edit/view pages
- * - Loading and error states
+ * ChurchesPage - List all churches with Active / Archived views for Super Admin.
  */
 export default function ChurchesPage() {
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const { churches, loading, error } = useChurches();
+    const toast = useToast();
+    const { churches, loading, error, refetch } = useChurches();
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedChurchId, setExpandedChurchId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [statusTab, setStatusTab] = useState<'active' | 'archived'>('active');
+    const [restoreTarget, setRestoreTarget] = useState<Church | null>(null);
+
+    const isSuperAdmin = profile?.role === 'super_admin';
+    const canAddChurch = isSuperAdmin;
+    const canOnboardChurch = profile?.role !== 'church_admin';
+    const hasAdminAccess = isSuperAdmin || profile?.role === 'church_admin';
 
     // Helper to check management permissions
     const canManage = (churchId: string) => {
@@ -30,11 +49,10 @@ export default function ChurchesPage() {
         return false;
     };
 
-    const canAddChurch = profile?.role === 'super_admin';
-    const canOnboardChurch = profile?.role !== 'church_admin';
-    const hasAdminAccess = profile?.role === 'super_admin' || profile?.role === 'church_admin';
+    const activeChurches = churches.filter(c => c.status !== 'archived');
+    const archivedChurches = churches.filter(c => c.status === 'archived');
 
-    // Filter churches by search query and status
+    // Filter churches by search query and active/archived status
     const filteredChurches = churches.filter(church => {
         // Search filter
         const query = searchQuery.toLowerCase().trim();
@@ -44,10 +62,21 @@ export default function ChurchesPage() {
             (church.description ? church.description.toLowerCase().includes(query) : false) ||
             (church.email ? church.email.toLowerCase().includes(query) : false);
 
-        // Status filter - hide inactive churches from regular users
-        const isVisibleToUser = church.status !== 'inactive' || hasAdminAccess;
+        if (!matchesSearch) return false;
 
-        return matchesSearch && isVisibleToUser;
+        // Archived view (Super Admin only)
+        if (isSuperAdmin && statusTab === 'archived') {
+            return church.status === 'archived';
+        }
+
+        // Active view: hide archived churches completely from public/active views
+        if (church.status === 'archived') {
+            return false;
+        }
+
+        // Hide inactive churches from regular users
+        const isVisibleToUser = church.status !== 'inactive' || hasAdminAccess;
+        return isVisibleToUser;
     });
 
     // Loading state
@@ -105,6 +134,48 @@ export default function ChurchesPage() {
                 </div>
             </div>
 
+            {/* Active / Archived View Tabs for Super Admin */}
+            {isSuperAdmin && (
+                <div className="flex items-center gap-2">
+                    <div className="inline-flex items-center p-1 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1">
+                        <button
+                            type="button"
+                            onClick={() => setStatusTab('active')}
+                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                                statusTab === 'active'
+                                    ? 'bg-white text-foreground shadow-xs border border-border/70 font-bold'
+                                    : 'text-secondary-500 hover:text-foreground'
+                            }`}
+                        >
+                            <Building2 className="w-4 h-4 text-primary" />
+                            <span>Active Parishes</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                statusTab === 'active' ? 'bg-primary/10 text-primary' : 'bg-secondary-200 text-muted'
+                            }`}>
+                                {activeChurches.length}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setStatusTab('archived')}
+                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                                statusTab === 'archived'
+                                    ? 'bg-white text-foreground shadow-xs border border-border/70 font-bold'
+                                    : 'text-secondary-500 hover:text-foreground'
+                            }`}
+                        >
+                            <Archive className="w-4 h-4 text-secondary-600" />
+                            <span>Archived</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                statusTab === 'archived' ? 'bg-secondary-200 text-foreground' : 'bg-secondary-200 text-muted'
+                            }`}>
+                                {archivedChurches.length}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Search and Toggle */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div className="relative w-full sm:w-72 md:w-80">
@@ -160,7 +231,7 @@ export default function ChurchesPage() {
                         {canAddChurch && (
                             <button
                                 onClick={() => navigate('/churches/add')}
-                                className="btn-primary flex items-center justify-center gap-2 rounded-lg px-4 py-2"
+                                className="btn-primary flex items-center justify-center gap-2 rounded-lg px-4 py-2 cursor-pointer"
                             >
                                 <Plus className="w-4 h-4" />
                                 Add Your First Church
@@ -175,10 +246,20 @@ export default function ChurchesPage() {
                             {filteredChurches.length === 0 ? (
                                 <div className="col-span-full card p-12 flex flex-col items-center justify-center text-center border-dashed">
                                     <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mb-3">
-                                        <Search className="w-6 h-6 text-muted" />
+                                        {statusTab === 'archived' ? (
+                                            <Archive className="w-6 h-6 text-muted" />
+                                        ) : (
+                                            <Search className="w-6 h-6 text-muted" />
+                                        )}
                                     </div>
-                                    <p className="text-foreground font-medium">No parishes found</p>
-                                    <p className="text-muted text-sm mt-1">We couldn't find any parishes matching "{searchQuery}"</p>
+                                    <p className="text-foreground font-medium">
+                                        {statusTab === 'archived' ? 'No archived churches' : 'No parishes found'}
+                                    </p>
+                                    <p className="text-muted text-sm mt-1">
+                                        {statusTab === 'archived'
+                                            ? 'There are currently no churches in the archive.'
+                                            : `We couldn't find any parishes matching "${searchQuery}"`}
+                                    </p>
                                 </div>
                             ) : (
                                 filteredChurches.map((church) => (
@@ -201,28 +282,37 @@ export default function ChurchesPage() {
                                         
                                         {/* Top Badges */}
                                         <div className="absolute top-6 right-6 z-10 flex flex-col gap-1.5 items-end">
-                                            {church.is_live && (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg backdrop-blur-md border border-red-400/40 animate-pulse">
-                                                    <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                                                    LIVE MASS
+                                            {church.status === 'archived' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-secondary-900/90 text-white shadow-lg backdrop-blur-md border border-secondary-600/40">
+                                                    <Archive className="w-3.5 h-3.5 text-amber-400" />
+                                                    ARCHIVED
                                                 </span>
-                                            )}
-                                            {church.status === 'inactive' && (
-                                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/90 text-white shadow-sm backdrop-blur-md">
-                                                    Inactive
-                                                </span>
-                                            )}
-                                            {church.status === 'unverified' && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/90 text-white shadow-sm backdrop-blur-md">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    Pending Verification
-                                                </span>
-                                            )}
-                                            {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/90 text-white shadow-sm backdrop-blur-md">
-                                                    <ShieldCheck className="w-3.5 h-3.5" />
-                                                    Verified Parish
-                                                </span>
+                                            ) : (
+                                                <>
+                                                    {church.is_live && (
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg backdrop-blur-md border border-red-400/40 animate-pulse">
+                                                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                                                            LIVE MASS
+                                                        </span>
+                                                    )}
+                                                    {church.status === 'inactive' && (
+                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/90 text-white shadow-sm backdrop-blur-md">
+                                                            Inactive
+                                                        </span>
+                                                    )}
+                                                    {church.status === 'unverified' && (
+                                                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/90 text-white shadow-sm backdrop-blur-md">
+                                                            <Clock className="w-3.5 h-3.5" />
+                                                            Pending Verification
+                                                        </span>
+                                                    )}
+                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
+                                                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/90 text-white shadow-sm backdrop-blur-md">
+                                                            <ShieldCheck className="w-3.5 h-3.5" />
+                                                            Verified Parish
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         
@@ -251,14 +341,26 @@ export default function ChurchesPage() {
                                                 )}
                                             </div>
 
-                                            {church.is_live ? (
+                                            {church.status === 'archived' && isSuperAdmin ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRestoreTarget(church);
+                                                    }}
+                                                    className="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-full shadow-lg transition-all transform active:scale-95 flex justify-center items-center gap-2 cursor-pointer"
+                                                >
+                                                    <RotateCcw className="w-4 h-4" />
+                                                    <span>Restore Church</span>
+                                                </button>
+                                            ) : church.is_live ? (
                                                 <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             navigate(`/churches/${church.id}#virtual-sanctuary`);
                                                         }}
-                                                        className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3.5 px-4 rounded-full shadow-lg shadow-red-600/30 transition-all active:scale-95 flex justify-center items-center gap-2 text-sm animate-pulse"
+                                                        className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3.5 px-4 rounded-full shadow-lg shadow-red-600/30 transition-all active:scale-95 flex justify-center items-center gap-2 text-sm animate-pulse cursor-pointer"
                                                     >
                                                         <span className="w-2 h-2 rounded-full bg-white animate-ping" />
                                                         Watch Live Mass
@@ -268,13 +370,13 @@ export default function ChurchesPage() {
                                                             e.stopPropagation();
                                                             navigate(`/churches/${church.id}`);
                                                         }}
-                                                        className="px-4 py-3.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-semibold rounded-full text-sm transition-colors"
+                                                        className="px-4 py-3.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-semibold rounded-full text-sm transition-colors cursor-pointer"
                                                     >
                                                         Details
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button className="group relative w-full overflow-hidden bg-white text-black font-semibold py-3.5 px-4 rounded-full shadow-lg transition-all duration-300 transform active:scale-95 flex justify-center items-center gap-2">
+                                                <button className="group relative w-full overflow-hidden bg-white text-black font-semibold py-3.5 px-4 rounded-full shadow-lg transition-all duration-300 transform active:scale-95 flex justify-center items-center gap-2 cursor-pointer">
                                                     <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0" />
                                                     <span className="relative z-10 group-hover:text-white transition-colors duration-300">
                                                         View Details
@@ -288,17 +390,19 @@ export default function ChurchesPage() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            {/* ── Mobile Card List (visible on < md) ── */}
+                            {/* Mobile Card List */}
                             <div className="md:hidden space-y-2">
                                 {filteredChurches.length === 0 ? (
-                                    <div className="card p-6 text-center text-muted">No churches found matching "{searchQuery}"</div>
+                                    <div className="card p-6 text-center text-muted">
+                                        {statusTab === 'archived' ? 'No archived churches found' : `No churches found matching "${searchQuery}"`}
+                                    </div>
                                 ) : (
                                     filteredChurches.map((church) => {
                                         const isExpanded = expandedChurchId === church.id;
                                         return (
                                             <div key={church.id} className="card overflow-hidden">
                                                 <button
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary-50 transition-colors"
+                                                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary-50 transition-colors cursor-pointer"
                                                     onClick={() => setExpandedChurchId(isExpanded ? null : church.id)}
                                                 >
                                                     <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center">
@@ -307,28 +411,37 @@ export default function ChurchesPage() {
                                                             : <Building2 className="w-5 h-5 text-primary" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-medium text-foreground truncate">{church.name}</p>
-                                                            {church.is_live && (
-                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white animate-pulse flex-shrink-0">
-                                                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                                    LIVE
+                                                            {church.status === 'archived' ? (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-secondary-200 text-secondary-800 flex-shrink-0">
+                                                                    <Archive className="w-3 h-3 text-secondary-600" />
+                                                                    Archived
                                                                 </span>
-                                                            )}
-                                                            {church.status === 'inactive' && (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800 flex-shrink-0">
-                                                                    🔒 Inactive
-                                                                </span>
-                                                            )}
-                                                            {church.status === 'unverified' && (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 flex-shrink-0">
-                                                                    Pending Verification
-                                                                </span>
-                                                            )}
-                                                            {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 flex-shrink-0">
-                                                                    Verified
-                                                                </span>
+                                                            ) : (
+                                                                <>
+                                                                    {church.is_live && (
+                                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white animate-pulse flex-shrink-0">
+                                                                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                                                            LIVE
+                                                                        </span>
+                                                                    )}
+                                                                    {church.status === 'inactive' && (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800 flex-shrink-0">
+                                                                            🔒 Inactive
+                                                                        </span>
+                                                                    )}
+                                                                    {church.status === 'unverified' && (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 flex-shrink-0">
+                                                                            Pending Verification
+                                                                        </span>
+                                                                    )}
+                                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
+                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 flex-shrink-0">
+                                                                            Verified
+                                                                        </span>
+                                                                    )}
+                                                                </>
                                                             )}
                                                         </div>
                                                         {church.description && (
@@ -356,13 +469,24 @@ export default function ChurchesPage() {
                                                         </div>
                                                         
                                                         <div className="flex gap-2 pt-2">
-                                                            {church.is_live ? (
+                                                            {church.status === 'archived' && isSuperAdmin ? (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setRestoreTarget(church);
+                                                                    }}
+                                                                    className="flex-1 btn-primary text-sm font-semibold rounded-lg py-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                >
+                                                                    <RotateCcw className="w-4 h-4" />
+                                                                    Restore Church
+                                                                </button>
+                                                            ) : church.is_live ? (
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         navigate(`/churches/${church.id}#virtual-sanctuary`);
                                                                     }}
-                                                                    className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-sm rounded-lg py-2 flex items-center justify-center gap-1.5 animate-pulse"
+                                                                    className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-sm rounded-lg py-2 flex items-center justify-center gap-1.5 animate-pulse cursor-pointer"
                                                                 >
                                                                     <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                                                                     Watch Live Mass
@@ -373,18 +497,18 @@ export default function ChurchesPage() {
                                                                         e.stopPropagation();
                                                                         navigate(`/churches/${church.id}`);
                                                                     }}
-                                                                    className="flex-1 border border-border bg-white text-foreground hover:bg-secondary-50 transition-colors text-sm font-medium rounded-lg py-2"
+                                                                    className="flex-1 border border-border bg-white text-foreground hover:bg-secondary-50 transition-colors text-sm font-medium rounded-lg py-2 cursor-pointer"
                                                                 >
                                                                     View Details
                                                                 </button>
                                                             )}
-                                                            {hasAdminAccess && canManage(church.id) && (
+                                                            {hasAdminAccess && canManage(church.id) && church.status !== 'archived' && (
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         navigate(`/churches/${church.id}/edit`);
                                                                     }}
-                                                                    className="flex-1 btn-primary text-sm font-medium rounded-lg py-2"
+                                                                    className="flex-1 btn-primary text-sm font-medium rounded-lg py-2 cursor-pointer"
                                                                 >
                                                                     Edit
                                                                 </button>
@@ -398,7 +522,7 @@ export default function ChurchesPage() {
                                 )}
                             </div>
 
-                            {/* ── Desktop Table (hidden on mobile) ── */}
+                            {/* Desktop Table */}
                             <div className="hidden md:block card overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
@@ -422,7 +546,9 @@ export default function ChurchesPage() {
                                             {filteredChurches.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={4} className="px-6 py-8 text-center text-muted">
-                                                        No churches found matching "{searchQuery}"
+                                                        {statusTab === 'archived'
+                                                            ? 'No archived churches found'
+                                                            : `No churches found matching "${searchQuery}"`}
                                                     </td>
                                                 </tr>
                                             ) : (
@@ -444,27 +570,36 @@ export default function ChurchesPage() {
                                                                         <span className="text-sm font-medium text-foreground">
                                                                             {church.name}
                                                                         </span>
-                                                                        {church.is_live && (
-                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
-                                                                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                                                LIVE MASS
+                                                                        {church.status === 'archived' ? (
+                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-secondary-100 text-secondary-800 border border-secondary-300">
+                                                                                <Archive className="w-3 h-3 text-secondary-600" />
+                                                                                Archived
                                                                             </span>
-                                                                        )}
-                                                                        {church.status === 'inactive' && (
-                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                                                                🔒 Inactive
-                                                                            </span>
-                                                                        )}
-                                                                        {church.status === 'unverified' && (
-                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                                                                Pending Verification
-                                                                            </span>
-                                                                        )}
-                                                                        {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
-                                                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                                                                Verified
-                                                                            </span>
+                                                                        ) : (
+                                                                            <>
+                                                                                {church.is_live && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
+                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                                                                        LIVE MASS
+                                                                                    </span>
+                                                                                )}
+                                                                                {church.status === 'inactive' && (
+                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                                                                        🔒 Inactive
+                                                                                    </span>
+                                                                                )}
+                                                                                {church.status === 'unverified' && (
+                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                                                                        Pending Verification
+                                                                                    </span>
+                                                                                )}
+                                                                                {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
+                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                                                                        Verified
+                                                                                    </span>
+                                                                                )}
+                                                                            </>
                                                                         )}
                                                                     </div>
                                                                     {church.description && (
@@ -477,7 +612,7 @@ export default function ChurchesPage() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center text-sm text-foreground">
-                                                                <MapPin className="w-4 h-4 text-muted mr-2" />
+                                                                <MapPin className="w-4 h-4 text-muted mr-2 shrink-0" />
                                                                 {church.address}
                                                             </div>
                                                         </td>
@@ -485,13 +620,13 @@ export default function ChurchesPage() {
                                                             <div className="space-y-1">
                                                                 {church.contact_number && (
                                                                     <div className="flex items-center text-sm text-foreground">
-                                                                        <Phone className="w-4 h-4 text-muted mr-2" />
+                                                                        <Phone className="w-4 h-4 text-muted mr-2 shrink-0" />
                                                                         {church.contact_number}
                                                                     </div>
                                                                 )}
                                                                 {church.email && (
                                                                     <div className="flex items-center text-sm text-foreground">
-                                                                        <Mail className="w-4 h-4 text-muted mr-2" />
+                                                                        <Mail className="w-4 h-4 text-muted mr-2 shrink-0" />
                                                                         {church.email}
                                                                     </div>
                                                                 )}
@@ -502,28 +637,44 @@ export default function ChurchesPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2">
-                                                                {church.is_live && (
+                                                                {church.status === 'archived' && isSuperAdmin ? (
                                                                     <button
+                                                                        type="button"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            navigate(`/churches/${church.id}#virtual-sanctuary`);
+                                                                            setRestoreTarget(church);
                                                                         }}
-                                                                        className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-sm flex items-center gap-1 animate-pulse"
+                                                                        className="btn-primary text-xs font-semibold rounded-lg px-3 py-1.5 shadow-sm flex items-center gap-1.5 hover:shadow cursor-pointer"
                                                                     >
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                                        Watch Live
+                                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                                        Restore Church
                                                                     </button>
-                                                                )}
-                                                                {hasAdminAccess && canManage(church.id) && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            navigate(`/churches/${church.id}/edit`);
-                                                                        }}
-                                                                        className="btn-primary text-sm font-medium rounded-lg px-3 py-1.5 shadow-sm hover:shadow active:scale-95 transition-all"
-                                                                    >
-                                                                        Edit
-                                                                    </button>
+                                                                ) : (
+                                                                    <>
+                                                                        {church.is_live && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    navigate(`/churches/${church.id}#virtual-sanctuary`);
+                                                                                }}
+                                                                                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-sm flex items-center gap-1 animate-pulse cursor-pointer"
+                                                                            >
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                                                                Watch Live
+                                                                            </button>
+                                                                        )}
+                                                                        {hasAdminAccess && canManage(church.id) && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    navigate(`/churches/${church.id}/edit`);
+                                                                                }}
+                                                                                className="btn-primary text-sm font-medium rounded-lg px-3 py-1.5 shadow-sm hover:shadow active:scale-95 transition-all cursor-pointer"
+                                                                            >
+                                                                                Edit
+                                                                            </button>
+                                                                        )}
+                                                                    </>
                                                                 )}
                                                             </div>
                                                         </td>
@@ -538,7 +689,7 @@ export default function ChurchesPage() {
                                 {filteredChurches.length > 0 && (
                                     <div className="px-6 py-3 border-t border-border bg-secondary-50">
                                         <p className="text-sm text-muted">
-                                            Showing {filteredChurches.length} of {churches.length} churches
+                                            Showing {filteredChurches.length} of {statusTab === 'archived' ? archivedChurches.length : activeChurches.length} churches
                                         </p>
                                     </div>
                                 )}
@@ -546,6 +697,21 @@ export default function ChurchesPage() {
                         </div>
                     )}
                 </>
+            )}
+
+            {/* Restore Church Modal */}
+            {restoreTarget && (
+                <RestoreChurchModal
+                    churchId={restoreTarget.id}
+                    churchName={restoreTarget.name}
+                    onClose={() => setRestoreTarget(null)}
+                    onRestored={() => {
+                        const restoredName = restoreTarget.name;
+                        setRestoreTarget(null);
+                        refetch();
+                        toast.success(`"${restoredName}" has been successfully restored with its assigned Church Admin.`);
+                    }}
+                />
             )}
         </div>
     );

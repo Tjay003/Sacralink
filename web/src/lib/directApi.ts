@@ -227,3 +227,6 @@ export async function directUpdateUserRole(
         return { success: false, error: 'Network error' };
     }
 }
+
+export { restoreUserAccount, purgeExpiredArchivedUsers } from './supabase/profiles';
+export { getChurchRestoreStatus, restoreChurch } from './supabase/churchDeletion';

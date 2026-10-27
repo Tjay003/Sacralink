@@ -217,6 +217,28 @@ export async function suspendUser(userId: string, reason: string): Promise<void>
 /**
  * Reactivate a suspended user through the database function reactivate_user (Super Admin only).
  */
+/**
+ * Restore an archived user through the database function restore_user_account (Super Admin only).
+ */
+export async function restoreUserAccount(userId: string): Promise<void> {
+    const { error } = await supabase.rpc('restore_user_account', { p_user_id: userId });
+    if (error) {
+        throw new Error(error.message || 'Failed to restore the user');
+    }
+}
+
+/**
+ * Purge users whose archived_at timestamp is older than 7 days (Super Admin only).
+ */
+export async function purgeExpiredArchivedUsers(): Promise<number> {
+    const { data, error } = await supabase.rpc('purge_expired_archived_users');
+    if (error) {
+        console.warn('Failed to purge expired archived users:', error);
+        return 0;
+    }
+    return Number(data || 0);
+}
+
 export async function reactivateUser(userId: string): Promise<void> {
     const { error } = await supabase.rpc('reactivate_user', { p_user_id: userId });
     if (error) {

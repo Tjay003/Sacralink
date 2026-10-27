@@ -8,7 +8,7 @@ import DemoteConfirmModal from '../../components/admin/DemoteConfirmModal';
 import DeleteUserModal from '../../components/admin/DeleteUserModal';
 import SuspendUserModal from '../../components/admin/SuspendUserModal';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
-import { reactivateUser } from '../../lib/supabase/profiles';
+import { reactivateUser, restoreUserAccount, purgeExpiredArchivedUsers } from '../../lib/supabase/profiles';
 import { effectiveChurchId, getRoleEditBlock, isStaffRole, isVisibleToChurchAdmin } from '../../lib/roleEditing';
 import RowActionsMenu, { type RowAction } from '../../components/common/RowActionsMenu';
 import { useToast } from '../../contexts/toastContext';
@@ -36,7 +36,10 @@ import {
     UserMinus,
     UserX,
     UserCheck,
-    X
+    X,
+    Archive,
+    Clock,
+    Loader2
 } from 'lucide-react';
 
 /**
@@ -77,6 +80,8 @@ export default function UsersPage() {
 
     const [users, setUsers] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
+    const [restoringUserId, setRestoringUserId] = useState<string | null>(null);
     const [directoryTab, setDirectoryTab] = useState<DirectoryTab>(
         currentUser?.role === 'church_admin' ? 'staff' : 'all'
     );
@@ -126,6 +131,16 @@ export default function UsersPage() {
         try {
             setLoading(true);
             const token = session?.access_token || '';
+
+            // Auto-purge any expired archived accounts (7+ days old) on load
+            if (currentUser?.role === 'super_admin') {
+                try {
+                    await purgeExpiredArchivedUsers();
+                } catch (e) {
+                    console.warn('Auto-purge expired users notice:', e);
+                }
+            }
+
             // Fetch without pagination truncation so church's staff members and parishioners are properly loaded
             const [profilesRes, churchesRes] = await Promise.all([
                 token
@@ -181,10 +196,11 @@ export default function UsersPage() {
 
     /**
      * Everything except the directory tab: role scope (what this role may see), search, role and church filters.
+     * Excludes archived users (who are presented in the Archived tab).
      * Tab counts and rows both come from this one list, so a tab's number always equals the rows it shows.
      */
     const scopedUsers = useMemo(() => {
-        let filtered = [...users];
+        let filtered = users.filter(user => !user.archived_at);
 
         // 1. Role visibility. A Church Admin sees their church's staff, their church's Parishioners and
         //    Parishioners with no church; a Super Admin sees everyone.
@@ -232,6 +248,57 @@ export default function UsersPage() {
         const parishioners = scopedUsers.filter(isParishioner).length;
         return { staff: scopedUsers.length - parishioners, parishioners, all: scopedUsers.length };
     }, [scopedUsers]);
+
+    const activeUsersCount = useMemo(() => users.filter(u => !u.archived_at).length, [users]);
+    const archivedUsersCount = useMemo(() => users.filter(u => Boolean(u.archived_at)).length, [users]);
+
+    const archivedUsers = useMemo(() => {
+        let list = users.filter(user => Boolean(user.archived_at));
+        if (currentUser?.role === 'church_admin') {
+            list = list.filter(user => isVisibleToChurchAdmin(user, currentUser.assigned_church_id));
+        }
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            list = list.filter(user => {
+                const name = (user.full_name || '').toLowerCase();
+                const email = (user.email || '').toLowerCase();
+                return name.includes(query) || email.includes(query);
+            });
+        }
+        return list;
+    }, [users, currentUser, searchQuery]);
+
+    const getDaysUntilDeletion = (archivedAt: string | null | undefined): { days: number; text: string } => {
+        if (!archivedAt) return { days: 7, text: '7 days left before permanent deletion' };
+        const archivedDate = new Date(archivedAt).getTime();
+        const purgeDate = archivedDate + 7 * 24 * 60 * 60 * 1000;
+        const diffMs = purgeDate - Date.now();
+        const daysLeft = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+        if (daysLeft <= 0) {
+            return { days: 0, text: 'Expiring soon' };
+        }
+        if (daysLeft === 1) {
+            return { days: 1, text: '1 day left before permanent deletion' };
+        }
+        return { days: daysLeft, text: `${daysLeft} days left before permanent deletion` };
+    };
+
+    const handleRestoreUser = async (user: Profile) => {
+        try {
+            setRestoringUserId(user.id);
+            await restoreUserAccount(user.id);
+            toast.showSuccess({
+                title: 'User restored',
+                message: `${userLabel(user)} has been restored to Active Parishioners.`,
+                tone: 'success',
+            });
+            await fetchData();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to restore user account');
+        } finally {
+            setRestoringUserId(null);
+        }
+    };
 
     // Tab + Sort Logic
     const filteredUsers = useMemo(() => {
@@ -374,9 +441,9 @@ export default function UsersPage() {
 
     const handleDeleted = () => {
         toast.showSuccess({
-            title: 'User deleted',
-            message: `${userLabel(deleteTarget)} can no longer sign in. Their history is kept as Deleted User.`,
-            tone: 'danger',
+            title: 'User archived',
+            message: `${userLabel(deleteTarget)} was moved to the 7-day Archive. They can be restored before permanent deletion.`,
+            tone: 'warning',
         });
         setDeleteTarget(null);
         fetchData();
@@ -581,8 +648,170 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {/* Directory Category Segmented Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Active / Archived Status Switcher */}
+            <div className="flex items-center gap-2">
+                <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 dark:bg-secondary-800/60 border border-border/60 gap-1">
+                    <button
+                        type="button"
+                        onClick={() => setStatusFilter('active')}
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                            statusFilter === 'active'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-xs'
+                                : 'text-muted hover:text-foreground'
+                        }`}
+                    >
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        <span>Active Accounts</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold ${
+                            statusFilter === 'active'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
+                        }`}>
+                            {activeUsersCount}
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setStatusFilter('archived')}
+                        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                            statusFilter === 'archived'
+                                ? 'bg-white dark:bg-secondary-700 text-foreground shadow-xs'
+                                : 'text-muted hover:text-foreground'
+                        }`}
+                    >
+                        <Archive className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Archived</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold ${
+                            statusFilter === 'archived'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-secondary-200/80 dark:bg-secondary-700 text-muted'
+                        }`}>
+                            {archivedUsersCount}
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {statusFilter === 'archived' ? (
+                <div className="space-y-4">
+                    {/* Informational banner */}
+                    <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-3">
+                        <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-amber-900 leading-relaxed">
+                            <span className="font-bold text-amber-950">7-Day Temporary Archive Window:</span> Accounts in the archive have their login blocked and pending requests cancelled, while their names, emails, and transaction histories are safely preserved. Accounts can be restored to Active Parishioners at any time before the countdown expires. After 7 days, accounts are permanently deleted and anonymized.
+                        </div>
+                    </div>
+
+                    {/* Search Toolbar for Archived Users */}
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="relative w-full sm:w-72 md:w-80">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Search archived users..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 rounded-2xl border border-border bg-white text-xs sm:text-sm text-foreground placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs transition-shadow"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Archived Table */}
+                    {archivedUsers.length === 0 ? (
+                        <div className="card p-12 text-center border-dashed">
+                            <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mx-auto mb-3 text-muted">
+                                <Archive className="w-6 h-6" />
+                            </div>
+                            <p className="text-foreground font-medium">No archived users</p>
+                            <p className="text-muted text-xs mt-1">
+                                {searchQuery ? `No archived users match "${searchQuery}"` : 'There are currently no users in the 7-day archive window.'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="card overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-secondary-50 border-b border-border">
+                                        <tr>
+                                            <th className="px-6 py-3.5 text-left text-xs font-semibold text-muted uppercase tracking-wider">User</th>
+                                            <th className="px-6 py-3.5 text-left text-xs font-semibold text-muted uppercase tracking-wider">Archived Date</th>
+                                            <th className="px-6 py-3.5 text-left text-xs font-semibold text-muted uppercase tracking-wider">Countdown Before Auto-Delete</th>
+                                            <th className="px-6 py-3.5 text-right text-xs font-semibold text-muted uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border bg-white">
+                                        {archivedUsers.map((user) => {
+                                            const countdown = getDaysUntilDeletion(user.archived_at);
+                                            const isRestoring = restoringUserId === user.id;
+                                            const archivedDateFormatted = user.archived_at
+                                                ? new Date(user.archived_at).toLocaleDateString(undefined, {
+                                                      year: 'numeric',
+                                                      month: 'short',
+                                                      day: 'numeric',
+                                                      hour: '2-digit',
+                                                      minute: '2-digit',
+                                                  })
+                                                : 'Unknown date';
+
+                                            return (
+                                                <tr key={user.id} className="hover:bg-secondary-50/60 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-full bg-secondary-100 flex items-center justify-center font-bold text-secondary-600 text-sm overflow-hidden shrink-0">
+                                                                {user.avatar_url ? (
+                                                                    <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    (user.full_name || user.email || 'U')[0].toUpperCase()
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-semibold text-foreground truncate">{user.full_name || 'No name set'}</p>
+                                                                <p className="text-xs text-muted truncate">{user.email}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs text-secondary-600 whitespace-nowrap">
+                                                        {archivedDateFormatted}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 shadow-2xs">
+                                                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                                            <span>{countdown.text}</span>
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRestoreUser(user)}
+                                                            disabled={isRestoring}
+                                                            className="btn-primary text-xs font-semibold rounded-xl px-3.5 py-2 inline-flex items-center gap-1.5 shadow-xs cursor-pointer hover:shadow active:scale-95 disabled:opacity-50"
+                                                        >
+                                                            {isRestoring ? (
+                                                                <>
+                                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                    <span>Restoring...</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <UserCheck className="w-3.5 h-3.5" />
+                                                                    <span>Restore User</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
+                    {/* Directory Category Segmented Tabs */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 dark:bg-secondary-800/60 border border-border/60 gap-1 max-w-full flex-wrap">
                     <button
                         type="button"
@@ -1238,6 +1467,8 @@ export default function UsersPage() {
                     )}
                 </>
             )}
+        </>
+    )}
 
             {/* Edit Role Modal */}
             {showEditModal && selectedUser && (
@@ -1290,7 +1521,7 @@ export default function UsersPage() {
                     isLastChurchAdmin={
                         deleteTarget.role === 'church_admin' &&
                         !!deleteTarget.assigned_church_id &&
-                        !users.some(u => u.id !== deleteTarget.id && u.role === 'church_admin' && u.assigned_church_id === deleteTarget.assigned_church_id)
+                        !users.some(u => u.id !== deleteTarget.id && u.role === 'church_admin' && u.assigned_church_id === deleteTarget.assigned_church_id && !u.archived_at)
                     }
                     onClose={() => setDeleteTarget(null)}
                     onSuccess={handleDeleted}

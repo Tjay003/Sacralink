@@ -2,7 +2,7 @@
 
 Type: task
 **Blocked by:** 04
-**Status:** ready-for-agent
+**Status:** done
 
 **What to build:** Replace destructive hard-deletion of churches and immediate PII-wiping deletion of users with an **Archive & Restore** system while keeping the action buttons worded `"Delete Church"` and `"Delete Account"` / `"Delete User"`:
 
@@ -44,9 +44,9 @@ Type: task
    - In the **`"Archived"`** tab on `UsersPage.tsx`, display each archived user's preserved `full_name` and `email`, a countdown badge (`"X days left before permanent deletion"` calculated from `archived_at + 7 days`), and a **`"Restore User"`** button that calls `restore_user_account` and returns them to the Active list as a Parishioner (`user`).
 
 ## Acceptance Criteria
-- [ ] Clicking `"Delete Church"` moves the church to `status = 'archived'` without deleting its appointments/donations, demotes its staff to `user`, hides it from parishioners, and never auto-deletes it after 7 days.
-- [ ] In `ChurchesPage.tsx` (`"Archived"` tab), clicking `"Restore Church"` auto-restores the former `church_admin` if they have no role at another church; if they already have a role at another church, the modal requires picking a replacement `church_admin` from available `user` accounts before restoring.
-- [ ] Clicking `"Delete Account"` in `UsersPage.tsx` moves the user to the `"Archived"` tab with their name/email preserved and a **7-day countdown badge**, blocks their account while archived, and resets any staff role to `user`.
-- [ ] Clicking `"Restore User"` in the `"Archived"` tab of `UsersPage.tsx` restores the user as an active `user` (`parishioner`).
-- [ ] Any user whose `archived_at` is older than 7 days is automatically permanently deleted/anonymized.
-- [ ] Verified against local Docker Supabase (`web/e2e-local`), and `tsc -b` + `vite build` pass cleanly.
+- [x] Clicking `"Delete Church"` moves the church to `status = 'archived'` without deleting its appointments/donations, demotes its staff to `user`, hides it from parishioners, and never auto-deletes it after 7 days.
+- [x] In `ChurchesPage.tsx` (`"Archived"` tab), clicking `"Restore Church"` auto-restores the former `church_admin` if they have no role at another church; if they already have a role at another church, the modal requires picking a replacement `church_admin` from available `user` accounts before restoring.
+- [x] Clicking `"Delete Account"` in `UsersPage.tsx` moves the user to the `"Archived"` tab with their name/email preserved and a **7-day countdown badge**, blocks their account while archived, and resets any staff role to `user`.
+- [x] Clicking `"Restore User"` in the `"Archived"` tab of `UsersPage.tsx` restores the user as an active `user` (`parishioner`).
+- [x] Any user whose `archived_at` is older than 7 days is automatically permanently deleted/anonymized.
+- [x] Verified against local Docker Supabase (`web/e2e-local`), and `tsc -b` + `vite build` pass cleanly.

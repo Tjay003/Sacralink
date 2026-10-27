@@ -545,6 +545,8 @@ export type Database = {
         Row: {
           accept_cashless: boolean | null
           address: string
+          archived_admin_id: string | null
+          archived_at: string | null
           candle_count: number | null
           contact_number: string | null
           created_at: string | null
@@ -575,6 +577,8 @@ export type Database = {
         Insert: {
           accept_cashless?: boolean | null
           address: string
+          archived_admin_id?: string | null
+          archived_at?: string | null
           candle_count?: number | null
           contact_number?: string | null
           created_at?: string | null
@@ -605,6 +609,8 @@ export type Database = {
         Update: {
           accept_cashless?: boolean | null
           address?: string
+          archived_admin_id?: string | null
+          archived_at?: string | null
           candle_count?: number | null
           contact_number?: string | null
           created_at?: string | null
@@ -1171,6 +1177,7 @@ export type Database = {
           church_id: string | null
           created_at: string | null
           deleted_at: string | null
+          archived_at: string | null
           suspended_at: string | null
           suspended_by: string | null
           suspension_reason: string | null
@@ -1190,6 +1197,7 @@ export type Database = {
           church_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          archived_at?: string | null
           suspended_at?: string | null
           suspended_by?: string | null
           suspension_reason?: string | null
@@ -1209,6 +1217,7 @@ export type Database = {
           church_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          archived_at?: string | null
           suspended_at?: string | null
           suspended_by?: string | null
           suspension_reason?: string | null
@@ -1583,6 +1592,22 @@ export type Database = {
       }
     }
     Functions: {
+      church_restore_status: {
+        Args: { p_church_id: string }
+        Returns: Json
+      }
+      restore_church: {
+        Args: { p_church_id: string; p_new_admin_id?: string | null }
+        Returns: Json
+      }
+      purge_expired_archived_users: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      restore_user_account: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       cancel_appointment: {
         Args: { p_appointment_id: string; p_reason: string }
         Returns: undefined

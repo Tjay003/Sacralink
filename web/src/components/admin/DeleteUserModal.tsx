@@ -19,8 +19,10 @@ interface DeleteUserModalProps {
 const COUNTDOWN_SECONDS = 5;
 
 /**
- * DeleteUserModal - confirmation for the Super Admin deleting a user (anonymize in place).
- * Requires typing the user's exact email, like TransferOwnershipModal. Calls public.delete_user_account after a 5 second countdown the Super Admin can cancel.
+ * DeleteUserModal - confirmation for the Super Admin deleting a user.
+ * Moves the user to a 7-day Archive window where they can be restored before
+ * automatic permanent deletion.
+ * Requires typing the user's exact email. Calls public.delete_user_account after a 5 second countdown.
  */
 export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSuccess, onConfirm }: DeleteUserModalProps) {
     const [confirmationEmail, setConfirmationEmail] = useState('');
@@ -47,6 +49,10 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
     // Nothing is deleted until the countdown ends; Cancel (or closing the modal) aborts it.
     const handleDelete = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isLastChurchAdmin) {
+            setError('Cannot delete the only Church Admin of an active church. Promote another Church Admin first.');
+            return;
+        }
         if (!isConfirmed) {
             setError("Please type the user's exact email address to confirm.");
             return;
@@ -68,19 +74,20 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
             size="lg"
         >
             <div className="space-y-5">
-                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2">
-                    <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
-                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                        <span>This cannot be undone</span>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        <span>7-Day Archive Window</span>
                     </div>
-                    <ul className="text-xs text-red-700/90 space-y-1.5 list-disc list-inside pl-1 leading-relaxed">
-                        <li>Their appointments, donations and messages are kept and shown as <strong>Deleted User</strong>.</li>
-                        <li>They are signed out at once and <strong>cannot sign in</strong> again. Their email can register as a new account.</li>
-                        <li>Their <strong>pending requests are cancelled</strong> and their open tickets are closed.</li>
-                        <li>Their name, email, phone, photo and notifications are removed.</li>
+                    <ul className="text-xs text-amber-900/90 space-y-1.5 list-disc list-inside pl-1 leading-relaxed">
+                        <li>The account will be moved to the <strong>Archived</strong> tab for <strong>7 days</strong>, where it can be restored before permanent deletion.</li>
+                        <li>Their <strong>name, email, and history are preserved</strong> during the 7-day archive window.</li>
+                        <li>They are signed out immediately and <strong>login access is blocked</strong> while archived.</li>
+                        <li>Any staff roles are reset to Parishioner (<code>user</code>) and pending requests are cancelled.</li>
+                        <li>After <strong>7 days</strong>, any unrestored account is automatically and permanently deleted.</li>
                         {isLastChurchAdmin && (
-                            <li>
-                                <strong>They are the only Church Admin of their church.</strong> The church will be without an admin until you assign one.
+                            <li className="text-red-700 font-semibold">
+                                <strong>Cannot delete:</strong> This user is the only Church Admin of their active parish. Name a successor Church Admin before deleting this account.
                             </li>
                         )}
                     </ul>
@@ -108,7 +115,7 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
                                 placeholder={`Enter ${user.email}`}
                                 value={confirmationEmail}
                                 onChange={(e) => setConfirmationEmail(e.target.value)}
-                                disabled={loading || countdown.counting}
+                                disabled={loading || countdown.counting || isLastChurchAdmin}
                                 className={`input w-full text-sm font-medium ${isConfirmed ? 'border-emerald-500' : 'border-border'}`}
                                 autoFocus
                             />
@@ -143,8 +150,8 @@ export default function DeleteUserModal({ user, isLastChurchAdmin, onClose, onSu
                             </button>
                             <button
                                 type="submit"
-                                disabled={!isConfirmed || loading}
-                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+                                disabled={!isConfirmed || loading || isLastChurchAdmin}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 {loading ? (
                                     <>

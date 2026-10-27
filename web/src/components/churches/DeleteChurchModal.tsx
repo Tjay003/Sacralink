@@ -9,7 +9,7 @@ interface DeleteChurchModalProps {
     churchId: string;
     churchName: string;
     onClose: () => void;
-    /** Called after the church is gone. */
+    /** Called after the church is archived. */
     onDeleted: () => void;
 }
 
@@ -29,9 +29,10 @@ function peopleSummary(impact: ChurchDeletionImpact): string | null {
 }
 
 /**
- * DeleteChurchModal - confirmation for the Super Admin deleting a church. Shows what is removed (real counts) and what
- * happens to the church's people, requires typing the exact church name, then deletes after a 5 second countdown the
- * Super Admin can cancel. Calls public.delete_church.
+ * DeleteChurchModal - confirmation for the Super Admin deleting a church.
+ * Instead of destructive deletion, moves the church to the Archived tab (indefinitely preserved),
+ * resets staff to Parishioners, and preserves all historical records intact.
+ * Calls public.delete_church.
  */
 export default function DeleteChurchModal({ churchId, churchName, onClose, onDeleted }: DeleteChurchModalProps) {
     const [impact, setImpact] = useState<ChurchDeletionImpact | null>(null);
@@ -46,7 +47,7 @@ export default function DeleteChurchModal({ churchId, churchName, onClose, onDel
                 if (!cancelled) setImpact(result);
             })
             .catch((err: unknown) => {
-                if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load what deleting this church removes');
+                if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load church records impact');
             });
         return () => {
             cancelled = true;
@@ -96,39 +97,40 @@ export default function DeleteChurchModal({ churchId, churchName, onClose, onDel
             size="lg"
         >
             <div className="space-y-5">
-                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2">
-                    <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
-                        <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                        <span>This cannot be undone</span>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                        <span>This church will be moved to the Archived tab</span>
                     </div>
                     {impact ? (
-                        <ul className="text-xs text-red-700/90 space-y-1.5 list-disc list-inside pl-1 leading-relaxed">
+                        <ul className="text-xs text-amber-900/90 space-y-1.5 list-disc list-inside pl-1 leading-relaxed">
                             <li>
-                                <strong>Permanently deleted:</strong> {plural(impact.appointments, 'appointment', 'appointments')},{' '}
+                                <strong>Historical records safely preserved:</strong> All {plural(impact.appointments, 'appointment', 'appointments')},{' '}
                                 {plural(impact.donations, 'donation record', 'donation records')}
                                 {impact.donations > 0 && <> (₱{Number(impact.donation_total).toLocaleString()} in total)</>},{' '}
                                 {plural(impact.mass_schedules, 'mass schedule', 'mass schedules')},{' '}
-                                {plural(impact.announcements, 'announcement', 'announcements')} and {plural(impact.images, 'gallery image', 'gallery images')},
-                                plus the parish staff channel and AI knowledge files.
+                                {plural(impact.announcements, 'announcement', 'announcements')}, and {plural(impact.images, 'gallery image', 'gallery images')} will be kept intact and will never be automatically deleted.
                             </li>
                             <li>
-                                <strong>Its people become Parishioners.</strong>{' '}
-                                {people ? <>{people} will lose their staff role and will no longer be assigned to a church.</> : 'No staff are assigned to this church.'}{' '}
-                                Their accounts are kept, and they can be assigned to another church later.
+                                <strong>Staff reset to Parishioners:</strong>{' '}
+                                {people ? <>{people} will have their staff roles reset to Parishioners (user) and unassigned from this parish.</> : 'No staff are assigned to this church.'}{' '}
+                                Their accounts remain active and can be assigned to another parish later.
                             </li>
                             {impact.conversations_kept > 0 && (
                                 <li>
-                                    {plural(impact.conversations_kept, 'conversation', 'conversations')} with parishioners keep their messages but are no longer linked to this church.
+                                    {plural(impact.conversations_kept, 'conversation', 'conversations')} with parishioners keep their full message history.
                                 </li>
                             )}
-                            <li>Consider setting the church to <strong>Inactive</strong> instead. That hides it and keeps every record.</li>
+                            <li>
+                                <strong>Indefinite Archive:</strong> The church is hidden from parishioners and public views. A Super Admin can restore it at any time from the <strong>Archived</strong> tab.
+                            </li>
                         </ul>
                     ) : error ? (
                         <p className="text-xs text-red-700">{error}</p>
                     ) : (
-                        <div className="flex items-center gap-2 text-xs text-red-700/90">
+                        <div className="flex items-center gap-2 text-xs text-amber-800/90">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Checking what will be removed...</span>
+                            <span>Checking church records...</span>
                         </div>
                     )}
                 </div>
@@ -190,7 +192,7 @@ export default function DeleteChurchModal({ churchId, churchName, onClose, onDel
                             <button
                                 type="submit"
                                 disabled={!impact || !isConfirmed || loading}
-                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2"
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 {loading ? (
                                     <>

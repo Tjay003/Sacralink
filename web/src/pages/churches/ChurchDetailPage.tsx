@@ -35,8 +35,11 @@ import {
     CheckCircle,
     UserMinus,
     MoreVertical,
-    BookOpen
+    BookOpen,
+    Archive,
+    RotateCcw
 } from 'lucide-react';
+import RestoreChurchModal from '../../components/churches/RestoreChurchModal';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
 import { extractPatronSaint } from '../../utils/churchUtils';
 import { supabase } from '../../lib/supabase';
@@ -93,6 +96,7 @@ export default function ChurchDetailPage() {
     const isVolunteer = profile?.role === 'volunteer';
     const toast = useToast();
     const [showDeleteChurch, setShowDeleteChurch] = useState(false);
+    const [showRestoreModal, setShowRestoreModal] = useState(false);
     const { church, setChurch, loading, error, refetch } = useChurch(id || '');
     const { byId: clergyById } = useParishClergy(id);
 
@@ -574,6 +578,29 @@ export default function ChurchDetailPage() {
         );
     }
 
+    if (church.status === 'archived' && !isSuperAdmin) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-4">
+                <button
+                    onClick={() => navigate('/churches')}
+                    className="group flex items-center text-muted hover:text-foreground mb-4 transition-colors cursor-pointer"
+                >
+                    <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+                    Back to Churches
+                </button>
+                <div className="card p-8 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mx-auto text-secondary-600">
+                        <Archive className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-lg font-bold text-foreground">Parish Archived</h2>
+                    <p className="text-sm text-muted max-w-md mx-auto">
+                        This parish has been archived and is not currently accepting appointments or active visits.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     const activePanoramaUrl = church.panorama_url || FALLBACK_PANORAMA_URL;
     const massSchedulesCount = church.mass_schedules ? church.mass_schedules.length : 0;
     const sundayMassCount = church.mass_schedules?.filter(s => s.day_of_week === 'Sunday').length || 0;
@@ -632,6 +659,29 @@ export default function ChurchDetailPage() {
                         aria-label="Dismiss banner"
                     >
                         <X className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
+
+            {/* Archived Warning Banner for Super Admin */}
+            {church.status === 'archived' && isSuperAdmin && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-3">
+                        <Archive className="w-5 h-5 text-amber-600 shrink-0" />
+                        <div>
+                            <p className="text-sm font-bold text-amber-900">This church is currently Archived</p>
+                            <p className="text-xs text-amber-800/90">
+                                It is hidden from parishioners and active directory listings. All historical donations, appointments, and schedules remain preserved.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowRestoreModal(true)}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
+                    >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Restore Church</span>
                     </button>
                 </div>
             )}
@@ -1818,7 +1868,7 @@ export default function ChurchDetailPage() {
                             <div>
                                 <h3 className="text-base font-bold text-red-700">Danger zone</h3>
                                 <p className="text-xs text-secondary-600 mt-1 leading-relaxed">
-                                    Deleting a parish permanently removes its mass schedules, announcements, appointments and donation records. Its staff become Parishioners and their accounts are kept. Consider setting the parish to Inactive instead.
+                                    Deleting a parish moves it to the Archived tab. Its mass schedules, announcements, appointments and donation records are preserved intact. Its staff become Parishioners and can be reassigned later.
                                 </p>
                             </div>
 
@@ -2123,8 +2173,25 @@ export default function ChurchDetailPage() {
                         setShowDeleteChurch(false);
                         navigate('/churches');
                         toast.showSuccess({
-                            title: 'Church deleted',
-                            message: `${deletedName} and its records were deleted. Its staff are now Parishioners.`,
+                            title: 'Church archived',
+                            message: `${deletedName} was moved to the Archived tab. Historical records are preserved, and staff are now Parishioners.`,
+                        });
+                    }}
+                />
+            )}
+
+            {/* Restore Church Modal (Super Admin) */}
+            {showRestoreModal && church && (
+                <RestoreChurchModal
+                    churchId={church.id}
+                    churchName={church.name}
+                    onClose={() => setShowRestoreModal(false)}
+                    onRestored={() => {
+                        setShowRestoreModal(false);
+                        setChurch(prev => (prev ? { ...prev, status: 'active', is_active: true } : prev));
+                        setActionFeedback({
+                            type: 'success',
+                            message: `"${church.name}" has been successfully restored.`,
                         });
                     }}
                 />
