@@ -11,6 +11,7 @@ import {
     type HydratedAppointment as Appointment,
 } from '../../lib/supabase/appointments';
 import { UserName } from '../ui/UserName';
+import { StatusBadge } from '../ui/StatusBadge';
 
 // Custom styles to override default calendar appearance to match theme
 const calendarStyles = `
@@ -143,10 +144,7 @@ export default function DashboardCalendar() {
                         selectedDateAppointments.map(app => (
                             <div key={app.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-100">
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize
-                                        ${app.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                        {app.status}
-                                    </span>
+                                    <StatusBadge domain="appointment" status={app.status} size="sm" />
                                     <div className="flex items-center text-xs text-muted">
                                         <Clock className="w-3 h-3 mr-1" />
                                         {formatAppointmentTime(app.appointment_time)}

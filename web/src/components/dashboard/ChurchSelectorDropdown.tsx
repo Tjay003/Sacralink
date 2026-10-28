@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, Building2, Check } from 'lucide-react';
+import { StatusBadge } from '../ui/StatusBadge';
 import { useChurches } from '../../hooks/useChurches';
 
 interface ChurchSelectorDropdownProps {
@@ -154,15 +155,7 @@ export default function ChurchSelectorDropdown({
                                             }`}>
                                                 {church.name}
                                             </span>
-                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0 uppercase tracking-wide ${
-                                                church.status === 'verified_active'
-                                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                                    : church.status === 'active'
-                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                                    : 'bg-gray-100 text-gray-600 border border-gray-200'
-                                            }`}>
-                                                {church.status === 'verified_active' ? 'Verified' : church.status}
-                                            </span>
+                                            <StatusBadge domain="church" status={church.status} size="sm" />
                                         </div>
                                         {church.address && (
                                             <div className="text-xs text-secondary-500 truncate">

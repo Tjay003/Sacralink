@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Profile, Church, UserRole } from '../../types/database';
@@ -1144,10 +1145,12 @@ export default function UsersPage() {
                                                                                     {formatRole(user.role || 'user')}
                                                                                 </span>
                                                                             )}
-                                                                            {user.suspended_at && (
-                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
-                                                                                    Suspended
+                                                                            {user.suspended_at ? (
+                                                                                <span title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'} className="inline-flex shrink-0">
+                                                                                    <StatusBadge domain="user" status="suspended" size="sm" />
                                                                                 </span>
+                                                                            ) : !user.archived_at && (
+                                                                                <StatusBadge domain="user" status="active" size="sm" />
                                                                             )}
                                                                             {user.is_priest && user.role !== 'priest' && (
                                                                                 <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
@@ -1235,10 +1238,12 @@ export default function UsersPage() {
                                                                 {formatRole(user.role || 'user')}
                                                             </span>
                                                         )}
-                                                                            {user.suspended_at && (
-                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
-                                                                                    Suspended
+                                                                            {user.suspended_at ? (
+                                                                                <span title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'} className="inline-flex shrink-0">
+                                                                                    <StatusBadge domain="user" status="suspended" size="sm" />
                                                                                 </span>
+                                                                            ) : !user.archived_at && (
+                                                                                <StatusBadge domain="user" status="active" size="sm" />
                                                                             )}
                                                         {user.is_priest && user.role !== 'priest' && (
                                                             <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">
@@ -1375,10 +1380,12 @@ export default function UsersPage() {
                                                                     {formatRole(user.role || 'user')}
                                                                 </span>
                                                             )}
-                                                                            {user.suspended_at && (
-                                                                                <span className="px-2 py-0.5 inline-flex text-xs font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-300" title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'}>
-                                                                                    Suspended
+                                                                            {user.suspended_at ? (
+                                                                                <span title={user.suspension_reason ? `Suspended: ${user.suspension_reason}` : 'Suspended'} className="inline-flex shrink-0">
+                                                                                    <StatusBadge domain="user" status="suspended" size="sm" />
                                                                                 </span>
+                                                                            ) : !user.archived_at && (
+                                                                                <StatusBadge domain="user" status="active" size="sm" />
                                                                             )}
                                                             {user.is_priest && user.role !== 'priest' && (
                                                                 <span className="px-2 py-0.5 inline-flex items-center gap-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 shadow-sm" title="Ordained Catholic Priest">

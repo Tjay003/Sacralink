@@ -2,6 +2,7 @@ import { Calendar, Church, Clock, CheckCircle2, Check, XCircle } from 'lucide-re
 import { format } from 'date-fns';
 import RescheduledNotice from '../../appointments/RescheduledNotice';
 import RequestedPriestNote from '../../appointments/RequestedPriestNote';
+import { StatusBadge } from '../../ui/StatusBadge';
 import type { HydratedAppointment as Appointment } from '../../../lib/supabase/appointments';
 
 interface UserOtherAppointmentsCardProps {
@@ -91,19 +92,7 @@ export default function UserOtherAppointmentsCard({ appointments }: UserOtherApp
                                     </h4>
 
                                     {/* Status Badge */}
-                                    <span
-                                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 capitalize ${
-                                            isApproved
-                                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                                : isPending
-                                                ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                                                : isCancelled
-                                                ? 'bg-red-50 text-red-800 border border-red-200'
-                                                : 'bg-secondary-100 text-secondary-800 border border-secondary-200'
-                                        }`}
-                                    >
-                                        {app.status}
-                                    </span>
+                                    <StatusBadge domain="appointment" status={app.status} />
                                 </div>
 
                                 {app.notes && (

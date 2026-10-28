@@ -7,6 +7,7 @@ import {
   type ApplicantChecklist,
   type ParishApplicationWithRelations,
 } from '../../lib/supabase/parishApplications';
+import { StatusBadge } from '../ui/StatusBadge';
 
 const CHECKLIST_ITEMS: Array<{ key: keyof ApplicantChecklist; label: string; hint: string }> = [
   { key: 'id_valid', label: 'ID is valid and unexpired', hint: 'A government-issued photo ID that is readable and not expired.' },
@@ -97,21 +98,11 @@ export default function ApplicantReviewPanel({ app, locked, onReviewed }: Applic
     setRequested(true);
   };
 
-  const statusChip =
-    status === 'passed'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : status === 'rejected'
-        ? 'bg-red-50 text-red-700 border-red-200'
-        : status === 'pending'
-          ? 'bg-blue-50 text-blue-700 border-blue-200'
-          : 'bg-amber-50 text-amber-700 border-amber-200';
-  const statusLabel = { not_submitted: 'Not submitted', pending: 'Awaiting review', passed: 'Verified', rejected: 'Rejected' }[status] ?? status;
-
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-[11px] font-bold text-secondary-400 tracking-wider uppercase">Applicant verification</h3>
-        <span className={`px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${statusChip}`}>{statusLabel}</span>
+        <StatusBadge domain="applicant" status={status} />
       </div>
 
       <div className="bg-white border border-border/80 rounded-2xl p-4 space-y-4">

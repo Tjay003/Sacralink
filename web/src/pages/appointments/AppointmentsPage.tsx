@@ -36,6 +36,7 @@ import { UserName } from '../../components/ui/UserName';
 import EditAppointmentModal from '../../components/appointments/EditAppointmentModal';
 import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import Modal from '../../components/ui/Modal';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import Pagination from '../../components/common/Pagination';
 
 function getCurrentWeekDays(): { dateStr: string; dayName: string; dayNum: number }[] {
@@ -985,30 +986,18 @@ export default function AppointmentsPage() {
                                             {/* STATUS & ACTIONS */}
                                             <td className="px-4 xl:px-5 py-3.5 align-top">
                                                 <div className="flex flex-col items-start gap-2.5 min-w-0">
-                                                    {appointment.status === 'approved' ? (
-                                                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                            Approved
-                                                        </span>
-                                                    ) : appointment.status === 'pending' ? (
+                                                    {appointment.status === 'pending' ? (
                                                         <div className="flex flex-wrap items-center gap-1.5">
-                                                            <span className="bg-amber-50 text-amber-700 border border-amber-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                                Pending
-                                                            </span>
+                                                            <StatusBadge domain="appointment" status={appointment.status} />
                                                             {isFuneral && (
                                                                 <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full w-fit">
                                                                     Urgent
                                                                 </span>
                                                             )}
                                                         </div>
-                                                    ) : appointment.status === 'rejected' ? (
-                                                        <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                            Rejected
-                                                        </span>
                                                     ) : appointment.status === 'cancelled' ? (
                                                         <div className="space-y-1 min-w-0 max-w-full">
-                                                            <span className="bg-red-50 text-red-700 border border-red-200/80 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
-                                                                Cancelled
-                                                            </span>
+                                                            <StatusBadge domain="appointment" status={appointment.status} />
                                                             {appointment.cancellation_reason && (
                                                                 <p className="text-xs text-secondary-600 leading-snug break-words">
                                                                     Reason: {appointment.cancellation_reason}
@@ -1016,9 +1005,7 @@ export default function AppointmentsPage() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                                                            {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
-                                                        </span>
+                                                        <StatusBadge domain="appointment" status={appointment.status} />
                                                     )}
 
                                                     {isParishioner ? (
@@ -1165,30 +1152,18 @@ export default function AppointmentsPage() {
 
                                         {/* Status badge */}
                                         <div className="shrink-0 flex flex-col items-end gap-1">
-                                            {appointment.status === 'approved' ? (
-                                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
-                                                    Approved
-                                                </span>
-                                            ) : appointment.status === 'pending' ? (
+                                            {appointment.status === 'pending' ? (
                                                 <>
-                                                    <span className="bg-amber-50 text-amber-700 border border-amber-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
-                                                        Pending
-                                                    </span>
+                                                    <StatusBadge domain="appointment" status={appointment.status} size="sm" />
                                                     {isFuneral && (
                                                         <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
                                                             Urgent
                                                         </span>
                                                     )}
                                                 </>
-                                            ) : appointment.status === 'rejected' ? (
-                                                <span className="bg-red-50 text-red-700 border border-red-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
-                                                    Rejected
-                                                </span>
                                             ) : appointment.status === 'cancelled' ? (
                                                 <>
-                                                    <span className="bg-red-50 text-red-700 border border-red-200/80 text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
-                                                        Cancelled
-                                                    </span>
+                                                    <StatusBadge domain="appointment" status={appointment.status} size="sm" />
                                                     {appointment.cancellation_reason && (
                                                         <p className="text-[11px] text-secondary-600 leading-snug text-right max-w-[180px]">
                                                             Reason: {appointment.cancellation_reason}
@@ -1196,9 +1171,7 @@ export default function AppointmentsPage() {
                                                     )}
                                                 </>
                                             ) : (
-                                                <span className="bg-secondary-100 text-secondary-700 border border-secondary-200 text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize">
-                                                    {appointment.status === 'completed' ? 'Celebrated' : appointment.status}
-                                                </span>
+                                                <StatusBadge domain="appointment" status={appointment.status} size="sm" />
                                             )}
                                         </div>
                                     </div>

@@ -1,4 +1,6 @@
-import { Pin, Edit, Trash2, Building2, Megaphone, Clock, Eye, Users } from 'lucide-react';
+import { Pin, Edit, Trash2, Building2, Megaphone, Clock, Eye, Users, Info, AlertTriangle, Wrench, CheckCircle2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { StatusBadge } from '../ui/StatusBadge';
 import type {
     ChurchAnnouncement,
     SystemAnnouncement,
@@ -50,21 +52,14 @@ export default function AnnouncementCard({
     const getTypeBadge = () => {
         if (isChurchAnnouncement || !systemAnn.type) return null;
 
-        const badges: Record<SystemAnnouncementType | string, { icon: string; class: string }> = {
-            info: { icon: '📘', class: 'bg-blue-100 text-blue-800' },
-            warning: { icon: '⚠️', class: 'bg-yellow-100 text-yellow-800' },
-            maintenance: { icon: '🔧', class: 'bg-orange-100 text-orange-800' },
-            success: { icon: '✅', class: 'bg-green-100 text-green-800' },
+        const icons: Record<SystemAnnouncementType | string, LucideIcon> = {
+            info: Info,
+            warning: AlertTriangle,
+            maintenance: Wrench,
+            success: CheckCircle2,
         };
 
-        const badge = badges[systemAnn.type] || { icon: '📢', class: 'bg-secondary-100 text-secondary-800' };
-
-        return (
-            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${badge.class}`}>
-                <span>{badge.icon}</span>
-                <span>{systemAnn.type.charAt(0).toUpperCase() + systemAnn.type.slice(1)}</span>
-            </span>
-        );
+        return <StatusBadge domain="announcement" status={systemAnn.type} icon={icons[systemAnn.type] ?? Megaphone} />;
     };
 
     const category = (isChurchAnnouncement && churchAnn.category) ? churchAnn.category : 'general';

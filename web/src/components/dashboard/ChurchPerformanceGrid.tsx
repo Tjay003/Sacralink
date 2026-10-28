@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Church, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { StatusBadge } from '../ui/StatusBadge';
 import { getDashboardAppointmentCounts } from '../../lib/supabase/appointments';
 
 interface ChurchPerformance {
@@ -260,22 +261,7 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                                     </div>
 
                                     {/* Status Badge: Gold if verified, Green if active, Gray if inactive */}
-                                    {church.isVerified ? (
-                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
-                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                             Verified
-                                         </span>
-                                     ) : isActive ? (
-                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
-                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                             Active
-                                         </span>
-                                     ) : (
-                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 bg-secondary-100 text-secondary-600 border border-secondary-200">
-                                             <span className="w-1.5 h-1.5 rounded-full bg-secondary-400" />
-                                             Inactive
-                                         </span>
-                                     )}
+                                    <StatusBadge domain="church" status={church.isVerified ? 'verified_active' : isActive ? 'active' : 'inactive'} />
                                  </div>
 
                                  {/* Metric Tiles (Strictly members & appointments; zero financial metrics) */}

@@ -10,6 +10,7 @@ import {
     type HydratedAppointment as Appointment,
 } from '../../lib/supabase/appointments';
 import { UserName } from '../ui/UserName';
+import { StatusBadge } from '../ui/StatusBadge';
 
 interface RecentAppointmentsWidgetProps {
     churchId?: string | null;
@@ -62,18 +63,6 @@ export default function RecentAppointmentsWidget({
         };
     }, [churchId, limit]);
 
-    // Status config: clean pills matching Sacralink theme
-    const statusConfig: Record<string, { badge: string }> = {
-        approved:   { badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-        pending:    { badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
-        rejected:   { badge: 'bg-red-50 text-red-700 border border-red-200' },
-        completed:  { badge: 'bg-blue-50 text-primary border border-blue-200' },
-        cancelled:  { badge: 'bg-secondary-50 text-secondary-600 border border-border' },
-    };
-
-    const getStatus = (status: string) =>
-        statusConfig[status] ?? { badge: 'bg-secondary-50 text-secondary-600 border border-border' };
-
     // Format service type into clean human label
     const formatServiceName = (type: string) => {
         const clean = type.toLowerCase().replace(/_/g, ' ');
@@ -125,7 +114,6 @@ export default function RecentAppointmentsWidget({
                 ) : (
                     <div className="divide-y divide-border/60">
                         {appointments.map((appointment) => {
-                            const { badge } = getStatus(appointment.status);
                             const applicantName = appointment.profile?.full_name || 'Parishioner';
                             const appointmentDate = new Date(appointment.appointment_date);
                             const formattedDate = !isNaN(appointmentDate.getTime())
@@ -156,9 +144,7 @@ export default function RecentAppointmentsWidget({
                                         <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-100 text-secondary-700">
                                             {formatServiceName(appointment.service_type)}
                                         </span>
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${badge}`}>
-                                            {appointment.status}
-                                        </span>
+                                        <StatusBadge domain="appointment" status={appointment.status} />
                                     </div>
                                 </div>
                             );

@@ -28,6 +28,7 @@ import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDo
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
 import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 type ChurchStatus = 'verified_active' | 'unverified' | 'inactive' | 'active';
 
@@ -1140,24 +1141,7 @@ export default function EditChurchPage() {
                                 <div className="space-y-3">
                                     {/* Read-Only Status Pill */}
                                     <div>
-                                        {(formData.status === 'verified_active' || formData.status === 'active') && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                                ✓ Verified parish
-                                            </span>
-                                        )}
-                                        {formData.status === 'unverified' && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                                Under audit
-                                            </span>
-                                        )}
-                                        {formData.status === 'inactive' && (
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-700 border border-secondary-300">
-                                                <EyeOff className="w-3.5 h-3.5 text-secondary-600" />
-                                                Inactive
-                                            </span>
-                                        )}
+                                        <StatusBadge domain="church" status={formData.status} />
                                     </div>
 
                                     <p className="text-xs text-muted leading-relaxed">
@@ -1189,21 +1173,7 @@ export default function EditChurchPage() {
                                         <h3 className="font-serif font-bold text-base text-foreground leading-snug">
                                             {formData.name || 'Parish Name'}
                                         </h3>
-                                        {(formData.status === 'verified_active' || formData.status === 'active') && (
-                                            <span className="shrink-0 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                                Verified
-                                            </span>
-                                        )}
-                                        {formData.status === 'unverified' && (
-                                            <span className="shrink-0 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
-                                                Under audit
-                                            </span>
-                                        )}
-                                        {formData.status === 'inactive' && (
-                                            <span className="shrink-0 text-[10px] font-semibold bg-secondary-100 text-secondary-600 border border-secondary-300 px-2 py-0.5 rounded-full">
-                                                Inactive
-                                            </span>
-                                        )}
+                                        <StatusBadge domain="church" status={formData.status} size="sm" />
                                     </div>
                                     <div className="flex items-start gap-1.5 text-xs text-muted mt-1.5">
                                         <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />

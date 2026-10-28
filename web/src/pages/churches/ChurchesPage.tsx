@@ -12,7 +12,6 @@ import {
     LayoutGrid, 
     List, 
     ShieldCheck, 
-    Clock, 
     Archive, 
     RotateCcw 
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/toastContext';
 import ChurchCover from '../../components/churches/ChurchCover';
 import RestoreChurchModal from '../../components/churches/RestoreChurchModal';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 /**
  * ChurchesPage - List all churches with Active / Archived views for Super Admin.
@@ -283,35 +283,12 @@ export default function ChurchesPage() {
                                         {/* Top Badges */}
                                         <div className="absolute top-6 right-6 z-10 flex flex-col gap-1.5 items-end">
                                             {church.status === 'archived' ? (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-secondary-900/90 text-white shadow-lg backdrop-blur-md border border-secondary-600/40">
-                                                    <Archive className="w-3.5 h-3.5 text-amber-400" />
-                                                    ARCHIVED
-                                                </span>
+                                                <StatusBadge domain="church" status="archived" icon={Archive} className="shadow-lg" />
                                             ) : (
                                                 <>
-                                                    {church.is_live && (
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-lg backdrop-blur-md border border-red-400/40 animate-pulse">
-                                                            <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-                                                            LIVE MASS
-                                                        </span>
-                                                    )}
-                                                    {church.status === 'inactive' && (
-                                                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-red-500/90 text-white shadow-sm backdrop-blur-md">
-                                                            Inactive
-                                                        </span>
-                                                    )}
-                                                    {church.status === 'unverified' && (
-                                                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/90 text-white shadow-sm backdrop-blur-md">
-                                                            <Clock className="w-3.5 h-3.5" />
-                                                            Pending Verification
-                                                        </span>
-                                                    )}
-                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/90 text-white shadow-sm backdrop-blur-md">
-                                                            <ShieldCheck className="w-3.5 h-3.5" />
-                                                            Verified Parish
-                                                        </span>
-                                                    )}
+                                                    {church.is_live && <StatusBadge domain="broadcast" status="live" label="LIVE MASS" className="shadow-lg" />}
+                                                    {(church.status === 'inactive' || church.status === 'unverified') && <StatusBadge domain="church" status={church.status} className="shadow-sm" />}
+                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && <StatusBadge domain="church" status={church.status} icon={ShieldCheck} className="shadow-sm" />}
                                                 </>
                                             )}
                                         </div>
@@ -414,33 +391,12 @@ export default function ChurchesPage() {
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-medium text-foreground truncate">{church.name}</p>
                                                             {church.status === 'archived' ? (
-                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-secondary-200 text-secondary-800 flex-shrink-0">
-                                                                    <Archive className="w-3 h-3 text-secondary-600" />
-                                                                    Archived
-                                                                </span>
+                                                                <StatusBadge domain="church" status="archived" size="sm" icon={Archive} />
                                                             ) : (
                                                                 <>
-                                                                    {church.is_live && (
-                                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white animate-pulse flex-shrink-0">
-                                                                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                                            LIVE
-                                                                        </span>
-                                                                    )}
-                                                                    {church.status === 'inactive' && (
-                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800 flex-shrink-0">
-                                                                            🔒 Inactive
-                                                                        </span>
-                                                                    )}
-                                                                    {church.status === 'unverified' && (
-                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 flex-shrink-0">
-                                                                            Pending Verification
-                                                                        </span>
-                                                                    )}
-                                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 flex-shrink-0">
-                                                                            Verified
-                                                                        </span>
-                                                                    )}
+                                                                    {church.is_live && <StatusBadge domain="broadcast" status="live" size="sm" />}
+                                                                    {(church.status === 'inactive' || church.status === 'unverified') && <StatusBadge domain="church" status={church.status} size="sm" />}
+                                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && <StatusBadge domain="church" status={church.status} size="sm" />}
                                                                 </>
                                                             )}
                                                         </div>
@@ -570,37 +526,15 @@ export default function ChurchesPage() {
                                                                         <span className="text-sm font-medium text-foreground">
                                                                             {church.name}
                                                                         </span>
-                                                                        {church.status === 'archived' ? (
-                                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-secondary-100 text-secondary-800 border border-secondary-300">
-                                                                                <Archive className="w-3 h-3 text-secondary-600" />
-                                                                                Archived
-                                                                            </span>
-                                                                        ) : (
-                                                                            <>
-                                                                                {church.is_live && (
-                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white animate-pulse">
-                                                                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                                                        LIVE MASS
-                                                                                    </span>
-                                                                                )}
-                                                                                {church.status === 'inactive' && (
-                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                                                                        🔒 Inactive
-                                                                                    </span>
-                                                                                )}
-                                                                                {church.status === 'unverified' && (
-                                                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                                                                        Pending Verification
-                                                                                    </span>
-                                                                                )}
-                                                                                {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && (
-                                                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
-                                                                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                                                                        Verified
-                                                                                    </span>
-                                                                                )}
-                                                                            </>
-                                                                        )}
+                                        {church.status === 'archived' ? (
+                                            <StatusBadge domain="church" status="archived" size="sm" icon={Archive} />
+                                        ) : (
+                                            <>
+                                                {church.is_live && <StatusBadge domain="broadcast" status="live" size="sm" label="LIVE MASS" />}
+                                                {(church.status === 'inactive' || church.status === 'unverified') && <StatusBadge domain="church" status={church.status} size="sm" />}
+                                                {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && <StatusBadge domain="church" status={church.status} size="sm" />}
+                                            </>
+                                        )}
                                                                     </div>
                                                                     {church.description && (
                                                                         <div className="text-sm text-muted line-clamp-1">

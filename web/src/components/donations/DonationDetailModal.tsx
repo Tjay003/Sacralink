@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, User, Hash, Calendar, Eye, Heart } from 'lucide-r
 import { verifyDonation, rejectDonation, type Donation } from '../../lib/supabase/donations';
 import { formatDistanceToNow } from 'date-fns';
 import { UserName } from '../ui/UserName';
+import { StatusBadge } from '../ui/StatusBadge';
 
 interface DonationDetailModalProps {
     donation: Donation;
@@ -53,12 +54,6 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
         onClose();
     };
 
-    const statusColors = {
-        pending: 'bg-yellow-100 text-yellow-700',
-        verified: 'bg-green-100 text-green-700',
-        rejected: 'bg-red-100 text-red-700',
-    };
-
     return (
         <Modal
             isOpen={true}
@@ -84,9 +79,7 @@ export default function DonationDetailModal({ donation, onClose, onUpdated }: Do
                 )}
 
                 {/* Status badge */}
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[donation.status || 'pending']}`}>
-                    <span className="capitalize">{donation.status}</span>
-                </div>
+                <StatusBadge domain="donation" status={donation.status || 'pending'} />
 
                 {/* Donor info */}
                 <div className="grid grid-cols-2 gap-4">

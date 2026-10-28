@@ -54,6 +54,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { UserName } from '../../components/ui/UserName';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 export interface PriestDashboardProps {
     churchId?: string | null;
@@ -619,12 +620,12 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                     const TypeIcon = meta.icon;
                                     const [clock, period] = formatAppointmentTime(appt.appointment_time).split(' ');
                                     const isNext = appt.id === nextCelebration?.id;
-                                    const status =
+                                    const derivedStatus =
                                         appt.status === 'completed'
-                                            ? { label: 'Celebrated', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                                            ? null
                                             : isNext
                                             ? {
-                                                  label: `Next · ${formatCountdown(minutesOfDay(appt.appointment_time) - nowMinutes)}`,
+                                                  label: `Next � ${formatCountdown(minutesOfDay(appt.appointment_time) - nowMinutes)}`,
                                                   className: 'bg-blue-50 text-primary border-blue-200',
                                               }
                                             : minutesOfDay(appt.appointment_time) < nowMinutes
@@ -649,9 +650,13 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                                         <TypeIcon className="w-3 h-3" />
                                                         {meta.chipLabel}
                                                     </span>
-                                                    <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${status.className}`}>
-                                                        {status.label}
-                                                    </span>
+                                                    {derivedStatus ? (
+                                                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${derivedStatus.className}`}>
+                                                            {derivedStatus.label}
+                                                        </span>
+                                                    ) : (
+                                                        <StatusBadge domain="appointment" status={appt.status} size="sm" />
+                                                    )}
                                                     <RescheduledNotice appointment={appt} />
                                                     <RequestedPriestNote appointment={appt} />
                                                 </div>
@@ -989,13 +994,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                         {selectedAppointment.service_type}
                                     </h4>
                                 </div>
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border ${
-                                    selectedAppointment.status === 'completed'
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                        : 'bg-blue-50 text-primary border-blue-200'
-                                }`}>
-                                    {selectedAppointment.status}
-                                </span>
+                                <StatusBadge domain="appointment" status={selectedAppointment.status} />
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-secondary-700">

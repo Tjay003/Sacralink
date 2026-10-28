@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Video, Check, AlertCircle, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { StatusBadge } from '../ui/StatusBadge';
 import type { Church } from '../../types/database';
 
 interface LiveBroadcastManagerProps {
@@ -269,9 +270,12 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                     : 'bg-secondary-50/70 border-border/80'
             }`}>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-foreground">
-                        {isLive ? 'You are live' : 'Stream is offline'}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-foreground">
+                            {isLive ? 'You are live' : 'Stream is offline'}
+                        </p>
+                        <StatusBadge domain="broadcast" status={isLive ? 'live' : 'offline'} size="sm" />
+                    </div>
                     <p className={`text-xs mt-0.5 ${isLive ? 'text-secondary-600' : 'text-secondary-500'}`}>
                         {isLive
                             ? 'Parishioners can watch from the parish page'

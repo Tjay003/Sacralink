@@ -52,6 +52,7 @@ import {
     addYears,
 } from 'date-fns';
 import { UserName } from '../../components/ui/UserName';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
 export type ChartFilterMode = 'weekly' | 'monthly' | 'yearly' | 'all_time' | 'custom';
@@ -1122,22 +1123,7 @@ export default function DonationsPage() {
                                     const method = d.payment_method || (d.reference_number?.length === 13 ? 'GCash' : 'Maya');
                                     const dateFormatted = d.created_at ? format(new Date(d.created_at), 'MMM d') : 'Recent';
                                     const isPending = d.status === 'pending';
-                                    const isVerified = d.status === 'verified';
 
-                                    // Status pill styling
-                                    const statusBadge = isPending ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                            Awaiting check
-                                        </span>
-                                    ) : isVerified ? (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                            Verified
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-800 border border-red-200">
-                                            Rejected
-                                        </span>
-                                    );
 
                                     return (
                                         <tr key={d.id} className="hover:bg-secondary-50/40 transition-colors">
@@ -1173,7 +1159,7 @@ export default function DonationsPage() {
 
                                             {/* Status */}
                                             <td className="py-3.5 px-4 whitespace-nowrap">
-                                                {statusBadge}
+                                                <StatusBadge domain="donation" status={d.status} />
                                             </td>
 
                                             {/* Actions */}

@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import type { HydratedAppointment as Appointment } from '../../../lib/supabase/appointments';
 import RescheduledNotice from '../../appointments/RescheduledNotice';
 import RequestedPriestNote from '../../appointments/RequestedPriestNote';
+import { StatusBadge } from '../../ui/StatusBadge';
 
 interface UserNextAppointmentCardProps {
     appointment: Appointment | null;
@@ -70,29 +71,12 @@ export default function UserNextAppointmentCard({
                 </div>
 
                 {/* Status Badge */}
-                {isPending && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                        Under review
-                    </span>
-                )}
-                {isApproved && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Confirmed
-                    </span>
-                )}
-                {isCancelled && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-800 border border-red-200">
-                        <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                        Cancelled
-                    </span>
-                )}
-                {!isPending && !isApproved && !isCancelled && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-800 border border-secondary-200 capitalize">
-                        {appointment.status}
-                    </span>
-                )}
+                <StatusBadge
+                    domain="appointment"
+                    status={appointment.status}
+                    label={isPending ? 'Under review' : isApproved ? 'Confirmed' : undefined}
+                    icon={isPending ? AlertCircle : isApproved ? CheckCircle2 : isCancelled ? AlertTriangle : undefined}
+                />
             </div>
 
             {/* Appointment Title */}

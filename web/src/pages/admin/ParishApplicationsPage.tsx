@@ -34,6 +34,7 @@ import {
   type ApplicationChecklist,
 } from '../../lib/supabase/parishApplications';
 import { UserName } from '../../components/ui/UserName';
+import { StatusBadge, STATUS_DEFINITIONS } from '../../components/ui/StatusBadge';
 import ApplicantReviewPanel from '../../components/admin/ApplicantReviewPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { AccessDeniedView } from '../../components/auth/RoleRoute';
@@ -70,7 +71,7 @@ function formatSubmissionDate(dateStr?: string | null): string {
     relative = 'today';
   }
 
-  return `${formattedDate} · ${relative}`;
+  return `${formattedDate} Â· ${relative}`;
 }
 
 const getCashlessLabel = (app: ParishApplicationWithRelations): string | null => {
@@ -236,7 +237,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.rectory_call ? '✓ Confirmed' : '✗ Pending'}
+                      {checklist.rectory_call ? 'âœ“ Confirmed' : 'âœ— Pending'}
                     </span>
                   </div>
 
@@ -249,7 +250,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.celebret_verified ? '✓ Verified' : '✗ Pending'}
+                      {checklist.celebret_verified ? 'âœ“ Verified' : 'âœ— Pending'}
                     </span>
                   </div>
 
@@ -262,7 +263,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.merchant_entity_verified ? '✓ Matches' : '✗ Pending'}
+                      {checklist.merchant_entity_verified ? 'âœ“ Matches' : 'âœ— Pending'}
                     </span>
                   </div>
                 </div>
@@ -501,7 +502,7 @@ function ParishApplicationDrawer({
                           app.maya_number && `Maya: ${app.maya_number}`,
                         ]
                           .filter(Boolean)
-                          .join(' · ')}
+                          .join(' Â· ')}
                       </span>
                     </div>
                   </div>
@@ -952,35 +953,7 @@ export default function ParishApplicationsPage() {
     };
   }, [statusCounts, applications]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'under_review':
-        return (
-          <span className="bg-amber-100/70 text-amber-900 border border-amber-200/70 text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center">
-            Under review
-          </span>
-        );
-      case 'verified_active':
-        return (
-          <span className="bg-emerald-100/70 text-emerald-800 border border-emerald-200/70 text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center">
-            Verified
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className="bg-red-100/70 text-red-800 border border-red-200/70 text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center">
-            Rejected
-          </span>
-        );
-      case 'pending':
-      default:
-        return (
-          <span className="bg-secondary-100 text-secondary-700 border border-secondary-200/80 text-xs font-bold px-2.5 py-0.5 rounded-full inline-flex items-center">
-            Pending
-          </span>
-        );
-    }
-  };
+  const getStatusBadge = (status: string) => <StatusBadge domain="application" status={status} />;
 
   const filterTabs: Array<{
     key: 'all' | 'pending' | 'under_review' | 'verified_active' | 'rejected';
@@ -1117,20 +1090,12 @@ export default function ParishApplicationsPage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="font-bold text-lg text-foreground tracking-tight">{app.parish_name}</h3>
                     {getStatusBadge(app.status)}
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${
-                        app.applicant_status === 'passed'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : app.applicant_status === 'rejected'
-                            ? 'bg-red-50 text-red-700 border-red-200'
-                            : app.applicant_status === 'pending'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      Applicant:{' '}
-                      {{ not_submitted: 'not submitted', pending: 'awaiting review', passed: 'verified', rejected: 'rejected' }[app.applicant_status] ?? app.applicant_status}
-                    </span>
+                    <StatusBadge
+                      domain="applicant"
+                      status={app.applicant_status}
+                      size="sm"
+                      label={`Applicant: ${(STATUS_DEFINITIONS.applicant[app.applicant_status]?.label ?? app.applicant_status).toLowerCase()}`}
+                    />
                   </div>
 
                   {/* Row 2: Metadata */}

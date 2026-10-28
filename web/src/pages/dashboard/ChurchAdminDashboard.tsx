@@ -12,6 +12,7 @@ import LiveBroadcastManager from '../../components/dashboard/LiveBroadcastManage
 import RecentAppointmentsWidget from '../../components/dashboard/RecentAppointmentsWidget';
 import RecentActivityWidget from '../../components/dashboard/RecentActivityWidget';
 import AnnouncementForm from '../../components/announcements/AnnouncementForm';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { supabase } from '../../lib/supabase';
 
@@ -195,9 +196,18 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                                                 </div>
                                                 <div className="flex items-center justify-between text-secondary-600">
                                                     <span>Status</span>
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                                                        Needs a sync
-                                                    </span>
+                                                    <StatusBadge
+                                                        domain="sync"
+                                                        status={
+                                                            isSyncing
+                                                                ? 'syncing'
+                                                                : syncStatus === 'error'
+                                                                    ? 'error'
+                                                                    : syncStatus === 'success' || lastSynced
+                                                                        ? 'synced'
+                                                                        : 'needs_sync'
+                                                        }
+                                                    />
                                                 </div>
                                             </div>
 

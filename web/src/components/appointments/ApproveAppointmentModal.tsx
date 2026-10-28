@@ -14,6 +14,7 @@ import {
     Sparkles,
     UserCheck,
 } from 'lucide-react';
+import { StatusBadge } from '../ui/StatusBadge';
 import Modal from '../ui/Modal';
 import { getChurchPriests } from '../../lib/supabase/profiles';
 import { formatAppointmentTime, type HydratedAppointment } from '../../lib/supabase/appointments';
@@ -390,22 +391,13 @@ export default function ApproveAppointmentModal({
                     {selectedPriestId && selectedEvaluation && (
                         <div className="flex items-center gap-2 pt-0.5">
                             {selectedEvaluation.badgeVariant === 'success' && (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
-                                    <span>Canonically Available (0 commitments today)</span>
-                                </span>
+                                <StatusBadge domain="availability" status="available" icon={CheckCircle2} label="Canonically Available (0 commitments today)" />
                             )}
                             {selectedEvaluation.badgeVariant === 'warning' && (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>Eligible ({selectedEvaluation.dailyCount} liturgical celebration scheduled today)</span>
-                                </span>
+                                <StatusBadge domain="availability" status="eligible" icon={AlertTriangle} label={`Eligible (${selectedEvaluation.dailyCount} liturgical celebration scheduled today)`} />
                             )}
                             {selectedEvaluation.badgeVariant === 'destructive' && (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-destructive border border-red-200">
-                                    <AlertCircle className="w-3.5 h-3.5 text-destructive" />
-                                    <span>Unavailable: {selectedEvaluation.badgeText}</span>
-                                </span>
+                                <StatusBadge domain="availability" status="unavailable" icon={AlertCircle} label={`Unavailable: ${selectedEvaluation.badgeText}`} />
                             )}
                         </div>
                     )}

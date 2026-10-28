@@ -51,6 +51,7 @@ import {
 } from '../../lib/supabase/messaging';
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
+import { StatusBadge, STATUS_DEFINITIONS } from '../../components/ui/StatusBadge';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { useToast } from '../../contexts/toastContext';
 import { directFetchChurches } from '../../lib/directApi';
@@ -185,21 +186,6 @@ const getCategoryBadge = (category?: string | null) => {
         case 'general':
         default:
             return { label: 'General Inquiry', emoji: '💬', className: 'bg-secondary-50 text-secondary-700 border-secondary-200' };
-    }
-};
-
-// Ticket status badge helper
-const getStatusBadge = (status?: string | null) => {
-    switch (status) {
-        case 'in_progress':
-            return { label: 'In Progress', className: 'bg-amber-50 text-amber-700 border-amber-200' };
-        case 'resolved':
-            return { label: 'Resolved', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-        case 'closed':
-            return { label: 'Closed', className: 'bg-secondary-100 text-secondary-600 border-secondary-200' };
-        case 'open':
-        default:
-            return { label: 'Open', className: 'bg-blue-50 text-blue-700 border-blue-200' };
     }
 };
 
@@ -1456,9 +1442,7 @@ export default function MessagingPage() {
                                                         </span>
                                                     )}
                                                     {conv.status && (
-                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${getStatusBadge(conv.status).className}`}>
-                                                            {getStatusBadge(conv.status).label}
-                                                        </span>
+                                                        <StatusBadge domain="ticket" status={conv.status} size="sm" />
                                                     )}
                                                 </div>
                                             )}
@@ -1623,7 +1607,7 @@ export default function MessagingPage() {
                                                             try {
                                                                 const { error: statusError } = await updateTicketStatus(activeConversation.id, newStatus);
                                                                 if (statusError) throw statusError;
-                                                                toast.success(`Status changed to ${getStatusBadge(newStatus).label}.`);
+                                                                toast.success(`Status changed to ${STATUS_DEFINITIONS.ticket[newStatus].label}.`);
                                                                 // Update local state in conversations and activeConversation
                                                                 setConversations((prev) =>
                                                                     prev.map((c) =>
@@ -1651,9 +1635,7 @@ export default function MessagingPage() {
                                                     </select>
                                                 </div>
                                             ) : (
-                                                <span className={`text-xs px-2.5 py-1.5 rounded-xl font-semibold border whitespace-nowrap ${getStatusBadge(activeConversation.status).className}`}>
-                                                    {getStatusBadge(activeConversation.status).label}
-                                                </span>
+                                                <StatusBadge domain="ticket" status={activeConversation.status} />
                                             )}
                                         </div>
                                     )}
@@ -2192,9 +2174,7 @@ export default function MessagingPage() {
 
                                                 <div className="flex items-center justify-between text-secondary-600">
                                                     <span className="text-secondary-400">Status:</span>
-                                                    <span className={`px-2 py-0.5 rounded-md font-semibold border ${getStatusBadge(activeConversation.status).className}`}>
-                                                        {getStatusBadge(activeConversation.status).label}
-                                                    </span>
+                                                    <StatusBadge domain="ticket" status={activeConversation.status} />
                                                 </div>
 
                                                 {activeLaneLabel && (
