@@ -71,7 +71,7 @@ function formatSubmissionDate(dateStr?: string | null): string {
     relative = 'today';
   }
 
-  return `${formattedDate} Â· ${relative}`;
+  return `${formattedDate} · ${relative}`;
 }
 
 const getCashlessLabel = (app: ParishApplicationWithRelations): string | null => {
@@ -237,7 +237,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.rectory_call ? 'âœ“ Confirmed' : 'âœ— Pending'}
+                      {checklist.rectory_call ? '✓ Confirmed' : '✗ Pending'}
                     </span>
                   </div>
 
@@ -250,7 +250,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.celebret_verified ? 'âœ“ Verified' : 'âœ— Pending'}
+                      {checklist.celebret_verified ? '✓ Verified' : '✗ Pending'}
                     </span>
                   </div>
 
@@ -263,7 +263,7 @@ function ParishApplicationDrawer({
                           : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}
                     >
-                      {checklist.merchant_entity_verified ? 'âœ“ Matches' : 'âœ— Pending'}
+                      {checklist.merchant_entity_verified ? '✓ Matches' : '✗ Pending'}
                     </span>
                   </div>
                 </div>
@@ -502,7 +502,7 @@ function ParishApplicationDrawer({
                           app.maya_number && `Maya: ${app.maya_number}`,
                         ]
                           .filter(Boolean)
-                          .join(' Â· ')}
+                          .join(' · ')}
                       </span>
                     </div>
                   </div>

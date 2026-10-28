@@ -25,6 +25,7 @@ import {
 } from '../../lib/supabase/announcements';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import Modal from '../../components/ui/Modal';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 
 const FILTER_OPTIONS: { id: 'all' | SystemAnnouncementType; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -554,11 +555,7 @@ export default function SystemAnnouncementsPage() {
                                         {/* Details */}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                <span
-                                                    className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${config.badgeClass}`}
-                                                >
-                                                    {config.label}
-                                                </span>
+                                                <StatusBadge domain="announcement" status={normalizedType} icon={IconComponent} size="sm" />
                                                 <span className="text-xs text-secondary-400">
                                                     &bull;
                                                 </span>
@@ -566,9 +563,7 @@ export default function SystemAnnouncementsPage() {
                                                     {formatPostedTime(announcement.created_at)}
                                                 </span>
                                                 {!announcement.is_active && (
-                                                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-secondary-100 text-secondary-600">
-                                                        Inactive
-                                                    </span>
+                                                    <StatusBadge domain="church" status="inactive" size="sm" />
                                                 )}
                                             </div>
 

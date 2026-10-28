@@ -625,7 +625,7 @@ export default function PriestDashboard({ churchId }: PriestDashboardProps) {
                                             ? null
                                             : isNext
                                             ? {
-                                                  label: `Next � ${formatCountdown(minutesOfDay(appt.appointment_time) - nowMinutes)}`,
+                                                  label: `Next · ${formatCountdown(minutesOfDay(appt.appointment_time) - nowMinutes)}`,
                                                   className: 'bg-blue-50 text-primary border-blue-200',
                                               }
                                             : minutesOfDay(appt.appointment_time) < nowMinutes
