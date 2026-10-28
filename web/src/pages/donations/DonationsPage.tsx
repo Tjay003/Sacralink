@@ -52,7 +52,7 @@ import {
     addYears,
 } from 'date-fns';
 import { UserName } from '../../components/ui/UserName';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, getStatusToneClasses } from '../../components/ui/StatusBadge';
 
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
 export type ChartFilterMode = 'weekly' | 'monthly' | 'yearly' | 'all_time' | 'custom';
@@ -1042,7 +1042,7 @@ export default function DonationsPage() {
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                         {/* Filter Tabs */}
-                        <div className="inline-flex items-center bg-secondary-50 p-1 rounded-xl border border-border/70 overflow-x-auto">
+                        <div className="inline-flex items-center bg-secondary-50 p-1 rounded-xl border border-border/70 overflow-x-auto gap-1">
                             {(
                                 [
                                     { id: 'all', label: 'All', count: stats.counts.all || 7 },
@@ -1050,26 +1050,46 @@ export default function DonationsPage() {
                                     { id: 'verified', label: 'Verified', count: stats.counts.verified || 3 },
                                     { id: 'rejected', label: 'Rejected', count: stats.counts.rejected || 1 },
                                 ] as const
-                            ).map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => {
-                                        setStatusFilter(tab.id);
-                                        setPage(1);
-                                    }}
-                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                        statusFilter === tab.id
-                                            ? 'bg-white text-foreground shadow-2xs'
-                                            : 'text-secondary-600 hover:text-foreground'
-                                    }`}
-                                >
-                                    <span>{tab.label}</span>
-                                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-secondary-100 text-secondary-700 font-bold">
-                                        {tab.count}
-                                    </span>
-                                </button>
-                            ))}
+                            ).map((tab) => {
+                                const isActive = statusFilter === tab.id;
+                                const tone = tab.id !== 'all' ? getStatusToneClasses('donation', tab.id) : null;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setStatusFilter(tab.id);
+                                            setPage(1);
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border whitespace-nowrap ${
+                                            isActive
+                                                ? tone
+                                                    ? tone.activePill
+                                                    : 'bg-white text-foreground border-border/70 shadow-2xs'
+                                                : 'border-transparent text-secondary-600 hover:text-foreground hover:bg-white/60'
+                                        }`}
+                                    >
+                                        {tone && (
+                                            <span
+                                                aria-hidden="true"
+                                                className={`w-2 h-2 rounded-full shrink-0 ${tone.dot} ${tone.pulse ? 'animate-pulse' : ''}`}
+                                            />
+                                        )}
+                                        <span>{tab.label}</span>
+                                        <span
+                                            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold border ${
+                                                tone
+                                                    ? tone.pill
+                                                    : isActive
+                                                    ? 'bg-blue-100 text-primary border-blue-200'
+                                                    : 'bg-secondary-100 text-secondary-700 border-transparent'
+                                            }`}
+                                        >
+                                            {tab.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Search Input */}

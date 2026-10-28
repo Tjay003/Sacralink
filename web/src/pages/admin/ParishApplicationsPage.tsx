@@ -34,7 +34,7 @@ import {
   type ApplicationChecklist,
 } from '../../lib/supabase/parishApplications';
 import { UserName } from '../../components/ui/UserName';
-import { StatusBadge, STATUS_DEFINITIONS } from '../../components/ui/StatusBadge';
+import { StatusBadge, STATUS_DEFINITIONS, getStatusToneClasses } from '../../components/ui/StatusBadge';
 import ApplicantReviewPanel from '../../components/admin/ApplicantReviewPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { AccessDeniedView } from '../../components/auth/RoleRoute';
@@ -1001,6 +1001,7 @@ export default function ParishApplicationsPage() {
         <div className="bg-secondary-100/80 p-1 rounded-xl inline-flex flex-wrap items-center gap-1">
           {filterTabs.map((tab) => {
             const isActive = statusFilter === tab.key;
+            const tone = tab.key !== 'all' ? getStatusToneClasses('application', tab.key) : null;
             return (
               <button
                 key={tab.key}
@@ -1009,19 +1010,29 @@ export default function ParishApplicationsPage() {
                   setStatusFilter(tab.key);
                   setCurrentPage(1);
                 }}
-                className={
+                className={`text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer transition-all border ${
                   isActive
-                    ? 'bg-white text-foreground shadow-xs font-semibold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer transition-colors'
-                    : 'text-secondary-600 hover:text-foreground font-medium text-xs px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-2 cursor-pointer'
-                }
+                    ? tone
+                      ? `${tone.activePill} font-semibold`
+                      : 'bg-white text-foreground border-border/70 shadow-xs font-semibold'
+                    : 'border-transparent text-secondary-600 hover:text-foreground hover:bg-white/60 font-medium'
+                }`}
               >
+                {tone && (
+                  <span
+                    aria-hidden="true"
+                    className={`w-2 h-2 rounded-full shrink-0 ${tone.dot} ${tone.pulse ? 'animate-pulse' : ''}`}
+                  />
+                )}
                 <span>{tab.label}</span>
                 <span
-                  className={
-                    isActive
-                      ? 'bg-blue-100 text-primary px-2 py-0.5 rounded-full text-[11px] font-bold'
-                      : 'text-secondary-500 font-semibold text-[11px]'
-                  }
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                    tone
+                      ? tone.pill
+                      : isActive
+                      ? 'bg-blue-100 text-primary border-blue-200'
+                      : 'bg-secondary-200/60 text-secondary-600 border-transparent'
+                  }`}
                 >
                   {tab.count}
                 </span>

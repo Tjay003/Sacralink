@@ -36,7 +36,7 @@ import { UserName } from '../../components/ui/UserName';
 import EditAppointmentModal from '../../components/appointments/EditAppointmentModal';
 import RescheduledNotice from '../../components/appointments/RescheduledNotice';
 import Modal from '../../components/ui/Modal';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, getStatusToneClasses } from '../../components/ui/StatusBadge';
 import Pagination from '../../components/common/Pagination';
 
 function getCurrentWeekDays(): { dateStr: string; dayName: string; dayNum: number }[] {
@@ -790,6 +790,7 @@ export default function AppointmentsPage() {
                 <div className="flex items-center p-1 sm:p-1.5 rounded-2xl bg-secondary-100/60 border border-border/60 gap-1 max-w-full flex-wrap">
                     {statusTabs.map((tab) => {
                         const isActive = filterStatus === tab.id;
+                        const tone = tab.id !== 'all' ? getStatusToneClasses('appointment', tab.id) : null;
                         return (
                             <button
                                 key={tab.id}
@@ -798,18 +799,28 @@ export default function AppointmentsPage() {
                                     setFilterStatus(tab.id);
                                     resetToPage1();
                                 }}
-                                className={`inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                                className={`inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
                                     isActive
-                                        ? 'bg-white text-foreground shadow-xs'
-                                        : 'text-secondary-600 hover:text-foreground'
+                                        ? tone
+                                            ? tone.activePill
+                                            : 'bg-white text-foreground border-border/70 shadow-xs'
+                                        : 'border-transparent text-secondary-600 hover:text-foreground hover:bg-white/60'
                                 }`}
                             >
+                                {tone && (
+                                    <span
+                                        aria-hidden="true"
+                                        className={`w-2 h-2 rounded-full shrink-0 ${tone.dot} ${tone.pulse ? 'animate-pulse' : ''}`}
+                                    />
+                                )}
                                 <span>{tab.label}</span>
                                 <span
-                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                        isActive
-                                            ? 'bg-blue-100 text-primary'
-                                            : 'bg-secondary-200/70 text-secondary-600'
+                                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                                        tone
+                                            ? tone.pill
+                                            : isActive
+                                            ? 'bg-blue-100 text-primary border-blue-200'
+                                            : 'bg-secondary-200/70 text-secondary-600 border-transparent'
                                     }`}
                                 >
                                     {tab.count}

@@ -51,7 +51,7 @@ import {
 } from '../../lib/supabase/messaging';
 import VideoConferenceModal from '../../components/conference/VideoConferenceModal';
 import Modal from '../../components/ui/Modal';
-import { StatusBadge, STATUS_DEFINITIONS } from '../../components/ui/StatusBadge';
+import { StatusBadge, STATUS_DEFINITIONS, getStatusToneClasses } from '../../components/ui/StatusBadge';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 import { useToast } from '../../contexts/toastContext';
 import { directFetchChurches } from '../../lib/directApi';
@@ -1283,21 +1283,35 @@ export default function MessagingPage() {
                                 { id: 'in_progress', label: 'In Progress' },
                                 { id: 'resolved', label: 'Resolved' },
                                 { id: 'closed', label: 'Closed' },
-                            ] as const).map((pill) => (
-                                <button
-                                    key={pill.id}
-                                    type="button"
-                                    onClick={() => setTicketStatusFilter(pill.id)}
-                                    aria-pressed={ticketStatusFilter === pill.id}
-                                    className={`px-3 py-1.5 min-h-10 lg:min-h-8 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-colors cursor-pointer ${
-                                        ticketStatusFilter === pill.id
-                                            ? 'bg-primary text-white border-primary'
-                                            : 'bg-white text-secondary-600 border-border hover:bg-secondary-50'
-                                    }`}
-                                >
-                                    {pill.label}
-                                </button>
-                            ))}
+                            ] as const).map((pill) => {
+                                const isActive = ticketStatusFilter === pill.id;
+                                const tone = pill.id !== 'all' ? getStatusToneClasses('ticket', pill.id) : null;
+                                return (
+                                    <button
+                                        key={pill.id}
+                                        type="button"
+                                        onClick={() => setTicketStatusFilter(pill.id)}
+                                        aria-pressed={isActive}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 min-h-10 lg:min-h-8 rounded-full text-[11px] font-semibold border whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                                            tone
+                                                ? isActive
+                                                    ? tone.activePill
+                                                    : `${tone.pill} hover:brightness-95`
+                                                : isActive
+                                                ? 'bg-primary text-white border-primary shadow-2xs'
+                                                : 'bg-white text-secondary-600 border-border hover:bg-secondary-50'
+                                        }`}
+                                    >
+                                        {tone && (
+                                            <span
+                                                aria-hidden="true"
+                                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot} ${tone.pulse ? 'animate-pulse' : ''}`}
+                                            />
+                                        )}
+                                        <span>{pill.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
 

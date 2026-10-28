@@ -25,7 +25,7 @@ import {
 } from '../../lib/supabase/announcements';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import Modal from '../../components/ui/Modal';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, getStatusToneClasses } from '../../components/ui/StatusBadge';
 
 const FILTER_OPTIONS: { id: 'all' | SystemAnnouncementType; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -460,25 +460,36 @@ export default function SystemAnnouncementsPage() {
                     {FILTER_OPTIONS.map((f) => {
                         const count = getCountForFilter(f.id);
                         const isActive = filterType === f.id;
+                        const tone = f.id !== 'all' ? getStatusToneClasses('announcement', f.id) : null;
 
                         return (
                             <button
                                 key={f.id}
                                 type="button"
                                 onClick={() => setFilterType(f.id)}
-                                className={
+                                className={`rounded-xl px-3.5 py-1.5 text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer flex-shrink-0 border ${
                                     isActive
-                                        ? 'bg-white text-foreground font-bold shadow-xs border border-border/70 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer flex-shrink-0'
-                                        : 'text-secondary-600 hover:text-foreground font-semibold px-3 py-1.5 rounded-xl text-xs sm:text-sm flex items-center gap-2 transition-colors cursor-pointer flex-shrink-0'
-                                }
+                                        ? tone
+                                            ? `${tone.activePill} font-bold`
+                                            : 'bg-white text-foreground font-bold shadow-xs border-border/70'
+                                        : 'border-transparent text-secondary-600 hover:text-foreground hover:bg-white/60 font-semibold'
+                                }`}
                             >
+                                {tone && (
+                                    <span
+                                        aria-hidden="true"
+                                        className={`w-2 h-2 rounded-full shrink-0 ${tone.dot} ${tone.pulse ? 'animate-pulse' : ''}`}
+                                    />
+                                )}
                                 <span>{f.label}</span>
                                 <span
-                                    className={
-                                        isActive
-                                            ? 'bg-blue-100 text-primary font-bold text-[11px] px-2 py-0.5 rounded-full'
-                                            : 'bg-secondary-200/60 text-secondary-600 font-semibold text-[11px] px-2 py-0.5 rounded-full'
-                                    }
+                                    className={`font-bold text-[11px] px-2 py-0.5 rounded-full border ${
+                                        tone
+                                            ? tone.pill
+                                            : isActive
+                                            ? 'bg-blue-100 text-primary border-blue-200'
+                                            : 'bg-secondary-200/60 text-secondary-600 border-transparent'
+                                    }`}
                                 >
                                     {count}
                                 </span>

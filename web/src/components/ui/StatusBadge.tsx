@@ -96,17 +96,57 @@ export const STATUS_DEFINITIONS: Record<StatusDomain, Record<string, StatusDefin
     },
 };
 
-const TONE_CLASSES: Record<StatusTone, { pill: string; dot: string }> = {
-    success: { pill: 'bg-emerald-50 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500' },
-    warning: { pill: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' },
-    gold: { pill: 'bg-amber-50 text-amber-800 border-amber-300', dot: 'bg-amber-500' },
-    info: { pill: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-primary' },
-    danger: { pill: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
-    neutral: { pill: 'bg-secondary-100 text-secondary-700 border-secondary-200', dot: 'bg-secondary-500' },
-    live: { pill: 'bg-red-600 text-white border-red-600', dot: 'bg-white' },
+const TONE_CLASSES: Record<StatusTone, { pill: string; activePill: string; dot: string }> = {
+    success: {
+        pill: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        activePill: 'bg-emerald-100/90 text-emerald-900 border-emerald-400 ring-1 ring-emerald-300/70 shadow-2xs',
+        dot: 'bg-emerald-500',
+    },
+    warning: {
+        pill: 'bg-amber-50 text-amber-800 border-amber-200',
+        activePill: 'bg-amber-100/90 text-amber-900 border-amber-400 ring-1 ring-amber-300/70 shadow-2xs',
+        dot: 'bg-amber-500',
+    },
+    gold: {
+        pill: 'bg-amber-50 text-amber-800 border-amber-300',
+        activePill: 'bg-amber-100/90 text-amber-900 border-amber-400 ring-1 ring-amber-300/70 shadow-2xs',
+        dot: 'bg-amber-500',
+    },
+    info: {
+        pill: 'bg-blue-50 text-blue-700 border-blue-200',
+        activePill: 'bg-blue-100/90 text-blue-900 border-blue-400 ring-1 ring-blue-300/70 shadow-2xs',
+        dot: 'bg-primary',
+    },
+    danger: {
+        pill: 'bg-red-50 text-red-700 border-red-200',
+        activePill: 'bg-red-100/90 text-red-900 border-red-400 ring-1 ring-red-300/70 shadow-2xs',
+        dot: 'bg-red-500',
+    },
+    neutral: {
+        pill: 'bg-secondary-100 text-secondary-700 border-secondary-200',
+        activePill: 'bg-secondary-200/90 text-secondary-900 border-secondary-400 ring-1 ring-secondary-300/70 shadow-2xs',
+        dot: 'bg-secondary-500',
+    },
+    live: {
+        pill: 'bg-red-600 text-white border-red-600',
+        activePill: 'bg-red-700 text-white border-red-700 ring-1 ring-red-400 shadow-2xs',
+        dot: 'bg-white',
+    },
 };
 
 const FALLBACK: StatusDefinition = { tone: 'neutral', label: '' };
+
+/**
+ * Returns the canonical pill, active-filter pill, and indicator-dot classes for a domain + status pair.
+ * Used by status filter bars so filter tabs share the exact same palette as `<StatusBadge />`.
+ */
+export function getStatusToneClasses(domain: StatusDomain, status: string) {
+    const definition = STATUS_DEFINITIONS[domain][status] ?? FALLBACK;
+    return {
+        ...TONE_CLASSES[definition.tone],
+        pulse: Boolean(definition.pulse),
+    };
+}
 
 function humanize(raw: string): string {
     const spaced = raw.replace(/_/g, ' ').trim();
