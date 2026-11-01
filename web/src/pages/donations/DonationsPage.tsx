@@ -29,8 +29,10 @@ import DonationCustomRangeModal from '../../components/donations/DonationCustomR
 import Pagination from '../../components/common/Pagination';
 import StatCard from '../../components/dashboard/StatCard';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/toastContext';
 import { useChurch } from '../../hooks/useChurches';
 import { supabase } from '../../lib/supabase';
+import { downloadCsv } from '../../utils/csv';
 import {
     format,
     subDays,
@@ -59,6 +61,7 @@ export type ChartFilterMode = 'weekly' | 'monthly' | 'yearly' | 'all_time' | 'cu
 
 export default function DonationsPage() {
     const { profile } = useAuth();
+    const toast = useToast();
 
     // STRICT ROLE ACCESS RULE: ONLY profile?.role === 'church_admin'
     const isChurchAdmin = profile?.role === 'church_admin';
@@ -327,31 +330,63 @@ export default function DonationsPage() {
     };
 
     // Monthly Report CSV Export
+    const [isExporting, setIsExporting] = useState(false);
     const handleDownloadMonthlyReport = async () => {
         if (!assignedChurchId) return;
         try {
+            setIsExporting(true);
             const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const startOfMonthIso = startOfMonth(now).toISOString();
 
-            const { data, error } = await supabase
+            // 1. First attempt: query verified donations for current month
+            const { data: currentMonthData, error: currentMonthError } = await supabase
                 .from('donations')
                 .select(`
                     created_at,
                     amount,
                     reference_number,
+                    status,
                     notes,
                     donor:profiles!donations_user_id_fkey(full_name, email)
                 `)
                 .eq('church_id', assignedChurchId)
                 .eq('status', 'verified')
-                .gte('created_at', startOfMonth)
+                .gte('created_at', startOfMonthIso)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (currentMonthError) throw currentMonthError;
 
-            const rows = [
-                ['Date', 'Donor Name', 'Donor Email', 'Amount (PHP)', 'Payment Method', 'Reference Number'],
-                ...(data || []).map((d) => {
+            let data = currentMonthData;
+
+            // 2. Date filtering fallback: If no verified donations in current month, query donations for the church without being strictly locked to startOfMonth
+            if (!data || data.length === 0) {
+                const fallbackRes = await supabase
+                    .from('donations')
+                    .select(`
+                        created_at,
+                        amount,
+                        reference_number,
+                        status,
+                        notes,
+                        donor:profiles!donations_user_id_fkey(full_name, email)
+                    `)
+                    .eq('church_id', assignedChurchId)
+                    .eq('status', 'verified')
+                    .order('created_at', { ascending: false });
+
+                if (fallbackRes.error) throw fallbackRes.error;
+                data = fallbackRes.data;
+            }
+
+            // 3. If still 0 records exist, alert admin via friendly toast notification
+            if (!data || data.length === 0) {
+                toast.info('No verified donations found to export.');
+                return;
+            }
+
+            const rows: (string | number)[][] = [
+                ['Date', 'Donor Name', 'Donor Email', 'Amount (PHP)', 'Payment Method', 'Reference Number', 'Status', 'Notes'],
+                ...data.map((d) => {
                     const donor = d.donor as unknown as { full_name?: string | null; email?: string | null } | null;
                     const method = (d.notes && d.notes.toLowerCase().includes('maya')) || (d.reference_number && d.reference_number.length !== 13)
                         ? 'Maya'
@@ -364,21 +399,19 @@ export default function DonationsPage() {
                         String(d.amount),
                         method,
                         d.reference_number || 'N/A',
+                        d.status || 'verified',
+                        d.notes || '',
                     ];
                 }),
             ];
 
-            const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.map((cell) => `"${cell}"`).join(',')).join('\n');
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement('a');
-            link.setAttribute('href', encodedUri);
-            link.setAttribute('download', `donations-report-${format(now, 'yyyy-MM')}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            downloadCsv(`donations-report-${format(now, 'yyyy-MM')}.csv`, rows);
+            toast.success(`Exported ${data.length} verified donations.`);
         } catch (err) {
             console.error('Error generating report:', err);
-            alert('Failed to generate monthly report.');
+            toast.error('Failed to generate monthly report.');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -719,10 +752,11 @@ export default function DonationsPage() {
                 <button
                     type="button"
                     onClick={handleDownloadMonthlyReport}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground text-xs sm:text-sm font-semibold shadow-xs transition-colors self-start cursor-pointer active:scale-95"
+                    disabled={isExporting}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground text-xs sm:text-sm font-semibold shadow-xs transition-colors self-start cursor-pointer active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                    <Download className="w-4 h-4 text-secondary-600" />
-                    <span>Monthly report</span>
+                    <Download className={`w-4 h-4 text-secondary-600 ${isExporting ? 'animate-pulse' : ''}`} />
+                    <span>{isExporting ? 'Exporting...' : 'Monthly report'}</span>
                 </button>
             </div>
 

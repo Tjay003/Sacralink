@@ -182,7 +182,7 @@ export default function ChurchesPage() {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="Search churches or priests"
+                        placeholder="Search churches by name or address..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 rounded-2xl border border-border bg-white text-xs sm:text-sm text-foreground placeholder:text-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-2xs transition-shadow"

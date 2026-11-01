@@ -25,24 +25,21 @@ import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
 export default function UserDashboard() {
     const { profile } = useAuth();
     const navigate = useNavigate();
-    const { churches } = useChurches();
+    const { churches, loading: churchesLoading } = useChurches();
 
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [favoriteChurchIds, setFavoriteChurchIds] = useState<string[]>([]);
-    const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+    const [selectedChurchId, setSelectedChurchId] = useState<string | null>(() => {
+        return localStorage.getItem('selectedChurchId') || null;
+    });
 
     // Parish Inquiry Modal state
     const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
     const [inquiryChurchId, setInquiryChurchId] = useState<string | null>(null);
     const [inquiryChurchName, setInquiryChurchName] = useState<string | undefined>(undefined);
 
-    // Load saved church or pick the first favorite / first available church
-    useEffect(() => {
-        const saved = localStorage.getItem('selectedChurchId');
-        if (saved) {
-            setSelectedChurchId(saved);
-        }
-    }, []);
+    // Active churches only (hide archived parishes from user dashboard)
+    const activeChurches = churches.filter(c => c.status !== 'archived');
 
     // Fetch user favorite churches
     useEffect(() => {
@@ -54,12 +51,6 @@ export default function UserDashboard() {
                 const ids = await getUserFavoriteChurchIds(profile!.id);
                 if (!cancelled) {
                     setFavoriteChurchIds(ids);
-                    // If no church currently selected, default to the first favorite
-                    setSelectedChurchId(current => {
-                        if (current) return current;
-                        if (ids.length > 0) return ids[0];
-                        return null;
-                    });
                 }
             } catch (err) {
                 console.error('Error loading favorite churches:', err);
@@ -73,12 +64,52 @@ export default function UserDashboard() {
         };
     }, [profile?.id]);
 
-    // Fallback: if still no selected church but churches list loaded, pick the first church
+    // Synchronize and validate selectedChurchId against active churches or resolve fallback
     useEffect(() => {
-        if (!selectedChurchId && churches.length > 0) {
-            setSelectedChurchId(churches[0].id);
+        if (churchesLoading) return;
+
+        // When no active churches are available
+        if (activeChurches.length === 0) {
+            if (selectedChurchId !== null) {
+                setSelectedChurchId(null);
+            }
+            if (localStorage.getItem('selectedChurchId')) {
+                localStorage.removeItem('selectedChurchId');
+            }
+            return;
         }
-    }, [selectedChurchId, churches]);
+
+        const savedId = localStorage.getItem('selectedChurchId');
+        const candidateId = selectedChurchId || savedId;
+
+        if (candidateId) {
+            const existsInActive = activeChurches.some(c => c.id === candidateId);
+            if (!existsInActive) {
+                // Orphaned ID (parish was deleted or archived): clear from localStorage & fallback
+                localStorage.removeItem('selectedChurchId');
+                const firstActiveFavorite = favoriteChurchIds.find(favId =>
+                    activeChurches.some(c => c.id === favId)
+                );
+                const fallbackId = firstActiveFavorite || activeChurches[0]?.id || null;
+                setSelectedChurchId(fallbackId);
+                if (fallbackId) {
+                    localStorage.setItem('selectedChurchId', fallbackId);
+                }
+            } else if (selectedChurchId !== candidateId) {
+                setSelectedChurchId(candidateId);
+            }
+        } else {
+            // No church currently selected: pick first active favorite, or first active church
+            const firstActiveFavorite = favoriteChurchIds.find(favId =>
+                activeChurches.some(c => c.id === favId)
+            );
+            const fallbackId = firstActiveFavorite || activeChurches[0]?.id || null;
+            setSelectedChurchId(fallbackId);
+            if (fallbackId) {
+                localStorage.setItem('selectedChurchId', fallbackId);
+            }
+        }
+    }, [churchesLoading, churches, favoriteChurchIds, selectedChurchId]);
 
     // Save selected church to localStorage
     const handleSelectChurch = useCallback((churchId: string) => {
@@ -133,8 +164,10 @@ export default function UserDashboard() {
         navigate(`/messages?conversation=${conversationId}`);
     };
 
-    // Find current home church object
-    const selectedChurch = churches.find(c => c.id === selectedChurchId) || (churches.length > 0 ? churches[0] : null);
+    // Find current home church object (handles empty churches or no selection cleanly)
+    const selectedChurch = selectedChurchId
+        ? (activeChurches.find(c => c.id === selectedChurchId) || null)
+        : null;
 
     // Filter appointments into "Next Appointment" (hero) and "Other Appointments"
     const todayStr = new Date().toISOString().split('T')[0];
@@ -190,7 +223,7 @@ export default function UserDashboard() {
                     {/* 6. My Home Parish Card with schedule and favorites dropdown */}
                     <UserHomeParishCard
                         church={selectedChurch}
-                        allChurches={churches}
+                        allChurches={activeChurches}
                         favoriteChurchIds={favoriteChurchIds}
                         onSelectChurch={handleSelectChurch}
                     />
@@ -208,7 +241,7 @@ export default function UserDashboard() {
                     churchId={inquiryChurchId}
                     churchName={inquiryChurchName}
                     userId={profile.id}
-                    parishOptions={churches.map(c => ({ id: c.id, name: c.name }))}
+                    parishOptions={activeChurches.map(c => ({ id: c.id, name: c.name }))}
                     defaultChurchId={selectedChurch?.id}
                     onSuccess={handleInquirySuccess}
                 />

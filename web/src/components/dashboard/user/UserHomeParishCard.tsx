@@ -106,6 +106,99 @@ export default function UserHomeParishCard({
     const favoriteChurches = allChurches.filter(c => favoriteChurchIds.includes(c.id));
     const dropdownList = favoriteChurches.length > 0 ? favoriteChurches : allChurches;
 
+    // Dignified empty state when no church is selected
+    if (!church) {
+        return (
+            <div className="bg-white border border-border rounded-2xl p-6 shadow-xs relative" ref={dropdownRef}>
+                {/* Header Badges */}
+                <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-600 border border-secondary-200">
+                        <ChurchIcon className="w-3.5 h-3.5" />
+                        My home parish
+                    </span>
+                </div>
+
+                {/* Empty State Body */}
+                <div className="mt-4 mb-5">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-primary mb-3">
+                        <ChurchIcon className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-serif font-bold text-foreground">
+                        No Home Parish Selected
+                    </h2>
+                    <p className="mt-1.5 text-sm text-secondary-600 leading-relaxed">
+                        Connect with your parish community to see Mass schedules and book sacraments.
+                    </p>
+                </div>
+
+                {/* Prominent Action Button & Dropdown */}
+                <div className="relative">
+                    {dropdownList.length > 0 ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setDropdownOpen(prev => !prev)}
+                                className="w-full py-2.5 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                            >
+                                <ChurchIcon className="w-4 h-4" />
+                                <span>Select Your Parish</span>
+                                <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {dropdownOpen && (
+                                <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-border rounded-xl shadow-lg z-30 py-1.5 animate-in fade-in-50 zoom-in-95">
+                                    <div className="max-h-60 overflow-y-auto divide-y divide-border/60">
+                                        {dropdownList.map(item => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    onSelectChurch(item.id);
+                                                    setDropdownOpen(false);
+                                                }}
+                                                className="w-full px-4 py-2.5 text-left text-sm flex items-center justify-between gap-2 hover:bg-secondary-50 text-foreground transition-colors cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-2.5 truncate">
+                                                    <ChurchIcon className="w-4 h-4 text-secondary-400 shrink-0" />
+                                                    <span className="truncate">{item.name}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Find another parish link */}
+                                    <div className="pt-1.5 mt-1 border-t border-border">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setDropdownOpen(false);
+                                                navigate('/churches');
+                                            }}
+                                            className="w-full px-4 py-2 text-left text-xs font-semibold text-primary hover:bg-blue-50/50 flex items-center gap-2 transition-colors cursor-pointer"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Find another parish
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => navigate('/churches')}
+                            className="w-full py-2.5 px-4 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                        >
+                            <ChurchIcon className="w-4 h-4" />
+                            <span>Select Your Parish</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-white border border-border rounded-2xl p-6 shadow-xs relative">
             {/* Header Badges */}

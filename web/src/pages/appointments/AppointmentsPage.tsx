@@ -28,7 +28,10 @@ import {
 } from '../../lib/supabase/appointments';
 import { isFuneralService } from '../../lib/supabase/serviceTypes';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/toastContext';
 import { useChurches } from '../../hooks/useChurches';
+import { format } from 'date-fns';
+import { downloadCsv } from '../../utils/csv';
 import DocumentViewerModal from '../../components/documents/DocumentViewerModal';
 import ApproveAppointmentModal from '../../components/appointments/ApproveAppointmentModal';
 import RequestedPriestNote from '../../components/appointments/RequestedPriestNote';
@@ -145,11 +148,12 @@ function formatCelebrantDisplay(priest: { full_name: string | null } | null | un
     return `Fr. ${trimmed}`;
 }
 
-// The export button is hidden until export is built (client request); flip to true to show it again.
-const EXPORT_ENABLED = false;
+// The export button is enabled for parish records export
+const EXPORT_ENABLED = true;
 
 export default function AppointmentsPage() {
     const { profile } = useAuth();
+    const toast = useToast();
     const navigate = useNavigate();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -224,12 +228,73 @@ export default function AppointmentsPage() {
             ? 'All Churches'
             : churches.find((c) => c.id === selectedChurchId)?.name || 'Unknown';
 
-    // Export notice placeholder state
-    const [showExportNotice, setShowExportNotice] = useState(false);
+    // Export state & handler
+    const [isExporting, setIsExporting] = useState(false);
 
-    const handleExport = () => {
-        setShowExportNotice(true);
-        setTimeout(() => setShowExportNotice(false), 3500);
+    const handleExport = async () => {
+        try {
+            setIsExporting(true);
+            const now = new Date();
+            const todayStr = toLocalDateStr(now);
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = toLocalDateStr(yesterday);
+
+            let effectiveDateFrom: string | undefined = filterDateFrom || undefined;
+            let effectiveDateTo: string | undefined = filterDateTo || undefined;
+
+            if (!filterDateFrom && !filterDateTo) {
+                if (timeScope === 'upcoming') {
+                    effectiveDateFrom = todayStr;
+                } else if (timeScope === 'past') {
+                    effectiveDateTo = yesterdayStr;
+                }
+            }
+
+            const { data, error: fetchErr } = await getAppointments({
+                churchId: effectiveChurchId,
+                userId: personalUserId,
+                status: filterStatus !== 'all' ? (filterStatus as AppointmentStatus) : undefined,
+                serviceType: filterSacrament !== 'all' ? filterSacrament : undefined,
+                dateFrom: effectiveDateFrom,
+                dateTo: effectiveDateTo,
+                searchQuery: searchQuery.trim() || undefined,
+                orderBy: 'appointment_date',
+                ascending: sortDirection === 'asc',
+            });
+
+            if (fetchErr) throw fetchErr;
+
+            const targetList = data && data.length > 0 ? data : appointments;
+
+            if (!targetList || targetList.length === 0) {
+                toast.info('No appointments found to export.');
+                return;
+            }
+
+            const rows: (string | number)[][] = [
+                ['Date', 'Time', 'Sacrament', 'Candidate / Intention', 'Parishioner', 'Phone / Contact', 'Status', 'Assigned Priest', 'Notes'],
+                ...targetList.map((apt) => [
+                    apt.appointment_date || '',
+                    apt.appointment_time ? formatTime(apt.appointment_time) : '',
+                    formatSacramentTitle(apt.service_type),
+                    getCandidateDisplay(apt),
+                    apt.profile?.full_name || 'Parishioner',
+                    apt.profile?.phone_number || apt.profile?.email || 'N/A',
+                    apt.status,
+                    formatCelebrantDisplay(apt.priest),
+                    apt.notes || '',
+                ]),
+            ];
+
+            downloadCsv(`appointments-report-${format(new Date(), 'yyyy-MM-dd')}.csv`, rows);
+            toast.success(`Exported ${targetList.length} appointments.`);
+        } catch (err) {
+            console.error('Error exporting appointments:', err);
+            toast.error('Failed to export appointments.');
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     // Approve modal state with priest assignment & feedback
@@ -588,15 +653,16 @@ export default function AppointmentsPage() {
                         </button>
                     )}
 
-                    {/* Export Button (hidden until export is built, client request) */}
+                    {/* Export Button */}
                     {EXPORT_ENABLED && (
                         <button
                             type="button"
                             onClick={handleExport}
-                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0"
+                            disabled={isExporting}
+                            className="bg-white hover:bg-secondary-50 text-secondary-800 border border-border rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <Download className="w-4 h-4 text-secondary-600" />
-                            <span>Export</span>
+                            <Download className={`w-4 h-4 text-secondary-600 ${isExporting ? 'animate-pulse' : ''}`} />
+                            <span>{isExporting ? 'Exporting...' : 'Export'}</span>
                         </button>
                     )}
                 </div>
@@ -1448,26 +1514,6 @@ export default function AppointmentsPage() {
                     </div>
                 )}
             </Modal>
-
-            {/* Export toast placeholder notification */}
-            {showExportNotice && (
-                <div
-                    role="status"
-                    aria-live="polite"
-                    className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-foreground text-background px-4 py-3 rounded-xl shadow-lg border border-border/20 text-xs sm:text-sm font-medium animate-in fade-in duration-200"
-                >
-                    <Download className="w-4 h-4 text-primary-200 shrink-0" />
-                    <span>Export functionality will be enabled soon</span>
-                    <button
-                        type="button"
-                        onClick={() => setShowExportNotice(false)}
-                        className="ml-2 text-background/60 hover:text-background transition-colors cursor-pointer"
-                        aria-label="Close notification"
-                    >
-                        <X className="w-3.5 h-3.5" />
-                    </button>
-                </div>
-            )}
         </div>
     );
 }

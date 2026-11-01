@@ -59,7 +59,7 @@ import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import Modal from '../../components/ui/Modal';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { isFeatureEnabled } from '../../config/featureFlags';
 import { followChurch, unfollowChurch, isChurchFollowed } from '../../lib/supabase/churchFavorites';
 import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuarySection';
@@ -73,12 +73,13 @@ import DeleteChurchModal from '../../components/churches/DeleteChurchModal';
 import { demotionMessage, getRoleEditBlock } from '../../lib/roleEditing';
 import type { Profile, Database } from '../../types/database';
 import { UserName } from '../../components/ui/UserName';
+import { downloadCsv } from '../../utils/csv';
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 type ScheduleItem = MassSchedule & { mass_type?: string; description?: string };
 
-// The audit trail export is hidden until it is built (client request); flip to true to show it again.
-const AUDIT_EXPORT_ENABLED = false;
+// The audit trail export is enabled for church compliance & governance
+const AUDIT_EXPORT_ENABLED = true;
 
 const FALLBACK_PANORAMA_URL = 'https://oaczurouvaevebpimply.supabase.co/storage/v1/object/public/church-images/panoramas/b2tabj6xh1v.jpg';
 
@@ -355,6 +356,51 @@ export default function ChurchDetailPage() {
         }
     };
 
+    // Audit logs CSV export
+    const [exportingAudit, setExportingAudit] = useState(false);
+
+    const handleExportAuditLogs = async () => {
+        if (!id) return;
+        try {
+            setExportingAudit(true);
+            const { data: logs, error: logsErr } = await supabase
+                .from('activity_logs')
+                .select('*')
+                .or(`entity_id.eq.${id},church_id.eq.${id}`)
+                .order('created_at', { ascending: false });
+
+            if (logsErr) throw logsErr;
+
+            const targetLogs = logs && logs.length > 0 ? logs : activityLogs;
+
+            if (!targetLogs || targetLogs.length === 0) {
+                toast.info('No audit records logged yet to export.');
+                return;
+            }
+
+            const rows: (string | number)[][] = [
+                ['Timestamp', 'User ID', 'Action', 'Entity Type', 'Entity ID', 'Metadata'],
+                ...targetLogs.map((log) => [
+                    log.created_at ? format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss') : '',
+                    log.user_id || 'System',
+                    log.action || '',
+                    log.entity_type || 'churches',
+                    log.entity_id || id,
+                    log.metadata ? (typeof log.metadata === 'string' ? log.metadata : JSON.stringify(log.metadata)) : '',
+                ]),
+            ];
+
+            const filename = `church-audit-logs-${id}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+            downloadCsv(filename, rows);
+            toast.success(`Exported ${targetLogs.length} audit logs.`);
+        } catch (err) {
+            console.error('Error exporting audit logs:', err);
+            toast.error('Failed to export audit logs.');
+        } finally {
+            setExportingAudit(false);
+        }
+    };
+
     // Fetch gallery images
     const fetchGallery = async () => {
         if (!id) return;
@@ -582,20 +628,33 @@ export default function ChurchDetailPage() {
         return (
             <div className="max-w-2xl mx-auto space-y-4">
                 <button
+                    type="button"
                     onClick={() => navigate('/churches')}
-                    className="group flex items-center text-muted hover:text-foreground mb-4 transition-colors cursor-pointer"
+                    className="group flex items-center text-sm font-medium text-secondary-600 hover:text-foreground mb-4 transition-colors cursor-pointer"
                 >
                     <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
                     Back to Churches
                 </button>
-                <div className="card p-8 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mx-auto text-secondary-600">
-                        <Archive className="w-6 h-6" />
+                <div className="card p-8 text-center space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-secondary-100 flex items-center justify-center mx-auto text-secondary-600 border border-secondary-200">
+                        <Archive className="w-7 h-7" />
                     </div>
-                    <h2 className="text-lg font-bold text-foreground">Parish Archived</h2>
-                    <p className="text-sm text-muted max-w-md mx-auto">
-                        This parish has been archived and is not currently accepting appointments or active visits.
-                    </p>
+                    <div className="space-y-1.5">
+                        <h2 className="text-xl font-serif font-bold text-foreground">Parish Archived</h2>
+                        <p className="text-sm text-secondary-600 max-w-md mx-auto">
+                            This parish has been archived and is not currently accepting appointments or active visits.
+                        </p>
+                    </div>
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/churches')}
+                            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-semibold shadow-xs transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            <Building2 className="w-4 h-4" />
+                            <span>Explore Active Parishes</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -2040,14 +2099,16 @@ export default function ChurchDetailPage() {
                                     <h3 className="text-base font-bold text-foreground">Audit trail</h3>
                                     <p className="text-xs text-secondary-500 mt-0.5">Every change to this parish</p>
                                 </div>
-                                {/* Audit export is hidden until it is built (client request) */}
+                                {/* Audit export */}
                                 {AUDIT_EXPORT_ENABLED && (
                                     <button
-                                        onClick={() => alert('Audit logs exported successfully.')}
-                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors cursor-pointer shadow-2xs"
+                                        type="button"
+                                        onClick={handleExportAuditLogs}
+                                        disabled={exportingAudit}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-border bg-white hover:bg-secondary-50 text-foreground transition-colors cursor-pointer shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
                                     >
-                                        <Download className="w-3.5 h-3.5 text-secondary-500" />
-                                        <span>Export</span>
+                                        <Download className={`w-3.5 h-3.5 text-secondary-500 ${exportingAudit ? 'animate-pulse' : ''}`} />
+                                        <span>{exportingAudit ? 'Exporting...' : 'Export'}</span>
                                     </button>
                                 )}
                             </div>
