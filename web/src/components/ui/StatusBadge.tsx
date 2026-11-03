@@ -51,7 +51,7 @@ export const STATUS_DEFINITIONS: Record<StatusDomain, Record<string, StatusDefin
         rejected: { tone: 'danger', label: 'Rejected' },
     },
     church: {
-        verified_active: { tone: 'gold', label: 'Verified', pulse: true },
+        verified_active: { tone: 'success', label: 'Verified' },
         active: { tone: 'success', label: 'Active' },
         unverified: { tone: 'warning', label: 'Under audit' },
         inactive: { tone: 'neutral', label: 'Inactive' },

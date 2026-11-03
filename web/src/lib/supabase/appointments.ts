@@ -6,6 +6,18 @@ import type { Appointment as DatabaseAppointment } from '../../types/database';
 
 export type AppointmentStatus = 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
 
+export const APPOINTMENTS_CHANGED_EVENT = 'sacralink:appointments_changed';
+
+/**
+ * Dispatch an app-wide event notifying that appointments data or counts have changed.
+ * This triggers 0ms instant updates across sidebar badges and appointment views.
+ */
+export function notifyAppointmentsChanged(): void {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(APPOINTMENTS_CHANGED_EVENT));
+    }
+}
+
 export interface HydratedAppointment {
     id: string;
     user_id: string;
@@ -437,6 +449,7 @@ export async function approveAppointment(
         console.error('Error approving appointment:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -456,6 +469,7 @@ export async function rejectAppointment(
         console.error('Error rejecting appointment:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -480,6 +494,7 @@ export async function cancelAppointment(
         console.error('Error cancelling appointment:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -510,6 +525,7 @@ export async function changeAppointmentCelebrant(
         console.error('Error changing appointment celebrant:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -545,6 +561,7 @@ export async function rescheduleAppointment(
         console.error('Error rescheduling appointment:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -569,6 +586,7 @@ export async function restoreAppointment(
         console.error('Error restoring appointment:', error);
         return { success: false, error };
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -694,6 +712,7 @@ export async function markAppointmentCelebrated(
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(APPOINTMENT_CELEBRATED_EVENT, { detail: { id } }));
     }
+    notifyAppointmentsChanged();
     return { success: true, error: null };
 }
 
@@ -769,6 +788,7 @@ export async function createAppointmentWithDocuments(
             console.warn('Non-fatal admin notification error:', notifErr);
         }
 
+        notifyAppointmentsChanged();
         return { data: appointment, error: null };
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));

@@ -260,7 +260,7 @@ export default function ChurchPerformanceGrid({ onSelectChurch }: ChurchPerforma
                                         </div>
                                     </div>
 
-                                    {/* Status Badge: Gold if verified, Green if active, Gray if inactive */}
+                                    {/* Status Badge: Emerald green if verified or active, Gray if inactive */}
                                     <StatusBadge domain="church" status={church.isVerified ? 'verified_active' : isActive ? 'active' : 'inactive'} />
                                  </div>
 

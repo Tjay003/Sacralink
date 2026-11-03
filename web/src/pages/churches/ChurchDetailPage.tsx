@@ -37,7 +37,9 @@ import {
     MoreVertical,
     BookOpen,
     Archive,
-    RotateCcw
+    RotateCcw,
+    Inbox,
+    Loader2
 } from 'lucide-react';
 import RestoreChurchModal from '../../components/churches/RestoreChurchModal';
 import { useChurch, type MassSchedule } from '../../hooks/useChurches';
@@ -57,6 +59,7 @@ import { useChurchAnnouncements } from '../../hooks/useChurchAnnouncements';
 import { deleteChurchAnnouncement, type ChurchAnnouncement } from '../../lib/supabase/announcements';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import Modal from '../../components/ui/Modal';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import SubmitDonationModal from '../../components/donations/SubmitDonationModal';
 import { getRecentDonors } from '../../lib/supabase/donations';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -66,6 +69,7 @@ import VirtualSanctuarySection from '../../components/livestream/VirtualSanctuar
 import AssignStaffModal from '../../components/admin/AssignStaffModal';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import { setUserRole } from '../../lib/supabase/profiles';
+import { getOrCreateDirectConversation } from '../../lib/supabase/messaging';
 import { useToast } from '../../contexts/toastContext';
 import ParishGuideTab from '../../components/churches/ParishGuideTab';
 import { DetailHeaderSkeleton } from '../../components/ui/Skeleton';
@@ -158,6 +162,7 @@ export default function ChurchDetailPage() {
 
     // Parish Office Inquiry Modal
     const [showInquiryModal, setShowInquiryModal] = useState<boolean>(false);
+    const [contactingAdmin, setContactingAdmin] = useState<boolean>(false);
 
     const [searchParams] = useSearchParams();
     const deepLinkAnnouncementId = searchParams.get('announcement');
@@ -569,6 +574,43 @@ export default function ChurchDetailPage() {
 
 
 
+    // Detect whether the viewed church is the user's assigned/affiliated church
+    const isOwnChurch = Boolean(
+        church &&
+        profile &&
+        (profile.assigned_church_id === church.id || profile.church_id === church.id) &&
+        ['church_admin', 'priest', 'volunteer'].includes(profile.role || '')
+    );
+
+    // Target church admin for inter-parish administrator messaging
+    const targetAdmin = staffList.find(s => s.role === 'church_admin' && !s.deleted_at);
+
+    const handleContactAdmin = async () => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+
+        if (!targetAdmin) {
+            toast.error('No administrator registered yet for this parish office.');
+            return;
+        }
+
+        try {
+            setContactingAdmin(true);
+            const { conversationId, error } = await getOrCreateDirectConversation(user.id, targetAdmin.id);
+            if (error || !conversationId) {
+                throw error || new Error('Could not establish conversation with administrator.');
+            }
+            navigate(`/messages?conv=${conversationId}`, { state: { conversationId } });
+        } catch (err: any) {
+            console.error('Failed to contact parish administrator:', err);
+            toast.error(err?.message || 'Failed to start conversation with parish administrator.');
+        } finally {
+            setContactingAdmin(false);
+        }
+    };
+
     const handleContactParish = () => {
         if (!user) {
             navigate('/login');
@@ -772,10 +814,12 @@ export default function ChurchDetailPage() {
                             </span>
                         )}
                         {(church.status === 'verified_active' || church.status === 'active' || !church.status) && (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Verified parish</span>
-                            </span>
+                            <StatusBadge
+                                domain="church"
+                                status={church.status || 'verified_active'}
+                                icon={ShieldCheck}
+                                label="Verified parish"
+                            />
                         )}
                         {church.status === 'inactive' && (
                             <span className="bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1">
@@ -853,11 +897,53 @@ export default function ChurchDetailPage() {
                                 </button>
                             )}
 
-                            {/* Message Office */}
+                            {/* Message Office / Manage Inquiries / Contact Parish Admin */}
                             {(() => {
                                 const isUnstaffed = !loadingStaff && staffList.length === 0;
+
+                                // Case A: Viewing their OWN church
+                                if (isOwnChurch) {
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/messages?tab=tickets')}
+                                            title="Manage incoming parishioner tickets and office inquiries"
+                                            className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95"
+                                        >
+                                            <Inbox className="w-4 h-4 text-primary" />
+                                            <span>Manage Inquiries</span>
+                                        </button>
+                                    );
+                                }
+
+                                // Case B: Church Admin viewing ANOTHER church (inter-parish communication)
+                                if (profile?.role === 'church_admin' && !isOwnChurch) {
+                                    return (
+                                        <button
+                                            type="button"
+                                            onClick={handleContactAdmin}
+                                            disabled={contactingAdmin || (!loadingStaff && !targetAdmin)}
+                                            title={
+                                                !targetAdmin && !loadingStaff
+                                                    ? 'No administrator registered yet for this parish office.'
+                                                    : 'Contact the administrator of this parish'
+                                            }
+                                            className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                        >
+                                            {contactingAdmin ? (
+                                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                            ) : (
+                                                <Mail className="w-4 h-4 text-primary" />
+                                            )}
+                                            <span>{contactingAdmin ? 'Connecting...' : 'Contact Parish Admin'}</span>
+                                        </button>
+                                    );
+                                }
+
+                                // Case C: Other users (Parishioners, unassigned, volunteers on external churches)
                                 return (
                                     <button
+                                        type="button"
                                         onClick={handleContactParish}
                                         title={isUnstaffed ? "No parish office desk yet: you can report a concern about this church" : "Message the parish office"}
                                         className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"

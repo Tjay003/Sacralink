@@ -22,6 +22,8 @@ import {
     approveAppointment,
     rejectAppointment,
     subscribeToAppointments,
+    APPOINTMENTS_CHANGED_EVENT,
+    notifyAppointmentsChanged,
     formatAppointmentTime as formatTime,
     type HydratedAppointment as Appointment,
     type AppointmentStatus,
@@ -341,6 +343,7 @@ export default function AppointmentsPage() {
             await fetchAppointments();
             void fetchMetaCounts();
             setApprovingAppointment(null);
+            notifyAppointmentsChanged();
         } catch (err) {
             console.error('Error saving appointment:', err);
             alert('Failed to save appointment changes');
@@ -516,8 +519,14 @@ export default function AppointmentsPage() {
                 void fetchMetaCounts();
             }
         );
+        const onApptsChanged = () => {
+            void fetchAppointments();
+            void fetchMetaCounts();
+        };
+        window.addEventListener(APPOINTMENTS_CHANGED_EVENT, onApptsChanged);
         return () => {
             unsubscribe();
+            window.removeEventListener(APPOINTMENTS_CHANGED_EVENT, onApptsChanged);
         };
     }, [fetchAppointments, fetchMetaCounts, effectiveChurchId, personalUserId, profile?.role]);
 
@@ -535,6 +544,7 @@ export default function AppointmentsPage() {
             setAppointments((prev) =>
                 prev.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
             );
+            notifyAppointmentsChanged();
             void fetchMetaCounts();
         } catch (err) {
             console.error('Error updating status:', err);
@@ -1055,9 +1065,9 @@ export default function AppointmentsPage() {
                                                     {formatTime(appointment.appointment_time)}
                                                 </div>
                                                 <RescheduledNotice appointment={appointment} className="mt-1.5" />
-                                                <div className="mt-2 min-w-0">
+                                                <div className="mt-2 min-w-0 flex flex-wrap items-center gap-2">
                                                     {appointment.priest ? (
-                                                        <span className="text-xs sm:text-sm font-medium text-foreground block break-words">
+                                                        <span className="text-xs sm:text-sm font-medium text-foreground break-words">
                                                             <CelebrantName priest={appointment.priest} />
                                                         </span>
                                                     ) : (
@@ -1065,7 +1075,7 @@ export default function AppointmentsPage() {
                                                             Not assigned
                                                         </span>
                                                     )}
-                                                    <RequestedPriestNote appointment={appointment} className="mt-1" />
+                                                    <RequestedPriestNote appointment={appointment} />
                                                 </div>
                                             </td>
 

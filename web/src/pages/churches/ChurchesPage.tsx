@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
     Building2, 
@@ -13,7 +13,9 @@ import {
     List, 
     ShieldCheck, 
     Archive, 
-    RotateCcw 
+    RotateCcw,
+    Heart,
+    Sparkles
 } from 'lucide-react';
 import { useChurches, type Church } from '../../hooks/useChurches';
 import { useAuth } from '../../contexts/AuthContext';
@@ -80,6 +82,64 @@ export default function ChurchesPage() {
         const isVisibleToUser = church.status !== 'inactive' || hasAdminAccess;
         return isVisibleToUser;
     });
+
+    const userAffiliatedChurchId = profile?.assigned_church_id || profile?.church_id || null;
+
+    // Helper to get affiliation info for a given church
+    const getAffiliationBadge = (churchId: string) => {
+        if (!profile || !userAffiliatedChurchId || churchId !== userAffiliatedChurchId) {
+            return null;
+        }
+
+        if (profile.role === 'church_admin') {
+            return {
+                label: 'Your Assigned Office',
+                shortLabel: 'Assigned Office',
+                icon: Building2,
+                coverBadgeClass: 'bg-primary/95 text-white border-primary-300/30 shadow-md backdrop-blur-sm',
+                compactBadgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+            };
+        }
+
+        if (profile.role === 'priest') {
+            return {
+                label: 'Assigned Clergy',
+                shortLabel: 'Clergy',
+                icon: Sparkles,
+                coverBadgeClass: 'bg-primary/95 text-white border-primary-300/30 shadow-md backdrop-blur-sm',
+                compactBadgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+            };
+        }
+
+        if (profile.role === 'volunteer') {
+            return {
+                label: 'Parish Staff',
+                shortLabel: 'Staff',
+                icon: ShieldCheck,
+                coverBadgeClass: 'bg-primary/95 text-white border-primary-300/30 shadow-md backdrop-blur-sm',
+                compactBadgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+            };
+        }
+
+        // Regular parishioner / user
+        return {
+            label: 'Your Home Parish',
+            shortLabel: 'Home Parish',
+            icon: Heart,
+            coverBadgeClass: 'bg-amber-500/90 text-white border-amber-300/40 shadow-md backdrop-blur-sm',
+            compactBadgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+        };
+    };
+
+    // Smart Pinning: when searchQuery is empty and userAffiliatedChurchId exists, sort affiliated church to top
+    const displayChurches = useMemo(() => {
+        if (!userAffiliatedChurchId || searchQuery.trim()) return filteredChurches;
+        return [...filteredChurches].sort((a, b) => {
+            if (a.id === userAffiliatedChurchId) return -1;
+            if (b.id === userAffiliatedChurchId) return 1;
+            return 0;
+        });
+    }, [filteredChurches, userAffiliatedChurchId, searchQuery]);
 
 
 
@@ -237,7 +297,7 @@ export default function ChurchesPage() {
                 <>
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredChurches.length === 0 ? (
+                            {displayChurches.length === 0 ? (
                                 <div className="col-span-full card p-12 flex flex-col items-center justify-center text-center border-dashed">
                                     <div className="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center mb-3">
                                         {statusTab === 'archived' ? (
@@ -256,36 +316,56 @@ export default function ChurchesPage() {
                                     </p>
                                 </div>
                             ) : (
-                                filteredChurches.map((church) => (
-                                    <div 
-                                        key={church.id} 
-                                        className="relative group hover:shadow-2xl transition-all duration-300 flex flex-col cursor-pointer overflow-hidden rounded-[2rem] aspect-[3/4]"
-                                        onClick={() => navigate(`/churches/${church.id}`)}
-                                    >
-                                        {/* Background: the church photo, or a branded design when it has none */}
-                                        <div className="absolute inset-0 bg-primary-950">
-                                            <ChurchCover
-                                                src={church.featured_image_url}
-                                                name={church.name}
-                                                imageClassName="transition-transform duration-700 group-hover:scale-110 opacity-90"
-                                            />
-                                        </div>
+                                displayChurches.map((church) => {
+                                    const affiliation = getAffiliationBadge(church.id);
+                                    const AffiliationIcon = affiliation?.icon;
+                                    const isAffiliated = church.id === userAffiliatedChurchId;
 
-                                        {/* Gradient Overlay */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
-                                        
-                                        {/* Top Badges */}
-                                        <div className="absolute top-6 right-6 z-10 flex flex-col gap-1.5 items-end">
-                                            {church.status === 'archived' ? (
-                                                <StatusBadge domain="church" status="archived" icon={Archive} className="shadow-lg" />
-                                            ) : (
-                                                <>
-                                                    {church.is_live && <StatusBadge domain="broadcast" status="live" label="LIVE MASS" className="shadow-lg" />}
-                                                    {(church.status === 'inactive' || church.status === 'unverified') && <StatusBadge domain="church" status={church.status} className="shadow-sm" />}
-                                                    {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && <StatusBadge domain="church" status={church.status} icon={ShieldCheck} className="shadow-sm" />}
-                                                </>
+                                    return (
+                                        <div 
+                                            key={church.id} 
+                                            className={`relative group hover:shadow-2xl transition-all duration-300 flex flex-col cursor-pointer overflow-hidden rounded-[2rem] aspect-[3/4] ${
+                                                isAffiliated
+                                                    ? 'ring-2 ring-primary/80 ring-offset-2 ring-offset-background shadow-xl'
+                                                    : ''
+                                            }`}
+                                            onClick={() => navigate(`/churches/${church.id}`)}
+                                        >
+                                            {/* Background: the church photo, or a branded design when it has none */}
+                                            <div className="absolute inset-0 bg-primary-950">
+                                                <ChurchCover
+                                                    src={church.featured_image_url}
+                                                    name={church.name}
+                                                    imageClassName="transition-transform duration-700 group-hover:scale-110 opacity-90"
+                                                />
+                                            </div>
+
+                                            {/* Gradient Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-90" />
+                                            
+                                            {/* Top-Left Affiliation Indicator Badge */}
+                                            {affiliation && AffiliationIcon && (
+                                                <div
+                                                    className={`absolute top-6 left-6 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full border shadow-md backdrop-blur-sm transition-transform group-hover:scale-105 ${affiliation.coverBadgeClass}`}
+                                                    title={affiliation.label}
+                                                    aria-label={affiliation.label}
+                                                >
+                                                    <AffiliationIcon className="w-4 h-4 shrink-0" />
+                                                </div>
                                             )}
-                                        </div>
+
+                                            {/* Top Badges */}
+                                            <div className="absolute top-6 right-6 z-10 flex flex-col gap-1.5 items-end">
+                                                {church.status === 'archived' ? (
+                                                    <StatusBadge domain="church" status="archived" icon={Archive} className="shadow-lg" />
+                                                ) : (
+                                                    <>
+                                                        {church.is_live && <StatusBadge domain="broadcast" status="live" label="LIVE MASS" className="shadow-lg" />}
+                                                        {(church.status === 'inactive' || church.status === 'unverified') && <StatusBadge domain="church" status={church.status} className="shadow-sm" />}
+                                                        {(church.status === 'verified_active' || church.status === 'active') && !church.is_live && <StatusBadge domain="church" status={church.status} icon={ShieldCheck} className="shadow-sm" />}
+                                                    </>
+                                                )}
+                                            </div>
                                         
                                         {/* Bottom Content */}
                                         <div className="relative z-10 mt-auto p-6 text-white flex flex-col justify-end">
@@ -356,20 +436,24 @@ export default function ChurchesPage() {
                                             )}
                                         </div>
                                     </div>
-                                ))
-                            )}
+                                );
+                            })
+                        )}
                         </div>
                     ) : (
                         <div className="space-y-6">
                             {/* Mobile Card List */}
                             <div className="md:hidden space-y-2">
-                                {filteredChurches.length === 0 ? (
+                                {displayChurches.length === 0 ? (
                                     <div className="card p-6 text-center text-muted">
                                         {statusTab === 'archived' ? 'No archived churches found' : `No churches found matching "${searchQuery}"`}
                                     </div>
                                 ) : (
-                                    filteredChurches.map((church) => {
+                                    displayChurches.map((church) => {
                                         const isExpanded = expandedChurchId === church.id;
+                                        const affiliation = getAffiliationBadge(church.id);
+                                        const AffiliationIcon = affiliation?.icon;
+
                                         return (
                                             <div key={church.id} className="card overflow-hidden">
                                                 <button
@@ -384,6 +468,12 @@ export default function ChurchesPage() {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-medium text-foreground truncate">{church.name}</p>
+                                                            {affiliation && AffiliationIcon && (
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${affiliation.compactBadgeClass}`}>
+                                                                    <AffiliationIcon className="w-3 h-3 shrink-0" />
+                                                                    <span>{affiliation.shortLabel}</span>
+                                                                </span>
+                                                            )}
                                                             {church.status === 'archived' ? (
                                                                 <StatusBadge domain="church" status="archived" size="sm" icon={Archive} />
                                                             ) : (
@@ -493,7 +583,7 @@ export default function ChurchesPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-border">
-                                            {filteredChurches.length === 0 ? (
+                                            {displayChurches.length === 0 ? (
                                                 <tr>
                                                     <td colSpan={4} className="px-6 py-8 text-center text-muted">
                                                         {statusTab === 'archived'
@@ -502,24 +592,34 @@ export default function ChurchesPage() {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                filteredChurches.map((church) => (
-                                                    <tr
-                                                        key={church.id}
-                                                        className="hover:bg-secondary-50 transition-colors cursor-pointer"
-                                                        onClick={() => navigate(`/churches/${church.id}`)}
-                                                    >
-                                                        <td className="px-6 py-4">
-                                                            <div className="flex items-center">
-                                                                <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center">
-                                                                    {church.featured_image_url
-                                                                        ? <img src={church.featured_image_url} alt={church.name} className="w-full h-full object-cover" />
-                                                                        : <Building2 className="w-5 h-5 text-primary" />}
-                                                                </div>
-                                                                <div className="ml-4">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-medium text-foreground">
-                                                                            {church.name}
-                                                                        </span>
+                                                displayChurches.map((church) => {
+                                                    const affiliation = getAffiliationBadge(church.id);
+                                                    const AffiliationIcon = affiliation?.icon;
+
+                                                    return (
+                                                        <tr
+                                                            key={church.id}
+                                                            className="hover:bg-secondary-50 transition-colors cursor-pointer"
+                                                            onClick={() => navigate(`/churches/${church.id}`)}
+                                                        >
+                                                            <td className="px-6 py-4">
+                                                                <div className="flex items-center">
+                                                                    <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden bg-primary-100 flex items-center justify-center">
+                                                                        {church.featured_image_url
+                                                                            ? <img src={church.featured_image_url} alt={church.name} className="w-full h-full object-cover" />
+                                                                            : <Building2 className="w-5 h-5 text-primary" />}
+                                                                    </div>
+                                                                    <div className="ml-4">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-sm font-medium text-foreground">
+                                                                                {church.name}
+                                                                            </span>
+                                                                            {affiliation && AffiliationIcon && (
+                                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${affiliation.compactBadgeClass}`}>
+                                                                                    <AffiliationIcon className="w-3 h-3 shrink-0" />
+                                                                                    <span>{affiliation.shortLabel}</span>
+                                                                                </span>
+                                                                            )}
                                         {church.status === 'archived' ? (
                                             <StatusBadge domain="church" status="archived" size="sm" icon={Archive} />
                                         ) : (
@@ -607,17 +707,18 @@ export default function ChurchesPage() {
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
 
                                 {/* Results Count */}
-                                {filteredChurches.length > 0 && (
+                                {displayChurches.length > 0 && (
                                     <div className="px-6 py-3 border-t border-border bg-secondary-50">
                                         <p className="text-sm text-muted">
-                                            Showing {filteredChurches.length} of {statusTab === 'archived' ? archivedChurches.length : activeChurches.length} churches
+                                            Showing {displayChurches.length} of {statusTab === 'archived' ? archivedChurches.length : activeChurches.length} churches
                                         </p>
                                     </div>
                                 )}
