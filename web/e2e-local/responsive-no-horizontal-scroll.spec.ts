@@ -128,7 +128,7 @@ test.describe('No horizontal scroll', () => {
     }
   });
 
-  test('/appointments fits every width for a super admin', async ({ page }) => {
+  test('super admin cannot access /appointments and is redirected to /dashboard', async ({ page }) => {
     await page.goto('/login');
     await page.locator('#email').fill(SUPER_EMAIL);
     await page.locator('#password').fill(PASSWORD);
@@ -140,7 +140,7 @@ test.describe('No horizontal scroll', () => {
       // Super Admin is fenced from appointments (confidential to local parish office) and redirected to /dashboard
       await page.waitForURL('**/dashboard**');
       await expect(page.locator('h1')).toBeVisible();
-      expect(await horizontalOverflow(page), `appointments (super admin) at ${width}px`).toEqual([]);
+      expect(await horizontalOverflow(page), `dashboard redirect at ${width}px`).toEqual([]);
     }
   });
 

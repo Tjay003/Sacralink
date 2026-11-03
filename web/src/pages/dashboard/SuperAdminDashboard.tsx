@@ -119,7 +119,7 @@ export default function SuperAdminDashboard() {
                     <div className="absolute -top-14 -right-14 w-96 h-96 bg-amber-200/70 rounded-full blur-3xl" />
                 </div>
 
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+                <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-5 sm:gap-6">
                     {/* Left Column: Liturgical tag + Heading + Subtitle */}
                     <div className="space-y-1.5 sm:space-y-2">
                         {/* Liturgical Tag */}
@@ -142,7 +142,7 @@ export default function SuperAdminDashboard() {
                     {/* Right Column: Dropdown (Top) + Action Buttons (Bottom) - aligned to the left of its container */}
                     <div className="flex flex-col items-start gap-3 flex-shrink-0">
                         {isFeatureEnabled('churchSelector') && (
-                            <div className="w-full sm:w-80 lg:w-[380px] xl:w-[420px] max-w-full relative z-30">
+                            <div className="w-full sm:w-80 xl:w-[420px] max-w-full relative z-30">
                                 <ChurchSelectorDropdown
                                     selectedChurchId={selectedChurchId}
                                     onChurchSelect={handleChurchSelect}
