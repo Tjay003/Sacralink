@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     BookOpen,
     Plus,
@@ -20,6 +20,7 @@ import {
     Check,
     MessageSquare,
     RefreshCw,
+    Shield,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -43,7 +44,11 @@ export default function KnowledgeBasePage() {
     const navigate = useNavigate();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const churchId = (profile as any)?.church_id ?? (profile as any)?.assigned_church_id ?? null;
+    const [searchParams] = useSearchParams();
+    const queryChurchId = searchParams.get('church');
+    const churchId = (profile?.role === 'super_admin' && queryChurchId)
+        ? queryChurchId
+        : ((profile as any)?.church_id ?? (profile as any)?.assigned_church_id ?? null);
     const canEdit = profile?.role === 'super_admin' || profile?.role === 'church_admin';
 
     const [churchName, setChurchName] = useState<string>('');
@@ -419,10 +424,30 @@ export default function KnowledgeBasePage() {
 
     if (!churchId) {
         return (
-            <div className="max-w-3xl mx-auto py-16 px-4 text-center">
-                <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                <h2 className="text-lg font-semibold text-foreground mb-2">No Church Assigned</h2>
-                <p className="text-sm text-muted">You must be assigned to a church to manage its knowledge base.</p>
+            <div className="max-w-3xl mx-auto py-16 px-4">
+                <div className="bg-white border border-border rounded-2xl p-8 sm:p-10 shadow-sm text-center space-y-4">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto">
+                        <Shield className="w-7 h-7" />
+                    </div>
+                    <div className="space-y-2 max-w-md mx-auto">
+                        <h2 className="font-serif text-xl sm:text-2xl font-bold text-foreground">
+                            Parish AI Knowledge Base
+                        </h2>
+                        <p className="text-sm text-secondary-600 leading-relaxed">
+                            Parish AI Knowledge Base is managed and curated by the local Parish Office.
+                        </p>
+                    </div>
+                    <div className="pt-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/dashboard')}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white text-sm font-semibold shadow-xs transition-colors cursor-pointer"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Back to Dashboard</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }

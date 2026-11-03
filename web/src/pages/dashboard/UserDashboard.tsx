@@ -16,6 +16,7 @@ import UserHomeParishCard from '../../components/dashboard/user/UserHomeParishCa
 import UserAnnouncementsCard from '../../components/dashboard/user/UserAnnouncementsCard';
 import DailyVerse from '../../components/dashboard/DailyVerse';
 import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
+import { AppointmentHeroSkeleton } from '../../components/ui/Skeleton';
 
 /**
  * UserDashboard - Simplified Bento-grid Dashboard for Parishioners / Users.
@@ -23,11 +24,12 @@ import ParishInquiryModal from '../../components/churches/ParishInquiryModal';
  * and zero emojis (Lucide icons only).
  */
 export default function UserDashboard() {
-    const { profile } = useAuth();
+    const { profile, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const { churches, loading: churchesLoading } = useChurches();
 
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [loadingAppointments, setLoadingAppointments] = useState(true);
     const [favoriteChurchIds, setFavoriteChurchIds] = useState<string[]>([]);
     const [selectedChurchId, setSelectedChurchId] = useState<string | null>(() => {
         return localStorage.getItem('selectedChurchId') || null;
@@ -119,9 +121,15 @@ export default function UserDashboard() {
 
     // Fetch appointments for this user
     const fetchAppointments = useCallback(async () => {
-        if (!profile?.id) return;
+        if (!profile?.id) {
+            if (!authLoading) {
+                setLoadingAppointments(false);
+            }
+            return;
+        }
 
         try {
+            setLoadingAppointments(true);
             const { data, error } = await getAppointments({
                 userId: profile.id,
                 upcomingOnly: false,
@@ -135,8 +143,10 @@ export default function UserDashboard() {
             setAppointments(data || []);
         } catch (err) {
             console.error('Error fetching user appointments:', err);
+        } finally {
+            setLoadingAppointments(false);
         }
-    }, [profile?.id]);
+    }, [profile?.id, authLoading]);
 
     useEffect(() => {
         fetchAppointments();
@@ -200,11 +210,15 @@ export default function UserDashboard() {
                     />
 
                     {/* 3. Your next appointment (State A highlight box, View details, Message Office) */}
-                    <UserNextAppointmentCard
-                        appointment={nextAppointment}
-                        onMessageOffice={handleOpenInquiry}
-                        homeChurchId={selectedChurch?.id}
-                    />
+                    {loadingAppointments ? (
+                        <AppointmentHeroSkeleton />
+                    ) : (
+                        <UserNextAppointmentCard
+                            appointment={nextAppointment}
+                            onMessageOffice={handleOpenInquiry}
+                            homeChurchId={selectedChurch?.id}
+                        />
+                    )}
 
                     {/* 4. Other appointments */}
                     <UserOtherAppointmentsCard
@@ -226,6 +240,7 @@ export default function UserDashboard() {
                         allChurches={activeChurches}
                         favoriteChurchIds={favoriteChurchIds}
                         onSelectChurch={handleSelectChurch}
+                        loading={churchesLoading}
                     />
 
                     {/* 7. Daily Verse (Warm amber parchment card) */}

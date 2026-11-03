@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, Building2, Calendar } from 'lucide-react';
+import { AlertCircle, Bot, CheckCircle, XCircle, BookOpen, Building2, Calendar, Shield, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import PriestDashboard from './PriestDashboard';
@@ -211,44 +211,53 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                                                 </div>
                                             </div>
 
-                                            {/* Action Buttons */}
-                                            <div className="space-y-2 pt-2">
-                                                <button
-                                                    id="sync-ai-knowledge-btn"
-                                                    onClick={handleSyncAI}
-                                                    disabled={isSyncing}
-                                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-                                                >
-                                                    {isSyncing ? (
-                                                        <>
-                                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                            <span>Syncing...</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Bot className="w-4 h-4" />
-                                                            <span>Sync AI knowledge</span>
-                                                        </>
-                                                    )}
-                                                </button>
+                                            {/* Action Buttons or Super Admin Diocesan Informative Note */}
+                                            {isChurchAdmin ? (
+                                                <div className="space-y-2 pt-2">
+                                                    <button
+                                                        id="sync-ai-knowledge-btn"
+                                                        onClick={handleSyncAI}
+                                                        disabled={isSyncing}
+                                                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                                                    >
+                                                        {isSyncing ? (
+                                                            <>
+                                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                <span>Syncing...</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Bot className="w-4 h-4" />
+                                                                <span>Sync AI knowledge</span>
+                                                            </>
+                                                        )}
+                                                    </button>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => navigate('/knowledge')}
-                                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground text-xs sm:text-sm font-semibold shadow-2xs transition-colors cursor-pointer"
-                                                >
-                                                    <BookOpen className="w-4 h-4 text-secondary-600" />
-                                                    <span>Manage knowledge base</span>
-                                                </button>
-                                            </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate('/knowledge')}
+                                                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary-50 text-foreground text-xs sm:text-sm font-semibold shadow-2xs transition-colors cursor-pointer"
+                                                    >
+                                                        <BookOpen className="w-4 h-4 text-secondary-600" />
+                                                        <span>Manage knowledge base</span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="pt-2">
+                                                    <div className="p-3 bg-secondary-50 border border-border rounded-xl text-xs text-secondary-600 leading-relaxed flex items-start gap-2.5">
+                                                        <Info className="w-4 h-4 text-secondary-500 mt-0.5 shrink-0" />
+                                                        <span>Parish AI knowledge base and vectors are curated and synced by the local Parish Office.</span>
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                            {syncStatus === 'success' && (
+                                            {isChurchAdmin && syncStatus === 'success' && (
                                                 <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
                                                     <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                                                     <span>{syncMessage}</span>
                                                 </div>
                                             )}
-                                            {syncStatus === 'error' && (
+                                            {isChurchAdmin && syncStatus === 'error' && (
                                                 <div className="flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800">
                                                     <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
                                                     <span>{syncMessage}</span>
@@ -269,7 +278,37 @@ export default function ChurchAdminDashboard({ churchId }: ChurchAdminDashboardP
                                 {isFeatureEnabled('churchRecentAppointments') ? (
                                     <>
                                         <div className="lg:col-span-7 flex flex-col">
-                                            <RecentAppointmentsWidget churchId={churchId} limit={5} className="h-full" />
+                                            {isChurchAdmin ? (
+                                                <RecentAppointmentsWidget churchId={churchId} limit={5} className="h-full" />
+                                            ) : (
+                                                <div className="bg-white border border-border rounded-2xl p-6 shadow-xs flex flex-col justify-between h-full">
+                                                    <div>
+                                                        <div className="flex items-center gap-3 pb-4 border-b border-border/70">
+                                                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
+                                                                <Shield className="w-5 h-5" />
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-serif text-lg font-bold text-foreground">Diocesan Confidentiality Fence</h3>
+                                                                <p className="text-xs text-secondary-500 font-medium">Sacramental privacy protection</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="py-8 text-center max-w-md mx-auto">
+                                                            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto mb-3">
+                                                                <Shield className="w-6 h-6" />
+                                                            </div>
+                                                            <h4 className="text-sm font-bold text-foreground mb-1">Local Parish Records</h4>
+                                                            <p className="text-xs sm:text-sm text-secondary-600 leading-relaxed">
+                                                                Parish sacrament requests and pastoral appointments are confidential to the local Parish Office and celebrating clergy.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="pt-3 border-t border-border/60 text-center">
+                                                        <p className="text-xs text-secondary-400">
+                                                            Diocesan Governance &bull; Local pastoral records remain with the parish
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="lg:col-span-5 flex flex-col">
                                             <RecentActivityWidget churchId={churchId} className="h-full" />

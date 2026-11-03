@@ -68,7 +68,7 @@ export default function AddChurchPage() {
                 });
 
             if (uploadError) {
-                console.error('❌ Upload error:', uploadError);
+                console.error('Upload error:', uploadError);
                 setError(uploadError.message);
                 setUploading(false);
                 return;
@@ -78,12 +78,10 @@ export default function AddChurchPage() {
             const { data: { publicUrl } } = supabase.storage
                 .from('church-images')
                 .getPublicUrl(filePath);
-
-            console.log('✅ Image uploaded:', publicUrl);
             setFormData({ ...formData, panorama_url: publicUrl });
             setUploading(false);
         } catch (err) {
-            console.error('❌ Unexpected upload error:', err);
+            console.error('Unexpected upload error:', err);
             setError('Failed to upload image');
             setUploading(false);
         }
@@ -145,22 +143,19 @@ export default function AddChurchPage() {
                 .single();
 
             if (insertError) {
-                console.error('❌ Error inserting church:', insertError);
+                console.error('Error inserting church:', insertError);
                 setError(insertError.message);
                 setLoading(false);
                 return;
             }
-
-            console.log('✅ Church created:', data);
 
             if (data?.id) {
                 // Seed the starter services and their default requirements for the new church
                 // (non-fatal — log warning if it fails)
                 try {
                     await seedDefaultRequirements(data.id);
-                    console.log('✅ Default services and requirements seeded for new church');
                 } catch (seedErr) {
-                    console.warn('⚠️ Could not seed default requirements:', seedErr);
+                    console.warn('Could not seed default requirements:', seedErr);
                 }
 
                 setSuccess('Church created successfully!');
@@ -171,7 +166,7 @@ export default function AddChurchPage() {
                 }, 1000);
             }
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to create church');
             setLoading(false);
         }

@@ -60,17 +60,10 @@ function AppRoutes() {
   }
 
   // Logged in - check role-based access
-  console.log('🔐 Access Check:', {
-    hasUser: !!user,
-    hasProfile: !!profile,
-    profileRole: profile?.role,
-    allowedRoles: ['user', 'super_admin', 'church_admin', 'volunteer', 'priest'],
-    isAllowed: profile && profile.role && ['user', 'super_admin', 'church_admin', 'volunteer', 'priest'].includes(profile.role)
-  });
 
   // User doesn't have required role - show access denied
   if (!profile || !profile.role || !['user', 'super_admin', 'church_admin', 'volunteer', 'priest'].includes(profile.role)) {
-    console.warn('❌ Access denied - invalid role');
+    console.warn('Access denied - invalid role');
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="card p-8 max-w-md">
@@ -93,8 +86,6 @@ function AppRoutes() {
   }
 
   // User has valid role - show dashboard
-  console.log('✅ Access granted - role:', profile.role);
-
   return (
     <Routes>
       <Route path="/" element={<DashboardLayout />}>

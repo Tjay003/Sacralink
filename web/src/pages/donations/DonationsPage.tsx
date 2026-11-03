@@ -28,6 +28,7 @@ import PaymentChannelModal from '../../components/donations/PaymentChannelModal'
 import DonationCustomRangeModal from '../../components/donations/DonationCustomRangeModal';
 import Pagination from '../../components/common/Pagination';
 import StatCard from '../../components/dashboard/StatCard';
+import { TableSkeleton } from '../../components/ui/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/toastContext';
 import { useChurch } from '../../hooks/useChurches';
@@ -1155,12 +1156,7 @@ export default function DonationsPage() {
                         </thead>
                         <tbody className="divide-y divide-border/60 text-xs sm:text-sm">
                             {loading ? (
-                                <tr>
-                                    <td colSpan={6} className="py-12 text-center text-secondary-400">
-                                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                                        Loading donations...
-                                    </td>
-                                </tr>
+                                <TableSkeleton columns={6} rows={5} isTableRow />
                             ) : filteredDonations.length === 0 ? (
                                 <tr>
                                     <td colSpan={6} className="py-12 text-center text-secondary-500">

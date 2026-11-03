@@ -214,6 +214,24 @@ export async function submitParishApplication(
 
     const userId = authData.user.id;
 
+    // Verify applicant is an independent parishioner not already assigned to a church or staff/clergy
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('church_id, assigned_church_id, role')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('Failed to verify user profile permissions');
+    }
+
+    const hasAssignedChurch = Boolean(profile.church_id || profile.assigned_church_id);
+    const hasStaffOrAdminRole = profile.role && ['church_admin', 'admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role);
+
+    if (hasAssignedChurch || hasStaffOrAdminRole) {
+      throw new Error('Users already assigned to a parish cannot submit new church applications.');
+    }
+
     // 1. Upload the two mandatory verification documents
     const [celebretUrl, decreeUrl] = await Promise.all([
       uploadApplicationDocument(params.celebret_file, 'celebret'),

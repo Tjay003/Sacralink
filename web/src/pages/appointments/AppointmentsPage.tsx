@@ -15,7 +15,7 @@ import {
     ArrowUp,
     ArrowDown,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
     getAppointments,
@@ -38,6 +38,7 @@ import RequestedPriestNote from '../../components/appointments/RequestedPriestNo
 import { UserName } from '../../components/ui/UserName';
 import EditAppointmentModal from '../../components/appointments/EditAppointmentModal';
 import RescheduledNotice from '../../components/appointments/RescheduledNotice';
+import { TableSkeleton, Skeleton } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import { StatusBadge, getStatusToneClasses } from '../../components/ui/StatusBadge';
 import Pagination from '../../components/common/Pagination';
@@ -501,6 +502,7 @@ export default function AppointmentsPage() {
     ]);
 
     useEffect(() => {
+        if (profile?.role === 'super_admin') return;
         void fetchAppointments();
         void fetchMetaCounts();
         const unsubscribe = subscribeToAppointments(
@@ -517,7 +519,7 @@ export default function AppointmentsPage() {
         return () => {
             unsubscribe();
         };
-    }, [fetchAppointments, fetchMetaCounts, effectiveChurchId, personalUserId]);
+    }, [fetchAppointments, fetchMetaCounts, effectiveChurchId, personalUserId, profile?.role]);
 
     const handleStatusUpdate = async (id: string, newStatus: AppointmentStatus) => {
         try {
@@ -582,11 +584,16 @@ export default function AppointmentsPage() {
         { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
     ];
 
-    if (loading && appointments.length === 0) {
+    // Strict Security Guard: super_admin cannot access parish appointments (confidential to local Parish Office)
+    if (profile?.role === 'super_admin') {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <Navigate
+                to="/dashboard"
+                replace
+                state={{
+                    notice: 'Parish sacrament requests and parishioner documents are confidential and restricted to the local Parish Office.',
+                }}
+            />
         );
     }
 
@@ -938,7 +945,9 @@ export default function AppointmentsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/60">
-                            {appointments.length === 0 ? (
+                            {loading ? (
+                                <TableSkeleton columns={4} rows={5} isTableRow />
+                            ) : appointments.length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="text-center py-14 px-4 text-secondary-500">
                                         <Calendar className="w-10 h-10 mx-auto mb-2.5 text-secondary-300" />
@@ -1178,7 +1187,25 @@ export default function AppointmentsPage() {
 
             {/* Mobile View: Clean Appointment Cards */}
             <div className="block lg:hidden space-y-3">
-                {appointments.length === 0 ? (
+                {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="bg-white border border-border/80 rounded-2xl p-5 shadow-xs space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Skeleton className="h-5 w-32 rounded-lg" />
+                                <Skeleton className="h-5 w-20 rounded-full" />
+                            </div>
+                            <Skeleton className="h-6 w-3/4 rounded-lg" />
+                            <div className="flex items-center gap-3">
+                                <Skeleton className="h-4 w-28 rounded-md" />
+                                <Skeleton className="h-4 w-36 rounded-md" />
+                            </div>
+                            <div className="pt-2 flex items-center gap-2 border-t border-border/40">
+                                <Skeleton className="h-8 w-24 rounded-xl" />
+                                <Skeleton className="h-8 w-24 rounded-xl" />
+                            </div>
+                        </div>
+                    ))
+                ) : appointments.length === 0 ? (
                     <div className="bg-white border border-border/80 rounded-2xl p-8 text-center text-secondary-500 shadow-xs">
                         <Calendar className="w-10 h-10 mx-auto mb-2.5 text-secondary-300" />
                         <p className="font-semibold text-sm text-foreground">

@@ -4,12 +4,14 @@ import { Church as ChurchIcon, Radio, ArrowLeftRight, ChevronDown, Check, Plus }
 import { supabase } from '../../../lib/supabase';
 import type { Church } from '../../../hooks/useChurches';
 import type { MassSchedule } from '../../../types/database';
+import { ParishCardSkeleton } from '../../ui/Skeleton';
 
 interface UserHomeParishCardProps {
     church: Church | null;
     allChurches: Church[];
     favoriteChurchIds: string[];
     onSelectChurch: (churchId: string) => void;
+    loading?: boolean;
 }
 
 export default function UserHomeParishCard({
@@ -17,6 +19,7 @@ export default function UserHomeParishCard({
     allChurches,
     favoriteChurchIds,
     onSelectChurch,
+    loading = false,
 }: UserHomeParishCardProps) {
     const navigate = useNavigate();
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -107,6 +110,10 @@ export default function UserHomeParishCard({
     const dropdownList = favoriteChurches.length > 0 ? favoriteChurches : allChurches;
 
     // Dignified empty state when no church is selected
+    if (loading) {
+        return <ParishCardSkeleton />;
+    }
+
     if (!church) {
         return (
             <div className="bg-white border border-border rounded-2xl p-6 shadow-xs relative" ref={dropdownRef}>

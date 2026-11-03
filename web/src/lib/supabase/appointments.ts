@@ -311,7 +311,7 @@ export async function getAppointments(
         const { data, count, error } = await query.returns<RawAppointmentQueryResult[]>();
 
         if (error) {
-            console.error('❌ Error fetching appointments:', error);
+            console.error('Error fetching appointments:', error);
             return { data: [], count: 0, error };
         }
 
@@ -360,7 +360,7 @@ export async function getAppointments(
         return { data: results, count: count ?? results.length, error: null };
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error('❌ Exception in getAppointments:', error);
+        console.error('Exception in getAppointments:', error);
         return { data: [], count: 0, error };
     }
 }
@@ -434,7 +434,7 @@ export async function approveAppointment(
         p_admin_feedback: adminFeedback,
     });
     if (error) {
-        console.error('❌ Error approving appointment:', error);
+        console.error('Error approving appointment:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -453,7 +453,7 @@ export async function rejectAppointment(
         p_admin_feedback: adminFeedback,
     });
     if (error) {
-        console.error('❌ Error rejecting appointment:', error);
+        console.error('Error rejecting appointment:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -477,7 +477,7 @@ export async function cancelAppointment(
         p_reason: trimmedReason,
     });
     if (error) {
-        console.error('❌ Error cancelling appointment:', error);
+        console.error('Error cancelling appointment:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -507,7 +507,7 @@ export async function changeAppointmentCelebrant(
         p_reason: trimmedReason,
     });
     if (error) {
-        console.error('❌ Error changing appointment celebrant:', error);
+        console.error('Error changing appointment celebrant:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -542,7 +542,7 @@ export async function rescheduleAppointment(
         p_new_priest_id: newPriestId || null,
     });
     if (error) {
-        console.error('❌ Error rescheduling appointment:', error);
+        console.error('Error rescheduling appointment:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -566,7 +566,7 @@ export async function restoreAppointment(
         p_reason: trimmedReason,
     });
     if (error) {
-        console.error('❌ Error restoring appointment:', error);
+        console.error('Error restoring appointment:', error);
         return { success: false, error };
     }
     return { success: true, error: null };
@@ -615,7 +615,7 @@ export async function fetchAppointmentChanges(
         .eq('appointment_id', appointmentId)
         .order('created_at', { ascending: false });
     if (error) {
-        console.error('❌ Error loading appointment changes:', error);
+        console.error('Error loading appointment changes:', error);
         return { data: [], error };
     }
 
@@ -688,7 +688,7 @@ export async function markAppointmentCelebrated(
         p_note: note?.trim() || null,
     });
     if (error) {
-        console.error('❌ Error marking appointment celebrated:', error);
+        console.error('Error marking appointment celebrated:', error);
         return { success: false, error };
     }
     if (typeof window !== 'undefined') {
@@ -766,13 +766,13 @@ export async function createAppointmentWithDocuments(
                 appointment.id
             );
         } catch (notifErr) {
-            console.warn('⚠️ Non-fatal admin notification error:', notifErr);
+            console.warn('Non-fatal admin notification error:', notifErr);
         }
 
         return { data: appointment, error: null };
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error('❌ Error in createAppointmentWithDocuments:', error);
+        console.error('Error in createAppointmentWithDocuments:', error);
         return { data: null, error };
     }
 }

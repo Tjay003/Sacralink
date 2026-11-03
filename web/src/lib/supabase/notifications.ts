@@ -26,13 +26,12 @@ export async function createNotification({
 }: CreateNotificationParams) {
     const targetUserId = userId || user_id;
     if (!targetUserId) {
-        console.error('❌ Cannot create notification: Missing userId');
+        console.error('Cannot create notification: Missing userId');
         return { data: null, error: new Error('Missing userId') };
     }
     const resolvedLink = link || (entity_id || entityId ? '/appointments' : undefined);
 
     try {
-        console.log('📨 Creating notification:', { userId: targetUserId, type, title, message, link: resolvedLink });
 
 
         // Note: No .select() here — adding it would cause a 403 for cross-user notifications
@@ -50,14 +49,12 @@ export async function createNotification({
             }) as any);
 
         if (error) {
-            console.error('❌ Error inserting notification:', error);
+            console.error('Error inserting notification:', error);
             throw error;
         }
-
-        console.log('✅ Notification created successfully');
         return { data: null, error: null };
     } catch (err: any) {
-        console.error('❌ Error creating notification:', err);
+        console.error('Error creating notification:', err);
         return { data: null, error: err };
     }
 }
@@ -174,7 +171,6 @@ export async function notifyUserOfStatusChange(
     _appointmentId: string
 ) {
     void _appointmentId;
-    console.log('🔔 Notifying user of status change:', { userId, serviceType, status });
 
     const title = status === 'approved'
         ? 'Appointment Approved'
@@ -193,9 +189,7 @@ export async function notifyUserOfStatusChange(
     });
 
     if (result.error) {
-        console.error('❌ Failed to notify user of status change:', result.error);
-    } else {
-        console.log('✅ User notified of status change:', result.data);
+        console.error('Failed to notify user of status change:', result.error);
     }
 }
 
@@ -257,10 +251,8 @@ export async function notifyFollowersOfAnnouncement(
                 })
             )
         );
-
-        console.log(`✅ Notified ${followerIds.length} followers of ${churchName}`);
     } catch (err) {
-        console.error('❌ Error notifying followers of announcement:', err);
+        console.error('Error notifying followers of announcement:', err);
     }
 }
 

@@ -40,7 +40,6 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
         setError('');
 
         try {
-            console.log('🔄 Updating schedule:', schedule.id, formData);
 
             const { error: updateError } = await supabase
                 .from('mass_schedules')
@@ -53,17 +52,15 @@ export default function EditScheduleModal({ schedule, onClose, onSuccess }: Edit
                 .eq('id', schedule.id);
 
             if (updateError) {
-                console.error('❌ Error updating schedule:', updateError);
+                console.error('Error updating schedule:', updateError);
                 setError(updateError.message);
                 setLoading(false);
                 return;
             }
-
-            console.log('✅ Schedule updated successfully');
             onSuccess();
             onClose();
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to update schedule');
             setLoading(false);
         }

@@ -15,6 +15,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/toastContext';
 import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
 import ApplicantVerificationFields from '../../components/churches/ApplicantVerificationFields';
 import {
@@ -59,7 +60,22 @@ function statusChipClass(status: string): string {
 
 export default function ApplyParishPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const toast = useToast();
+
+  const isAssigned = Boolean(profile?.church_id || profile?.assigned_church_id);
+  const isRestrictedRole = profile?.role ? ['church_admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role) : false;
+  const isRestricted = isAssigned || isRestrictedRole;
+
+  useEffect(() => {
+    if (profile && isRestricted) {
+      toast.error('Parish staff, clergy, and members already assigned to a church cannot submit new church applications.');
+      navigate('/dashboard', {
+        replace: true,
+        state: { notice: 'Parish staff, clergy, and members already assigned to a church cannot submit new church applications.' },
+      });
+    }
+  }, [profile, isRestricted, navigate, toast]);
 
   // Form state
   const [parishName, setParishName] = useState('');
@@ -98,14 +114,14 @@ export default function ApplyParishPage() {
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && !isRestricted) {
       getMyParishApplications().then(({ data }) => {
         if (data && data.length > 0) {
           setMyApplications(data);
         }
       });
     }
-  }, [user]);
+  }, [user, isRestricted]);
 
   const validateFile = (file: File | null, label: string): string | null => {
     if (!file) return `${label} is required for verification`;
@@ -239,6 +255,10 @@ export default function ApplyParishPage() {
       setSubmitting(false);
     }
   };
+
+  if (isRestricted) {
+    return null;
+  }
 
   if (submittedApp) {
     return (

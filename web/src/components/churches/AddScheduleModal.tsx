@@ -56,17 +56,15 @@ export default function AddScheduleModal({ churchId, onClose, onSuccess }: AddSc
                 }]);
 
             if (insertError) {
-                console.error('❌ Error adding schedule:', insertError);
+                console.error('Error adding schedule:', insertError);
                 setError(insertError.message);
                 setLoading(false);
                 return;
             }
-
-            console.log('✅ Schedule added successfully');
             onSuccess();
             onClose();
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to add schedule');
             setLoading(false);
         }

@@ -21,6 +21,7 @@ import { useToast } from '../../contexts/toastContext';
 import ChurchCover from '../../components/churches/ChurchCover';
 import RestoreChurchModal from '../../components/churches/RestoreChurchModal';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { CardGridSkeleton } from '../../components/ui/Skeleton';
 
 /**
  * ChurchesPage - List all churches with Active / Archived views for Super Admin.
@@ -38,7 +39,8 @@ export default function ChurchesPage() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     const canAddChurch = isSuperAdmin;
-    const canOnboardChurch = profile?.role !== 'church_admin';
+    const hasAssignedChurch = Boolean(profile?.church_id || profile?.assigned_church_id);
+    const canOnboardChurch = profile?.role === 'user' && !hasAssignedChurch;
     const hasAdminAccess = isSuperAdmin || profile?.role === 'church_admin';
 
     // Helper to check management permissions
@@ -79,17 +81,7 @@ export default function ChurchesPage() {
         return isVisibleToUser;
     });
 
-    // Loading state
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted">Loading churches...</p>
-                </div>
-            </div>
-        );
-    }
+
 
     // Error state
     if (error) {
@@ -217,8 +209,10 @@ export default function ChurchesPage() {
                 </div>
             </div>
 
-            {/* Empty State */}
-            {churches.length === 0 ? (
+            {/* Content Area */}
+            {loading ? (
+                <CardGridSkeleton count={6} />
+            ) : churches.length === 0 ? (
                 <div className="card">
                     <div className="flex flex-col items-center justify-center py-16">
                         <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center mb-4">

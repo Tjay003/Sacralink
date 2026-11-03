@@ -331,7 +331,7 @@ export async function checkPriestIsAvailable(
       .eq('priest_id', priestId);
 
     if (error) {
-      console.warn('⚠️ Error checking priest availability:', error);
+      console.warn('Error checking priest availability:', error);
       return { available: true };
     }
 

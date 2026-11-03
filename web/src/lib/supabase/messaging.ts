@@ -322,7 +322,7 @@ export async function fetchUserConversations(userId: string): Promise<{
             .eq('user_id', userId);
 
         if (participantError) {
-            console.warn('⚠️ [Messaging] Could not fetch Supabase participants:', participantError);
+            console.warn('[Messaging] Could not fetch Supabase participants:', participantError);
         }
 
         const conversationIds = (participantRows || []).map((p) => p.conversation_id);
@@ -456,7 +456,7 @@ export async function fetchUserConversations(userId: string): Promise<{
         }
 
         if (convError) {
-            console.warn('⚠️ [Messaging] Could not fetch Supabase conversations:', convError);
+            console.warn('[Messaging] Could not fetch Supabase conversations:', convError);
         }
 
         // Mirror of the database read rule for tickets: only the requester or a handler lists one
@@ -480,7 +480,7 @@ export async function fetchUserConversations(userId: string): Promise<{
                 .in('conversation_id', fetchedConvIds);
 
             if (allPartError) {
-                console.warn('⚠️ [Messaging] Could not fetch Supabase participant details:', allPartError);
+                console.warn('[Messaging] Could not fetch Supabase participant details:', allPartError);
             }
 
             // 3b. Fetch profiles for all participant user_ids
@@ -645,7 +645,7 @@ export async function fetchUserConversations(userId: string): Promise<{
 
         return { data: enrichedConversations, error: null };
     } catch (err: any) {
-        console.error('❌ Error fetching user conversations:', err);
+        console.error('Error fetching user conversations:', err);
         // Robust fallback: return user's local conversations if any exist
         const localConvs = getLocalMinistryConvs();
         const userLocalConvs = localConvs.filter(
@@ -745,7 +745,7 @@ export async function fetchMessages(conversationId: string): Promise<{
 
         return { data: enrichedMessages, error: null };
     } catch (err: any) {
-        console.warn('❌ Error fetching messages, attempting local fallback:', err);
+        console.warn('Error fetching messages, attempting local fallback:', err);
         const localMsgs = getLocalMinistryMessages(conversationId);
         return { data: localMsgs, error: null };
     }
@@ -828,7 +828,7 @@ export async function sendMessage(
         return { data: data as any, error: null };
     } catch (err: any) {
         // A refused or failed insert must never look sent: no local copy is kept, the caller shows the error
-        console.error('❌ Error sending message:', err);
+        console.error('Error sending message:', err);
         return { data: null, error: new Error(err?.message || 'The message could not be sent.') };
     }
 }
@@ -857,7 +857,7 @@ export async function getOrCreateDirectConversation(
         if (!data) throw new Error('Failed to start the direct conversation: no conversation ID returned.');
         return { conversationId: data as string, error: null };
     } catch (err: any) {
-        console.error('❌ Error getting/creating direct conversation:', err);
+        console.error('Error getting/creating direct conversation:', err);
         return { conversationId: null, error: err };
     }
 }
@@ -884,10 +884,10 @@ export async function getOrCreateChurchStaffChannel(
                 return { conversationId: rpcConvId, error: null };
             }
             if (rpcError) {
-                console.warn('⚠️ [Messaging] ensure_church_staff_channel RPC returned error, using fallback:', rpcError);
+                console.warn('[Messaging] ensure_church_staff_channel RPC returned error, using fallback:', rpcError);
             }
         } catch (rpcErr) {
-            console.warn('⚠️ [Messaging] Failed calling ensure_church_staff_channel RPC, using fallback:', rpcErr);
+            console.warn('[Messaging] Failed calling ensure_church_staff_channel RPC, using fallback:', rpcErr);
         }
 
         // 1. Look for existing channel conversation for this church
@@ -980,7 +980,7 @@ export async function getOrCreateChurchStaffChannel(
 
         return { conversationId: newChannelId, error: null };
     } catch (err: any) {
-        console.error('❌ Error getting/creating church staff channel:', err);
+        console.error('Error getting/creating church staff channel:', err);
         return { conversationId: null, error: err };
     }
 }
@@ -1007,8 +1007,6 @@ export async function getOrCreateMinistryChannel(
             throw new Error('Church ID and User ID are required to join or create a ministry channel');
         }
 
-        console.log(`[Messaging] Checking ministry channel "${ministryName}" for church ${churchId}...`);
-
         // 1. Look for existing conversation with type = 'group', church_id = churchId, and title = ministryName
         const { data: existingConvs, error: findError } = await supabase
             .from('conversations')
@@ -1020,7 +1018,6 @@ export async function getOrCreateMinistryChannel(
 
         if (!findError && existingConvs && existingConvs.length > 0) {
             const channelId = existingConvs[0].id;
-            console.log(`[Messaging] Existing ministry channel found in Supabase: ${channelId}`);
 
             // Ensure current user is in conversation_participants
             const { data: partExists } = await supabase
@@ -1052,7 +1049,6 @@ export async function getOrCreateMinistryChannel(
         }
 
         // 2. Not found -> Create new ministry group conversation
-        console.log(`[Messaging] Creating new ministry channel "${ministryName}" in Supabase...`);
         const { data: newConv, error: createError } = await supabase
             .from('conversations')
             .insert({
@@ -1065,7 +1061,7 @@ export async function getOrCreateMinistryChannel(
             .single();
 
         if (createError) {
-            console.warn('⚠️ [Messaging] Supabase error creating ministry channel, using fallback:', createError);
+            console.warn('[Messaging] Supabase error creating ministry channel, using fallback:', createError);
             throw createError;
         }
 
@@ -1085,14 +1081,12 @@ export async function getOrCreateMinistryChannel(
                 updated_at: new Date().toISOString(),
                 participants: [userId],
             });
-
-            console.log(`✅ [Messaging] Ministry channel created successfully: ${newChannelId}`);
             return { conversationId: newChannelId, error: null };
         }
 
         throw new Error('Failed to create ministry group channel');
     } catch (err: any) {
-        console.warn('⚠️ [Messaging] Robust fallback triggered for getOrCreateMinistryChannel:', err);
+        console.warn('[Messaging] Robust fallback triggered for getOrCreateMinistryChannel:', err);
         const fallbackConvId = `ministry-${churchId.slice(0, 8)}-${ministryId}`;
         saveLocalMinistryConv({
             id: fallbackConvId,
@@ -1193,7 +1187,7 @@ export async function fetchChurchMinistryChannels(
 
         return { data: results, error: null };
     } catch (err: any) {
-        console.warn('⚠️ [Messaging] fetchChurchMinistryChannels fallback:', err);
+        console.warn('[Messaging] fetchChurchMinistryChannels fallback:', err);
         const localConvs = getLocalMinistryConvs(churchId);
         const localConvMap = new Map<string, LocalMinistryConv>();
         localConvs.forEach((lc) => localConvMap.set(lc.title, lc));
@@ -1241,7 +1235,7 @@ export async function markConversationAsRead(
         }
         return { error: null };
     } catch (err: any) {
-        console.error('❌ Error marking conversation as read:', err);
+        console.error('Error marking conversation as read:', err);
         return { error: err };
     }
 }
@@ -1270,7 +1264,7 @@ export async function fetchAvailableContacts(): Promise<{
         });
         return { data: contacts, error: null };
     } catch (err: any) {
-        console.error('❌ Error fetching contacts:', err);
+        console.error('Error fetching contacts:', err);
         return { data: null, error: err };
     }
 }
@@ -1342,11 +1336,7 @@ export function subscribeToMessages(
                 onMessage(enrichedMessage);
             }
         )
-        .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log(`📡 Realtime connected to chat room: ${conversationId}`);
-            }
-        });
+        .subscribe();
 
     // Also listen to local window and storage events for offline/demo messages across tabs
     const localHandler = (e: Event) => {
@@ -1422,11 +1412,7 @@ export function subscribeToUserConversations(
                 onNewMessage(enrichedMessage);
             }
         )
-        .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log(`📡 Realtime connected to user conversations stream: ${userId}`);
-            }
-        });
+        .subscribe();
 
     const localHandler = (e: Event) => {
         const customEvent = e as CustomEvent<MessageWithSender>;
@@ -1494,7 +1480,7 @@ export async function deleteConversationForMe(
         if (error) throw error;
         return { error: null };
     } catch (err: any) {
-        console.error('❌ Error deleting conversation for user:', err);
+        console.error('Error deleting conversation for user:', err);
         return { error: err };
     }
 }
@@ -1527,7 +1513,7 @@ export async function deleteConversationForEveryone(
         if (error) throw error;
         return { error: null };
     } catch (err: any) {
-        console.error('❌ Error deleting conversation for everyone:', err);
+        console.error('Error deleting conversation for everyone:', err);
         return { error: err };
     }
 }
@@ -1660,7 +1646,7 @@ export async function updateTicketStatus(
         if (error) throw error;
         return { error: null };
     } catch (err: any) {
-        console.error('❌ Error updating ticket status:', err);
+        console.error('Error updating ticket status:', err);
         return { error: err };
     }
 }

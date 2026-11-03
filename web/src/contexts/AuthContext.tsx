@@ -10,7 +10,7 @@
  * - Supabase Auth: Handles user authentication and session management
  */
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { type User, type Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { directFetchProfile } from '../lib/directApi';
@@ -79,6 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // This prevents showing the wrong page while auth is initializing
     const [loading, setLoading] = useState(true);
 
+    // isVerifyingRef: Guards against concurrent verifyAccountActive runs on rapid tab toggling
+    const isVerifyingRef = useRef(false);
+
     /**
      * fetchProfile - Retrieves user profile data from the database
      * 
@@ -93,17 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * @returns Profile data or null if fetch fails
      */
     const fetchProfile = async (userId: string, accessToken: string) => {
-        console.log('🔧 Fetching profile for user:', userId);
 
         // Call our direct API helper (see lib/directApi.ts)
         // This makes a direct HTTP request to Supabase REST API
         const profileData = await directFetchProfile(userId, accessToken);
         if (profileData) {
-            console.log('✅ Profile fetched via direct API:', profileData);
             return profileData;
         }
 
-        console.error('❌ Failed to fetch profile');
+        console.error('Failed to fetch profile');
         return null;
     };
 
@@ -212,7 +213,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 BLOCKED_ACCOUNT_NOTICE_KEY,
                 reason === 'suspended' ? SUSPENDED_ACCOUNT_MESSAGE : DELETED_ACCOUNT_MESSAGE
             );
-        } catch {}
+        } catch (e) {
+            console.warn('Failed to store blocked notice:', e);
+        }
         try {
             await supabase.auth.signOut({ scope: 'local' });
         } catch (e) {
@@ -224,6 +227,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setSession(null);
         window.location.assign(`/login?${BLOCKED_ACCOUNT_PARAM}=${reason}`);
+    };
+
+    /**
+     * endExpiredSession - Signs out an expired session cleanly and redirects to login
+     * without setting a blocked or deleted account notice.
+     */
+    const endExpiredSession = async () => {
+        try {
+            sessionStorage.removeItem(BLOCKED_ACCOUNT_NOTICE_KEY);
+        } catch (e) {
+            console.warn('Failed to clear blocked notice from sessionStorage:', e);
+        }
+        try {
+            await supabase.auth.signOut({ scope: 'local' });
+        } catch (e) {
+            console.warn('Sign out of an expired session failed:', e);
+        }
+        setLocalMessagingOwner(null);
+        clearLocalMessagingCache();
+        setUser(null);
+        setProfile(null);
+        setSession(null);
+        window.location.assign('/login');
     };
 
     /**
@@ -255,7 +281,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          */
         const initAuth = async () => {
             try {
-                console.log('🔐 Initializing auth...');
 
                 let session = null;
                 let retries = 3;
@@ -275,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         const { data, error } = await supabase.auth.getSession();
 
                         if (error) {
-                            console.error('❌ Error getting session:', error);
+                            console.error('Error getting session:', error);
                             if (mounted) setLoading(false);
                             return;
                         }
@@ -286,7 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     } catch (err: any) {
                         // If it's an AbortError and we have retries left, try again
                         if (err.name === 'AbortError' && retries > 1) {
-                            console.warn(`⚠️ AbortError caught, retrying... (${retries - 1} attempts left)`);
+                            console.warn(`AbortError caught, retrying... (${retries - 1} attempts left)`);
                             retries--;
                             await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
                             continue;  // Try again
@@ -295,11 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                console.log('✅ Session retrieved:', session ? 'User logged in' : 'No session');
-
                 // Safety check: Is component still mounted?
                 if (!mounted) {
-                    console.log('⚠️ Component unmounted, aborting...');
                     return;
                 }
 
@@ -321,12 +343,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                  */
                 let profileData = null;
                 if (session?.user) {
-                    console.log('👤 Fetching profile for user...');
                     profileData = await fetchProfile(session.user.id, session.access_token);
-                    console.log('📊 Profile data received:', profileData);
 
                     if (!mounted) {
-                        console.log('⚠️ Component unmounted after profile fetch, aborting...');
                         return;
                     }
                 }
@@ -337,12 +356,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                  * Update session, user, and profile all together.
                  * React will batch these and re-render once instead of three times.
                  */
-                console.log('📝 Updating all state together...');
 
                 // If there's a session but no profile, the user was deleted from the DB.
                 // Auto sign out to clear the stale session and send them to login.
                 if (session?.user && !profileData) {
-                    console.warn('⚠️ Session exists but no profile found — user likely deleted. Signing out...');
+                    console.warn('Session exists but no profile found — user likely deleted. Signing out...');
                     await supabase.auth.signOut();
                     setLocalMessagingOwner(null);
                     clearLocalMessagingCache();
@@ -364,14 +382,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 await new Promise(resolve => setTimeout(resolve, 50));
 
                 if (mounted) {
-                    console.log('✅ Auth initialization complete, setting loading to false');
                     setLoading(false);
-                    console.log('📝 Loading state set to false');
-                } else {
-                    console.log('⚠️ Component unmounted, not setting loading to false');
                 }
             } catch (err) {
-                console.error('❌ Auth initialization error:', err);
+                console.error('Auth initialization error:', err);
                 if (mounted) setLoading(false);
             }
         };
@@ -396,8 +410,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             async (_event, session) => {
                 if (!mounted) return;  // Don't update if component is gone
 
-                console.log('🔄 Auth state changed:', _event);
-
                 // Any sign-out (explicit, expired, or from another tab) purges cached conversations
                 if (_event === 'SIGNED_OUT' || !session) {
                     setLocalMessagingOwner(null);
@@ -407,13 +419,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Same strategy: Fetch profile FIRST, then update state
                 let profileData = null;
                 if (session?.user) {
-                    console.log('👤 Fetching profile after auth change...');
                     profileData = await fetchProfile(session.user.id, session.access_token);
                     if (!mounted) return;
 
                     // Auto sign out if session exists but profile is gone (deleted user)
                     if (!profileData) {
-                        console.warn('⚠️ Auth change: session but no profile — signing out stale session...');
+                        console.warn('Auth change: session but no profile — signing out stale session...');
                         await supabase.auth.signOut();
                         setLocalMessagingOwner(null);
                         clearLocalMessagingCache();
@@ -448,7 +459,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
          */
         timeoutId = setTimeout(() => {
             if (mounted) {
-                console.warn('⏱️ Auth loading timeout (10s) - forcing stop');
+                console.warn('Auth loading timeout (10s) - forcing stop');
                 setLoading(false);
             }
         }, 10000);
@@ -480,8 +491,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      */
     useEffect(() => {
         if (!user?.id) return;
-
-        console.log(`🔌 Subscribing to realtime profile updates for user ${user.id}`);
         const channelName = `user-profile-sync-${user.id}`;
         const channel = supabase
             .channel(channelName)
@@ -494,7 +503,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     filter: `id=eq.${user.id}`,
                 },
                 (payload) => {
-                    console.log('⚡ Realtime profile update received:', payload.new);
                     if (payload.new) {
                         if ((payload.new as Profile).deleted_at) {
                             void endBlockedSession();
@@ -511,7 +519,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .subscribe();
 
         return () => {
-            console.log(`🔌 Unsubscribing from realtime profile updates for user ${user.id}`);
             void supabase.removeChannel(channel);
         };
     }, [user?.id]);
@@ -521,27 +528,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * signs the open tab out within seconds (Realtime above) or when the tab regains focus (below).
      */
     useEffect(() => {
-        if (!user?.id || !session?.access_token) return;
+        if (!user?.id) return;
         const userId = user.id;
-        const accessToken = session.access_token;
 
         const verifyAccountActive = async () => {
             if (document.visibilityState === 'hidden') return;
-            const latest = await directFetchProfile(userId, accessToken);
-            if (latest?.deleted_at) {
-                await endBlockedSession();
-                return;
-            }
-            if (latest?.suspended_at) {
-                await endBlockedSession('suspended');
-                return;
-            }
-            if (!latest) {
-                // Could be a network error: only treat it as blocked when the auth server also rejects the session
-                const { error: userError } = await supabase.auth.getUser(accessToken);
-                if (userError && 'status' in userError && (userError.status === 401 || userError.status === 403)) {
-                    await endBlockedSession();
+            if (isVerifyingRef.current) return;
+            isVerifyingRef.current = true;
+
+            try {
+                // 1. Obtain the current/fresh access token via getSession() before fetching profile
+                const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+                let activeSession = initialSession;
+
+                if (sessionError?.name === 'AbortError') return;
+
+                // If no session found in storage, attempt silent recovery via getUser()
+                if (!activeSession || sessionError) {
+                    const { error: userError } = await supabase.auth.getUser();
+                    if (userError) {
+                        if (userError.name === 'AbortError') return;
+                        const status = 'status' in userError ? (userError as { status?: number }).status : undefined;
+                        if (status === 403) {
+                            await endBlockedSession('deleted');
+                            return;
+                        }
+                        // Session has completely expired or refresh token revoked; perform regular local sign-out
+                        await endExpiredSession();
+                        return;
+                    }
+                    // Silent refresh succeeded, re-acquire active session
+                    const refreshed = await supabase.auth.getSession();
+                    activeSession = refreshed.data.session;
+                    if (!activeSession) {
+                        await endExpiredSession();
+                        return;
+                    }
                 }
+
+                // 2. Fetch the latest profile with the active token
+                const latest = await directFetchProfile(userId, activeSession.access_token);
+                if (latest?.deleted_at) {
+                    await endBlockedSession('deleted');
+                    return;
+                }
+                if (latest?.suspended_at) {
+                    await endBlockedSession('suspended');
+                    return;
+                }
+
+                // 3. If direct fetch returned null, verify whether account is actually blocked vs network/token issue
+                if (!latest) {
+                    // Call getUser() without arguments so GoTrue can silently refresh the JWT if expired
+                    const { error: userError } = await supabase.auth.getUser();
+                    if (userError) {
+                        if (userError.name === 'AbortError') return;
+                        const status = 'status' in userError ? (userError as { status?: number }).status : undefined;
+                        if (status === 403) {
+                            // User is explicitly banned/deleted in auth.users
+                            await endBlockedSession('deleted');
+                            return;
+                        }
+                        if (status === 401) {
+                            // Session has completely expired and cannot be renewed
+                            await endExpiredSession();
+                            return;
+                        }
+                    } else {
+                        // Silent refresh succeeded: retry directFetchProfile once with the fresh token
+                        const fresh = await supabase.auth.getSession();
+                        if (fresh.data.session?.access_token) {
+                            const retryLatest = await directFetchProfile(userId, fresh.data.session.access_token);
+                            if (retryLatest?.deleted_at) {
+                                await endBlockedSession('deleted');
+                                return;
+                            }
+                            if (retryLatest?.suspended_at) {
+                                await endBlockedSession('suspended');
+                                return;
+                            }
+                        }
+                    }
+                    // Transient network failure or harmless mismatch: do not sign out
+                }
+            } catch (err) {
+                console.warn('verifyAccountActive error:', err);
+            } finally {
+                isVerifyingRef.current = false;
             }
         };
 
@@ -551,7 +624,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             window.removeEventListener('focus', verifyAccountActive);
             document.removeEventListener('visibilitychange', verifyAccountActive);
         };
-    }, [user?.id, session?.access_token]);
+    }, [user?.id]);
 
     /**
      * Provide the Context

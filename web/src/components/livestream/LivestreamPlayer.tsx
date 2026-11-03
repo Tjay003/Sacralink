@@ -4,11 +4,8 @@ import {
     Radio,
     Calendar,
     Clock,
-    Flame,
     ExternalLink,
-    Sparkles,
-    Share2,
-    Check
+    Sparkles
 } from 'lucide-react';
 import type { Church } from '../../hooks/useChurches';
 import type { MassSchedule } from '../../types/database';
@@ -16,7 +13,6 @@ import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 
 interface LivestreamPlayerProps {
     church: Church;
-    candleCount?: number;
     className?: string;
     activePanoramaUrl?: string;
 }
@@ -167,11 +163,9 @@ function getNextUpcomingMass(schedules?: MassSchedule[] | null, referenceDate: D
 
 export default function LivestreamPlayer({
     church,
-    candleCount,
     className = '',
     activePanoramaUrl,
 }: LivestreamPlayerProps) {
-    const [copied, setCopied] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const { byId: clergyById } = useParishClergy(church.id);
 
@@ -197,25 +191,6 @@ export default function LivestreamPlayer({
         ? clergyById.get(nextMass.schedule.presiding_priest_id)
         : undefined;
 
-    const activeCandles = candleCount !== undefined ? candleCount : (church.candle_count || 0);
-
-    const handleShare = async () => {
-        try {
-            if (navigator.share) {
-                await navigator.share({
-                    title: `${church.name} - Live Holy Mass`,
-                    text: `Watch the Holy Mass live broadcast from ${church.name} on Sacralink Virtual Sanctuary`,
-                    url: window.location.href,
-                });
-            } else {
-                await navigator.clipboard.writeText(window.location.href);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2500);
-            }
-        } catch {
-            // Ignored
-        }
-    };
 
     return (
         <div className={`flex flex-col w-full transition-all duration-300 ${className}`}>
@@ -243,13 +218,6 @@ export default function LivestreamPlayer({
                                 <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-medium backdrop-blur-md border border-white/20 shadow-xs transition-all duration-200 select-none cursor-default">
                                     <Tv className="w-3.5 h-3.5 text-amber-400" />
                                     <span className="capitalize">{parsedStream.platform} Stream</span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 pointer-events-auto">
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-amber-400 text-xs font-semibold backdrop-blur-md border border-amber-400/30 shadow-xs transition-all duration-200 select-none cursor-default">
-                                    <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
-                                    <span>{activeCandles} Candles Lit</span>
                                 </div>
                             </div>
                         </div>
@@ -304,15 +272,6 @@ export default function LivestreamPlayer({
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                                <button
-                                    onClick={handleShare}
-                                    className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/95 hover:bg-white dark:bg-secondary-900/90 dark:hover:bg-secondary-800 text-xs text-foreground font-medium transition-all duration-200 border border-border shadow-xs backdrop-blur-md cursor-pointer hover:-translate-y-0.5 active:scale-95"
-                                >
-                                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-muted" />}
-                                    <span>{copied ? 'Link Copied!' : 'Share'}</span>
-                                </button>
-                            </div>
                         </div>
 
                         {/* Middle Info */}
@@ -327,7 +286,7 @@ export default function LivestreamPlayer({
                             </h2>
 
                             <p className="text-xs sm:text-sm text-muted line-clamp-2 leading-relaxed mb-4 sm:mb-5">
-                                {church.description || 'Welcome to the digital sanctuary. Join our parish community in prayer, follow along with daily liturgical readings, or light a blessed candle.'}
+                                {church.description || 'Welcome to the digital sanctuary. Join our parish community in prayer and follow along with daily liturgical readings.'}
                             </p>
 
                             {/* Next Mass Timetable Card */}

@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Sparkles, BookOpen, Heart, Radio } from 'lucide-react';
 import LivestreamPlayer from './LivestreamPlayer';
-import SpiritualReactionsBar from './SpiritualReactionsBar';
 import VirtualSanctuarySidebar from './VirtualSanctuarySidebar';
 import Modal from '../ui/Modal';
 import LiveBroadcastManager from '../dashboard/LiveBroadcastManager';
-import type { Church as DbChurch } from '../../types/database';
 import type { Church } from '../../hooks/useChurches';
 
 interface VirtualSanctuarySectionProps {
@@ -18,7 +16,6 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl, can
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isStudioModalOpen, setIsStudioModalOpen] = useState<boolean>(false);
     const [activeModalTab, setActiveModalTab] = useState<'liturgy' | 'offertory'>('liturgy');
-    const [candleCount, setCandleCount] = useState<number>(church.candle_count || 0);
 
     const handleOpenModal = (tab: 'liturgy' | 'offertory') => {
         setActiveModalTab(tab);
@@ -99,16 +96,9 @@ export default function VirtualSanctuarySection({ church, activePanoramaUrl, can
             <div className="space-y-5 w-full">
                 <LivestreamPlayer
                     church={church}
-                    candleCount={candleCount}
                     activePanoramaUrl={activePanoramaUrl}
                 />
 
-                {/* Interactive Spiritual Reactions and Candle Lighting */}
-                <SpiritualReactionsBar
-                    church={church as unknown as DbChurch}
-                    currentCandleCount={candleCount}
-                    onCandleCountChange={(newCount) => setCandleCount(newCount)}
-                />
             </div>
 
             {/* Dedicated Modal for Gospel and Digital Offertory */}

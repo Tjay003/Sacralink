@@ -196,5 +196,3 @@ export const dashboardConfig = {
     },
 };
 
-// Log current mode for debugging
-console.log('✨ All features enabled (Demo mode overrides inactive - full platform exposed)');

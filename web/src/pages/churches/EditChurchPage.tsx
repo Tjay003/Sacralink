@@ -323,7 +323,7 @@ export default function EditChurchPage() {
                 .eq('id', id);
 
             if (updateError) {
-                console.error('❌ Error updating church:', updateError);
+                console.error('Error updating church:', updateError);
                 setError(updateError.message);
                 setLoading(false);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -335,7 +335,7 @@ export default function EditChurchPage() {
                 navigate(`/churches/${id}`);
             }, 1000);
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to update church');
             setLoading(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });

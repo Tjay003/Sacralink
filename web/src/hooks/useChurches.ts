@@ -38,23 +38,19 @@ export function useChurches() {
             setLoading(true);
             setError(null);
 
-            console.log('📍 Fetching churches from database...');
-
             const { data, error: fetchError } = await supabase
                 .from('churches')
                 .select('*')
                 .order('name', { ascending: true });
 
             if (fetchError) {
-                console.error('❌ Error fetching churches:', fetchError);
+                console.error('Error fetching churches:', fetchError);
                 setError(fetchError.message);
                 return;
             }
-
-            console.log('✅ Fetched churches:', data?.length || 0);
             setChurches((data || []) as Church[]);
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to fetch churches');
         } finally {
             setLoading(false);
@@ -84,8 +80,6 @@ export function useChurch(id: string | undefined) {
         }
 
         fetchChurch();
-
-        console.log(`🔌 Subscribing to realtime updates for church ${id}`);
         const channelName = `church-detail-${id}`;
         const channel = supabase
             .channel(channelName)
@@ -98,7 +92,6 @@ export function useChurch(id: string | undefined) {
                     filter: `id=eq.${id}`,
                 },
                 (payload) => {
-                    console.log('⚡ Realtime church update received:', payload.new);
                     if (payload.new) {
                         setChurch((prev) => (prev ? { ...prev, ...payload.new } : (payload.new as Church)));
                     }
@@ -107,7 +100,6 @@ export function useChurch(id: string | undefined) {
             .subscribe();
 
         return () => {
-            console.log(`🔌 Unsubscribing from realtime church updates for ${id}`);
             void supabase.removeChannel(channel);
         };
     }, [id]);
@@ -118,8 +110,6 @@ export function useChurch(id: string | undefined) {
         try {
             setLoading(true);
             setError(null);
-
-            console.log('📍 Fetching church with schedules:', id);
 
             const { data, error: fetchError } = await supabase
                 .from('churches')
@@ -139,15 +129,13 @@ export function useChurch(id: string | undefined) {
                 .single();
 
             if (fetchError) {
-                console.error('❌ Error fetching church:', fetchError);
+                console.error('Error fetching church:', fetchError);
                 setError(fetchError.message);
                 return;
             }
-
-            console.log('✅ Fetched church:', (data as unknown as Church)?.name);
             setChurch(data as unknown as Church);
         } catch (err) {
-            console.error('❌ Unexpected error:', err);
+            console.error('Unexpected error:', err);
             setError('Failed to fetch church');
         } finally {
             setLoading(false);

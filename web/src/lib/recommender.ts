@@ -180,7 +180,7 @@ function inspectSlot(
   const verdict = checkParishSlot(churchId, candidate.date, candidate.time).then(
     ({ data, error }): SlotVerdict => {
       if (error || !data) {
-        console.warn('⚠️ Non-fatal error checking parish slot:', error);
+        console.warn('Non-fatal error checking parish slot:', error);
         return { isFree: true, failed: true };
       }
       if (data.slotTaken) return { isFree: false, reason: SLOT_TAKEN_REASON, failed: false };

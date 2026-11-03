@@ -68,6 +68,7 @@ import EditRoleModal from '../../components/admin/EditRoleModal';
 import { setUserRole } from '../../lib/supabase/profiles';
 import { useToast } from '../../contexts/toastContext';
 import ParishGuideTab from '../../components/churches/ParishGuideTab';
+import { DetailHeaderSkeleton } from '../../components/ui/Skeleton';
 import { useChurchKnowledge } from '../../hooks/useChurchKnowledge';
 import DeleteChurchModal from '../../components/churches/DeleteChurchModal';
 import { demotionMessage, getRoleEditBlock } from '../../lib/roleEditing';
@@ -465,14 +466,14 @@ export default function ChurchDetailPage() {
                     .eq('id', scheduleId);
 
                 if (error) {
-                    console.error('❌ Error deleting schedule:', error);
+                    console.error('Error deleting schedule:', error);
                     alert('Failed to delete schedule');
                     return;
                 }
 
                 refetch();
             } catch (err) {
-                console.error('❌ Unexpected error:', err);
+                console.error('Unexpected error:', err);
                 alert('Failed to delete schedule');
             }
         }
@@ -519,7 +520,7 @@ export default function ChurchDetailPage() {
                 message: `Cashless donations suspended and parish marked as Unverified for ${church.name}.`,
             });
         } catch (err: unknown) {
-            console.error('❌ Error suspending parish verification:', err);
+            console.error('Error suspending parish verification:', err);
             setActionFeedback({
                 type: 'error',
                 message: 'Failed to suspend cashless donations. Please try again.',
@@ -556,7 +557,7 @@ export default function ChurchDetailPage() {
                 message: `Parish successfully verified! Cashless donations and sacramental features are now unlocked for ${church.name}.`,
             });
         } catch (err: unknown) {
-            console.error('❌ Error verifying parish:', err);
+            console.error('Error verifying parish:', err);
             setActionFeedback({
                 type: 'error',
                 message: 'Failed to verify parish. Please try again.',
@@ -594,14 +595,7 @@ export default function ChurchDetailPage() {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted">Loading church details...</p>
-                </div>
-            </div>
-        );
+        return <DetailHeaderSkeleton />;
     }
 
     if (error || !church) {
