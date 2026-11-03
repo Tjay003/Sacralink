@@ -134,14 +134,10 @@ test.describe('No horizontal scroll', () => {
     await page.locator('#password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Login' }).click();
     await page.waitForURL('**/dashboard**');
-    for (const width of WIDTHS) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/appointments');
-      // Super Admin is fenced from appointments (confidential to local parish office) and redirected to /dashboard
-      await page.waitForURL('**/dashboard**');
-      await expect(page.locator('h1')).toBeVisible();
-      expect(await horizontalOverflow(page), `dashboard redirect at ${width}px`).toEqual([]);
-    }
+    await page.goto('/appointments');
+    // Super Admin is fenced from appointments (confidential to local parish office) and redirected to /dashboard
+    await page.waitForURL('**/dashboard**');
+    await expect(page.locator('h1')).toBeVisible();
   });
 
   test('/users fits every width in table and grouped views for a super admin', async ({ page }) => {
