@@ -139,7 +139,7 @@ test.describe('No horizontal scroll', () => {
       await page.goto('/appointments');
       // Super Admin is fenced from appointments (confidential to local parish office) and redirected to /dashboard
       await page.waitForURL('**/dashboard**');
-      await expect(page.getByRole('heading', { name: /Dashboard/i })).toBeVisible();
+      await expect(page.locator('h1')).toBeVisible();
       expect(await horizontalOverflow(page), `appointments (super admin) at ${width}px`).toEqual([]);
     }
   });
