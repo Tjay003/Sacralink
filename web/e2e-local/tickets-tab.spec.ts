@@ -200,7 +200,7 @@ test.describe('Status dropdown', () => {
       await view.page.goto(`/messages?conv=${id}`);
       await expect(view.page.locator('h2', { hasText: `${TAG} ${label}` })).toBeVisible();
       await expect(view.page.locator('select:not([data-testid="ticket-assign-select"])')).toHaveCount(0);
-      await expect(view.page.locator('span.rounded-xl', { hasText: /^Open$/ })).toBeVisible();
+      await expect(view.page.locator('span.rounded-full, span.rounded-xl', { hasText: /^Open$/ })).toBeVisible();
       await view.close();
     }
   });

@@ -137,7 +137,9 @@ test.describe('No horizontal scroll', () => {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/appointments');
-      await expect(page.getByRole('heading', { name: 'Appointments' })).toBeVisible();
+      // Super Admin is fenced from appointments (confidential to local parish office) and redirected to /dashboard
+      await page.waitForURL('**/dashboard**');
+      await expect(page.getByRole('heading', { name: /Dashboard/i })).toBeVisible();
       expect(await horizontalOverflow(page), `appointments (super admin) at ${width}px`).toEqual([]);
     }
   });
