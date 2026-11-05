@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import imageCompression from 'browser-image-compression';
 import type { Database, Profile } from '../../types/database';
-import { getStoredPriestStatus } from '../directApi';
+import { getStoredPriestStatus, setStoredPriestStatus } from '../directApi';
 
 /**
  * Compress and resize image before upload
@@ -136,7 +136,7 @@ export async function getCurrentProfile() {
         .single();
 
     if (error) throw error;
-    if (data) {
+    if (data && ((data as Profile).is_priest === undefined || (data as Profile).is_priest === null)) {
         const storedPriest = getStoredPriestStatus(data.id);
         if (storedPriest !== null) {
             (data as Profile).is_priest = storedPriest;
@@ -159,7 +159,7 @@ export async function getProfileById(userId: string): Promise<Profile | null> {
         console.error('Error fetching profile by ID:', error);
         return null;
     }
-    if (data) {
+    if (data && ((data as Profile).is_priest === undefined || (data as Profile).is_priest === null)) {
         const storedPriest = getStoredPriestStatus(data.id);
         if (storedPriest !== null) {
             (data as Profile).is_priest = storedPriest;
@@ -189,6 +189,9 @@ export async function setUserRole(
             throw new Error('This church must keep at least one Church Admin. Promote someone else to Church Admin first.');
         }
         throw new Error(error.message || 'Failed to update the role');
+    }
+    if (isPriest !== undefined && isPriest !== null) {
+        setStoredPriestStatus(userId, isPriest);
     }
 }
 
@@ -354,8 +357,10 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
             throw error;
         }
         return (data || []).map(p => {
-            const lp = getStoredPriestStatus(p.id);
-            if (lp !== null) p.is_priest = lp;
+            if (p.is_priest === undefined || p.is_priest === null) {
+                const lp = getStoredPriestStatus(p.id);
+                if (lp !== null) p.is_priest = lp;
+            }
             return p;
         });
     } catch (err) {
@@ -371,8 +376,10 @@ export async function getChurchPriests(churchId?: string): Promise<Profile[]> {
         }
         const { data } = await fallbackQuery.order('full_name', { ascending: true });
         return (data || []).map(p => {
-            const lp = getStoredPriestStatus(p.id);
-            if (lp !== null) p.is_priest = lp;
+            if (p.is_priest === undefined || p.is_priest === null) {
+                const lp = getStoredPriestStatus(p.id);
+                if (lp !== null) p.is_priest = lp;
+            }
             return p;
         });
     }

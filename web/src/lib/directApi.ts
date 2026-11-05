@@ -46,7 +46,10 @@ export async function directFetchProfile(userId: string, accessToken: string): P
                     'apikey': SUPABASE_ANON_KEY,
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
                 },
+                cache: 'no-store',
             }
         );
 
@@ -57,7 +60,7 @@ export async function directFetchProfile(userId: string, accessToken: string): P
 
         const data: Profile[] = await response.json();
         const profile = data[0] || null;
-        if (profile) {
+        if (profile && (profile.is_priest === undefined || profile.is_priest === null)) {
             const fallbackPriest = getStoredPriestStatus(profile.id);
             if (fallbackPriest !== null) {
                 profile.is_priest = fallbackPriest;
@@ -115,6 +118,8 @@ export async function directFetchProfiles(
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
             'Prefer': 'count=exact',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
         };
 
         if (options?.page && options?.pageSize) {
@@ -123,7 +128,10 @@ export async function directFetchProfiles(
             headers['Range'] = `${from}-${to}`;
         }
 
-        const response = await fetch(url, { headers });
+        const response = await fetch(url, {
+            headers,
+            cache: 'no-store',
+        });
 
         if (!response.ok) {
             console.error('Direct API error:', response.status, response.statusText);
@@ -133,9 +141,12 @@ export async function directFetchProfiles(
         const data: Profile[] = await response.json();
         if (Array.isArray(data)) {
             data.forEach(profile => {
-                const fallbackPriest = getStoredPriestStatus(profile.id);
-                if (fallbackPriest !== null) {
-                    profile.is_priest = fallbackPriest;
+                // Fallback only if the database record did not provide is_priest
+                if (profile.is_priest === undefined || profile.is_priest === null) {
+                    const fallbackPriest = getStoredPriestStatus(profile.id);
+                    if (fallbackPriest !== null) {
+                        profile.is_priest = fallbackPriest;
+                    }
                 }
             });
         }
@@ -175,7 +186,10 @@ export async function directFetchChurches(): Promise<Church[]> {
                     'apikey': SUPABASE_ANON_KEY,
                     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                     'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
                 },
+                cache: 'no-store',
             }
         );
 

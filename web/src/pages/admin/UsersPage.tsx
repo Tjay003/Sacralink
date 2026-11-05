@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { directFetchProfiles, directFetchChurches } from '../../lib/directApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import type { Profile, Church, UserRole } from '../../types/database';
 import EditRoleModal from '../../components/admin/EditRoleModal';
 import DemoteConfirmModal from '../../components/admin/DemoteConfirmModal';
@@ -123,14 +124,16 @@ export default function UsersPage() {
         }
     }, [currentUser]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (showLoading = true) => {
         if (!currentUser) return;
         if (!isAuthorized) {
             setLoading(false);
             return;
         }
         try {
-            setLoading(true);
+            if (showLoading) {
+                setLoading(true);
+            }
             const token = session?.access_token || '';
 
             // Auto-purge any expired archived accounts (7+ days old) on load
@@ -160,13 +163,60 @@ export default function UsersPage() {
             console.error('Error fetching users and churches:', error);
             toast.error('Could not load the user list. Please refresh the page.');
         } finally {
-            setLoading(false);
+            if (showLoading) {
+                setLoading(false);
+            }
         }
-    }, [session, toast]);
+    }, [currentUser, isAuthorized, session, toast]);
+
+    const fetchDataRef = useRef(fetchData);
+    useEffect(() => {
+        fetchDataRef.current = fetchData;
+    }, [fetchData]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Live Supabase Realtime subscription on public.profiles:
+    // Listens for INSERT, UPDATE, and DELETE changes so user roles, ordained clergy status,
+    // suspensions, and activations update across all admin sessions in real time without refreshing.
+    useEffect(() => {
+        if (!currentUser || !isAuthorized) return;
+
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const handleRealtimeChange = () => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            debounceTimer = setTimeout(() => {
+                void fetchDataRef.current(false);
+            }, 300);
+        };
+
+        const channel = supabase
+            .channel('users_page_profiles_realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'profiles',
+                },
+                () => {
+                    handleRealtimeChange();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            void supabase.removeChannel(channel);
+        };
+    }, [currentUser, isAuthorized]);
 
     // ?user=<id> from a ticket review panel: narrow the directory to that person once, on first load
     const [focusApplied, setFocusApplied] = useState(false);
