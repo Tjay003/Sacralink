@@ -261,8 +261,8 @@ export default function EditChurchPage() {
             return;
         }
 
-        if (formData.latitude !== null && formData.longitude !== null && !isWithinSjdmBounds(formData.latitude, formData.longitude)) {
-            setError('Church location coordinates must be within the City of San Jose del Monte, Bulacan.');
+        if (formData.latitude === null || formData.longitude === null || !isWithinSjdmBounds(formData.latitude, formData.longitude)) {
+            setError('Church location coordinates must be set within the City of San Jose del Monte, Bulacan.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }

@@ -39,7 +39,7 @@ export default function RestoreChurchModal({ churchId, churchName, onClose, onRe
                         .from('profiles')
                         .select('*')
                         .eq('role', 'user')
-                        .is('assigned_church_id', null)
+                        .or(`assigned_church_id.is.null,assigned_church_id.eq.${churchId}`)
                         .is('deleted_at', null)
                         .is('archived_at', null)
                         .order('full_name', { ascending: true })

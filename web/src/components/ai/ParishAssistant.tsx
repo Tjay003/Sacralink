@@ -1962,7 +1962,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
 
                     {/* Starter Quick-Tap Chips (When not actively in a multi-step booking draft or ticket draft) */}
                     {(!bookingDraft || bookingDraft.step === 'confirmed') && !ticketDraft && (
-                        <div className={`px-3.5 pt-2.5 pb-1.5 bg-white border-t border-border/60 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${
+                        <div className={`px-3.5 pt-2 pb-2 bg-white border-t border-border/60 flex flex-wrap items-center gap-1.5 shrink-0 ${
                             isLargeText ? 'py-3' : ''
                         }`}>
                             {STARTER_CHIPS.map((chip) => (
@@ -1977,7 +1977,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                                         void handleSendMessage(chip);
                                     }}
                                     disabled={isLoading || isBookingSubmitting || isTicketSubmitting}
-                                    className={`whitespace-nowrap font-medium rounded-full border border-border/80 transition-all active:scale-95 disabled:opacity-50 shadow-2xs hover:shadow-xs ${
+                                    className={`whitespace-normal sm:whitespace-nowrap font-medium rounded-full border border-border/80 transition-all active:scale-95 disabled:opacity-50 shadow-2xs hover:shadow-xs ${
                                         isLargeText
                                             ? 'min-h-[56px] text-base px-5 py-3 bg-secondary-50 hover:bg-primary/10 hover:border-primary/40 text-secondary-900 flex items-center justify-center'
                                             : 'text-xs bg-secondary-50/80 hover:bg-primary/10 hover:border-primary/40 hover:text-primary text-secondary-800 px-3.5 py-1.5'

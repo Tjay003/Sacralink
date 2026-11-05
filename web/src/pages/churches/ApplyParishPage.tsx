@@ -63,16 +63,14 @@ export default function ApplyParishPage() {
   const { user, profile } = useAuth();
   const toast = useToast();
 
-  const isAssigned = Boolean(profile?.church_id || profile?.assigned_church_id);
-  const isRestrictedRole = profile?.role ? ['church_admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role) : false;
-  const isRestricted = isAssigned || isRestrictedRole;
+  const isRestricted = profile?.role ? ['church_admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role) : false;
 
   useEffect(() => {
     if (profile && isRestricted) {
-      toast.error('Parish staff, clergy, and members already assigned to a church cannot submit new church applications.');
+      toast.error('Parish staff, clergy, and administrators cannot submit new church applications.');
       navigate('/dashboard', {
         replace: true,
-        state: { notice: 'Parish staff, clergy, and members already assigned to a church cannot submit new church applications.' },
+        state: { notice: 'Parish staff, clergy, and administrators cannot submit new church applications.' },
       });
     }
   }, [profile, isRestricted, navigate, toast]);

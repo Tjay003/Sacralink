@@ -41,8 +41,7 @@ export default function ChurchesPage() {
 
     const isSuperAdmin = profile?.role === 'super_admin';
     const canAddChurch = isSuperAdmin;
-    const hasAssignedChurch = Boolean(profile?.church_id || profile?.assigned_church_id);
-    const canOnboardChurch = profile?.role === 'user' && !hasAssignedChurch;
+    const canOnboardChurch = profile?.role === 'user';
     const hasAdminAccess = isSuperAdmin || profile?.role === 'church_admin';
 
     // Helper to check management permissions
