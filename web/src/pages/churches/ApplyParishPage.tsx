@@ -63,14 +63,14 @@ export default function ApplyParishPage() {
   const { user, profile } = useAuth();
   const toast = useToast();
 
-  const isRestricted = profile?.role ? ['church_admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role) : false;
+  const isRestricted = profile?.role ? ['church_admin', 'priest', 'volunteer'].includes(profile.role) : false;
 
   useEffect(() => {
     if (profile && isRestricted) {
-      toast.error('Parish staff, clergy, and administrators cannot submit new church applications.');
+      toast.error('Parish staff and clergy cannot submit new church applications.');
       navigate('/dashboard', {
         replace: true,
-        state: { notice: 'Parish staff, clergy, and administrators cannot submit new church applications.' },
+        state: { notice: 'Parish staff and clergy cannot submit new church applications.' },
       });
     }
   }, [profile, isRestricted, navigate, toast]);

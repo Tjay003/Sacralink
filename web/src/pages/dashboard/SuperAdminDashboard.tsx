@@ -162,6 +162,14 @@ export default function SuperAdminDashboard() {
                                 <span>Review applications</span>
                             </button>
 
+                            <button
+                                onClick={() => navigate('/churches/apply')}
+                                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-semibold bg-white hover:bg-secondary-50 text-secondary-800 border border-border shadow-xs transition-colors"
+                            >
+                                <ShieldCheck className="w-4 h-4 text-secondary-600" />
+                                <span>Onboard parish</span>
+                            </button>
+
                             {isFeatureEnabled('systemAnnouncements') && (
                                 <button
                                     onClick={() => navigate('/admin/system-announcements')}

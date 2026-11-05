@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import {
   ShieldCheck,
@@ -746,6 +747,7 @@ function ParishApplicationDrawer({
 }
 
 export default function ParishApplicationsPage() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
 
   if (profile && profile.role !== 'super_admin') {
@@ -984,15 +986,25 @@ export default function ParishApplicationsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => { void fetchApplications(); void fetchStatusCounts(); }}
-          className="bg-white hover:bg-secondary-50 text-foreground border border-border rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => navigate('/churches/apply')}
+            className="bg-primary hover:bg-blue-700 text-white rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Onboard a parish</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { void fetchApplications(); void fetchStatusCounts(); }}
+            className="bg-white hover:bg-secondary-50 text-foreground border border-border rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            disabled={loading}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Search */}

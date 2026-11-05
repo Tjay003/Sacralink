@@ -225,11 +225,10 @@ export async function submitParishApplication(
       throw new Error('Failed to verify user profile permissions');
     }
 
-    const hasAssignedChurch = Boolean(profile.church_id || profile.assigned_church_id);
-    const hasStaffOrAdminRole = profile.role && ['church_admin', 'admin', 'priest', 'volunteer', 'super_admin'].includes(profile.role);
+    const isStaffRole = profile.role && ['church_admin', 'admin', 'priest', 'volunteer'].includes(profile.role);
 
-    if (hasAssignedChurch || hasStaffOrAdminRole) {
-      throw new Error('Users already assigned to a parish cannot submit new church applications.');
+    if (isStaffRole) {
+      throw new Error('Parish staff and clergy cannot submit new church applications.');
     }
 
     // 1. Upload the two mandatory verification documents
