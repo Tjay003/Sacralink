@@ -53,7 +53,6 @@ function parseStreamEmbed(url?: string | null): string | null {
 
 export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerProps) {
     const navigate = useNavigate();
-    const [church, setChurch] = useState<Church | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [isLive, setIsLive] = useState(false);
@@ -71,13 +70,12 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                 setLoading(true);
                 const { data, error } = await supabase
                     .from('churches')
-                    .select('id, name, is_live, livestream_url, livestream_title, livestream_platform, candle_count, livestream_started_at')
+                    .select('id, name, is_live, livestream_url, livestream_title, livestream_platform, livestream_started_at')
                     .eq('id', churchId)
                     .single();
 
                 if (error) throw error;
                 if (data) {
-                    setChurch(data as Church);
                     setIsLive(Boolean(data.is_live));
                     setStreamUrl(data.livestream_url || '');
                     setStreamTitle(data.livestream_title || '');
@@ -102,7 +100,6 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                 (payload) => {
                     if (payload.new) {
                         const updated = payload.new as Church;
-                        setChurch(updated);
                         setIsLive(Boolean(updated.is_live));
                         if (updated.livestream_url !== undefined) setStreamUrl(updated.livestream_url || '');
                         if (updated.livestream_title !== undefined) setStreamTitle(updated.livestream_title || '');
@@ -328,15 +325,8 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
                         )}
                     </div>
 
-                    {/* Stats 3-card grid */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
-                            <span className="font-serif text-base font-bold text-foreground block">
-                                {(church?.candle_count ?? 0).toLocaleString()}
-                            </span>
-                            <span className="text-[11px] text-secondary-500 block mt-0.5">Candles lit</span>
-                        </div>
-
+                    {/* Stats 2-card grid */}
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
                             <span className="font-serif text-base font-bold text-foreground capitalize block">
                                 {platform === 'youtube' ? 'YouTube' : 'Facebook'}
@@ -382,15 +372,8 @@ export default function LiveBroadcastManager({ churchId }: LiveBroadcastManagerP
             ) : (
                 /* STATE B: OFFLINE STATE (Stats + Form Fields) */
                 <div className="space-y-4">
-                    {/* Stats 3-card grid */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
-                            <span className="font-serif text-base font-bold text-foreground block">
-                                {(church?.candle_count ?? 0).toLocaleString()}
-                            </span>
-                            <span className="text-[11px] text-secondary-500 block mt-0.5">Candles lit</span>
-                        </div>
-
+                    {/* Stats 2-card grid */}
+                    <div className="grid grid-cols-2 gap-3">
                         <div className="p-3.5 bg-secondary-50/50 border border-border/80 rounded-xl">
                             <span className="font-serif text-base font-bold text-foreground capitalize block">
                                 {platform === 'youtube' ? 'YouTube' : 'Facebook'}
