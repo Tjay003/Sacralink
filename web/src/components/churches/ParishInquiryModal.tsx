@@ -139,7 +139,7 @@ export default function ParishInquiryModal({
 
     // A Parishioner whose chosen church has no Church Admin can only report a concern about it
     useEffect(() => {
-        if (!isParishioner || lane !== 'church' || !activeChurchId) {
+        if (lane !== 'church' || !activeChurchId) {
             setHasAdmin(null);
             return;
         }
@@ -150,7 +150,7 @@ export default function ParishInquiryModal({
         return () => {
             cancelled = true;
         };
-    }, [isParishioner, lane, activeChurchId]);
+    }, [lane, activeChurchId]);
 
     // Search the church's people as the user types; stale answers are dropped
     useEffect(() => {
@@ -337,9 +337,11 @@ export default function ParishInquiryModal({
                     </div>
                 )}
 
-                {isParishioner && lane === 'church' && hasAdmin === false && (
+                {lane === 'church' && hasAdmin === false && (
                     <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-                        This church has no administrator yet. You can report a concern about the church instead.
+                        {isParishioner
+                            ? 'This church has no administrator yet. You can report a concern about the church instead.'
+                            : 'This church has no administrator registered yet to receive tickets.'}
                     </div>
                 )}
                 {isParishioner && lane === 'church' && (
@@ -364,7 +366,7 @@ export default function ParishInquiryModal({
                 )}
 
                 {/* Ticket Category Selector */}
-                <div className="space-y-2" hidden={isParishioner && lane === 'church' && hasAdmin === false}>
+                <div className="space-y-2" hidden={lane === 'church' && hasAdmin === false}>
                     <label className="block text-xs font-bold text-foreground">
                         Inquiry Category <span className="text-destructive">*</span>
                     </label>
@@ -508,7 +510,7 @@ export default function ParishInquiryModal({
                     </button>
                     <button
                         type="submit"
-                        disabled={!isFormValid || loading || (isParishioner && lane === 'church' && hasAdmin === false)}
+                        disabled={!isFormValid || loading || (lane === 'church' && hasAdmin === false)}
                         className="bg-primary hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-xl shadow-xs inline-flex items-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
                         {loading ? (

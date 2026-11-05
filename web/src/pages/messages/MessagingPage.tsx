@@ -201,7 +201,7 @@ export default function MessagingPage() {
     const isSuperAdmin = profile?.role === 'super_admin';
     const isVolunteer = profile?.role === 'volunteer';
     // Parishioners and volunteers open Parish Office Tickets; Church Admins and Priests write to the Super Admin
-    const canCreateTicket = ['user', 'volunteer', 'church_admin', 'priest'].includes(profile?.role || '');
+    const canCreateTicket = ['user', 'volunteer', 'church_admin', 'priest', 'super_admin'].includes(profile?.role || '');
     const ticketLane = profile?.role === 'church_admin' || profile?.role === 'priest' ? 'platform' : 'church';
 
     interface NavState {

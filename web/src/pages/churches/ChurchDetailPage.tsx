@@ -916,7 +916,42 @@ export default function ChurchDetailPage() {
                                     );
                                 }
 
-                                // Case B: Church Admin viewing ANOTHER church (inter-parish communication)
+                                // Case B: Super Admin can BOTH direct-message the Parish Admin AND submit a formal ticket
+                                if (isSuperAdmin) {
+                                    return (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={handleContactAdmin}
+                                                disabled={contactingAdmin || (!loadingStaff && !targetAdmin)}
+                                                title={
+                                                    !targetAdmin && !loadingStaff
+                                                        ? 'No administrator registered yet for this parish office.'
+                                                        : 'Contact the administrator of this parish'
+                                                }
+                                                className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                            >
+                                                {contactingAdmin ? (
+                                                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                                ) : (
+                                                    <Mail className="w-4 h-4 text-primary" />
+                                                )}
+                                                <span>{contactingAdmin ? 'Connecting...' : 'Contact Parish Admin'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleContactParish}
+                                                title={isUnstaffed ? "No parish office desk yet: you can report a concern about this church" : "Message the parish office"}
+                                                className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                            >
+                                                <MessageSquare className="w-4 h-4 text-secondary-500" />
+                                                <span>Message office</span>
+                                            </button>
+                                        </>
+                                    );
+                                }
+
+                                // Case C: Church Admin viewing ANOTHER church (inter-parish communication)
                                 if (profile?.role === 'church_admin' && !isOwnChurch) {
                                     return (
                                         <button
@@ -940,7 +975,7 @@ export default function ChurchDetailPage() {
                                     );
                                 }
 
-                                // Case C: Other users (Parishioners, unassigned, volunteers on external churches)
+                                // Case D: Other users (Parishioners, unassigned, volunteers on external churches)
                                 return (
                                     <button
                                         type="button"

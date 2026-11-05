@@ -757,6 +757,7 @@ export default function ParishApplicationsPage() {
 
   const [applications, setApplications] = useState<ParishApplicationWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'under_review' | 'verified_active' | 'rejected'>('all');
@@ -826,6 +827,22 @@ export default function ParishApplicationsPage() {
     void fetchApplications();
     void fetchStatusCounts();
   }, [fetchApplications, fetchStatusCounts]);
+
+  const handleManualRefresh = async () => {
+    if (isRefreshing || loading) return;
+    setIsRefreshing(true);
+    const start = Date.now();
+    try {
+      await Promise.all([fetchApplications(), fetchStatusCounts()]);
+    } finally {
+      const elapsed = Date.now() - start;
+      const minDelay = 400;
+      if (elapsed < minDelay) {
+        await new Promise((resolve) => setTimeout(resolve, minDelay - elapsed));
+      }
+      setIsRefreshing(false);
+    }
+  };
 
   const openReviewModal = (app: ParishApplicationWithRelations) => {
     setSelectedApp(app);
@@ -997,12 +1014,12 @@ export default function ParishApplicationsPage() {
           </button>
           <button
             type="button"
-            onClick={() => { void fetchApplications(); void fetchStatusCounts(); }}
-            className="bg-white hover:bg-secondary-50 text-foreground border border-border rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
-            disabled={loading}
+            onClick={() => void handleManualRefresh()}
+            className="bg-white hover:bg-secondary-50 active:scale-95 text-foreground border border-border rounded-xl px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={loading || isRefreshing}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`w-4 h-4 transition-transform ${isRefreshing ? 'animate-spin text-primary' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
