@@ -15,7 +15,8 @@ const db = serviceClient();
 const EMAILS = ['retired-admin@local.test', 'retired-super@local.test', 'retired-target@local.test'];
 
 function psql(sql: string) {
-  const container = execFileSync('docker', ['ps', '--filter', 'name=supabase_db_', '--format', '{{.Names}}'], { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
+  const containers = execFileSync('docker', ['ps', '--filter', 'name=supabase_db_', '--format', '{{.Names}}'], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
+  const container = containers.find((c) => c.includes('Sacralink')) || containers[0];
   if (!container) throw new Error('Local Supabase database container is not running');
   return execFileSync('docker', ['exec', '-i', container, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'], { input: sql, encoding: 'utf8' });
 }
