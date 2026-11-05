@@ -2363,7 +2363,7 @@ export default function MessagingPage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs pb-1">
                             {(profile?.role === 'priest' ? [
                                 { id: 'all', label: 'All Contacts' },
                                 { id: 'church_admin', label: 'Church Admins' },
