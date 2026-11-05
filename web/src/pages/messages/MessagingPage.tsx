@@ -61,6 +61,7 @@ import { UserName } from '../../components/ui/UserName';
 import TicketAssignment from '../../components/messages/TicketAssignment';
 import TicketEscalationActions from '../../components/messages/TicketEscalationActions';
 import ReviewSummaryPanel from '../../components/messages/ReviewSummaryPanel';
+import ContactRoleFilterBar, { type ContactRoleTab } from '../../components/messages/ContactRoleFilterBar';
 
 // Video calls are hidden for now (client request); flip to true to bring the buttons and call cards back.
 const VIDEO_CALLS_ENABLED = false;
@@ -1050,6 +1051,42 @@ export default function MessagingPage() {
         }
         return result;
     }, [contacts, contactRoleFilter, contactChurchFilter, contactSearch, profile?.role]);
+
+    // Role filter tabs for the New Conversation contacts modal
+    const contactRoleTabs: ContactRoleTab[] = useMemo(() => {
+        if (profile?.role === 'priest') {
+            return [
+                { id: 'all', label: 'All Contacts' },
+                { id: 'church_admin', label: 'Church Admins' },
+                { id: 'priest', label: 'Priests' },
+                { id: 'volunteer', label: 'Volunteers' },
+                { id: 'user', label: 'Parishioners' },
+            ];
+        }
+        if (profile?.role === 'super_admin') {
+            return [
+                { id: 'all', label: 'All Staff' },
+                { id: 'church_admin', label: 'Church Admins' },
+                { id: 'priest', label: 'Priests' },
+                { id: 'volunteer', label: 'Volunteers' },
+            ];
+        }
+        if (profile?.role === 'user' || isVolunteer) {
+            return [
+                { id: 'all', label: 'All Contacts' },
+                { id: 'volunteer', label: 'Volunteers' },
+                { id: 'user', label: 'Parishioners' },
+            ];
+        }
+        return [
+            { id: 'all', label: 'All Contacts' },
+            { id: 'super_admin', label: 'Super Admin' },
+            { id: 'church_admin', label: 'Church Admins' },
+            { id: 'priest', label: 'Priests' },
+            { id: 'volunteer', label: 'Volunteers' },
+            { id: 'user', label: 'Parishioners' },
+        ];
+    }, [profile?.role, isVolunteer]);
 
     // Filtered parishes for Super Admin modal
     const filteredParishes = useMemo(() => {
@@ -2363,44 +2400,11 @@ export default function MessagingPage() {
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs pb-1">
-                            {(profile?.role === 'priest' ? [
-                                { id: 'all', label: 'All Contacts' },
-                                { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'priest', label: 'Priests' },
-                                { id: 'volunteer', label: 'Volunteers' },
-                                { id: 'user', label: 'Parishioners' },
-                            ] : profile?.role === 'super_admin' ? [
-                                { id: 'all', label: 'All Staff' },
-                                { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'priest', label: 'Priests' },
-                                { id: 'volunteer', label: 'Volunteers' },
-                            ] : profile?.role === 'user' || isVolunteer ? [
-                                { id: 'all', label: 'All Contacts' },
-                                { id: 'volunteer', label: 'Volunteers' },
-                                { id: 'user', label: 'Parishioners' },
-                            ] : [
-                                { id: 'all', label: 'All Contacts' },
-                                { id: 'super_admin', label: 'Super Admin' },
-                                { id: 'church_admin', label: 'Church Admins' },
-                                { id: 'priest', label: 'Priests' },
-                                { id: 'volunteer', label: 'Volunteers' },
-                                { id: 'user', label: 'Parishioners' },
-                            ]).map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    onClick={() => setContactRoleFilter(tab.id)}
-                                    className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                                        contactRoleFilter === tab.id
-                                            ? 'bg-primary text-white shadow-sm'
-                                            : 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
-                        </div>
+                        <ContactRoleFilterBar
+                            tabs={contactRoleTabs}
+                            activeTab={contactRoleFilter}
+                            onSelectTab={setContactRoleFilter}
+                        />
                     </div>
 
                     {/* Contacts List */}
