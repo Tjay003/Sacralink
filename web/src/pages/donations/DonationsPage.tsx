@@ -15,6 +15,7 @@ import {
     BarChart3,
     Sparkles,
     Calendar,
+    ChevronDown,
 } from 'lucide-react';
 import {
     getChurchDonations,
@@ -60,6 +61,17 @@ import { StatusBadge, getStatusToneClasses } from '../../components/ui/StatusBad
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
 export type ChartFilterMode = 'weekly' | 'monthly' | 'yearly' | 'all_time' | 'custom';
 
+const TIMEFRAME_OPTIONS: Array<{
+    mode: ChartFilterMode;
+    label: string;
+    subtitle: string;
+}> = [
+    { mode: 'weekly', label: 'Weekly', subtitle: 'Last 8 weeks' },
+    { mode: 'monthly', label: 'Monthly', subtitle: 'Last 12 months' },
+    { mode: 'yearly', label: 'Yearly', subtitle: 'Last 5 years' },
+    { mode: 'all_time', label: 'All Time', subtitle: 'All recorded years' },
+];
+
 export default function DonationsPage() {
     const { profile } = useAuth();
     const toast = useToast();
@@ -90,12 +102,31 @@ export default function DonationsPage() {
     // Chart State & Demo Preview Toggle
     const [isDemoChart, setIsDemoChart] = useState(true);
     const [chartMode, setChartMode] = useState<ChartFilterMode>('monthly');
+    const [rangeDropdownOpen, setRangeDropdownOpen] = useState(false);
     const [customRange, setCustomRange] = useState<{ start: Date; end: Date }>({
         start: subDays(new Date(), 29),
         end: new Date(),
     });
     const [customModalOpen, setCustomModalOpen] = useState(false);
     const [verifiedDonations, setVerifiedDonations] = useState<Array<{ amount: number; created_at: string }>>([]);
+
+    // Formatted label for the timeframe dropdown trigger
+    const timeframeLabel = useMemo(() => {
+        switch (chartMode) {
+            case 'weekly':
+                return 'Weekly (8 wks)';
+            case 'monthly':
+                return 'Monthly (12 mos)';
+            case 'yearly':
+                return 'Yearly (5 yrs)';
+            case 'all_time':
+                return 'All Time';
+            case 'custom':
+                return `${format(customRange.start, 'MMM d')} – ${format(customRange.end, 'MMM d')}`;
+            default:
+                return 'Select range';
+        }
+    }, [chartMode, customRange]);
 
     // Payment settings switches
     const [acceptCashless, setAcceptCashless] = useState(true);
@@ -831,81 +862,114 @@ export default function DonationsPage() {
                                 </p>
                             </div>
 
-                            {/* Controls: Segmented Pills & Demo Preview Toggle */}
-                            <div className="flex items-center gap-2 max-w-full overflow-hidden">
-                                {/* Dedicated horizontal scroll container for segmented pills */}
-                                <div className="overflow-x-auto scrollbar-none flex items-center gap-1 p-1 bg-secondary-50 border border-border rounded-xl no-scrollbar max-w-full shrink min-w-0">
+                            {/* Controls: Timeframe Dropdown & Demo Preview Toggle */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                {/* Timeframe Dropdown */}
+                                <div className="relative">
                                     <button
                                         type="button"
-                                        onClick={() => setChartMode('weekly')}
-                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                            chartMode === 'weekly'
-                                                ? 'bg-primary text-white shadow-xs'
-                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
-                                        }`}
+                                        onClick={() => setRangeDropdownOpen(!rangeDropdownOpen)}
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-secondary-50 hover:bg-secondary-100 text-foreground border border-border transition-all cursor-pointer shadow-2xs"
+                                        aria-expanded={rangeDropdownOpen}
+                                        aria-haspopup="true"
                                     >
-                                        Weekly
+                                        <Calendar className="w-3.5 h-3.5 text-secondary-500 shrink-0" />
+                                        <span>{timeframeLabel}</span>
+                                        <ChevronDown
+                                            className={`w-3.5 h-3.5 text-secondary-500 shrink-0 transition-transform duration-200 ${
+                                                rangeDropdownOpen ? 'rotate-180' : ''
+                                            }`}
+                                        />
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setChartMode('monthly')}
-                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                            chartMode === 'monthly'
-                                                ? 'bg-primary text-white shadow-xs'
-                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
-                                        }`}
-                                    >
-                                        Monthly
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setChartMode('yearly')}
-                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                            chartMode === 'yearly'
-                                                ? 'bg-primary text-white shadow-xs'
-                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
-                                        }`}
-                                    >
-                                        Yearly
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setChartMode('all_time')}
-                                        className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                            chartMode === 'all_time'
-                                                ? 'bg-primary text-white shadow-xs'
-                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
-                                        }`}
-                                    >
-                                        All Time
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCustomModalOpen(true)}
-                                        className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                                            chartMode === 'custom'
-                                                ? 'bg-primary text-white shadow-xs'
-                                                : 'text-secondary-600 hover:text-foreground hover:bg-secondary-100/60'
-                                        }`}
-                                    >
-                                        <Calendar className={`w-3.5 h-3.5 ${chartMode === 'custom' ? 'text-white' : 'text-secondary-500'}`} />
-                                        <span>
-                                            {chartMode === 'custom'
-                                                ? `${format(customRange.start, 'MMM d')} – ${format(customRange.end, 'MMM d')}`
-                                                : 'Custom'}
-                                        </span>
-                                    </button>
+
+                                    {/* Dropdown Menu */}
+                                    {rangeDropdownOpen && (
+                                        <>
+                                            {/* Click-outside overlay */}
+                                            <div
+                                                className="fixed inset-0 z-40"
+                                                onClick={() => setRangeDropdownOpen(false)}
+                                            />
+
+                                            {/* Menu Card */}
+                                            <div className="absolute right-0 sm:right-auto sm:left-0 mt-1.5 w-56 bg-white border border-border rounded-xl shadow-lg py-1.5 z-50">
+                                                {TIMEFRAME_OPTIONS.map((option) => {
+                                                    const isSelected = chartMode === option.mode;
+                                                    return (
+                                                        <button
+                                                            key={option.mode}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setChartMode(option.mode);
+                                                                setRangeDropdownOpen(false);
+                                                            }}
+                                                            className={`w-full text-left px-3.5 py-2 flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                                                                isSelected
+                                                                    ? 'bg-blue-50/70 text-primary font-semibold'
+                                                                    : 'text-foreground hover:bg-secondary-50 font-medium'
+                                                            }`}
+                                                        >
+                                                            <div className="flex flex-col min-w-0 pr-2">
+                                                                <span className={isSelected ? 'text-primary font-bold' : 'text-foreground font-semibold'}>
+                                                                    {option.label}
+                                                                </span>
+                                                                <span className="text-[11px] text-secondary-500 font-normal">
+                                                                    {option.subtitle}
+                                                                </span>
+                                                            </div>
+                                                            {isSelected && (
+                                                                <Check className="w-4 h-4 text-primary shrink-0" />
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+
+                                                <hr className="my-1 border-border" />
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setRangeDropdownOpen(false);
+                                                        setCustomModalOpen(true);
+                                                    }}
+                                                    className={`w-full text-left px-3.5 py-2 flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                                                        chartMode === 'custom'
+                                                            ? 'bg-blue-50/70 text-primary font-semibold'
+                                                            : 'text-foreground hover:bg-secondary-50 font-medium'
+                                                    }`}
+                                                >
+                                                    <div className="flex flex-col min-w-0 pr-2">
+                                                        <span className={chartMode === 'custom' ? 'text-primary font-bold' : 'text-foreground font-semibold'}>
+                                                            Custom range...
+                                                        </span>
+                                                        <span className="text-[11px] text-secondary-500 font-normal truncate">
+                                                            {chartMode === 'custom'
+                                                                ? `${format(customRange.start, 'MMM d, yyyy')} – ${format(customRange.end, 'MMM d, yyyy')}`
+                                                                : 'Choose specific dates'}
+                                                        </span>
+                                                    </div>
+                                                    {chartMode === 'custom' && (
+                                                        <Check className="w-4 h-4 text-primary shrink-0" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Demo Preview Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => setIsDemoChart(!isDemoChart)}
-                                    className="shrink-0 inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-border bg-secondary-50 hover:bg-secondary-100 text-secondary-700 transition-colors cursor-pointer"
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
+                                        isDemoChart
+                                            ? 'bg-amber-50/70 border-amber-200 text-amber-800 hover:bg-amber-100/70 shadow-2xs'
+                                            : 'bg-secondary-50 border-border text-secondary-700 hover:bg-secondary-100 shadow-2xs'
+                                    }`}
+                                    title={isDemoChart ? 'Switch to real church donation data' : 'Switch to demo preview chart data'}
                                 >
-                                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                                    <span className="hidden sm:inline">{isDemoChart ? 'Demo preview' : 'Real data'}</span>
-                                    <span className="sm:hidden">{isDemoChart ? 'Demo' : 'Real'}</span>
+                                    <Sparkles className={`w-3.5 h-3.5 ${isDemoChart ? 'text-amber-500 fill-amber-400/40' : 'text-secondary-400'}`} />
+                                    <span>{isDemoChart ? 'Demo preview' : 'Real data'}</span>
                                 </button>
                             </div>
                         </div>
