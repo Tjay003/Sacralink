@@ -171,8 +171,8 @@ test.describe('Volunteer messaging scope', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Open a ticket' })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Parishioners' })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Volunteers' })).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Parishioners' })).toBeVisible();
+    await expect(dialog.getByRole('tab', { name: 'Volunteers' })).toBeVisible();
     await expect(dialog.getByText('Local Parishioner')).toBeVisible();
     await expect(dialog.getByText('Local Church Admin', { exact: true })).toBeVisible();
     await expect(dialog.getByText('Fr. Local Priest')).toBeVisible();

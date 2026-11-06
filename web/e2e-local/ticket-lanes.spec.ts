@@ -119,13 +119,14 @@ test.describe('create_ticket', () => {
     expect(
       (await volunteer.client.rpc('create_ticket', ticketArgs({ p_lane: 'platform', p_subject: `${TAG} vol platform` }))).error,
     ).toBeNull();
+    // Super admin may create church tickets (migration 090)
+    expect((await superAdmin.client.rpc('create_ticket', ticketArgs({ p_subject: `${TAG} super church` }))).error).toBeNull();
 
     // Refused
     const refusals = await Promise.all([
       parishioner.client.rpc('create_ticket', ticketArgs({ p_lane: 'platform', p_subject: `${TAG} par platform` })),
       asAdmin.rpc('create_ticket', ticketArgs({ p_subject: `${TAG} admin church` })),
       asPriest.rpc('create_ticket', ticketArgs({ p_subject: `${TAG} priest church` })),
-      superAdmin.client.rpc('create_ticket', ticketArgs({ p_subject: `${TAG} super church` })),
       superAdmin.client.rpc('create_ticket', ticketArgs({ p_lane: 'platform', p_subject: `${TAG} super platform` })),
       parishioner.client.rpc('create_ticket', ticketArgs({ p_subject: 'ab' })),
       parishioner.client.rpc('create_ticket', ticketArgs({ p_message: 'too short' })),

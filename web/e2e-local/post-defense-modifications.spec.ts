@@ -95,7 +95,8 @@ test('Ticket 02: Donations chart defaults to 12 months with responsive period fi
   // Heading defaults to 12 months
   await expect(page.getByRole('heading', { name: 'Giving, last 12 months' })).toBeVisible();
 
-  // Switch to Weekly
+  // Switch to Weekly via timeframe dropdown
+  await page.getByRole('button', { name: /Monthly \(12 mos\)/i }).click();
   const toggleWeekly = page.getByRole('button', { name: 'Weekly', exact: true });
   await expect(toggleWeekly).toBeVisible();
   await toggleWeekly.click();
@@ -103,7 +104,8 @@ test('Ticket 02: Donations chart defaults to 12 months with responsive period fi
   // Heading updates to 8 weeks
   await expect(page.getByRole('heading', { name: 'Giving, last 8 weeks' })).toBeVisible();
 
-  // Switch back to Monthly
+  // Switch back to Monthly via timeframe dropdown
+  await page.getByRole('button', { name: /Weekly \(8 wks\)/i }).click();
   const toggleMonthly = page.getByRole('button', { name: 'Monthly', exact: true });
   await toggleMonthly.click();
   await expect(page.getByRole('heading', { name: 'Giving, last 12 months' })).toBeVisible();
