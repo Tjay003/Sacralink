@@ -14,6 +14,7 @@ blob-report/
 # /qa skill output (screenshots of the app; the repo is public) and its throwaway specs, in case a run
 # dies before deleting them
 .scratch/qa/
+qa-evidence/
 web/e2e-local/tmp-*.spec.ts
 
 # Database backups (contain real user data)
