@@ -30,6 +30,7 @@ export default function SanctuaryVirtualTour({
     const activePanoramaUrl = panoramaUrl || FALLBACK_PANORAMA_URL;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!canManage) return;
         const file = e.target.files?.[0];
         if (!file || !churchId) return;
 
@@ -40,6 +41,7 @@ export default function SanctuaryVirtualTour({
     };
 
     const handleConfirmPrivacyBlur = async (processedFile: File) => {
+        if (!canManage) return;
         setUploading(true);
         setFeedback(null);
 
@@ -103,43 +105,36 @@ export default function SanctuaryVirtualTour({
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleFileChange}
-                    />
+                {canManage && (
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleFileChange}
+                        />
 
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (!canManage) {
-                                setFeedback({
-                                    type: 'error',
-                                    message: 'Only parish administrators can replace the sanctuary panorama.',
-                                });
-                                return;
-                            }
-                            fileInputRef.current?.click();
-                        }}
-                        disabled={uploading}
-                        className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer w-full sm:w-auto shrink-0 disabled:opacity-50"
-                    >
-                        {uploading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                <span>Uploading...</span>
-                            </>
-                        ) : (
-                            <>
-                                <ArrowDownToLine className="w-4 h-4 text-secondary-600" />
-                                <span>Replace panorama</span>
-                            </>
-                        )}
-                    </button>
-                </div>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="bg-white hover:bg-secondary-50 text-foreground border border-border/80 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer w-full sm:w-auto shrink-0 disabled:opacity-50"
+                        >
+                            {uploading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    <span>Uploading...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowDownToLine className="w-4 h-4 text-secondary-600" />
+                                    <span>Replace panorama</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Notification / Feedback Banner */}
@@ -189,7 +184,7 @@ export default function SanctuaryVirtualTour({
             </div>
 
             {/* Privacy Blur Modal */}
-            {showPrivacyModal && pendingPrivacyFile && (
+            {canManage && showPrivacyModal && pendingPrivacyFile && (
                 <PanoramaPrivacyModal
                     isOpen={showPrivacyModal}
                     file={pendingPrivacyFile}
