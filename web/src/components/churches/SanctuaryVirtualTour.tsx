@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ReactPhotoSphereViewer } from 'react-photo-sphere-viewer';
-import { Eye, ArrowDownToLine, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Eye, ArrowDownToLine, Loader2, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { uploadFile, supabase } from '../../lib/supabase';
+import PanoramaPrivacyModal from './PanoramaPrivacyModal';
 
 interface SanctuaryVirtualTourProps {
     churchId: string;
@@ -15,6 +16,7 @@ const FALLBACK_PANORAMA_URL = 'https://oaczurouvaevebpimply.supabase.co/storage/
 
 export default function SanctuaryVirtualTour({
     churchId,
+    churchName,
     panoramaUrl,
     canManage = false,
     onPanoramaUpdated,
@@ -22,22 +24,31 @@ export default function SanctuaryVirtualTour({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [pendingPrivacyFile, setPendingPrivacyFile] = useState<File | null>(null);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     const activePanoramaUrl = panoramaUrl || FALLBACK_PANORAMA_URL;
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !churchId) return;
 
+        // Open privacy modal to detect and blur people before uploading
+        setPendingPrivacyFile(file);
+        setShowPrivacyModal(true);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleConfirmPrivacyBlur = async (processedFile: File) => {
         setUploading(true);
         setFeedback(null);
 
         try {
-            const fileExt = file.name.split('.').pop() || 'jpg';
-            const sanitizedBase = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const fileExt = processedFile.name.split('.').pop() || 'jpg';
+            const sanitizedBase = processedFile.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
             const filePath = `panoramas/${churchId}_${Date.now()}_${sanitizedBase}.${fileExt}`;
 
-            const publicUrl = await uploadFile('church-images', filePath, file);
+            const publicUrl = await uploadFile('church-images', filePath, processedFile);
 
             const { error: updateError } = await supabase
                 .from('churches')
@@ -52,7 +63,7 @@ export default function SanctuaryVirtualTour({
 
             setFeedback({
                 type: 'success',
-                message: '360° sanctuary panorama replaced successfully!',
+                message: '360° sanctuary panorama privacy-blurred and updated successfully!',
             });
         } catch (err: unknown) {
             console.error('Error replacing panorama:', err);
@@ -62,7 +73,8 @@ export default function SanctuaryVirtualTour({
             });
         } finally {
             setUploading(false);
-            if (e.target) e.target.value = '';
+            setPendingPrivacyFile(null);
+            setShowPrivacyModal(false);
         }
     };
 
@@ -78,11 +90,16 @@ export default function SanctuaryVirtualTour({
             {/* Header matching Image 4 */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
-                        360° virtual tour
-                    </h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+                            360° virtual tour
+                        </h2>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                            <ShieldCheck className="w-3 h-3" /> Privacy Protected
+                        </span>
+                    </div>
                     <p className="text-xs sm:text-sm text-secondary-500 mt-0.5">
-                        Parishioners can look around the sanctuary
+                        Parishioners can look around the sanctuary (people inside are blurred for privacy)
                     </p>
                 </div>
 
@@ -170,6 +187,20 @@ export default function SanctuaryVirtualTour({
                     />
                 </div>
             </div>
+
+            {/* Privacy Blur Modal */}
+            {showPrivacyModal && pendingPrivacyFile && (
+                <PanoramaPrivacyModal
+                    isOpen={showPrivacyModal}
+                    file={pendingPrivacyFile}
+                    churchName={churchName}
+                    onClose={() => {
+                        setShowPrivacyModal(false);
+                        setPendingPrivacyFile(null);
+                    }}
+                    onConfirm={handleConfirmPrivacyBlur}
+                />
+            )}
         </div>
     );
 }

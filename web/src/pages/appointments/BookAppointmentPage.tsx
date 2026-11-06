@@ -26,6 +26,10 @@ import {
     evaluateSlotAndRecommendations,
     formatDateDisplay,
     formatTimeDisplay,
+    STANDARD_TIME_SLOTS,
+    getLocalTodayIso,
+    getMinBookableDate,
+    normalizeTime,
     type AvailabilityCheckResult,
     type SlotRecommendation
 } from '../../lib/recommender';
@@ -72,6 +76,22 @@ export default function BookAppointmentPage() {
         appointment_date: locationState?.date || '',
         appointment_time: locationState?.time || '',
         notes: ''
+    });
+
+    const localToday = getLocalTodayIso();
+    const minBookableDate = getMinBookableDate();
+    const isToday = formData.appointment_date === localToday;
+    const isPastDate = Boolean(formData.appointment_date) && formData.appointment_date < minBookableDate;
+    const now = new Date();
+    const currentLocalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const isPastTimeToday = isToday && Boolean(formData.appointment_time) && normalizeTime(formData.appointment_time) <= currentLocalTime;
+
+    // Available slots: hide/disable past time slots when date is today
+    const visibleSlots = STANDARD_TIME_SLOTS.filter((slot) => {
+        if (isToday) {
+            return slot > currentLocalTime;
+        }
+        return true;
     });
 
     // The name of the service the parishioner wants, so it survives a switch to another parish's own list
@@ -519,12 +539,26 @@ export default function BookAppointmentPage() {
                                     id="appointment_date"
                                     type="date"
                                     required
-                                    min={new Date().toISOString().split('T')[0]}
+                                    min={minBookableDate}
                                     value={formData.appointment_date}
-                                    onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
+                                    onChange={(e) => {
+                                        const nextDate = e.target.value;
+                                        let nextTime = formData.appointment_time;
+                                        if (nextDate === localToday && nextTime && normalizeTime(nextTime) <= currentLocalTime) {
+                                            nextTime = '';
+                                        }
+                                        setFormData((prev) => ({ ...prev, appointment_date: nextDate, appointment_time: nextTime }));
+                                        setError('');
+                                    }}
+                                    aria-invalid={isPastDate ? true : undefined}
                                     className="input w-full"
                                 />
                             </div>
+                            {isPastDate && (
+                                <p role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                                    Appointments must be booked at least 1 day in advance.
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -534,10 +568,15 @@ export default function BookAppointmentPage() {
                             <div className="relative">
                                 <input
                                     id="appointment_time"
+                                    name="appointment_time"
                                     type="time"
                                     required
+                                    min={isToday ? currentLocalTime : undefined}
                                     value={formData.appointment_time}
-                                    onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData((prev) => ({ ...prev, appointment_time: e.target.value }));
+                                        setError('');
+                                    }}
                                     className="input w-full"
                                 />
                                 {checkingAvailability && (
@@ -547,6 +586,55 @@ export default function BookAppointmentPage() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Smart Available Time-Slot Selector */}
+                            <div className="mt-2.5 space-y-1.5">
+                                <div className="flex items-center justify-between text-xs text-muted">
+                                    <span className="font-medium text-foreground">Standard Available Slots:</span>
+                                    {isToday && (
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium text-[11px]">
+                                            Remaining future slots for today
+                                        </span>
+                                    )}
+                                </div>
+
+                                {!formData.appointment_date ? (
+                                    <p className="text-xs text-muted">Select a date above to choose a time slot.</p>
+                                ) : isToday && visibleSlots.length === 0 ? (
+                                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs">
+                                        No remaining slots available today. Please select tomorrow or a later date.
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Available time slots">
+                                        {visibleSlots.map((slot) => {
+                                            const isSelected = normalizeTime(formData.appointment_time) === slot;
+                                            return (
+                                                <button
+                                                    key={slot}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFormData((prev) => ({ ...prev, appointment_time: slot }));
+                                                        setError('');
+                                                    }}
+                                                    className={`py-1.5 px-2 text-xs font-semibold rounded-lg border transition-all text-center cursor-pointer ${
+                                                        isSelected
+                                                            ? 'bg-primary text-white border-primary shadow-xs'
+                                                            : 'bg-white hover:bg-secondary-50 text-foreground border-border hover:border-primary/40'
+                                                    }`}
+                                                >
+                                                    {formatTimeDisplay(slot)}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {isPastTimeToday && (
+                                <p role="alert" className="mt-1.5 text-xs font-medium text-destructive">
+                                    Appointment time must be in the future.
+                                </p>
+                            )}
                         </div>
                     </div>
 

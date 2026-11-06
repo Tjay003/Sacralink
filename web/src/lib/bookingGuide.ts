@@ -5,7 +5,7 @@ import {
   validateFutureDate,
   type BookingRequirementLike,
 } from './supabase/appointments';
-import { formatDateDisplay, formatTimeDisplay, STANDARD_TIME_SLOTS } from './recommender';
+import { formatDateDisplay, formatTimeDisplay, STANDARD_TIME_SLOTS, getMinBookableDate } from './recommender';
 
 export type BookingStep = 'service' | 'date' | 'time' | 'priest' | 'documents' | 'notes' | 'summary' | 'confirmed';
 
@@ -104,9 +104,16 @@ export function getFutureDateCandidates(count = 7): Array<{ date: string; label:
  */
 export async function getOpenTimeSlots(
   churchId: string,
-  dateStr: string
+  dateStr: string,
+  now: Date = new Date()
 ): Promise<Array<{ time: string; label: string }>> {
   if (!churchId || !dateStr) return [];
+
+  const minDate = getMinBookableDate(now);
+  // Bookings must be at least 1 day in advance
+  if (dateStr < minDate) {
+    return [];
+  }
 
   const slotResults = await Promise.all(
     STANDARD_TIME_SLOTS.map(async (slot) => {
@@ -323,7 +330,7 @@ export async function validateProposedDate(
   if (!futureCheck.ok) {
     return {
       valid: false,
-      error: futureCheck.error || 'The proposed date must be in the future.',
+      error: futureCheck.error || 'Appointments must be booked at least 1 day in advance.',
     };
   }
 
@@ -354,6 +361,16 @@ export async function validateProposedTime(
     return {
       valid: false,
       error: 'Invalid time format.',
+    };
+  }
+
+  const futureCheck = validateFutureDate(dateStr, normalized);
+  if (!futureCheck.ok) {
+    return {
+      valid: false,
+      error: futureCheck.error || 'Appointments must be booked at least 1 day in advance.',
+      normalizedTime: normalized,
+      formattedTime: formatTimeDisplay(normalized),
     };
   }
 

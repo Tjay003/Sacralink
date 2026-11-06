@@ -4,6 +4,7 @@ import Modal from '../ui/Modal';
 import CelebrantPicker from './CelebrantPicker';
 import AppointmentChangeHistory from './AppointmentChangeHistory';
 import { normalizeTime } from '../../lib/liturgicalScheduler';
+import { getLocalTodayIso } from '../../lib/recommender';
 import {
     cancelAppointment,
     changeAppointmentCelebrant,
@@ -145,7 +146,7 @@ const EDIT_ACTION_HANDLERS: Partial<
 
 /** Today as YYYY-MM-DD in UTC, the same notion of "today" the reschedule_appointment function uses. */
 function todayIso(): string {
-    return new Date().toISOString().split('T')[0];
+    return getLocalTodayIso();
 }
 
 /** The same action reads "Assign celebrant" when nobody is assigned yet and "Change celebrant" otherwise. */
@@ -211,7 +212,11 @@ export default function EditAppointmentModal({ isOpen, onClose, appointment, onS
 
     const today = todayIso();
     const isPastDate = Boolean(newDate) && newDate < today;
-    const hasValidSlot = Boolean(newDate) && Boolean(newTime) && !isPastDate;
+    const now = new Date();
+    const currentLocalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const isPastTime = Boolean(newDate) && Boolean(newTime) && newDate === today && normalizeTime(newTime) <= currentLocalTime;
+    const isPastSlot = isPastDate || isPastTime;
+    const hasValidSlot = Boolean(newDate) && Boolean(newTime) && !isPastSlot;
 
     const handleSave = async () => {
         if (selectedAction.id === 'reschedule') {
@@ -221,6 +226,10 @@ export default function EditAppointmentModal({ isOpen, onClose, appointment, onS
             }
             if (isPastDate) {
                 setSubmitError('Past dates cannot be selected. Please choose today or a later date.');
+                return;
+            }
+            if (isPastTime) {
+                setSubmitError('Appointment time must be in the future. Past times cannot be selected for today.');
                 return;
             }
             const sameSlot =
@@ -365,12 +374,14 @@ export default function EditAppointmentModal({ isOpen, onClose, appointment, onS
                                 <input
                                     id="edit-appointment-time"
                                     type="time"
+                                    min={newDate === today ? currentLocalTime : undefined}
                                     value={newTime}
                                     onChange={(e) => {
                                         setNewTime(e.target.value);
                                         setSubmitError(null);
                                     }}
                                     disabled={isSubmitting}
+                                    aria-invalid={isPastTime ? true : undefined}
                                     className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                                 />
                             </div>
@@ -378,6 +389,11 @@ export default function EditAppointmentModal({ isOpen, onClose, appointment, onS
                         {isPastDate && (
                             <p role="alert" className="text-xs font-medium text-destructive">
                                 Past dates cannot be selected. Choose today or a later date.
+                            </p>
+                        )}
+                        {isPastTime && (
+                            <p role="alert" className="text-xs font-medium text-destructive">
+                                Appointment time must be in the future. Choose a future time for today.
                             </p>
                         )}
                         {hasValidSlot && (

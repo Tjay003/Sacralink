@@ -121,9 +121,26 @@ export function formatDateDisplay(dateStr: string): string {
 }
 
 /**
- * Helper to add days to a YYYY-MM-DD date string.
+ * Returns today's date formatted as YYYY-MM-DD in the local client timezone.
+ * Unlike Date.toISOString() which returns UTC date, this preserves the user's local day.
  */
-function addDays(dateStr: string, daysToAdd: number): string {
+export function getLocalTodayIso(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns the earliest bookable date (YYYY-MM-DD) in the local client timezone.
+ * Enforces that appointments must be booked at least 1 day in advance (tomorrow).
+ */
+export function getMinBookableDate(now: Date = new Date()): string {
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return getLocalTodayIso(tomorrow);
+}
+
+export function addDays(dateStr: string, daysToAdd: number): string {
   const [year, month, day] = dateStr.split('-').map(Number);
   const d = new Date(year, month - 1, day);
   d.setDate(d.getDate() + daysToAdd);
@@ -247,17 +264,38 @@ async function firstOpenSlot(
 }
 
 /** Later standard slots on the requested date, then every standard slot on the following days. */
-function upcomingCandidates(requestedDate: string, normReqTime: string): SlotCandidate[] {
-  const candidates: SlotCandidate[] = STANDARD_TIME_SLOTS.filter((slot) => slot > normReqTime).map((slot) => ({
-    date: requestedDate,
-    time: slot,
-  }));
+export function upcomingCandidates(
+  requestedDate: string,
+  normReqTime: string,
+  now: Date = new Date()
+): SlotCandidate[] {
+  const minDate = getMinBookableDate(now);
+  const candidates: SlotCandidate[] = [];
+
+  // Start candidate search from minDate (tomorrow) or requestedDate if requestedDate >= minDate
+  const startDate = requestedDate >= minDate ? requestedDate : minDate;
+
+  // On the start date:
+  if (startDate === requestedDate) {
+    for (const slot of STANDARD_TIME_SLOTS) {
+      if (slot > normReqTime) {
+        candidates.push({ date: startDate, time: slot });
+      }
+    }
+  } else {
+    for (const slot of STANDARD_TIME_SLOTS) {
+      candidates.push({ date: startDate, time: slot });
+    }
+  }
+
+  // Next days up to SAME_CHURCH_SCAN_DAYS
   for (let dayOffset = 1; dayOffset <= SAME_CHURCH_SCAN_DAYS; dayOffset++) {
-    const date = addDays(requestedDate, dayOffset);
+    const date = addDays(startDate, dayOffset);
     for (const slot of STANDARD_TIME_SLOTS) {
       candidates.push({ date, time: slot });
     }
   }
+
   return candidates;
 }
 
@@ -343,11 +381,14 @@ async function nearestAlternativeParish(
 
   const normReqTime = normalizeTime(requestedTime);
 
-  // The requested time first, then the standard slots, on the requested date
+  const minDate = getMinBookableDate();
+  const effectiveDate = requestedDate >= minDate ? requestedDate : minDate;
+
+  // The requested time first, then the standard slots, on the effective date
   const sameDayCandidates: SlotCandidate[] = [
     normReqTime,
     ...STANDARD_TIME_SLOTS.filter((slot) => slot !== normReqTime),
-  ].map((time) => ({ date: requestedDate, time }));
+  ].map((time) => ({ date: effectiveDate, time }));
 
   // Check the closest churches for availability on requested date
   for (const { church, distanceKm } of candidateList.slice(0, NEARBY_CHURCH_LIMIT)) {

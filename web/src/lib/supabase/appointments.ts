@@ -2,6 +2,8 @@ import type { PostgrestError, RealtimePostgresChangesFilter } from '@supabase/su
 import { supabase } from '../supabase';
 import { notifyAdminsOfNewAppointment } from './notifications';
 import { uploadDocument } from './documents';
+import { getLocalTodayIso, getMinBookableDate, normalizeTime } from '../recommender';
+export { getLocalTodayIso, getMinBookableDate };
 import type { Appointment as DatabaseAppointment } from '../../types/database';
 
 export type AppointmentStatus = 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
@@ -882,7 +884,9 @@ export function subscribeToAppointments(
 export const SLOT_UNAVAILABLE_ERROR_MESSAGE =
     'The selected slot is unavailable. Please select an alternative slot or change the date and time.';
 
-export const PAST_DATE_ERROR_MESSAGE = 'Appointment date must be today or in the future.';
+export const ADVANCE_BOOKING_ERROR_MESSAGE = 'Appointments must be booked at least 1 day in advance.';
+export const PAST_DATE_ERROR_MESSAGE = ADVANCE_BOOKING_ERROR_MESSAGE;
+export const PAST_TIME_ERROR_MESSAGE = 'Appointment time must be in the future.';
 
 export interface BookingRequirementLike {
     id: string;
@@ -1000,8 +1004,9 @@ export function validateSlotAvailability(
  */
 export function validateFutureDate(
     dateStr: string | null | undefined,
-    _timeStr?: string | null | undefined,
-    now: Date = new Date()
+    timeStr?: string | null | undefined,
+    now: Date = new Date(),
+    options?: { allowSameDay?: boolean }
 ): BookingValidationResult {
     if (!dateStr || !dateStr.trim()) {
         const error = 'Please select an appointment date.';
@@ -1016,14 +1021,48 @@ export function validateFutureDate(
     }
 
     const [year, month, day] = parts;
-    const dateEndOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
-    if (dateEndOfDay.getTime() < now.getTime()) {
-        return {
-            ok: false,
-            valid: false,
-            error: PAST_DATE_ERROR_MESSAGE,
-            problems: [PAST_DATE_ERROR_MESSAGE],
-        };
+    const localToday = getLocalTodayIso(now);
+    const minBookableDate = getMinBookableDate(now);
+
+    // Unless same-day bookings are explicitly allowed, require at least 1 day in advance
+    if (!options?.allowSameDay) {
+        if (cleanDate < minBookableDate) {
+            return {
+                ok: false,
+                valid: false,
+                error: ADVANCE_BOOKING_ERROR_MESSAGE,
+                problems: [ADVANCE_BOOKING_ERROR_MESSAGE],
+            };
+        }
+    } else {
+        const dateEndOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+        if (dateEndOfDay.getTime() < now.getTime()) {
+            return {
+                ok: false,
+                valid: false,
+                error: 'Appointment date must be today or in the future.',
+                problems: ['Appointment date must be today or in the future.'],
+            };
+        }
+    }
+
+    // When dateStr equals today's local date, check timeStr. If timeStr is earlier than now, reject.
+    if (cleanDate === localToday && timeStr && timeStr.trim()) {
+        const normalized = normalizeTime(timeStr);
+        const [hourStr, minStr] = normalized.split(':');
+        const hour = parseInt(hourStr, 10);
+        const minute = parseInt(minStr, 10);
+        if (!isNaN(hour) && !isNaN(minute)) {
+            const slotDateTime = new Date(year, month - 1, day, hour, minute, 0, 0);
+            if (slotDateTime.getTime() <= now.getTime()) {
+                return {
+                    ok: false,
+                    valid: false,
+                    error: PAST_TIME_ERROR_MESSAGE,
+                    problems: [PAST_TIME_ERROR_MESSAGE],
+                };
+            }
+        }
     }
 
     return { ok: true, valid: true, problems: [] };

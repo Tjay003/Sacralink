@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { seedDefaultRequirements } from '../../lib/supabase/requirements';
-import { Building2, ArrowLeft } from 'lucide-react';
+import { Building2, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
 import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
+import PanoramaPrivacyModal from '../../components/churches/PanoramaPrivacyModal';
 
 /**
  * AddChurchPage - Form to create a new church
@@ -40,19 +41,27 @@ export default function AddChurchPage() {
         facebook_url: '',
     });
     const [uploading, setUploading] = useState(false);
+    const [pendingPrivacyFile, setPendingPrivacyFile] = useState<File | null>(null);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     // Redirect if not admin
     if (profile && profile.role !== 'super_admin') {
         return <Navigate to="/churches" replace />;
     }
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) {
             return;
         }
 
         const file = e.target.files[0];
-        const fileExt = file.name.split('.').pop();
+        setPendingPrivacyFile(file);
+        setShowPrivacyModal(true);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleConfirmPrivacyBlur = async (processedFile: File) => {
+        const fileExt = processedFile.name.split('.').pop() || 'jpg';
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `panoramas/${fileName}`;
 
@@ -62,7 +71,7 @@ export default function AddChurchPage() {
         try {
             const { error: uploadError } = await supabase.storage
                 .from('church-images')
-                .upload(filePath, file, {
+                .upload(filePath, processedFile, {
                     cacheControl: '3600',
                     upsert: false,
                 });
@@ -78,12 +87,15 @@ export default function AddChurchPage() {
             const { data: { publicUrl } } = supabase.storage
                 .from('church-images')
                 .getPublicUrl(filePath);
-            setFormData({ ...formData, panorama_url: publicUrl });
+            setFormData(prev => ({ ...prev, panorama_url: publicUrl }));
             setUploading(false);
         } catch (err) {
             console.error('Unexpected upload error:', err);
             setError('Failed to upload image');
             setUploading(false);
+        } finally {
+            setPendingPrivacyFile(null);
+            setShowPrivacyModal(false);
         }
     };
 
@@ -413,9 +425,14 @@ export default function AddChurchPage() {
 
                     {/* 360° Panorama Image Upload */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
-                            360° Panorama Image
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-medium">
+                                360° Panorama Image
+                            </label>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                <ShieldCheck className="w-3 h-3" /> Auto Face & People Blur
+                            </span>
+                        </div>
                         <div className="flex items-center gap-4">
                             <input
                                 type="file"
@@ -427,10 +444,10 @@ export default function AddChurchPage() {
                         </div>
                         {uploading && <p className="text-xs text-primary mt-2">Uploading image...</p>}
                         {formData.panorama_url && !uploading && (
-                            <p className="text-xs text-green-600 mt-2">✓ Image uploaded successfully</p>
+                            <p className="text-xs text-green-600 mt-2">✓ Image uploaded with privacy protection</p>
                         )}
                         <p className="text-xs text-muted mt-1">
-                            Upload an equirectangular image for the 360° tour.
+                            Upload an equirectangular image for the 360° tour. Parishioners and visitors will be automatically detected and blurred.
                         </p>
                     </div>
 
@@ -454,6 +471,20 @@ export default function AddChurchPage() {
                     </div>
                 </form>
             </div>
+
+            {/* Privacy Blur Modal */}
+            {showPrivacyModal && pendingPrivacyFile && (
+                <PanoramaPrivacyModal
+                    isOpen={showPrivacyModal}
+                    file={pendingPrivacyFile}
+                    churchName={formData.name || 'New Parish'}
+                    onClose={() => {
+                        setShowPrivacyModal(false);
+                        setPendingPrivacyFile(null);
+                    }}
+                    onConfirm={handleConfirmPrivacyBlur}
+                />
+            )}
         </div>
     );
 }
