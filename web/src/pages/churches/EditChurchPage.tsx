@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import GalleryUploader from '../../components/churches/GalleryUploader';
 import ChurchLocationPicker, { isWithinSjdmBounds } from '../../components/churches/ChurchLocationPicker';
+import PanoramaPrivacyModal from '../../components/churches/PanoramaPrivacyModal';
 import ServicesAndDocumentsManager from '../../components/churches/ServicesAndDocumentsManager';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Tables } from '../../types/database';
@@ -86,6 +87,8 @@ export default function EditChurchPage() {
     const [showConfirmQrModal, setShowConfirmQrModal] = useState(false);
     const [pendingQrChanges, setPendingQrChanges] = useState<QrChangeItem[]>([]);
     const [uploading, setUploading] = useState(false);
+    const [pendingPrivacyFile, setPendingPrivacyFile] = useState<File | null>(null);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const [galleryImages, setGalleryImages] = useState<Tables<'church_images'>[]>([]);
 
     const panoramaInputRef = useRef<HTMLInputElement>(null);
@@ -174,10 +177,16 @@ export default function EditChurchPage() {
         return <Navigate to={profile.role === 'volunteer' && id ? `/churches/${id}` : '/churches'} replace />;
     }
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
-        const fileExt = file.name.split('.').pop();
+        setPendingPrivacyFile(file);
+        setShowPrivacyModal(true);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleConfirmPrivacyBlur = async (processedFile: File) => {
+        const fileExt = processedFile.name.split('.').pop() || 'jpg';
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `panoramas/${fileName}`;
         setUploading(true);
@@ -185,7 +194,7 @@ export default function EditChurchPage() {
         try {
             const { error: uploadError } = await supabase.storage
                 .from('church-images')
-                .upload(filePath, file);
+                .upload(filePath, processedFile);
             if (uploadError) throw uploadError;
             const { data } = supabase.storage.from('church-images').getPublicUrl(filePath);
             setFormData(prev => ({ ...prev, panorama_url: data.publicUrl }));
@@ -194,6 +203,8 @@ export default function EditChurchPage() {
             setError('Failed to upload image: ' + message);
         } finally {
             setUploading(false);
+            setPendingPrivacyFile(null);
+            setShowPrivacyModal(false);
         }
     };
 
@@ -1418,6 +1429,19 @@ export default function EditChurchPage() {
                     churchName={formData.name || church?.name}
                     changes={pendingQrChanges}
                     onConfirm={executeSaveChurch}
+                />
+            )}
+            {/* Privacy Blur Modal for 360 Panorama */}
+            {showPrivacyModal && pendingPrivacyFile && (
+                <PanoramaPrivacyModal
+                    isOpen={showPrivacyModal}
+                    file={pendingPrivacyFile}
+                    churchName={formData.name || 'Parish Sanctuary'}
+                    onClose={() => {
+                        setShowPrivacyModal(false);
+                        setPendingPrivacyFile(null);
+                    }}
+                    onConfirm={handleConfirmPrivacyBlur}
                 />
             )}
         </form>
