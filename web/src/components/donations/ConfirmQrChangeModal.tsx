@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     ShieldAlert,
     ShieldCheck,
+    CheckCircle2,
     Mail,
     ArrowRight,
     QrCode,
@@ -58,6 +59,7 @@ export default function ConfirmQrChangeModal({
     const [sendingCode, setSendingCode] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -135,6 +137,7 @@ export default function ConfirmQrChangeModal({
             setError(null);
             setMockOtp(null);
             setSubmitting(false);
+            setIsSuccess(false);
             void requestVerificationCode();
         }
     }, [isOpen, churchId]);
@@ -235,7 +238,7 @@ export default function ConfirmQrChangeModal({
 
             // Trigger the actual save/commit callback
             await onConfirm();
-            onClose();
+            setIsSuccess(true);
         } catch (err: unknown) {
             console.error('Error confirming QR change:', err);
             const msg = err instanceof Error ? err.message : 'Failed to authorize and save changes.';
@@ -250,25 +253,105 @@ export default function ConfirmQrChangeModal({
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={() => {
+                setIsSuccess(false);
+                onClose();
+            }}
             size="lg"
             title={
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-primary">
-                        <Mail className="w-5 h-5" />
+                isSuccess ? (
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0 text-emerald-600">
+                            <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-base sm:text-lg font-bold text-foreground">
+                                Offertory Updates Verified
+                            </h2>
+                            <p className="text-xs text-muted">
+                                Security reference code authenticated successfully
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-base sm:text-lg font-bold text-foreground">
-                            Confirm Offertory QR Update
-                        </h2>
-                        <p className="text-xs text-muted">
-                            Security email verification is required to alter parish offertory payment channels
-                        </p>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-primary">
+                            <Mail className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-base sm:text-lg font-bold text-foreground">
+                                Confirm Offertory QR Update
+                            </h2>
+                            <p className="text-xs text-muted">
+                                Security email verification is required to alter parish offertory payment channels
+                            </p>
+                        </div>
                     </div>
-                </div>
+                )
             }
         >
-            <form onSubmit={handleVerifyAndConfirm} className="space-y-5">
+            {isSuccess ? (
+                <div className="py-6 px-1 text-center space-y-6">
+                    <div className="relative w-16 h-16 mx-auto">
+                        <div className="absolute inset-0 rounded-full bg-emerald-200 animate-ping opacity-25" />
+                        <div className="relative w-16 h-16 rounded-2xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-center shadow-xs">
+                            <CheckCircle2 className="w-9 h-9 text-emerald-600" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wide">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Reference {referenceCode} Verified
+                        </div>
+                        <h3 className="text-xl font-bold text-foreground">
+                            QR Code Successfully Changed!
+                        </h3>
+                        <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
+                            Your parish offertory payment channels and QR codes have been authenticated and securely updated. Parishioners will now scan the new QR.
+                        </p>
+                    </div>
+
+                    {/* Breakdown of applied changes */}
+                    <div className="max-w-md mx-auto p-4 rounded-xl bg-secondary-50/80 border border-border text-left space-y-2.5">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-secondary-600">
+                            Verified &amp; Applied Updates
+                        </p>
+                        <div className="space-y-2">
+                            {changes.map((c, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs bg-white p-2.5 rounded-lg border border-border/60">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                        <span className="font-semibold text-foreground">{c.label}</span>
+                                    </div>
+                                    <span
+                                        className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                            c.changeType === 'removed'
+                                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        }`}
+                                    >
+                                        {c.changeType === 'removed' ? 'Removed' : 'Updated ✓'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="pt-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setIsSuccess(false);
+                                onClose();
+                            }}
+                            className="w-full sm:w-auto min-w-[160px] px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/95 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                        >
+                            Done &amp; Return
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <form onSubmit={handleVerifyAndConfirm} className="space-y-5">
                 {/* Channel & Church Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
                     {uniqueChannels.map((ch) => (
@@ -581,6 +664,7 @@ export default function ConfirmQrChangeModal({
                     </button>
                 </div>
             </form>
+            )}
         </Modal>
     );
 }

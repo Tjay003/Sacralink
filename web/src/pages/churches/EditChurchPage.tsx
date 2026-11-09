@@ -350,9 +350,11 @@ export default function EditChurchPage() {
             setIsMayaQrRemoved(false);
 
             setSuccess('Parish details updated successfully!');
-            setTimeout(() => {
-                navigate(`/churches/${id}`);
-            }, 1000);
+            if (!showConfirmQrModal) {
+                setTimeout(() => {
+                    navigate(`/churches/${id}`);
+                }, 1000);
+            }
         } catch (err: unknown) {
             console.error('Unexpected error:', err);
             const msg = err instanceof Error ? err.message : 'Failed to update church';
@@ -1420,11 +1422,14 @@ export default function EditChurchPage() {
                 </div>
             </div>
 
-            {/* Password Confirmation Modal for QR/Payment Changes */}
+            {/* Security Confirmation Modal for QR/Payment Changes */}
             {id && (
                 <ConfirmQrChangeModal
                     isOpen={showConfirmQrModal}
-                    onClose={() => setShowConfirmQrModal(false)}
+                    onClose={() => {
+                        setShowConfirmQrModal(false);
+                        navigate(`/churches/${id}`);
+                    }}
                     churchId={id}
                     churchName={formData.name || church?.name}
                     changes={pendingQrChanges}

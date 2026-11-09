@@ -20,7 +20,7 @@ export interface PaymentChannelModalProps {
     churchName?: string;
     currentNumber?: string | null;
     currentQrUrl?: string | null;
-    onSuccess: () => void;
+    onSuccess: (channel?: 'gcash' | 'maya') => void;
 }
 
 export default function PaymentChannelModal({
@@ -287,8 +287,8 @@ export default function PaymentChannelModal({
                 URL.revokeObjectURL(previewUrl);
             }
 
-            onSuccess();
-            onClose();
+            onSuccess(channel);
+            // Modal close is deferred to ConfirmQrChangeModal's success screen
         } finally {
             setSaving(false);
         }
@@ -480,10 +480,13 @@ export default function PaymentChannelModal({
                 </form>
             </Modal>
 
-            {/* Password Confirmation Modal for QR/Payment Changes */}
+            {/* Security Confirmation Modal for QR/Payment Changes */}
             <ConfirmQrChangeModal
                 isOpen={showConfirmModal}
-                onClose={() => setShowConfirmModal(false)}
+                onClose={() => {
+                    setShowConfirmModal(false);
+                    onClose();
+                }}
                 churchId={churchId}
                 churchName={churchName}
                 changes={pendingChanges}

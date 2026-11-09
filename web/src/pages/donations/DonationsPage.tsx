@@ -90,6 +90,10 @@ export default function DonationsPage() {
     const [rejectingDonation, setRejectingDonation] = useState<Donation | null>(null);
     const [rejectionReason, setRejectionReason] = useState('');
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+    const [lastUpdatedChannel, setLastUpdatedChannel] = useState<{
+        channel: 'gcash' | 'maya';
+        timestamp: number;
+    } | null>(null);
 
     // Pagination
     const [page, setPage] = useState(1);
@@ -1020,6 +1024,37 @@ export default function DonationsPage() {
                             </p>
                         </div>
 
+                        {/* Side Note: QR has been updated banner */}
+                        {lastUpdatedChannel && (
+                            <div className="mb-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start justify-between gap-3 shadow-2xs animate-fadeIn">
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                    <div className="w-6 h-6 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="font-bold text-emerald-900">
+                                                {lastUpdatedChannel.channel === 'gcash' ? 'GCash' : 'Maya'} QR Code Updated
+                                            </span>
+                                            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-200 text-emerald-900">
+                                                Live &amp; Verified ✓
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                                            Security OTP confirmed. Your new offertory QR code and mobile number are now active for parishioners.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setLastUpdatedChannel(null)}
+                                    className="text-emerald-700 hover:text-emerald-900 font-semibold text-xs shrink-0 cursor-pointer p-0.5"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             {/* Toggle: Accept cashless donations */}
                             <div className="flex items-center justify-between p-3.5 rounded-xl bg-secondary-50/50 border border-border/80">
@@ -1052,9 +1087,16 @@ export default function DonationsPage() {
                                         <QrCode className="w-4.5 h-4.5" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                                            GCash
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                                                GCash
+                                            </p>
+                                            {lastUpdatedChannel?.channel === 'gcash' && (
+                                                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                    ✓ Changed Just Now
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-[11px] text-secondary-500 truncate mt-0.5">
                                             {church?.gcash_number || 'Not configured'}
                                             {church?.gcash_qr_url ? ' · QR uploaded ✓' : ' · No QR code'}
@@ -1077,9 +1119,16 @@ export default function DonationsPage() {
                                         <Smartphone className="w-4.5 h-4.5" />
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                                            Maya
-                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                                                Maya
+                                            </p>
+                                            {lastUpdatedChannel?.channel === 'maya' && (
+                                                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                                    ✓ Changed Just Now
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-[11px] text-secondary-500 truncate mt-0.5">
                                             {church?.maya_number || 'Not set up yet'}
                                             {church?.maya_qr_url ? ' · QR uploaded ✓' : ''}
@@ -1459,7 +1508,15 @@ export default function DonationsPage() {
                             ? (church?.gcash_qr_url || church?.donation_qr_url)
                             : church?.maya_qr_url
                     }
-                    onSuccess={() => {
+                    onSuccess={(ch) => {
+                        const targetChannel = ch || activePaymentChannel;
+                        setLastUpdatedChannel({
+                            channel: targetChannel,
+                            timestamp: Date.now(),
+                        });
+                        toast.success(
+                            `${targetChannel === 'gcash' ? 'GCash' : 'Maya'} Offertory QR code updated successfully!`
+                        );
                         void refetchChurch();
                     }}
                 />
