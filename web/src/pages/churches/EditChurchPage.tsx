@@ -233,13 +233,13 @@ export default function EditChurchPage() {
             setPendingGcashFile(file);
             setGcashPreviewUrl(preview);
             setIsGcashQrRemoved(false);
-            setQrSuccess('✓ New GCash QR selected. Click "Save changes" below to confirm with password.');
+            setQrSuccess('✓ New GCash QR selected. Click "Save changes" below to confirm via email security code.');
         } else {
             if (mayaPreviewUrl) URL.revokeObjectURL(mayaPreviewUrl);
             setPendingMayaFile(file);
             setMayaPreviewUrl(preview);
             setIsMayaQrRemoved(false);
-            setQrSuccess('✓ New Maya QR selected. Click "Save changes" below to confirm with password.');
+            setQrSuccess('✓ New Maya QR selected. Click "Save changes" below to confirm via email security code.');
         }
     };
 
@@ -249,7 +249,7 @@ export default function EditChurchPage() {
         setGcashPreviewUrl('');
         setIsGcashQrRemoved(true);
         setFormData(prev => ({ ...prev, gcash_qr_url: '' }));
-        setQrSuccess('✓ GCash QR marked for removal. Click "Save changes" below to confirm with password.');
+        setQrSuccess('✓ GCash QR marked for removal. Click "Save changes" below to confirm via email security code.');
     };
 
     const handleRemoveMayaQr = () => {
@@ -258,7 +258,7 @@ export default function EditChurchPage() {
         setMayaPreviewUrl('');
         setIsMayaQrRemoved(true);
         setFormData(prev => ({ ...prev, maya_qr_url: '' }));
-        setQrSuccess('✓ Maya QR marked for removal. Click "Save changes" below to confirm with password.');
+        setQrSuccess('✓ Maya QR marked for removal. Click "Save changes" below to confirm via email security code.');
     };
 
     const uploadQrToStorage = async (file: File, channel: 'gcash' | 'maya'): Promise<string> => {
@@ -516,7 +516,7 @@ export default function EditChurchPage() {
             return;
         }
 
-        // Proceed without password confirmation for routine non-payment updates
+        // Proceed without OTP confirmation for routine non-payment updates
         await executeSaveChurch();
     };
 
@@ -988,7 +988,7 @@ export default function EditChurchPage() {
                                                 </label>
                                                 <p className="text-[10px] text-muted truncate">PNG, JPG, WebP up to 5MB</p>
                                                 {pendingGcashFile && (
-                                                    <p className="text-[10px] text-blue-600 font-semibold truncate">✓ New QR staged (requires password)</p>
+                                                    <p className="text-[10px] text-blue-600 font-semibold truncate">✓ New QR staged (requires email code)</p>
                                                 )}
                                                 {displayedGcashQr && (
                                                     <button
@@ -1053,7 +1053,7 @@ export default function EditChurchPage() {
                                                 </label>
                                                 <p className="text-[10px] text-muted truncate">PNG, JPG, WebP up to 5MB</p>
                                                 {pendingMayaFile && (
-                                                    <p className="text-[10px] text-emerald-600 font-semibold truncate">✓ New QR staged (requires password)</p>
+                                                    <p className="text-[10px] text-emerald-600 font-semibold truncate">✓ New QR staged (requires email code)</p>
                                                 )}
                                                 {displayedMayaQr && (
                                                     <button

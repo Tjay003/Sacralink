@@ -217,7 +217,7 @@ export default function PaymentChannelModal({
         setShowConfirmModal(true);
     };
 
-    // Executed ONLY after successful password verification in ConfirmQrChangeModal
+    // Executed ONLY after successful OTP verification in ConfirmQrChangeModal
     const handleExecuteSave = async () => {
         setSaving(true);
         setError(null);
