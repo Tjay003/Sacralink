@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ShieldAlert,
-    Lock,
-    Eye,
-    EyeOff,
+    ShieldCheck,
+    Mail,
     ArrowRight,
     QrCode,
     Smartphone,
     AlertCircle,
     Loader2,
+    RefreshCw,
+    Clock,
+    Sparkles,
 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { supabase } from '../../lib/supabase';
@@ -38,7 +40,7 @@ export interface ConfirmQrChangeModalProps {
  *
  * Mandatory security confirmation modal before changing or removing
  * offertory payment QR codes or mobile numbers.
- * Re-authenticates the church administrator live with their password.
+ * Dispatches a 6-digit email OTP with visual reference number matching.
  */
 export default function ConfirmQrChangeModal({
     isOpen,
@@ -48,29 +50,167 @@ export default function ConfirmQrChangeModal({
     changes,
     onConfirm,
 }: ConfirmQrChangeModalProps) {
-    const [password, setPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
+    const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
+    const [referenceCode, setReferenceCode] = useState<string | null>(null);
+    const [expiresAt, setExpiresAt] = useState<string | null>(null);
+    const [adminEmail, setAdminEmail] = useState<string | null>(null);
+    const [mockOtp, setMockOtp] = useState<string | null>(null);
+    const [sendingCode, setSendingCode] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Reset state whenever modal opens or closes
-    useEffect(() => {
-        if (isOpen) {
-            setPassword('');
-            setShowPassword(false);
-            setSubmitting(false);
-            setError(null);
-        }
-    }, [isOpen]);
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     const isOnlyRemoval = changes.length > 0 && changes.every((c) => c.changeType === 'removed');
+    const uniqueChannels = Array.from(new Set(changes.map((c) => c.channel)));
 
+    // Request new OTP code from the edge function
+    const requestVerificationCode = async () => {
+        if (!churchId) return;
+
+        setSendingCode(true);
+        setError(null);
+        setDigits(['', '', '', '', '', '']);
+
+        try {
+            // Retrieve current user to know their email for the UI hint
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+            if (user?.email) {
+                setAdminEmail(user.email);
+            }
+
+            const channelString = uniqueChannels.join(' & ') || 'offertory';
+            const { data, error: fnError } = await supabase.functions.invoke('send-qr-otp', {
+                body: {
+                    churchId,
+                    channel: channelString,
+                    changes: changes.map((c) => ({
+                        channel: c.channel,
+                        field: c.field,
+                        label: c.label,
+                        changeType: c.changeType,
+                        oldValue: c.oldValue,
+                        newValue: c.newValue,
+                    })),
+                },
+            });
+
+            if (fnError) {
+                throw new Error(fnError.message || 'Failed to send security verification email.');
+            }
+
+            if (!data?.success) {
+                throw new Error(data?.error || 'Failed to dispatch verification code.');
+            }
+
+            setReferenceCode(data.referenceCode);
+            setExpiresAt(data.expiresAt);
+            if (data.mockOtp) {
+                setMockOtp(data.mockOtp);
+            }
+            setResendCooldown(60);
+
+            // Auto-focus first input field
+            setTimeout(() => {
+                inputRefs.current[0]?.focus();
+            }, 60);
+        } catch (err: unknown) {
+            console.error('Error requesting verification OTP:', err);
+            const msg = err instanceof Error ? err.message : 'Failed to send verification email.';
+            setError(msg);
+        } finally {
+            setSendingCode(false);
+        }
+    };
+
+    // Auto-send OTP code when modal opens
+    useEffect(() => {
+        if (isOpen && churchId) {
+            setDigits(['', '', '', '', '', '']);
+            setReferenceCode(null);
+            setExpiresAt(null);
+            setError(null);
+            setMockOtp(null);
+            setSubmitting(false);
+            void requestVerificationCode();
+        }
+    }, [isOpen, churchId]);
+
+    // Handle 60s cooldown timer
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = setInterval(() => {
+            setResendCooldown((prev) => Math.max(0, prev - 1));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [resendCooldown]);
+
+    // Digit change handler
+    const handleDigitChange = (index: number, val: string) => {
+        const cleaned = val.replace(/\D/g, '');
+        if (!cleaned) {
+            const next = [...digits];
+            next[index] = '';
+            setDigits(next);
+            return;
+        }
+
+        const digit = cleaned.slice(-1);
+        const next = [...digits];
+        next[index] = digit;
+        setDigits(next);
+
+        // Auto-advance to next input box
+        if (index < 5) {
+            inputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    // Keyboard backspace & arrow navigation
+    const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Backspace') {
+            if (!digits[index] && index > 0) {
+                inputRefs.current[index - 1]?.focus();
+            }
+        } else if (e.key === 'ArrowLeft' && index > 0) {
+            inputRefs.current[index - 1]?.focus();
+        } else if (e.key === 'ArrowRight' && index < 5) {
+            inputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    // Paste handler for 6-digit code
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        if (!pasteData) return;
+
+        const next = [...digits];
+        for (let i = 0; i < pasteData.length; i++) {
+            next[i] = pasteData[i];
+        }
+        setDigits(next);
+
+        const nextIndex = Math.min(pasteData.length, 5);
+        inputRefs.current[nextIndex]?.focus();
+    };
+
+    // Verify OTP and confirm QR changes
     const handleVerifyAndConfirm = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (submitting) return;
+        if (submitting || sendingCode) return;
 
-        if (!password.trim()) {
-            setError('Please enter your administrator password to proceed.');
+        const fullOtp = digits.join('').trim();
+        if (fullOtp.length !== 6) {
+            setError('Please enter the complete 6-digit verification code.');
+            return;
+        }
+
+        if (!referenceCode) {
+            setError('No security reference code found. Please resend a new code.');
             return;
         }
 
@@ -78,52 +218,22 @@ export default function ConfirmQrChangeModal({
         setError(null);
 
         try {
-            // 1. Retrieve the authenticated user session
-            const {
-                data: { user },
-                error: userError,
-            } = await supabase.auth.getUser();
-
-            if (userError || !user?.email) {
-                throw new Error('No authenticated user session found. Please refresh and log in again.');
-            }
-
-            // 2. Re-authenticate live with current password
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: user.email,
-                password: password.trim(),
+            // Verify OTP via Postgres security definer RPC
+            const { data, error: rpcError } = await (supabase.rpc as any)('verify_qr_otp', {
+                p_church_id: churchId,
+                p_reference_code: referenceCode,
+                p_otp: fullOtp,
             });
 
-            if (signInError) {
-                throw new Error('Incorrect password. Please verify your administrator credentials.');
+            if (rpcError) {
+                throw new Error(rpcError.message || 'Invalid verification code.');
             }
 
-            // 3. Log confirmation into activity_logs (non-fatal audit trail)
-            try {
-                await supabase.from('activity_logs').insert({
-                    user_id: user.id,
-                    church_id: churchId,
-                    action: 'confirm_offertory_qr_change',
-                    entity_type: 'churches',
-                    entity_id: churchId,
-                    metadata: {
-                        church_name: churchName || undefined,
-                        changes: changes.map((c) => ({
-                            channel: c.channel,
-                            field: c.field,
-                            label: c.label,
-                            changeType: c.changeType,
-                            oldValue: c.field === 'number' ? c.oldValue : c.oldValue ? 'configured' : 'none',
-                            newValue: c.field === 'number' ? c.newValue : c.newValue ? 'updated' : 'removed',
-                        })),
-                        verified_at: new Date().toISOString(),
-                    },
-                });
-            } catch (logErr) {
-                console.warn('Non-fatal: Failed to write QR change to activity_logs:', logErr);
+            if (!data) {
+                throw new Error('Verification failed. Please check the code and try again.');
             }
 
-            // 4. Trigger the actual save/commit callback
+            // Trigger the actual save/commit callback
             await onConfirm();
             onClose();
         } catch (err: unknown) {
@@ -135,6 +245,8 @@ export default function ConfirmQrChangeModal({
         }
     };
 
+    const isComplete = digits.every((d) => d.trim().length === 1);
+
     return (
         <Modal
             isOpen={isOpen}
@@ -142,27 +254,77 @@ export default function ConfirmQrChangeModal({
             size="lg"
             title={
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0 text-amber-600">
-                        <Lock className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0 text-primary">
+                        <Mail className="w-5 h-5" />
                     </div>
                     <div>
                         <h2 className="text-base sm:text-lg font-bold text-foreground">
                             Confirm Offertory QR Update
                         </h2>
                         <p className="text-xs text-muted">
-                            Security re-authentication is required to alter parish offertory payment channels
+                            Security email verification is required to alter parish offertory payment channels
                         </p>
                     </div>
                 </div>
             }
         >
             <form onSubmit={handleVerifyAndConfirm} className="space-y-5">
+                {/* Channel & Church Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {uniqueChannels.map((ch) => (
+                        <span
+                            key={ch}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                                ch === 'gcash'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                        >
+                            <Smartphone className="w-3.5 h-3.5" />
+                            <span>{ch === 'gcash' ? 'GCash Offertory' : 'Maya Offertory'}</span>
+                        </span>
+                    ))}
+                    {churchName && (
+                        <span className="text-xs text-muted font-medium truncate max-w-[240px]">
+                            &bull; {churchName}
+                        </span>
+                    )}
+                </div>
+
                 {/* Security Advisory Notice */}
                 <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
                     <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-600" />
                     <div className="leading-relaxed">
-                        <span className="font-semibold">Security Safeguard:</span> You are modifying parish offertory donation channels. To safeguard parish funds and prevent unauthorized changes, please verify your administrator password.
+                        <span className="font-semibold">Security Safeguard:</span> You are modifying parish offertory donation channels. To safeguard parish funds and prevent unauthorized changes, please verify the 6-digit security code sent to your email.
                     </div>
+                </div>
+
+                {/* Reference Match Banner */}
+                <div className="p-4 rounded-2xl bg-gradient-to-b from-blue-50/90 to-blue-50/40 border-2 border-blue-200/80 text-center space-y-1">
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Visual Security Reference</span>
+                    </div>
+                    <div className="py-1">
+                        {sendingCode ? (
+                            <div className="inline-flex items-center gap-2 text-sm text-primary font-medium">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Generating security reference...</span>
+                            </div>
+                        ) : (
+                            <div className="font-mono text-2xl sm:text-3xl font-black text-blue-950 tracking-widest selection:bg-primary/20">
+                                {referenceCode || 'REF-••••'}
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs text-blue-900/80 max-w-sm mx-auto leading-relaxed">
+                        Confirm that this matches the <strong className="text-blue-950">Reference Number</strong> in the email sent to <span className="font-medium text-blue-950">{adminEmail || 'your admin address'}</span> before entering the code.
+                    </p>
+                    {expiresAt && (
+                        <div className="pt-1 text-[11px] font-medium text-blue-700/70">
+                            Code valid until {new Date(expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (10 mins)
+                        </div>
+                    )}
                 </div>
 
                 {/* Error Banner */}
@@ -173,8 +335,75 @@ export default function ConfirmQrChangeModal({
                     </div>
                 )}
 
+                {/* 6-Digit Segmented OTP Input */}
+                <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-foreground uppercase tracking-wide">
+                            6-Digit Security Code <span className="text-red-500">*</span>
+                        </label>
+                        {resendCooldown > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted font-medium">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>Resend code in {resendCooldown}s</span>
+                            </span>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={requestVerificationCode}
+                                disabled={sendingCode || submitting}
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-600 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${sendingCode ? 'animate-spin' : ''}`} />
+                                <span>Resend code</span>
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 py-1">
+                        {digits.map((digit, idx) => (
+                            <input
+                                key={idx}
+                                ref={(el) => {
+                                    inputRefs.current[idx] = el;
+                                }}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={1}
+                                value={digit}
+                                onChange={(e) => handleDigitChange(idx, e.target.value)}
+                                onKeyDown={(e) => handleKeyDown(idx, e)}
+                                onPaste={handlePaste}
+                                disabled={submitting || sendingCode}
+                                className="w-11 h-13 sm:w-12 sm:h-14 text-center font-mono text-2xl font-black text-foreground bg-white border-2 border-border rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none disabled:bg-secondary-50 shadow-2xs"
+                                aria-label={`Digit ${idx + 1}`}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Dev / Mock Mode Helper */}
+                    {mockOtp && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 animate-in fade-in">
+                            <span className="flex items-center gap-1.5 font-medium">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Test / Mock Mode: Code is <strong>{mockOtp}</strong></span>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDigits(mockOtp.split(''));
+                                    inputRefs.current[5]?.focus();
+                                }}
+                                className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline ml-2 cursor-pointer"
+                            >
+                                Auto-fill
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {/* Changes Summary Section */}
-                <div className="space-y-3">
+                <div className="space-y-3 pt-1">
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
                         Pending Changes ({changes.length})
                     </h3>
@@ -322,37 +551,6 @@ export default function ConfirmQrChangeModal({
                     </div>
                 </div>
 
-                {/* Password Input Section */}
-                <div className="space-y-1.5 pt-1">
-                    <label className="block text-xs font-bold text-foreground uppercase tracking-wide">
-                        Administrator Password <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter your account password to confirm"
-                            autoFocus
-                            disabled={submitting}
-                            className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-border text-sm text-foreground bg-white placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-sans"
-                            required
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            disabled={submitting}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground p-1 rounded transition-colors"
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                    </div>
-                    <p className="text-[11px] text-muted">
-                        Enter your current Sacralink password to re-authenticate and apply these changes.
-                    </p>
-                </div>
-
                 {/* Footer Actions */}
                 <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-border">
                     <button
@@ -365,7 +563,7 @@ export default function ConfirmQrChangeModal({
                     </button>
                     <button
                         type="submit"
-                        disabled={submitting || !password.trim()}
+                        disabled={submitting || sendingCode || !isComplete || !referenceCode}
                         className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50 ${
                             isOnlyRemoval
                                 ? 'bg-red-600 hover:bg-red-700 text-white'
@@ -375,7 +573,7 @@ export default function ConfirmQrChangeModal({
                         {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>
                             {submitting
-                                ? 'Verifying password...'
+                                ? 'Verifying code...'
                                 : isOnlyRemoval
                                 ? 'Confirm & Remove QR'
                                 : 'Confirm & Save Changes'}

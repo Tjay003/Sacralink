@@ -1262,6 +1262,60 @@ export type Database = {
           },
         ]
       }
+      qr_verification_codes: {
+        Row: {
+          attempts: number
+          channel: string
+          church_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          otp_hash: string
+          reference_code: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          church_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          otp_hash: string
+          reference_code: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          church_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          otp_hash?: string
+          reference_code?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qr_verification_codes_church_id_fkey"
+            columns: ["church_id"]
+            isOneToOne: false
+            referencedRelation: "churches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qr_verification_codes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sacrament_requirements: {
         Row: {
           allowed_file_types: string[] | null
@@ -1592,6 +1646,14 @@ export type Database = {
       }
     }
     Functions: {
+      verify_qr_otp: {
+        Args: {
+          p_church_id: string
+          p_reference_code: string
+          p_otp: string
+        }
+        Returns: boolean
+      }
       church_restore_status: {
         Args: { p_church_id: string }
         Returns: Json
