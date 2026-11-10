@@ -31,6 +31,7 @@ import type { Tables } from '../../types/database';
 import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import ConfirmQrChangeModal, { type QrChangeItem } from '../../components/donations/ConfirmQrChangeModal';
+import { compressQrImage } from '../../lib/imageCompression';
 
 type ChurchStatus = 'verified_active' | 'unverified' | 'inactive' | 'active';
 
@@ -208,7 +209,7 @@ export default function EditChurchPage() {
         }
     };
 
-    const handleSelectQrFile = (field: 'gcash_qr_url' | 'maya_qr_url', e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleSelectQrFile = async (field: 'gcash_qr_url' | 'maya_qr_url', e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         e.target.value = '';
@@ -227,16 +228,17 @@ export default function EditChurchPage() {
         setQrError('');
         setError('');
 
-        const preview = URL.createObjectURL(file);
+        const processedFile = await compressQrImage(file);
+        const preview = URL.createObjectURL(processedFile);
         if (field === 'gcash_qr_url') {
             if (gcashPreviewUrl) URL.revokeObjectURL(gcashPreviewUrl);
-            setPendingGcashFile(file);
+            setPendingGcashFile(processedFile);
             setGcashPreviewUrl(preview);
             setIsGcashQrRemoved(false);
             setQrSuccess('✓ New GCash QR selected. Click "Save changes" below to confirm via email security code.');
         } else {
             if (mayaPreviewUrl) URL.revokeObjectURL(mayaPreviewUrl);
-            setPendingMayaFile(file);
+            setPendingMayaFile(processedFile);
             setMayaPreviewUrl(preview);
             setIsMayaQrRemoved(false);
             setQrSuccess('✓ New Maya QR selected. Click "Save changes" below to confirm via email security code.');
@@ -262,24 +264,16 @@ export default function EditChurchPage() {
     };
 
     const uploadQrToStorage = async (file: File, channel: 'gcash' | 'maya'): Promise<string> => {
-        const fileExt = file.name.split('.').pop() || 'png';
+        const fileExt = file.name.split('.').pop() || 'webp';
         const fileName = `${id}/${channel}_qr_${Date.now()}.${fileExt}`;
 
-        let uploadBucket = 'donation-qr';
         const { error: uploadError } = await supabase.storage
-            .from(uploadBucket)
+            .from('church-images')
             .upload(fileName, file, { upsert: true });
 
-        if (uploadError) {
-            console.warn('Upload to donation-qr failed, trying church-images fallback:', uploadError);
-            uploadBucket = 'church-images';
-            const retry = await supabase.storage
-                .from(uploadBucket)
-                .upload(fileName, file, { upsert: true });
-            if (retry.error) throw retry.error;
-        }
+        if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from(uploadBucket).getPublicUrl(fileName);
+        const { data } = supabase.storage.from('church-images').getPublicUrl(fileName);
         return data.publicUrl;
     };
 
@@ -291,15 +285,14 @@ export default function EditChurchPage() {
         setSuccess('');
 
         try {
-            let finalGcashQr: string | null = isGcashQrRemoved ? null : (formData.gcash_qr_url.trim() || null);
-            if (pendingGcashFile) {
-                finalGcashQr = await uploadQrToStorage(pendingGcashFile, 'gcash');
-            }
-
-            let finalMayaQr: string | null = isMayaQrRemoved ? null : (formData.maya_qr_url.trim() || null);
-            if (pendingMayaFile) {
-                finalMayaQr = await uploadQrToStorage(pendingMayaFile, 'maya');
-            }
+            const [finalGcashQr, finalMayaQr] = await Promise.all([
+                pendingGcashFile
+                    ? uploadQrToStorage(pendingGcashFile, 'gcash')
+                    : Promise.resolve(isGcashQrRemoved ? null : (formData.gcash_qr_url.trim() || null)),
+                pendingMayaFile
+                    ? uploadQrToStorage(pendingMayaFile, 'maya')
+                    : Promise.resolve(isMayaQrRemoved ? null : (formData.maya_qr_url.trim() || null)),
+            ]);
 
             const gcash = formData.gcash_number.trim();
             const maya = formData.maya_number.trim();
@@ -351,9 +344,7 @@ export default function EditChurchPage() {
 
             setSuccess('Parish details updated successfully!');
             if (!showConfirmQrModal) {
-                setTimeout(() => {
-                    navigate(`/churches/${id}`);
-                }, 1000);
+                navigate(`/churches/${id}`);
             }
         } catch (err: unknown) {
             console.error('Unexpected error:', err);

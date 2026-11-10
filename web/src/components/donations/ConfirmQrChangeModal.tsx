@@ -59,6 +59,7 @@ export default function ConfirmQrChangeModal({
     const [sendingCode, setSendingCode] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [isSavingChanges, setIsSavingChanges] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +138,7 @@ export default function ConfirmQrChangeModal({
             setError(null);
             setMockOtp(null);
             setSubmitting(false);
+            setIsSavingChanges(false);
             setIsSuccess(false);
             void requestVerificationCode();
         }
@@ -218,6 +220,7 @@ export default function ConfirmQrChangeModal({
         }
 
         setSubmitting(true);
+        setIsSavingChanges(false);
         setError(null);
 
         try {
@@ -236,6 +239,9 @@ export default function ConfirmQrChangeModal({
                 throw new Error('Verification failed. Please check the code and try again.');
             }
 
+            // OTP verified; indicate state is now committing changes
+            setIsSavingChanges(true);
+
             // Trigger the actual save/commit callback
             await onConfirm();
             setIsSuccess(true);
@@ -245,6 +251,7 @@ export default function ConfirmQrChangeModal({
             setError(msg);
         } finally {
             setSubmitting(false);
+            setIsSavingChanges(false);
         }
     };
 
@@ -656,7 +663,9 @@ export default function ConfirmQrChangeModal({
                         {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>
                             {submitting
-                                ? 'Verifying code...'
+                                ? isSavingChanges
+                                    ? 'Saving changes...'
+                                    : 'Verifying code...'
                                 : isOnlyRemoval
                                 ? 'Confirm & Remove QR'
                                 : 'Confirm & Save Changes'}

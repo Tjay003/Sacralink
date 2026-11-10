@@ -11,6 +11,7 @@ import Modal from '../ui/Modal';
 import { supabase } from '../../lib/supabase';
 import { sanitizePhilippineMobileInput, isValidPhilippineMobile } from '../../lib/phoneNumbers';
 import ConfirmQrChangeModal, { type QrChangeItem } from './ConfirmQrChangeModal';
+import { compressQrImage } from '../../lib/imageCompression';
 
 export interface PaymentChannelModalProps {
     isOpen: boolean;
@@ -76,7 +77,7 @@ export default function PaymentChannelModal({
     }, [previewUrl]);
 
     // Staged File Selection Handler (Does NOT upload to Supabase storage immediately)
-    const handleSelectFile = (file: File) => {
+    const handleSelectFile = async (file: File) => {
         const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!validTypes.includes(file.type)) {
             setError('Only JPG, PNG, and WebP images are supported.');
@@ -90,13 +91,15 @@ export default function PaymentChannelModal({
 
         setError(null);
 
+        const processedFile = await compressQrImage(file);
+
         // Revoke prior object URL if replaced before saving
         if (previewUrl) {
             URL.revokeObjectURL(previewUrl);
         }
 
-        const localUrl = URL.createObjectURL(file);
-        setSelectedFile(file);
+        const localUrl = URL.createObjectURL(processedFile);
+        setSelectedFile(processedFile);
         setPreviewUrl(localUrl);
         setIsQrRemoved(false);
     };
@@ -105,7 +108,7 @@ export default function PaymentChannelModal({
         const file = e.target.files?.[0];
         e.target.value = '';
         if (file) {
-            handleSelectFile(file);
+            void handleSelectFile(file);
         }
     };
 
@@ -128,7 +131,7 @@ export default function PaymentChannelModal({
 
         const file = e.dataTransfer.files?.[0];
         if (file) {
-            handleSelectFile(file);
+            void handleSelectFile(file);
         }
     };
 
@@ -227,34 +230,19 @@ export default function PaymentChannelModal({
 
             // 1. Upload pending QR file to Supabase storage if selected
             if (selectedFile) {
-                const fileExt = selectedFile.name.split('.').pop() || 'png';
+                const fileExt = selectedFile.name.split('.').pop() || 'webp';
                 const filePath = `${churchId}/${channel}_qr_${Date.now()}.${fileExt}`;
 
-                // Try primary donation-qr bucket first
                 const { error: uploadError } = await supabase.storage
-                    .from('donation-qr')
+                    .from('church-images')
                     .upload(filePath, selectedFile, { upsert: true });
 
                 if (uploadError) {
-                    console.warn('Upload to donation-qr bucket failed, trying church-images fallback:', uploadError);
-                    const { error: fallbackError } = await supabase.storage
-                        .from('church-images')
-                        .upload(filePath, selectedFile, { upsert: true });
-
-                    if (fallbackError) {
-                        throw new Error(
-                            uploadError.message ||
-                                fallbackError.message ||
-                            'Failed to upload QR code image to storage'
-                        );
-                    }
-
-                    const { data } = supabase.storage.from('church-images').getPublicUrl(filePath);
-                    finalQrUrl = data.publicUrl;
-                } else {
-                    const { data } = supabase.storage.from('donation-qr').getPublicUrl(filePath);
-                    finalQrUrl = data.publicUrl;
+                    throw new Error(uploadError.message || 'Failed to upload QR code image to storage');
                 }
+
+                const { data } = supabase.storage.from('church-images').getPublicUrl(filePath);
+                finalQrUrl = data.publicUrl;
             } else if (isQrRemoved) {
                 finalQrUrl = null;
             }
