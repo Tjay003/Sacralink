@@ -149,3 +149,13 @@ export function isFuneralService(kind: string | null | undefined, name: string |
     const text = (name || '').toLowerCase();
     return text.includes('funeral') || text.includes('burial');
 }
+
+/**
+ * Whether a service is a wedding / matrimony.
+ * Detects by starter kind ('wedding') or by keywords in the service name ('wedding', 'marriage', 'matrimon', 'kasal').
+ */
+export function isWeddingService(kind: string | null | undefined, name: string | null | undefined): boolean {
+    if (kind) return kind.toLowerCase() === 'wedding';
+    const text = (name || '').toLowerCase();
+    return text.includes('wedding') || text.includes('marriage') || text.includes('matrimon') || text.includes('kasal');
+}

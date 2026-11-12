@@ -19,7 +19,10 @@ import { findServiceByName, getBookableServiceTypes, type ServiceType } from '..
 import {
     createAppointmentWithDocuments,
     validateBookingSubmission,
+    ADVANCE_BOOKING_ERROR_MESSAGE,
+    WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE,
 } from '../../lib/supabase/appointments';
+import { isWeddingService } from '../../lib/supabase/serviceTypes';
 import { evaluateParishPool } from '../../lib/supabase/priestAvailability';
 import { celebrantLabel, useParishClergy } from '../../hooks/useParishClergy';
 import {
@@ -78,8 +81,17 @@ export default function BookAppointmentPage() {
         notes: ''
     });
 
+    // The name of the service the parishioner wants, so it survives a switch to another parish's own list
+    const preferredServiceName = useRef(locationState?.service_type || '');
+    const selectedService = services.find((service) => service.id === formData.service_type_id) ?? null;
+    const selectedServiceName = selectedService?.name ?? '';
+    const isWedding = isWeddingService(
+        selectedService?.kind,
+        selectedService?.name || preferredServiceName.current
+    );
+
     const localToday = getLocalTodayIso();
-    const minBookableDate = getMinBookableDate();
+    const minBookableDate = getMinBookableDate(new Date(), isWedding ? 7 : 1);
     const isToday = formData.appointment_date === localToday;
     const isPastDate = Boolean(formData.appointment_date) && formData.appointment_date < minBookableDate;
     const now = new Date();
@@ -93,11 +105,6 @@ export default function BookAppointmentPage() {
         }
         return true;
     });
-
-    // The name of the service the parishioner wants, so it survives a switch to another parish's own list
-    const preferredServiceName = useRef(locationState?.service_type || '');
-    const selectedService = services.find((service) => service.id === formData.service_type_id) ?? null;
-    const selectedServiceName = selectedService?.name ?? '';
 
     // Fetch the services this parish offers (visible and not deleted, in the parish's own order)
     useEffect(() => {
@@ -221,7 +228,8 @@ export default function BookAppointmentPage() {
                 serviceType,
                 date,
                 time,
-                signal
+                signal,
+                { isWedding, serviceKind: selectedService?.kind }
             );
             // A newer date or time has replaced this check; its scan was stopped and its answer is stale
             if (signal.aborted) return;
@@ -231,7 +239,7 @@ export default function BookAppointmentPage() {
         } finally {
             if (!signal.aborted) setCheckingAvailability(false);
         }
-    }, [allChurches]);
+    }, [allChurches, isWedding, selectedService?.kind]);
 
     // Trigger check on date, time, service_type, or church change
     useEffect(() => {
@@ -340,6 +348,9 @@ export default function BookAppointmentPage() {
             availability: availabilityResult,
             requirements,
             documents,
+            isWedding,
+            serviceType: selectedService.name,
+            serviceKind: selectedService.kind,
         });
 
         if (!validation.ok) {
@@ -556,7 +567,7 @@ export default function BookAppointmentPage() {
                             </div>
                             {isPastDate && (
                                 <p role="alert" className="mt-1.5 text-xs font-medium text-destructive">
-                                    Appointments must be booked at least 1 day in advance.
+                                    {isWedding ? WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE : ADVANCE_BOOKING_ERROR_MESSAGE}
                                 </p>
                             )}
                         </div>

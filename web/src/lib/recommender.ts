@@ -1,5 +1,6 @@
 import { checkParishSlot } from './supabase/priestAvailability';
 import { calculateHaversineDistance, formatDistance } from './geo';
+import { isWeddingService } from './supabase/serviceTypes';
 import type { Church } from '../types/database';
 
 export const STANDARD_TIME_SLOTS = [
@@ -133,11 +134,25 @@ export function getLocalTodayIso(now: Date = new Date()): string {
 
 /**
  * Returns the earliest bookable date (YYYY-MM-DD) in the local client timezone.
- * Enforces that appointments must be booked at least 1 day in advance (tomorrow).
+ * By default, appointments must be booked at least 1 day in advance (tomorrow).
+ * For weddings or services requiring extended lead time, at least 1 week (7 days) in advance is required.
  */
-export function getMinBookableDate(now: Date = new Date()): string {
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  return getLocalTodayIso(tomorrow);
+export function getMinBookableDate(
+  now: Date = new Date(),
+  daysAheadOrOptions?: number | { isWedding?: boolean; daysAhead?: number }
+): string {
+  let daysAhead = 1;
+  if (typeof daysAheadOrOptions === 'number') {
+    daysAhead = daysAheadOrOptions;
+  } else if (daysAheadOrOptions && typeof daysAheadOrOptions === 'object') {
+    if (typeof daysAheadOrOptions.daysAhead === 'number') {
+      daysAhead = daysAheadOrOptions.daysAhead;
+    } else if (daysAheadOrOptions.isWedding) {
+      daysAhead = 7;
+    }
+  }
+  const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysAhead);
+  return getLocalTodayIso(minDate);
 }
 
 export function addDays(dateStr: string, daysToAdd: number): string {
@@ -267,9 +282,10 @@ async function firstOpenSlot(
 export function upcomingCandidates(
   requestedDate: string,
   normReqTime: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  daysAheadOrOptions?: number | { isWedding?: boolean; daysAhead?: number }
 ): SlotCandidate[] {
-  const minDate = getMinBookableDate(now);
+  const minDate = getMinBookableDate(now, daysAheadOrOptions);
   const candidates: SlotCandidate[] = [];
 
   // Start candidate search from minDate (tomorrow) or requestedDate if requestedDate >= minDate
@@ -303,11 +319,12 @@ async function nextSlotAtChurch(
   church: Church,
   requestedDate: string,
   requestedTime: string,
-  scan: SlotScan
+  scan: SlotScan,
+  options?: { isWedding?: boolean; daysAhead?: number }
 ): Promise<SlotRecommendation | null> {
   const found = await firstOpenSlot(
     church.id,
-    upcomingCandidates(requestedDate, normalizeTime(requestedTime)),
+    upcomingCandidates(requestedDate, normalizeTime(requestedTime), undefined, options),
     scan
   );
   if (!found) return null;
@@ -334,9 +351,10 @@ export async function findNextAvailableSlotAtChurch(
   church: Church,
   requestedDate: string,
   requestedTime: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { isWedding?: boolean; daysAhead?: number }
 ): Promise<SlotRecommendation | null> {
-  return nextSlotAtChurch(church, requestedDate, requestedTime, createScan(SAME_CHURCH_CHECK_BUDGET, signal));
+  return nextSlotAtChurch(church, requestedDate, requestedTime, createScan(SAME_CHURCH_CHECK_BUDGET, signal), options);
 }
 
 async function nearestAlternativeParish(
@@ -344,7 +362,8 @@ async function nearestAlternativeParish(
   allChurches: Church[],
   requestedDate: string,
   requestedTime: string,
-  scan: SlotScan
+  scan: SlotScan,
+  options?: { isWedding?: boolean; daysAhead?: number }
 ): Promise<SlotRecommendation | null> {
   const otherChurches = allChurches.filter(
     (c) =>
@@ -381,7 +400,7 @@ async function nearestAlternativeParish(
 
   const normReqTime = normalizeTime(requestedTime);
 
-  const minDate = getMinBookableDate();
+  const minDate = getMinBookableDate(undefined, options);
   const effectiveDate = requestedDate >= minDate ? requestedDate : minDate;
 
   // The requested time first, then the standard slots, on the effective date
@@ -412,7 +431,7 @@ async function nearestAlternativeParish(
   // Fallback: If no slots open on requested date at any nearby church, find the nearest candidate's next open date
   if (candidateList.length > 0) {
     const nearest = candidateList[0];
-    const nextSlot = await nextSlotAtChurch(nearest.church, requestedDate, requestedTime, scan);
+    const nextSlot = await nextSlotAtChurch(nearest.church, requestedDate, requestedTime, scan, options);
     if (nextSlot) {
       return {
         ...nextSlot,
@@ -435,14 +454,16 @@ export async function findNearestAlternativeParish(
   allChurches: Church[],
   requestedDate: string,
   requestedTime: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { isWedding?: boolean; daysAhead?: number }
 ): Promise<SlotRecommendation | null> {
   return nearestAlternativeParish(
     currentChurch,
     allChurches,
     requestedDate,
     requestedTime,
-    createScan(NEARBY_CHECK_BUDGET, signal)
+    createScan(NEARBY_CHECK_BUDGET, signal),
+    options
   );
 }
 
@@ -453,10 +474,11 @@ export async function findNearestAlternativeParish(
 export async function evaluateSlotAndRecommendations(
   currentChurch: Church,
   allChurches: Church[],
-  _serviceType: string,
+  serviceType: string,
   requestedDate: string,
   requestedTime: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: { isWedding?: boolean; serviceKind?: string | null; daysAhead?: number }
 ): Promise<AvailabilityCheckResult> {
   if (!requestedDate || !requestedTime || !currentChurch) {
     return {
@@ -465,6 +487,12 @@ export async function evaluateSlotAndRecommendations(
       nearbyChurchAlternative: null,
     };
   }
+
+  const isWedding = Boolean(
+    options?.isWedding ||
+    isWeddingService(options?.serviceKind, serviceType)
+  );
+  const checkOptions = { isWedding, daysAhead: options?.daysAhead };
 
   // 1. Check if requested slot is free
   const cache = new Map<string, Promise<SlotVerdict>>();
@@ -488,14 +516,16 @@ export async function evaluateSlotAndRecommendations(
       currentChurch,
       requestedDate,
       requestedTime,
-      createScan(SAME_CHURCH_CHECK_BUDGET, signal, cache)
+      createScan(SAME_CHURCH_CHECK_BUDGET, signal, cache),
+      checkOptions
     ),
     nearestAlternativeParish(
       currentChurch,
       allChurches,
       requestedDate,
       requestedTime,
-      createScan(NEARBY_CHECK_BUDGET, signal, cache)
+      createScan(NEARBY_CHECK_BUDGET, signal, cache),
+      checkOptions
     ),
   ]);
 

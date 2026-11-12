@@ -26,6 +26,7 @@ import {
     validateProposedDate,
     validateProposedTime,
 } from '../../lib/bookingGuide';
+import { isWeddingService } from '../../lib/supabase/serviceTypes';
 import BookingSummaryCard from './BookingSummaryCard';
 import DocumentUploadCards from './DocumentUploadCards';
 import TicketDraftCard, { type TicketDraftData } from './TicketDraftCard';
@@ -396,7 +397,12 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         if (bookingDraft?.step === 'time' && bookingDraft.churchId && bookingDraft.date) {
             let cancelled = false;
             setLoadingTimeSlots(true);
-            void getOpenTimeSlots(bookingDraft.churchId, bookingDraft.date).then((slots) => {
+            const isWedding = isWeddingService(bookingDraft.serviceKind, bookingDraft.serviceTypeName);
+            void getOpenTimeSlots(bookingDraft.churchId, bookingDraft.date, undefined, {
+                isWedding,
+                serviceKind: bookingDraft.serviceKind ?? undefined,
+                serviceType: bookingDraft.serviceTypeName,
+            }).then((slots) => {
                 if (!cancelled) {
                     setOpenTimeSlotsList(slots);
                     setLoadingTimeSlots(false);
@@ -408,7 +414,7 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                 cancelled = true;
             };
         }
-    }, [bookingDraft?.step, bookingDraft?.churchId, bookingDraft?.date]);
+    }, [bookingDraft?.step, bookingDraft?.churchId, bookingDraft?.date, bookingDraft?.serviceKind, bookingDraft?.serviceTypeName]);
 
     // Load parish clergy when at 'priest' step
     useEffect(() => {
@@ -457,8 +463,12 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
         }
     }, [bookingDraft?.serviceTypeId]);
 
-    // Candidate future dates (next 7 future days, strictly no past dates)
-    const futureDateCandidates = useMemo(() => getFutureDateCandidates(7), []);
+    // Candidate future dates (next 7 future days, strictly no past dates, 1 week ahead for weddings)
+    const isWeddingDraft = isWeddingService(bookingDraft?.serviceKind, bookingDraft?.serviceTypeName);
+    const futureDateCandidates = useMemo(
+        () => getFutureDateCandidates(7, { isWedding: isWeddingDraft }),
+        [isWeddingDraft]
+    );
 
     // Booking Guide: Start flow
     const startBookingGuide = useCallback((overrideChurchId?: string) => {
@@ -1072,8 +1082,14 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                 // 3. Handle booking proposal if returned
                 if (result.bookingProposal && bookingDraft) {
                     const proposal = result.bookingProposal;
+                    const isWedding = isWeddingService(bookingDraft.serviceKind, bookingDraft.serviceTypeName);
+                    const serviceOpts = {
+                        isWedding,
+                        serviceKind: bookingDraft.serviceKind ?? undefined,
+                        serviceType: bookingDraft.serviceTypeName,
+                    };
                     if (proposal.field === 'date' && bookingDraft.churchId) {
-                        const validation = await validateProposedDate(bookingDraft.churchId, proposal.value);
+                        const validation = await validateProposedDate(bookingDraft.churchId, proposal.value, serviceOpts);
                         if (validation.valid) {
                             const updated: BookingDraft = {
                                 ...bookingDraft,
@@ -1097,7 +1113,8 @@ export default function ParishAssistant({ isSidebarOpen = false }: ParishAssista
                         const validation = await validateProposedTime(
                             bookingDraft.churchId,
                             bookingDraft.date,
-                            proposal.value
+                            proposal.value,
+                            serviceOpts
                         );
                         if (validation.valid && validation.normalizedTime) {
                             const updated: BookingDraft = {

@@ -3,7 +3,8 @@ import { supabase } from '../supabase';
 import { notifyAdminsOfNewAppointment } from './notifications';
 import { uploadDocument } from './documents';
 import { getLocalTodayIso, getMinBookableDate, normalizeTime } from '../recommender';
-export { getLocalTodayIso, getMinBookableDate };
+import { isWeddingService } from './serviceTypes';
+export { getLocalTodayIso, getMinBookableDate, isWeddingService };
 import type { Appointment as DatabaseAppointment } from '../../types/database';
 
 export type AppointmentStatus = 'pending' | 'approved' | 'rejected' | 'rescheduled' | 'completed' | 'cancelled';
@@ -885,6 +886,7 @@ export const SLOT_UNAVAILABLE_ERROR_MESSAGE =
     'The selected slot is unavailable. Please select an alternative slot or change the date and time.';
 
 export const ADVANCE_BOOKING_ERROR_MESSAGE = 'Appointments must be booked at least 1 day in advance.';
+export const WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE = 'Wedding appointments must be booked at least 1 week in advance.';
 export const PAST_DATE_ERROR_MESSAGE = ADVANCE_BOOKING_ERROR_MESSAGE;
 export const PAST_TIME_ERROR_MESSAGE = 'Appointment time must be in the future.';
 
@@ -998,6 +1000,14 @@ export function validateSlotAvailability(
     return { ok: true, valid: true, problems: [] };
 }
 
+export interface ValidateFutureDateOptions {
+    allowSameDay?: boolean;
+    isWedding?: boolean;
+    serviceType?: string | null;
+    serviceKind?: string | null;
+    daysAhead?: number;
+}
+
 /**
  * Validates that an appointment date (YYYY-MM-DD) is today or in the future.
  * Matches the HTML date input min={new Date().toISOString().split('T')[0]} enforcement.
@@ -1006,7 +1016,7 @@ export function validateFutureDate(
     dateStr: string | null | undefined,
     timeStr?: string | null | undefined,
     now: Date = new Date(),
-    options?: { allowSameDay?: boolean }
+    options?: ValidateFutureDateOptions
 ): BookingValidationResult {
     if (!dateStr || !dateStr.trim()) {
         const error = 'Please select an appointment date.';
@@ -1022,16 +1032,23 @@ export function validateFutureDate(
 
     const [year, month, day] = parts;
     const localToday = getLocalTodayIso(now);
-    const minBookableDate = getMinBookableDate(now);
 
-    // Unless same-day bookings are explicitly allowed, require at least 1 day in advance
+    const isWedding = Boolean(
+        options?.isWedding ||
+        isWeddingService(options?.serviceKind, options?.serviceType)
+    );
+    const requiredDaysAhead = options?.daysAhead ?? (isWedding ? 7 : 1);
+    const minBookableDate = getMinBookableDate(now, requiredDaysAhead);
+
+    // Unless same-day bookings are explicitly allowed, require at least 1 day in advance (or 7 days for weddings)
     if (!options?.allowSameDay) {
         if (cleanDate < minBookableDate) {
+            const error = isWedding ? WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE : ADVANCE_BOOKING_ERROR_MESSAGE;
             return {
                 ok: false,
                 valid: false,
-                error: ADVANCE_BOOKING_ERROR_MESSAGE,
-                problems: [ADVANCE_BOOKING_ERROR_MESSAGE],
+                error,
+                problems: [error],
             };
         }
     } else {
@@ -1075,6 +1092,11 @@ export interface ValidateBookingSubmissionInput {
     documents?: AttachedDocumentsInput;
     availability?: SlotAvailabilityInput;
     bypassDocsForTesting?: boolean;
+    isWedding?: boolean;
+    serviceType?: string | null;
+    serviceKind?: string | null;
+    daysAhead?: number;
+    allowSameDay?: boolean;
 }
 
 /**
@@ -1094,7 +1116,13 @@ export function validateBookingSubmission(
 
     // 1. Future date check
     if (input.appointmentDate !== undefined && input.appointmentDate !== null) {
-        const dateRes = validateFutureDate(input.appointmentDate, input.appointmentTime, now);
+        const dateRes = validateFutureDate(input.appointmentDate, input.appointmentTime, now, {
+            allowSameDay: input.allowSameDay,
+            isWedding: input.isWedding,
+            serviceType: input.serviceType,
+            serviceKind: input.serviceKind,
+            daysAhead: input.daysAhead,
+        });
         if (!dateRes.ok && dateRes.error) {
             problems.push(...dateRes.problems);
         }

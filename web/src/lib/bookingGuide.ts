@@ -3,8 +3,11 @@ import {
   createAppointmentWithDocuments,
   validateBookingSubmission,
   validateFutureDate,
+  ADVANCE_BOOKING_ERROR_MESSAGE,
+  WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE,
   type BookingRequirementLike,
 } from './supabase/appointments';
+import { isWeddingService } from './supabase/serviceTypes';
 import { formatDateDisplay, formatTimeDisplay, STANDARD_TIME_SLOTS, getMinBookableDate } from './recommender';
 
 export type BookingStep = 'service' | 'date' | 'time' | 'priest' | 'documents' | 'notes' | 'summary' | 'confirmed';
@@ -71,14 +74,18 @@ export function clearStoredBookingDraft(): void {
 }
 
 /**
- * Helper to generate candidate future dates (e.g. tomorrow through day 7).
- * Strictly guarantees past dates are never offered.
+ * Helper to generate candidate future dates (e.g. tomorrow through day 7, or day 7 through 13 for weddings).
+ * Strictly guarantees past dates and dates within the minimum booking advance lead time are never offered.
  */
-export function getFutureDateCandidates(count = 7): Array<{ date: string; label: string }> {
+export function getFutureDateCandidates(
+  count = 7,
+  options?: { isWedding?: boolean; daysAhead?: number }
+): Array<{ date: string; label: string }> {
   const candidates: Array<{ date: string; label: string }> = [];
   const now = new Date();
+  const startOffset = options?.daysAhead ?? (options?.isWedding ? 7 : 1);
 
-  for (let i = 1; i <= count; i++) {
+  for (let i = startOffset; i < startOffset + count; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
     const y = d.getFullYear();
@@ -87,7 +94,7 @@ export function getFutureDateCandidates(count = 7): Array<{ date: string; label:
     const dateStr = `${y}-${m}-${day}`;
 
     // Verify it passes validateFutureDate
-    if (validateFutureDate(dateStr, undefined, now).ok) {
+    if (validateFutureDate(dateStr, undefined, now, options).ok) {
       candidates.push({
         date: dateStr,
         label: formatDateDisplay(dateStr),
@@ -105,12 +112,17 @@ export function getFutureDateCandidates(count = 7): Array<{ date: string; label:
 export async function getOpenTimeSlots(
   churchId: string,
   dateStr: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { isWedding?: boolean; serviceKind?: string | null; serviceType?: string | null; daysAhead?: number }
 ): Promise<Array<{ time: string; label: string }>> {
   if (!churchId || !dateStr) return [];
 
-  const minDate = getMinBookableDate(now);
-  // Bookings must be at least 1 day in advance
+  const isWedding = Boolean(
+    options?.isWedding ||
+    isWeddingService(options?.serviceKind, options?.serviceType)
+  );
+  const minDate = getMinBookableDate(now, options?.daysAhead ?? { isWedding });
+  // Bookings must be at least 1 day in advance (or 7 days for weddings)
   if (dateStr < minDate) {
     return [];
   }
@@ -194,6 +206,8 @@ export async function submitConfirmedBooking(
     return { success: false, error: 'Incomplete booking details.' };
   }
 
+  const isWedding = isWeddingService(draft.serviceKind, draft.serviceTypeName);
+
   // 1. Static validation rules from ticket 02
   const validation = validateBookingSubmission({
     appointmentDate: draft.date,
@@ -201,6 +215,9 @@ export async function submitConfirmedBooking(
     availability: true,
     requirements,
     documents,
+    isWedding,
+    serviceType: draft.serviceTypeName,
+    serviceKind: draft.serviceKind,
   });
 
   if (!validation.ok) {
@@ -324,17 +341,27 @@ export function rewindBookingDraft(draft: BookingDraft, targetStep: BookingStep)
  */
 export async function validateProposedDate(
   churchId: string,
-  dateStr: string
+  dateStr: string,
+  options?: { isWedding?: boolean; serviceKind?: string | null; serviceType?: string | null; daysAhead?: number }
 ): Promise<{ valid: boolean; error?: string; formattedDate?: string }> {
-  const futureCheck = validateFutureDate(dateStr);
+  const isWedding = Boolean(
+    options?.isWedding ||
+    isWeddingService(options?.serviceKind, options?.serviceType)
+  );
+  const futureCheck = validateFutureDate(dateStr, undefined, undefined, {
+    isWedding,
+    daysAhead: options?.daysAhead,
+    serviceKind: options?.serviceKind,
+    serviceType: options?.serviceType,
+  });
   if (!futureCheck.ok) {
     return {
       valid: false,
-      error: futureCheck.error || 'Appointments must be booked at least 1 day in advance.',
+      error: futureCheck.error || (isWedding ? WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE : ADVANCE_BOOKING_ERROR_MESSAGE),
     };
   }
 
-  const openSlots = await getOpenTimeSlots(churchId, dateStr);
+  const openSlots = await getOpenTimeSlots(churchId, dateStr, undefined, options);
   if (openSlots.length === 0) {
     return {
       valid: false,
@@ -354,7 +381,8 @@ export async function validateProposedDate(
 export async function validateProposedTime(
   churchId: string,
   dateStr: string,
-  timeStr: string
+  timeStr: string,
+  options?: { isWedding?: boolean; serviceKind?: string | null; serviceType?: string | null; daysAhead?: number }
 ): Promise<{ valid: boolean; error?: string; normalizedTime?: string; formattedTime?: string }> {
   const normalized = normalizeTimeString(timeStr);
   if (!normalized) {
@@ -364,11 +392,20 @@ export async function validateProposedTime(
     };
   }
 
-  const futureCheck = validateFutureDate(dateStr, normalized);
+  const isWedding = Boolean(
+    options?.isWedding ||
+    isWeddingService(options?.serviceKind, options?.serviceType)
+  );
+  const futureCheck = validateFutureDate(dateStr, normalized, undefined, {
+    isWedding,
+    daysAhead: options?.daysAhead,
+    serviceKind: options?.serviceKind,
+    serviceType: options?.serviceType,
+  });
   if (!futureCheck.ok) {
     return {
       valid: false,
-      error: futureCheck.error || 'Appointments must be booked at least 1 day in advance.',
+      error: futureCheck.error || (isWedding ? WEDDING_ADVANCE_BOOKING_ERROR_MESSAGE : ADVANCE_BOOKING_ERROR_MESSAGE),
       normalizedTime: normalized,
       formattedTime: formatTimeDisplay(normalized),
     };
